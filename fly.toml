@@ -1,23 +1,25 @@
-# Hospedagem no Fly.io. O passo a passo esta no README.
-app = "meus-mangas-gilvanpedro"
-primary_region = "gru" # Sao Paulo
+# fly.toml app configuration file generated for armazenarmanga on 2026-10-02T12:29:13Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'armazenarmanga'
+primary_region = 'gru'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
-# Disco permanente com o mangas.json e as capas. Sem ele os dados somem a cada deploy.
-[mounts]
-  source = "mangas_dados"
-  destination = "/data"
+[[mounts]]
+  source = 'mangas_dados'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # a maquina dorme quando ninguem esta usando e acorda sozinha no proximo acesso
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
