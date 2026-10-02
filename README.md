@@ -2,6 +2,7 @@
 
 Site para guardar os mangás, manhwas e webtoons que estou lendo (ou parei de ler).
 Os dados ficam em `~/.mangatracker/mangas.json` e as capas enviadas em `~/.mangatracker/imagens/`.
+Na hospedagem, onde não há disco permanente, os mesmos dados ficam em um banco Postgres.
 
 ## Como rodar
 
@@ -26,21 +27,21 @@ MANGATRACKER_HOST=0.0.0.0 MANGATRACKER_SENHA='uma senha longa' java -jar target/
 Nos outros aparelhos da mesma rede, abra `http://IP-deste-computador:7070` (o endereço aparece no terminal)
 e entre com o usuário `manga` e a senha escolhida (mínimo de 12 caracteres). Sem senha o programa se recusa a abrir para a rede.
 
-### Hospedar na internet (Fly.io)
+### Hospedar na internet de graça (Render + Neon)
 
-O `Dockerfile` e o `fly.toml` já estão prontos. Na primeira vez:
+Hospedagens gratuitas não têm disco permanente, então na internet os mangás e as capas ficam em um banco
+Postgres em vez de arquivos. Basta definir `DATABASE_URL`; o resto do programa é o mesmo.
 
-```bash
-curl -L https://fly.io/install.sh | sh        # instala o flyctl
-fly auth login                                # cria a conta / entra
-fly apps create meus-mangas-gilvanpedro
-fly volumes create mangas_dados --size 1 --region gru --app meus-mangas-gilvanpedro
-fly secrets set MANGATRACKER_SENHA='uma senha longa' --app meus-mangas-gilvanpedro
-fly deploy
-```
+1. **Banco:** crie uma conta em https://neon.tech, crie um projeto na região *AWS US East (N. Virginia)* e copie a
+   *connection string* (`postgresql://usuario:senha@servidor/banco?sslmode=require`).
+2. **Site:** em https://render.com, escolha *New > Blueprint* e selecione este repositório. O `render.yaml` já tem
+   a configuração; o Render só pede dois valores:
+   - `DATABASE_URL`: a connection string do Neon;
+   - `MANGATRACKER_SENHA`: a senha do site (mínimo de 12 caracteres).
 
-O site fica em `https://meus-mangas-gilvanpedro.fly.dev` (usuário `manga`). Depois de mudar o código, basta `fly deploy`.
-Os dados ficam no volume `mangas_dados`; mantenha uma única máquina (`fly scale count 1`), porque o volume não é compartilhado.
+O site fica em `https://meus-mangas.onrender.com` (ou parecido), com usuário `manga`. A cada `git push` na `main`
+o Render publica de novo. No plano gratuito o site dorme depois de 15 minutos sem uso e leva cerca de um minuto
+para acordar no próximo acesso.
 
 ### Configuração
 
@@ -48,6 +49,7 @@ Os dados ficam no volume `mangas_dados`; mantenha uma única máquina (`fly scal
 |-----------------------|-------------------|-----------------------------------------------------------------------|
 | `PORT`                | `7070`            | Porta do site                                                         |
 | `MANGATRACKER_DIR`    | `~/.mangatracker` | Pasta do `mangas.json` e das imagens                                  |
+| `DATABASE_URL`        | (vazio)           | Endereço de um Postgres. Se definido, os dados vão para o banco em vez da pasta |
 | `MANGATRACKER_HOST`   | `127.0.0.1`       | `0.0.0.0` aceita conexões de outros computadores (exige senha)        |
 | `MANGATRACKER_USUARIO`| `manga`           | Usuário do login                                                      |
 | `MANGATRACKER_SENHA`  | (vazio)           | Senha do login. Vazio = sem login                                     |

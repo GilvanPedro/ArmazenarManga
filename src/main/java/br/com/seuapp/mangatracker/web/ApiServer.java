@@ -30,8 +30,6 @@ import org.slf4j.LoggerFactory;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Base64;
@@ -95,6 +93,9 @@ public class ApiServer {
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
 
+            // usado pela hospedagem para saber se o programa esta no ar; nao pede login nem mostra dados
+            config.routes.get("/healthz", ctx -> ctx.result("ok"));
+
             config.routes.get("/api/status", this::listarStatus);
             config.routes.get("/api/formatos-decimais", this::listarFormatosDecimais);
 
@@ -127,7 +128,8 @@ public class ApiServer {
 
     private void exigirLogin(Context ctx) {
         // o navegador nao manda a senha na consulta previa do CORS (OPTIONS)
-        if (credenciais == null || ctx.method() == HandlerType.OPTIONS || loginCorreto(ctx.header("Authorization"))) {
+        if (credenciais == null || ctx.method() == HandlerType.OPTIONS || ctx.path().equals("/healthz")
+                || loginCorreto(ctx.header("Authorization"))) {
             return;
         }
         ctx.header("WWW-Authenticate", "Basic realm=\"Meus Mangas\", charset=\"UTF-8\"");
@@ -231,12 +233,12 @@ public class ApiServer {
 
     private void baixarImagem(Context ctx) throws Exception {
         String nome = ctx.pathParam("nome");
-        Path arquivo = imagemService.localizar(nome);
+        byte[] imagem = imagemService.carregar(nome);
         ctx.contentType(imagemService.tipoDeConteudo(nome));
         ctx.header("X-Content-Type-Options", "nosniff");
         // o nome muda a cada envio, entao o navegador pode guardar para sempre
         ctx.header("Cache-Control", "public, max-age=31536000, immutable");
-        ctx.result(Files.newInputStream(arquivo));
+        ctx.result(imagem);
     }
 
     // ------------------------------------------------------------------ opcoes dos formularios

@@ -1,0 +1,14 @@
+# Hospedagem gratuita no Render (https://render.com). O passo a passo esta no README.
+services:
+  - type: web
+    name: meus-mangas
+    runtime: docker
+    plan: free
+    region: virginia # mesma regiao do banco (Neon: AWS US East, N. Virginia)
+    healthCheckPath: /healthz
+    envVars:
+      # o Render pergunta o valor destas duas na hora de criar
+      - key: DATABASE_URL        # endereco do banco Postgres gratuito (Neon)
+        sync: false
+      - key: MANGATRACKER_SENHA  # senha do site, com pelo menos 12 caracteres
+        sync: false

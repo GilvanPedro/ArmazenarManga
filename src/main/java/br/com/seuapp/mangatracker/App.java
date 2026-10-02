@@ -1,12 +1,16 @@
 package br.com.seuapp.mangatracker;
 
+import br.com.seuapp.mangatracker.repository.BancoPostgres;
 import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
 import br.com.seuapp.mangatracker.repository.MangaRepository;
+import br.com.seuapp.mangatracker.repository.PostgresImagemRepository;
+import br.com.seuapp.mangatracker.repository.PostgresMangaRepository;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.MangaService;
 import br.com.seuapp.mangatracker.web.ApiServer;
 import br.com.seuapp.mangatracker.web.ApiServer.Credenciais;
 
+import javax.sql.DataSource;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -45,8 +49,21 @@ public class App {
             System.exit(1);
         }
 
-        MangaRepository repository = new JsonMangaRepository(pasta.resolve("mangas.json"));
-        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        MangaRepository repository;
+        ImagemService imagemService;
+        // DATABASE_URL: endereco de um Postgres (postgresql://usuario:senha@servidor/banco).
+        // Sem ele, tudo fica em arquivos na pasta acima.
+        String enderecoDoBanco = System.getenv().getOrDefault("DATABASE_URL", "").trim();
+        if (enderecoDoBanco.isEmpty()) {
+            repository = new JsonMangaRepository(pasta.resolve("mangas.json"));
+            imagemService = new ImagemService(pasta.resolve("imagens"));
+            System.out.println("Dados salvos em arquivos na pasta " + pasta.toAbsolutePath());
+        } else {
+            DataSource banco = BancoPostgres.conectar(enderecoDoBanco);
+            repository = new PostgresMangaRepository(banco);
+            imagemService = new ImagemService(new PostgresImagemRepository(banco));
+            System.out.println("Dados salvos no banco Postgres");
+        }
         MangaService mangaService = new MangaService(repository, imagemService);
         Credenciais credenciais = senha.isBlank() ? null : new Credenciais(usuario, senha);
 

@@ -49,7 +49,8 @@ public class ImagemServiceTest {
 
         assertTrue(nome.endsWith(".png"));
         assertTrue(service.existe(nome));
-        assertArrayEquals(PNG, Files.readAllBytes(service.localizar(nome)));
+        assertArrayEquals(PNG, service.carregar(nome));
+        assertArrayEquals(PNG, Files.readAllBytes(pasta.resolve(nome)));
         assertEquals("image/png", service.tipoDeConteudo(nome));
     }
 
@@ -98,7 +99,7 @@ public class ImagemServiceTest {
         Files.writeString(pasta.resolve("segredo.txt"), "x");
 
         assertFalse(service.existe(nome));
-        assertThrows(NotFoundException.class, () -> service.localizar(nome));
+        assertThrows(NotFoundException.class, () -> service.carregar(nome));
     }
 
     @Test

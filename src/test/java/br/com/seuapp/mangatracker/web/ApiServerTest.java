@@ -434,6 +434,9 @@ class ApiServerTest {
             assertFalse(semLogin.body().contains("<script"), caminho);
         }
         assertEquals(401, enviar("POST", "/api/mangas", manga("T", "1", "LENDO")).statusCode());
+        // a hospedagem consulta /healthz sem senha; ele nao mostra nenhum dado
+        assertEquals(200, enviar("GET", "/healthz", null).statusCode());
+        assertEquals("ok", enviar("GET", "/healthz", null).body());
         assertEquals(401, comLogin("GET", "/api/mangas", "manga", "errada").statusCode());
         assertEquals(401, comLogin("GET", "/api/mangas", "outro", "sênha secreta").statusCode());
         assertEquals(401, comLogin("GET", "/api/mangas", "manga", "").statusCode());

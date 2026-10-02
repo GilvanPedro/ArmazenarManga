@@ -10,7 +10,8 @@ RUN mvn -B -q package -DskipTests
 FROM eclipse-temurin:25-jre
 WORKDIR /app
 COPY --from=build /app/target/mangatracker.jar .
-# /data e o disco permanente (volume): la ficam o mangas.json e as capas
+# Com DATABASE_URL definida os dados vao para o Postgres. Sem ela, ficam em arquivos em /data,
+# que so sao permanentes se a hospedagem montar um disco (volume) nessa pasta.
 ENV MANGATRACKER_DIR=/data \
     MANGATRACKER_HOST=0.0.0.0 \
     PORT=8080

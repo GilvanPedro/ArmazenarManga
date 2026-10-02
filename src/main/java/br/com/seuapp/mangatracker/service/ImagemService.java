@@ -4,11 +4,12 @@ import br.com.seuapp.mangatracker.domain.ChapterLink;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidImageException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.PersistenciaException;
+import br.com.seuapp.mangatracker.repository.ArquivoImagemRepository;
+import br.com.seuapp.mangatracker.repository.ImagemRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
@@ -16,7 +17,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 /**
- * Guarda as capas enviadas pelo site em uma pasta.
+ * Recebe as capas enviadas pelo site, confere se sao imagens e guarda no {@link ImagemRepository}.
  * O imagePath do manga e o nome do arquivo devolvido por {@link #salvar}, ou uma URL http(s) de fora.
  */
 public class ImagemService {
@@ -32,40 +33,49 @@ public class ImagemService {
     // so nomes gerados aqui sao aceitos: impede "../" e afins
     private static final Pattern NOME_VALIDO = Pattern.compile("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.(png|jpg|gif|webp)");
 
-    private final Path pasta;
+    private final ImagemRepository repository;
 
+    public ImagemService(ImagemRepository repository) {
+        this.repository = Objects.requireNonNull(repository);
+    }
+
+    /** Guarda as imagens como arquivos na pasta informada. */
     public ImagemService(Path pasta) {
-        this.pasta = Objects.requireNonNull(pasta);
+        this(new ArquivoImagemRepository(pasta));
     }
 
     /** Salva a imagem e devolve o nome que deve ser usado como imagePath do manga. */
     public String salvar(InputStream conteudo) {
+        byte[] bytes;
         try {
-            byte[] bytes = conteudo.readNBytes(TAMANHO_MAXIMO + 1);
-            if (bytes.length == 0) {
-                throw new InvalidImageException("A imagem está vazia");
-            }
-            if (bytes.length > TAMANHO_MAXIMO) {
-                throw new InvalidImageException("A imagem pode ter no máximo 10 MB");
-            }
-            String nome = UUID.randomUUID() + "." + descobrirExtensao(bytes);
-            Files.createDirectories(pasta);
-            Files.write(pasta.resolve(nome), bytes);
-            return nome;
+            bytes = conteudo.readNBytes(TAMANHO_MAXIMO + 1);
         } catch (IOException e) {
-            throw new PersistenciaException("Nao foi possivel salvar a imagem em " + pasta, e);
+            throw new PersistenciaException("Nao foi possivel receber a imagem", e);
         }
+        if (bytes.length == 0) {
+            throw new InvalidImageException("A imagem está vazia");
+        }
+        if (bytes.length > TAMANHO_MAXIMO) {
+            throw new InvalidImageException("A imagem pode ter no máximo 10 MB");
+        }
+        String nome = UUID.randomUUID() + "." + descobrirExtensao(bytes);
+        repository.salvar(nome, bytes);
+        return nome;
     }
 
-    public Path localizar(String nome) {
-        if (!existe(nome)) {
+    public byte[] carregar(String nome) {
+        if (!nomeValido(nome)) {
             throw new NotFoundException("Imagem não encontrada");
         }
-        return pasta.resolve(nome);
+        return repository.buscar(nome).orElseThrow(() -> new NotFoundException("Imagem não encontrada"));
     }
 
     public boolean existe(String nome) {
-        return nome != null && NOME_VALIDO.matcher(nome).matches() && Files.isRegularFile(pasta.resolve(nome));
+        return nomeValido(nome) && repository.existe(nome);
+    }
+
+    private static boolean nomeValido(String nome) {
+        return nome != null && NOME_VALIDO.matcher(nome).matches();
     }
 
     public String tipoDeConteudo(String nome) {
@@ -81,13 +91,8 @@ public class ImagemService {
 
     /** Apaga a imagem enviada. URLs de fora e nomes desconhecidos sao ignorados. */
     public void excluir(String imagePath) {
-        if (!existe(imagePath)) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(pasta.resolve(imagePath));
-        } catch (IOException e) {
-            throw new PersistenciaException("Nao foi possivel excluir a imagem " + imagePath, e);
+        if (nomeValido(imagePath)) {
+            repository.excluir(imagePath);
         }
     }
 
