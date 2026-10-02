@@ -1,0 +1,12 @@
+{
+  "name": "meus-mangas",
+  "private": true,
+  "type": "module",
+  "description": "API em JavaScript usada so na hospedagem do Vercel (pasta api/). O programa principal e o Java.",
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

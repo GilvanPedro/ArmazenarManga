@@ -34,7 +34,22 @@ MANGATRACKER_HOST=0.0.0.0 MANGATRACKER_SENHA='uma senha longa' java -jar target/
 Nos outros aparelhos da mesma rede, abra `http://IP-deste-computador:7070` (o endereço aparece no terminal)
 e entre com o usuário `manga` e a senha escolhida (mínimo de 12 caracteres). Sem senha o programa se recusa a abrir para a rede.
 
-### Hospedar na internet de graça (Render + Neon)
+### Hospedar na internet de graça (Vercel + Neon)
+
+O Vercel não roda Java, então lá o site usa uma segunda versão da API, em JavaScript (`api/index.js`), com as
+mesmas rotas e regras do backend Java e o mesmo banco. As páginas (`src/main/resources/public`) são as mesmas.
+Quem muda uma regra no Java precisa mudar também no `api/index.js`.
+
+1. Importe o repositório no Vercel (o `vercel.json` já tem a configuração).
+2. Em *Settings > Environment Variables*, defina:
+   - `DATABASE_URL`: a connection string do Neon (a integração Neon do Vercel cria essa variável sozinha);
+   - `MANGATRACKER_SENHA`: a senha do site (mínimo de 12 caracteres).
+3. Faça um novo deploy (*Deployments > Redeploy*) para as variáveis valerem.
+
+O login é o usuário `manga` com a senha escolhida. No Vercel as capas enviadas podem ter até 4 MB (limite da
+plataforma); capas por link não têm limite.
+
+### Alternativa: Render + Neon (roda o backend Java)
 
 Hospedagens gratuitas não têm disco permanente, então na internet os mangás e as capas ficam em um banco
 Postgres em vez de arquivos. Basta definir `DATABASE_URL`; o resto do programa é o mesmo.
@@ -73,7 +88,7 @@ para acordar no próximo acesso.
 | `PATCH`  | `/api/mangas/{id}/progresso`  | Altera só o último capítulo lido e/ou o status                            |
 | `DELETE` | `/api/mangas/{id}`            | Exclui o mangá (e a capa enviada)                                         |
 | `GET`    | `/api/mangas/{id}/ler`        | Redireciona para o próximo capítulo ainda não lido                        |
-| `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá. Filtro opcional: `?status=LER`                          |
+| `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá (concluídos e cancelados ficam de fora). Filtro opcional: `?status=LER` |
 | `POST`   | `/api/imagens`                | Envia uma capa (`multipart/form-data`, campo `arquivo`, até 10 MB)        |
 | `GET`    | `/api/imagens/{nome}`         | Devolve a capa enviada                                                    |
 | `GET`    | `/api/status`                 | Status possíveis (`valor` e `descricao`)                                  |
@@ -95,7 +110,7 @@ Corpo do `POST` e do `PUT` de mangás:
 ```
 
 `tags`, `decimalFormat` (padrão `HIFEN`) e `description` são opcionais. A resposta traz os mesmos campos mais
-`id`, `imageUrl`, `lastChapterLink`, `nextChapter` e `nextChapterLink`.
+`id`, `imageUrl`, `firstChapterLink`, `lastChapterLink`, `nextChapter` e `nextChapterLink`.
 
 Corpo do `PATCH .../progresso`: `{"lastChapter": 49, "readingStatus": "LENDO"}` (pode mandar só um dos dois).
 

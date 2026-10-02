@@ -367,6 +367,34 @@ class MangaServiceTest {
     }
 
     @Test
+    void concluidosECanceladosNaoEntramNoSorteio() {
+        service.salvarManga(dados("Lendo", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("Concluído", "1", ReadingStatus.CONCLUIDO));
+        service.salvarManga(dados("Cancelado", "1", ReadingStatus.CANCELADO));
+        service.salvarManga(dados("Dropado", "1", ReadingStatus.DROPADO));
+        service.salvarManga(dados("Hiatus", "1", ReadingStatus.HIATUS));
+        service.salvarManga(dados("Para ler", "1", ReadingStatus.LER));
+
+        Set<String> sorteados = new HashSet<>();
+        for (int i = 0; i < 300; i++) {
+            sorteados.add(service.sortearManga(null).getTitle());
+        }
+
+        assertEquals(Set.of("Lendo", "Dropado", "Hiatus", "Para ler"), sorteados);
+        // nem pedindo o status diretamente
+        assertThrows(NotFoundException.class, () -> service.sortearManga(ReadingStatus.CONCLUIDO));
+        assertThrows(NotFoundException.class, () -> service.sortearManga(ReadingStatus.CANCELADO));
+    }
+
+    @Test
+    void sorteioSoComConcluidosNaoTemQuemSortear() {
+        service.salvarManga(dados("Concluído", "1", ReadingStatus.CONCLUIDO));
+        service.salvarManga(dados("Cancelado", "1", ReadingStatus.CANCELADO));
+
+        assertThrows(NotFoundException.class, () -> service.sortearManga(null));
+    }
+
+    @Test
     void sorteioRespeitaOFiltroDeStatus() {
         service.salvarManga(dados("A", "1", ReadingStatus.LENDO));
         service.salvarManga(dados("B", "1", ReadingStatus.LENDO));

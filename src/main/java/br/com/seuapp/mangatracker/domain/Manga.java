@@ -99,6 +99,11 @@ public class Manga {
         this.description = description;
     }
 
+    /** Link do capitulo 1, para ler de novo desde o comeco. */
+    public String linkPrimeiroCapitulo() {
+        return ChapterLink.montar(chapterLinkModel, decimalFormat, BigDecimal.ONE);
+    }
+
     /** Link do ultimo capitulo lido, sempre montado a partir do lastChapter atual. */
     public String linkUltimoCapitulo() {
         return ChapterLink.montar(chapterLinkModel, decimalFormat, lastChapter);

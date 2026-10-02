@@ -1,4 +1,6 @@
 target/
+node_modules/
+api/
 .git/
 .idea/
 docs/

@@ -16,5 +16,6 @@ public interface MangaServiceInterface {
     Manga editarManga(UUID id, DadosManga dados);
     /** Altera so o ultimo capitulo lido e/ou o status (null = mantem o atual). */
     Manga atualizarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus);
+    /** Concluidos e cancelados nunca sao sorteados. */
     Manga sortearManga(ReadingStatus readingStatus);
 }

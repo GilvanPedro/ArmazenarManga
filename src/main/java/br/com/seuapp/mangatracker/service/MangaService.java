@@ -15,10 +15,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 public class MangaService implements MangaServiceInterface{
+
+    /** Nao ha mais o que ler nesses, entao nao entram no sorteio. */
+    private static final Set<ReadingStatus> FORA_DO_SORTEIO = Set.of(ReadingStatus.CONCLUIDO, ReadingStatus.CANCELADO);
 
     private final MangaRepository repository;
     private final ImagemService imagemService;
@@ -101,7 +105,9 @@ public class MangaService implements MangaServiceInterface{
 
     @Override
     public Manga sortearManga(ReadingStatus readingStatus) {
-        List<Manga> candidatos = listarMangas(null, readingStatus);
+        List<Manga> candidatos = listarMangas(null, readingStatus).stream()
+                .filter(manga -> !FORA_DO_SORTEIO.contains(manga.getReadingStatus()))
+                .toList();
         if (candidatos.isEmpty()) {
             throw new NotFoundException("Nenhum mangá para sortear");
         }

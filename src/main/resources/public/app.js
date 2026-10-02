@@ -48,6 +48,8 @@ async function chamar(metodo, caminho, corpo) {
     }
     if (resposta.status === 204) return null;
     const dados = await resposta.json().catch(() => null);
+    // a hospedagem recusa envios grandes antes de chegarem na API, sem mensagem
+    if (resposta.status === 413) throw new Error('A imagem é grande demais. Escolha uma menor');
     if (!resposta.ok) {
         throw new Error((dados && dados.mensagem) || 'Erro ' + resposta.status);
     }
@@ -92,7 +94,32 @@ function capa(manga, comoLink) {
     return h(comoLink ? 'a' : 'div', atributos, img, comoLink ? etiquetaStatus(manga.readingStatus) : null);
 }
 
+function linkExterno(classe, endereco, titulo, texto) {
+    return h('a', {class: classe, href: endereco, target: '_blank', rel: 'noopener noreferrer', title: titulo},
+        h('span', null, texto));
+}
+
+/**
+ * Lendo: um botao que abre o proximo capitulo.
+ * Concluido: nao ha proximo, entao a escolha e entre ler de novo (capitulo 1) ou abrir o ultimo capitulo.
+ */
 function botaoLer(manga, classe) {
+    if (manga.readingStatus === 'CONCLUIDO') {
+        const ultimo = 'Último capítulo (' + mostrarCapitulo(manga.lastChapter) + ')';
+        if (classe === 'pequeno') {
+            // no cartao nao cabem dois botoes: um so, que pergunta
+            return h('button', {
+                type: 'button',
+                class: 'botao primario pequeno',
+                title: 'Ler novamente ou abrir o último capítulo',
+                onclick: () => abrirDialogoReler(manga, ultimo),
+            }, h('span', null, 'Ler'));
+        }
+        return [
+            linkExterno('botao primario', manga.firstChapterLink, 'Abrir o capítulo 1 no site', 'Ler novamente'),
+            linkExterno('botao', manga.lastChapterLink, 'Abrir o último capítulo no site', ultimo),
+        ];
+    }
     return h('a', {
         class: 'botao primario ' + (classe || ''),
         href: '/api/mangas/' + manga.id + '/ler',
@@ -100,6 +127,19 @@ function botaoLer(manga, classe) {
         rel: 'noopener noreferrer',
         title: 'Abrir o capítulo ' + mostrarCapitulo(manga.nextChapter) + ' no site',
     }, h('span', null, 'Ler ' + mostrarCapitulo(manga.nextChapter)));
+}
+
+function abrirDialogoReler(manga, ultimo) {
+    const dialogo = h('dialog', null,
+        h('div', {class: 'opcoes'},
+            h('h2', null, manga.title),
+            linkExterno('botao primario', manga.firstChapterLink, 'Abrir o capítulo 1 no site', 'Ler novamente (capítulo 1)'),
+            linkExterno('botao', manga.lastChapterLink, 'Abrir o último capítulo no site', ultimo),
+            h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar')));
+    for (const link of dialogo.querySelectorAll('a')) link.addEventListener('click', () => dialogo.close());
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
 }
 
 // ------------------------------------------------------------------ grade

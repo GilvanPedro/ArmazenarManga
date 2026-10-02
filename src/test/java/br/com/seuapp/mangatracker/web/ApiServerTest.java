@@ -129,6 +129,7 @@ class ApiServerTest {
         assertEquals("48.5", criado.get("lastChapter").asText());
         assertEquals("LENDO", criado.get("readingStatus").asText());
         assertEquals("Uma descrição", criado.get("description").asText());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-1", criado.get("firstChapterLink").asText());
         assertEquals("https://site-a.com/manga/solo-leveling/capitulo-48-5", criado.get("lastChapterLink").asText());
         assertEquals("49", criado.get("nextChapter").asText());
         assertEquals("https://site-a.com/manga/solo-leveling/capitulo-49", criado.get("nextChapterLink").asText());
@@ -299,6 +300,14 @@ class ApiServerTest {
             assertEquals("B", json(enviar("GET", "/api/mangas/sorteio?status=LER", null)).get("title").asText());
         }
         assertEquals(404, enviar("GET", "/api/mangas/sorteio?status=DROPADO", null).statusCode());
+
+        // concluidos e cancelados ficam de fora
+        cadastrar("C", "1", "CONCLUIDO");
+        cadastrar("D", "1", "CANCELADO");
+        for (int i = 0; i < 30; i++) {
+            assertTrue(List.of("A", "B").contains(json(enviar("GET", "/api/mangas/sorteio", null)).get("title").asText()));
+        }
+        assertEquals(404, enviar("GET", "/api/mangas/sorteio?status=CONCLUIDO", null).statusCode());
     }
 
     // ------------------------------------------------------------------ imagens

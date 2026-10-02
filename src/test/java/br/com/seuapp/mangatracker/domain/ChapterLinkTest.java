@@ -80,6 +80,7 @@ class ChapterLinkTest {
         Manga manga = new Manga("Solo Leveling", "capa.png", new ArrayList<>(), MODELO,
                 ChapterDecimalFormat.PONTO, new BigDecimal("10.5"), ReadingStatus.LENDO, "");
 
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-1", manga.linkPrimeiroCapitulo());
         assertEquals("https://site-a.com/manga/solo-leveling/capitulo-10.5", manga.linkUltimoCapitulo());
         assertEquals("https://site-a.com/manga/solo-leveling/capitulo-11", manga.linkProximoCapitulo());
 

@@ -22,6 +22,7 @@ record MangaResponse(
         BigDecimal lastChapter,
         ReadingStatus readingStatus,
         String description,
+        String firstChapterLink,
         String lastChapterLink,
         BigDecimal nextChapter,
         String nextChapterLink
@@ -40,6 +41,7 @@ record MangaResponse(
                 manga.getLastChapter(),
                 manga.getReadingStatus(),
                 manga.getDescription(),
+                manga.linkPrimeiroCapitulo(),
                 manga.linkUltimoCapitulo(),
                 manga.proximoCapitulo(),
                 manga.linkProximoCapitulo()
