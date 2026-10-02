@@ -24,10 +24,23 @@ MANGATRACKER_HOST=0.0.0.0 MANGATRACKER_SENHA='uma senha longa' java -jar target/
 ```
 
 Nos outros aparelhos da mesma rede, abra `http://IP-deste-computador:7070` (o endereço aparece no terminal)
-e entre com o usuário `manga` e a senha escolhida. Sem senha o programa se recusa a abrir para a rede.
+e entre com o usuário `manga` e a senha escolhida (mínimo de 12 caracteres). Sem senha o programa se recusa a abrir para a rede.
 
-Para acessar pela internet, coloque o site atrás de HTTPS (um túnel como Cloudflare Tunnel ou Tailscale Funnel,
-ou um proxy reverso em um servidor). Não exponha a porta direto: sem HTTPS a senha trafega sem criptografia.
+### Hospedar na internet (Fly.io)
+
+O `Dockerfile` e o `fly.toml` já estão prontos. Na primeira vez:
+
+```bash
+curl -L https://fly.io/install.sh | sh        # instala o flyctl
+fly auth login                                # cria a conta / entra
+fly apps create meus-mangas-gilvanpedro
+fly volumes create mangas_dados --size 1 --region gru --app meus-mangas-gilvanpedro
+fly secrets set MANGATRACKER_SENHA='uma senha longa' --app meus-mangas-gilvanpedro
+fly deploy
+```
+
+O site fica em `https://meus-mangas-gilvanpedro.fly.dev` (usuário `manga`). Depois de mudar o código, basta `fly deploy`.
+Os dados ficam no volume `mangas_dados`; mantenha uma única máquina (`fly scale count 1`), porque o volume não é compartilhado.
 
 ### Configuração
 

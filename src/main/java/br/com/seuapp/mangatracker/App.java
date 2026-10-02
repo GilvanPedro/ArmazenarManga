@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Set;
 
 public class App {
+    private static final int SENHA_MINIMA = 12;
+
     static void main(String[] args) {
         // MANGATRACKER_DIR: onde ficam o mangas.json e as imagens (padrao ~/.mangatracker)
         String pastaConfigurada = System.getenv("MANGATRACKER_DIR");
@@ -36,9 +38,10 @@ public class App {
                 .toList();
 
         boolean soEsteComputador = Set.of("127.0.0.1", "localhost", "::1").contains(host);
-        if (!soEsteComputador && senha.isBlank()) {
+        if (!soEsteComputador && senha.length() < SENHA_MINIMA) {
             System.err.println("Para aceitar conexões de outros computadores (MANGATRACKER_HOST=" + host
-                    + ") defina uma senha em MANGATRACKER_SENHA. Sem senha, qualquer pessoa na rede poderia apagar seus mangás.");
+                    + ") defina em MANGATRACKER_SENHA uma senha com pelo menos " + SENHA_MINIMA + " caracteres."
+                    + " Sem uma senha forte, qualquer pessoa poderia apagar seus mangás.");
             System.exit(1);
         }
 

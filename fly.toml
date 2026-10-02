@@ -1,0 +1,23 @@
+# Hospedagem no Fly.io. O passo a passo esta no README.
+app = "meus-mangas-gilvanpedro"
+primary_region = "gru" # Sao Paulo
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Disco permanente com o mangas.json e as capas. Sem ele os dados somem a cada deploy.
+[mounts]
+  source = "mangas_dados"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # a maquina dorme quando ninguem esta usando e acorda sozinha no proximo acesso
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
