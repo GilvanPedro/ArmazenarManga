@@ -13,7 +13,14 @@ mvn package                       # roda os testes e gera target/mangatracker.ja
 java -jar target/mangatracker.jar # abre o site em http://localhost:7070
 ```
 
+O `./iniciar.sh` faz o mesmo em um comando: escolhe o JDK certo, gera o jar se faltar e carrega o arquivo `.env`.
 Durante o desenvolvimento, `mvn compile exec:java` sobe o site sem gerar o jar.
+
+### Usar o banco de dados (Neon)
+
+Copie `.env.exemplo` para `.env`, cole a *connection string* do Neon em `DATABASE_URL` e rode `./iniciar.sh`.
+Na primeira vez, se o banco estiver vazio, o que já estava em `~/.mangatracker` é copiado para ele.
+O `.env` tem a senha do banco e não vai para o GitHub.
 O site fica em `src/main/resources/public` (HTML, CSS e JavaScript puros, sem etapa de build).
 
 ### Acessar de outros computadores

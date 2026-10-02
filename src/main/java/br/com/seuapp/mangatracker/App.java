@@ -1,6 +1,7 @@
 package br.com.seuapp.mangatracker;
 
 import br.com.seuapp.mangatracker.repository.BancoPostgres;
+import br.com.seuapp.mangatracker.repository.ImportacaoDeArquivos;
 import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
 import br.com.seuapp.mangatracker.repository.MangaRepository;
 import br.com.seuapp.mangatracker.repository.PostgresImagemRepository;
@@ -60,9 +61,14 @@ public class App {
             System.out.println("Dados salvos em arquivos na pasta " + pasta.toAbsolutePath());
         } else {
             DataSource banco = BancoPostgres.conectar(enderecoDoBanco);
+            PostgresImagemRepository imagensDoBanco = new PostgresImagemRepository(banco);
             repository = new PostgresMangaRepository(banco);
-            imagemService = new ImagemService(new PostgresImagemRepository(banco));
+            imagemService = new ImagemService(imagensDoBanco);
             System.out.println("Dados salvos no banco Postgres");
+            int importados = ImportacaoDeArquivos.importarSeBancoVazio(pasta, repository, imagensDoBanco);
+            if (importados > 0) {
+                System.out.println(importados + " mangá(s) de " + pasta.toAbsolutePath() + " copiado(s) para o banco");
+            }
         }
         MangaService mangaService = new MangaService(repository, imagemService);
         Credenciais credenciais = senha.isBlank() ? null : new Credenciais(usuario, senha);

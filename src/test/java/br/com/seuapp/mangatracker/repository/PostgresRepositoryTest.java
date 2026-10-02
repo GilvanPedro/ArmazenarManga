@@ -16,10 +16,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -184,6 +187,42 @@ class PostgresRepositoryTest {
         assertThrows(NotFoundException.class, () -> service.buscarPorId(salvo.getId()));
         assertFalse(imagemService.existe(capa)); // a capa sai do banco junto com o manga
         assertEquals(1, service.listarMangas(null, null).size());
+    }
+
+    @Test
+    void importaOsArquivosQuandoOBancoEstaVazio(@TempDir Path pasta) {
+        ArquivoImagemRepository imagensDaPasta = new ArquivoImagemRepository(pasta.resolve("imagens"));
+        String capa = UUID.randomUUID() + ".png";
+        imagensDaPasta.salvar(capa, ImagemServiceTest.PNG);
+        JsonMangaRepository arquivo = new JsonMangaRepository(pasta.resolve("mangas.json"));
+        Manga comCapaEnviada = new Manga("Com capa", capa, new ArrayList<>(List.of(new Tag("Ação"))),
+                "https://site.com/x/{cap}", ChapterDecimalFormat.UNDERLINE, new BigDecimal("10.5"), ReadingStatus.HIATUS, "Texto");
+        Manga comLink = new Manga("Com link", "https://site.com/capa.png", new ArrayList<>(),
+                "https://site.com/y/{cap}", ChapterDecimalFormat.HIFEN, BigDecimal.ONE, ReadingStatus.LENDO, "");
+        arquivo.salvar(comCapaEnviada);
+        arquivo.salvar(comLink);
+        PostgresMangaRepository mangas = new PostgresMangaRepository(banco);
+        PostgresImagemRepository imagens = new PostgresImagemRepository(banco);
+
+        assertEquals(2, ImportacaoDeArquivos.importarSeBancoVazio(pasta, mangas, imagens));
+
+        assertEquals(List.of("Com capa", "Com link"), mangas.listarTodos().stream().map(Manga::getTitle).toList());
+        Manga importado = mangas.buscarPorId(comCapaEnviada.getId()).orElseThrow();
+        assertEquals(ChapterDecimalFormat.UNDERLINE, importado.getDecimalFormat());
+        assertEquals("https://site.com/x/10_5", importado.linkUltimoCapitulo());
+        assertArrayEquals(ImagemServiceTest.PNG, imagens.buscar(capa).orElseThrow());
+        assertTrue(Files.exists(pasta.resolve("mangas.json"))); // os arquivos nao sao apagados
+
+        // segunda vez: o banco ja tem dados, entao nada e importado nem sobrescrito
+        mangas.excluir(comLink.getId());
+        assertEquals(0, ImportacaoDeArquivos.importarSeBancoVazio(pasta, mangas, imagens));
+        assertEquals(1, mangas.listarTodos().size());
+    }
+
+    @Test
+    void semArquivosNaoImportaNada(@TempDir Path pasta) {
+        assertEquals(0, ImportacaoDeArquivos.importarSeBancoVazio(pasta,
+                new PostgresMangaRepository(banco), new PostgresImagemRepository(banco)));
     }
 
     @Test
