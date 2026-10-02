@@ -1,0 +1,379 @@
+package br.com.seuapp.mangatracker.service;
+
+import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
+import br.com.seuapp.mangatracker.domain.Manga;
+import br.com.seuapp.mangatracker.domain.ReadingStatus;
+import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidImageException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
+import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
+import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
+import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.ByteArrayInputStream;
+import java.math.BigDecimal;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class MangaServiceTest {
+
+    private static final String CAPA = "https://site.com/capa.png";
+    private static final String LINK = "https://site-a.com/manga/solo-leveling/capitulo-{cap}";
+
+    @TempDir
+    Path pasta;
+    JsonMangaRepository repository;
+    ImagemService imagemService;
+    MangaService service;
+
+    @BeforeEach
+    void setUp() {
+        repository = new JsonMangaRepository(pasta.resolve("mangas.json"));
+        imagemService = new ImagemService(pasta.resolve("imagens"));
+        service = new MangaService(repository, imagemService, new Random(42));
+    }
+
+    private static DadosManga dados(String titulo, String capitulo, ReadingStatus status) {
+        return new DadosManga(titulo, CAPA, List.of("Ação"), LINK, ChapterDecimalFormat.HIFEN,
+                new BigDecimal(capitulo), status, "Uma descrição");
+    }
+
+    private String enviarImagem() {
+        return imagemService.salvar(new ByteArrayInputStream(ImagemServiceTest.PNG));
+    }
+
+    private static List<String> titulos(List<Manga> mangas) {
+        return mangas.stream().map(Manga::getTitle).toList();
+    }
+
+    // ------------------------------------------------------------------ cadastro
+
+    @Test
+    void cadastraEPersisteOManga() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48.5", ReadingStatus.LENDO));
+
+        Manga lido = new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow();
+        assertEquals("Solo Leveling", lido.getTitle());
+        assertEquals(new BigDecimal("48.5"), lido.getLastChapter());
+        assertEquals(ReadingStatus.LENDO, lido.getReadingStatus());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-48-5", lido.linkUltimoCapitulo());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-49", lido.linkProximoCapitulo());
+    }
+
+    @Test
+    void cadaCadastroGanhaUmIdDiferente() {
+        Manga a = service.salvarManga(dados("A", "1", ReadingStatus.LENDO));
+        Manga b = service.salvarManga(dados("A", "1", ReadingStatus.LENDO));
+
+        assertNotEquals(a.getId(), b.getId());
+        assertEquals(2, service.listarMangas(null, null).size());
+    }
+
+    @Test
+    void aceitaCapituloZero() {
+        Manga salvo = service.salvarManga(dados("Novo", "0", ReadingStatus.LER));
+
+        assertEquals(0, salvo.getLastChapter().signum());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-1", salvo.linkProximoCapitulo());
+    }
+
+    @Test
+    void tagsDescricaoEFormatoSaoOpcionais() {
+        Manga salvo = service.salvarManga(new DadosManga("Simples", CAPA, null, LINK, null,
+                BigDecimal.ONE, ReadingStatus.LENDO, null));
+
+        assertTrue(salvo.getTags().isEmpty());
+        assertEquals("", salvo.getDescription());
+        assertEquals(ChapterDecimalFormat.HIFEN, salvo.getDecimalFormat());
+    }
+
+    @Test
+    void limpaEspacosETagsRepetidas() {
+        Manga salvo = service.salvarManga(new DadosManga("  Solo Leveling ", CAPA,
+                Arrays.asList(" Ação ", "ação", "", null, "Fantasia"), " " + LINK + " ", null,
+                BigDecimal.ONE, ReadingStatus.LENDO, "  texto  "));
+
+        assertEquals("Solo Leveling", salvo.getTitle());
+        assertEquals(List.of("Ação", "Fantasia"), salvo.getTags().stream().map(Tag::getNome).toList());
+        assertEquals(LINK, salvo.getChapterLinkModel());
+        assertEquals("texto", salvo.getDescription());
+    }
+
+    @Test
+    void naoCadastraSemCamposObrigatorios() {
+        BigDecimal cap = BigDecimal.ONE;
+        ReadingStatus status = ReadingStatus.LENDO;
+
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(null));
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(new DadosManga(null, CAPA, null, LINK, null, cap, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(new DadosManga("   ", CAPA, null, LINK, null, cap, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(new DadosManga("T", null, null, LINK, null, cap, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(new DadosManga("T", " ", null, LINK, null, cap, status, "")));
+        assertThrows(InvalidLinkException.class, () -> service.salvarManga(new DadosManga("T", CAPA, null, null, null, cap, status, "")));
+        assertThrows(InvalidLinkException.class, () -> service.salvarManga(new DadosManga("T", CAPA, null, "", null, cap, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(new DadosManga("T", CAPA, null, LINK, null, null, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.salvarManga(new DadosManga("T", CAPA, null, LINK, null, cap, null, "")));
+
+        assertTrue(repository.listarTodos().isEmpty());
+    }
+
+    @Test
+    void naoCadastraCapituloNegativo() {
+        assertThrows(InvalidChapterException.class, () -> service.salvarManga(dados("T", "-1", ReadingStatus.LENDO)));
+        assertThrows(InvalidChapterException.class, () -> service.salvarManga(dados("T", "-0.5", ReadingStatus.LENDO)));
+        assertTrue(repository.listarTodos().isEmpty());
+    }
+
+    @Test
+    void naoCadastraLinkSemMarcadorDoCapitulo() {
+        DadosManga semMarcador = new DadosManga("T", CAPA, null, "https://site.com/capitulo-48", null,
+                BigDecimal.ONE, ReadingStatus.LENDO, "");
+
+        assertThrows(InvalidLinkException.class, () -> service.salvarManga(semMarcador));
+    }
+
+    @Test
+    void naoCadastraComImagemQueNaoFoiEnviada() {
+        DadosManga semImagem = new DadosManga("T", "capa-que-nao-existe.png", null, LINK, null,
+                BigDecimal.ONE, ReadingStatus.LENDO, "");
+
+        assertThrows(InvalidImageException.class, () -> service.salvarManga(semImagem));
+    }
+
+    @Test
+    void cadastraComImagemEnviada() {
+        String imagem = enviarImagem();
+
+        Manga salvo = service.salvarManga(new DadosManga("T", imagem, null, LINK, null,
+                BigDecimal.ONE, ReadingStatus.LENDO, ""));
+
+        assertEquals(imagem, salvo.getImagePath());
+    }
+
+    // ------------------------------------------------------------------ busca
+
+    @Test
+    void buscarPorIdDesconhecidoLancaNaoEncontrado() {
+        assertThrows(NotFoundException.class, () -> service.buscarPorId(UUID.randomUUID()));
+    }
+
+    @Test
+    void buscaPorParteDoTituloSemDiferenciarMaiusculasNemAcentos() {
+        service.salvarManga(dados("Solo Leveling", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("Ação Total", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("One Piece", "1", ReadingStatus.LENDO));
+
+        assertEquals(List.of("Solo Leveling"), titulos(service.listarMangas("solo", null)));
+        assertEquals(List.of("Solo Leveling"), titulos(service.listarMangas("  LEVEL ", null)));
+        assertEquals(List.of("Ação Total"), titulos(service.listarMangas("acao", null)));
+        assertEquals(List.of("Ação Total"), titulos(service.listarMangas("AÇÃO", null)));
+        assertEquals(List.of(), titulos(service.listarMangas("naruto", null)));
+        assertEquals(3, service.listarMangas("", null).size());
+        assertEquals(3, service.listarMangas(null, null).size());
+    }
+
+    @Test
+    void filtraPorStatus() {
+        service.salvarManga(dados("Lendo 1", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("Dropado", "1", ReadingStatus.DROPADO));
+        service.salvarManga(dados("Lendo 2", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("Em hiato", "1", ReadingStatus.HIATUS));
+
+        assertEquals(List.of("Lendo 1", "Lendo 2"), titulos(service.listarMangas(null, ReadingStatus.LENDO)));
+        assertEquals(List.of("Dropado"), titulos(service.listarMangas(null, ReadingStatus.DROPADO)));
+        assertEquals(List.of("Em hiato"), titulos(service.listarMangas(null, ReadingStatus.HIATUS)));
+        assertEquals(List.of(), titulos(service.listarMangas(null, ReadingStatus.CONCLUIDO)));
+        assertEquals(List.of("Lendo 2"), titulos(service.listarMangas("2", ReadingStatus.LENDO)));
+    }
+
+    // ------------------------------------------------------------------ progresso
+
+    @Test
+    void atualizaSoOCapituloEOLinkAcompanha() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+
+        Manga atualizado = service.atualizarProgresso(salvo.getId(), new BigDecimal("50.5"), null);
+
+        assertEquals(new BigDecimal("50.5"), atualizado.getLastChapter());
+        assertEquals(ReadingStatus.LENDO, atualizado.getReadingStatus());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-50-5", atualizado.linkUltimoCapitulo());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-51", atualizado.linkProximoCapitulo());
+        assertEquals(new BigDecimal("50.5"), service.buscarPorId(salvo.getId()).getLastChapter());
+    }
+
+    @Test
+    void atualizaSoOStatus() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+
+        Manga atualizado = service.atualizarProgresso(salvo.getId(), null, ReadingStatus.DROPADO);
+
+        assertEquals(new BigDecimal("48"), atualizado.getLastChapter());
+        assertEquals(ReadingStatus.DROPADO, atualizado.getReadingStatus());
+    }
+
+    @Test
+    void progressoNaoMexeNoRestoDoManga() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+
+        Manga atualizado = service.atualizarProgresso(salvo.getId(), new BigDecimal("49"), ReadingStatus.CONCLUIDO);
+
+        assertEquals("Solo Leveling", atualizado.getTitle());
+        assertEquals(CAPA, atualizado.getImagePath());
+        assertEquals(LINK, atualizado.getChapterLinkModel());
+        assertEquals("Uma descrição", atualizado.getDescription());
+        assertEquals(List.of("Ação"), atualizado.getTags().stream().map(Tag::getNome).toList());
+    }
+
+    @Test
+    void progressoInvalidoNaoAlteraOManga() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+
+        assertThrows(InvalidChapterException.class, () -> service.atualizarProgresso(salvo.getId(), new BigDecimal("-1"), ReadingStatus.DROPADO));
+        assertThrows(NullInformationsException.class, () -> service.atualizarProgresso(salvo.getId(), null, null));
+        assertThrows(NotFoundException.class, () -> service.atualizarProgresso(UUID.randomUUID(), BigDecimal.ONE, null));
+
+        Manga atual = service.buscarPorId(salvo.getId());
+        assertEquals(new BigDecimal("48"), atual.getLastChapter());
+        assertEquals(ReadingStatus.LENDO, atual.getReadingStatus());
+    }
+
+    // ------------------------------------------------------------------ edicao geral
+
+    @Test
+    void edicaoGeralTrocaTodasAsInformacoes() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+
+        Manga editado = service.editarManga(salvo.getId(), new DadosManga("Solo Leveling: Ragnarok",
+                "https://outro.com/capa.jpg", List.of("Sequência"), "https://site-b.com/slr/{cap}",
+                ChapterDecimalFormat.UNDERLINE, new BigDecimal("3.5"), ReadingStatus.HIATUS, "Nova descrição"));
+
+        assertEquals(salvo.getId(), editado.getId());
+        Manga lido = new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow();
+        assertEquals("Solo Leveling: Ragnarok", lido.getTitle());
+        assertEquals("https://outro.com/capa.jpg", lido.getImagePath());
+        assertEquals(List.of("Sequência"), lido.getTags().stream().map(Tag::getNome).toList());
+        assertEquals(ReadingStatus.HIATUS, lido.getReadingStatus());
+        assertEquals("Nova descrição", lido.getDescription());
+        assertEquals("https://site-b.com/slr/3_5", lido.linkUltimoCapitulo());
+        assertEquals(1, service.listarMangas(null, null).size());
+    }
+
+    @Test
+    void edicaoInvalidaNaoAlteraOManga() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+        UUID id = salvo.getId();
+        BigDecimal cap = BigDecimal.ONE;
+        ReadingStatus status = ReadingStatus.DROPADO;
+
+        assertThrows(NullInformationsException.class, () -> service.editarManga(id, new DadosManga("", CAPA, null, LINK, null, cap, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.editarManga(id, new DadosManga("T", "", null, LINK, null, cap, status, "")));
+        assertThrows(InvalidLinkException.class, () -> service.editarManga(id, new DadosManga("T", CAPA, null, "", null, cap, status, "")));
+        assertThrows(NullInformationsException.class, () -> service.editarManga(id, new DadosManga("T", CAPA, null, LINK, null, null, status, "")));
+        assertThrows(InvalidChapterException.class, () -> service.editarManga(id, new DadosManga("T", CAPA, null, LINK, null, new BigDecimal("-3"), status, "")));
+        assertThrows(NullInformationsException.class, () -> service.editarManga(id, new DadosManga("T", CAPA, null, LINK, null, cap, null, "")));
+        assertThrows(NotFoundException.class, () -> service.editarManga(UUID.randomUUID(), dados("T", "1", status)));
+
+        Manga atual = service.buscarPorId(id);
+        assertEquals("Solo Leveling", atual.getTitle());
+        assertEquals(new BigDecimal("48"), atual.getLastChapter());
+        assertEquals(ReadingStatus.LENDO, atual.getReadingStatus());
+    }
+
+    @Test
+    void trocarAImagemApagaAAntiga() {
+        String antiga = enviarImagem();
+        String nova = enviarImagem();
+        Manga salvo = service.salvarManga(new DadosManga("T", antiga, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+
+        service.editarManga(salvo.getId(), new DadosManga("T", nova, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+
+        assertFalse(imagemService.existe(antiga));
+        assertTrue(imagemService.existe(nova));
+    }
+
+    @Test
+    void editarSemTrocarAImagemMantemOArquivo() {
+        String imagem = enviarImagem();
+        Manga salvo = service.salvarManga(new DadosManga("T", imagem, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+
+        service.editarManga(salvo.getId(), new DadosManga("Novo título", imagem, null, LINK, null, BigDecimal.TEN, ReadingStatus.LENDO, ""));
+        service.atualizarProgresso(salvo.getId(), new BigDecimal("11"), null);
+
+        assertTrue(imagemService.existe(imagem));
+    }
+
+    // ------------------------------------------------------------------ exclusao
+
+    @Test
+    void excluiOMangaEASuaImagem() {
+        String imagem = enviarImagem();
+        Manga salvo = service.salvarManga(new DadosManga("T", imagem, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+
+        service.excluirManga(salvo.getId());
+
+        assertThrows(NotFoundException.class, () -> service.buscarPorId(salvo.getId()));
+        assertFalse(imagemService.existe(imagem));
+        assertThrows(NotFoundException.class, () -> service.excluirManga(salvo.getId()));
+    }
+
+    @Test
+    void naoApagaImagemUsadaPorOutroManga() {
+        String imagem = enviarImagem();
+        Manga a = service.salvarManga(new DadosManga("A", imagem, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+        service.salvarManga(new DadosManga("B", imagem, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+
+        service.excluirManga(a.getId());
+
+        assertTrue(imagemService.existe(imagem));
+    }
+
+    // ------------------------------------------------------------------ sorteio
+
+    @Test
+    void sorteioSemMangasLancaNaoEncontrado() {
+        assertThrows(NotFoundException.class, () -> service.sortearManga(null));
+
+        service.salvarManga(dados("A", "1", ReadingStatus.LENDO));
+        assertThrows(NotFoundException.class, () -> service.sortearManga(ReadingStatus.DROPADO));
+    }
+
+    @Test
+    void sorteioPassaPorTodosOsMangas() {
+        service.salvarManga(dados("A", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("B", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("C", "1", ReadingStatus.LER));
+
+        Set<String> sorteados = new HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            sorteados.add(service.sortearManga(null).getTitle());
+        }
+
+        assertEquals(Set.of("A", "B", "C"), sorteados);
+    }
+
+    @Test
+    void sorteioRespeitaOFiltroDeStatus() {
+        service.salvarManga(dados("A", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("B", "1", ReadingStatus.LENDO));
+        service.salvarManga(dados("C", "1", ReadingStatus.LER));
+
+        for (int i = 0; i < 50; i++) {
+            assertEquals("C", service.sortearManga(ReadingStatus.LER).getTitle());
+        }
+    }
+}

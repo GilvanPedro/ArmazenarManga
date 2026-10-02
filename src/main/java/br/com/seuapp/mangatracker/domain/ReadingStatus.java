@@ -5,6 +5,7 @@ public enum ReadingStatus {
     DROPADO("Dropado"),
     CANCELADO("Cancelado"),
     CONCLUIDO("Concluído"),
+    HIATUS("Hiatus"),
     LER("Para Ler");
 
     private String descricao;

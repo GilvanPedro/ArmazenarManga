@@ -10,16 +10,22 @@ public class Manga {
     private String imagePath;
     private List<Tag> tags;
     private String chapterLinkModel;
+    private ChapterDecimalFormat decimalFormat;
     private BigDecimal lastChapter;
     private ReadingStatus readingStatus;
     private String description;
 
-    public Manga(UUID id, String title, String imagePath, List<Tag> tags, String chapterLinkModel, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
-        this.id = UUID.randomUUID();
+    public Manga(String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
+        this(UUID.randomUUID(), title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description);
+    }
+
+    public Manga(UUID id, String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
+        this.id = id;
         this.title = title;
         this.imagePath = imagePath;
         this.tags = tags;
         this.chapterLinkModel = chapterLinkModel;
+        this.decimalFormat = decimalFormat == null ? ChapterDecimalFormat.PADRAO : decimalFormat;
         this.lastChapter = lastChapter;
         this.readingStatus = readingStatus;
         this.description = description;
@@ -61,6 +67,14 @@ public class Manga {
         this.chapterLinkModel = chapterLinkModel;
     }
 
+    public ChapterDecimalFormat getDecimalFormat() {
+        return decimalFormat;
+    }
+
+    public void setDecimalFormat(ChapterDecimalFormat decimalFormat) {
+        this.decimalFormat = decimalFormat;
+    }
+
     public BigDecimal getLastChapter() {
         return lastChapter;
     }
@@ -83,5 +97,19 @@ public class Manga {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    /** Link do ultimo capitulo lido, sempre montado a partir do lastChapter atual. */
+    public String linkUltimoCapitulo() {
+        return ChapterLink.montar(chapterLinkModel, decimalFormat, lastChapter);
+    }
+
+    public BigDecimal proximoCapitulo() {
+        return ChapterLink.proximoCapitulo(lastChapter);
+    }
+
+    /** Link do proximo capitulo que ainda nao foi lido. */
+    public String linkProximoCapitulo() {
+        return ChapterLink.montar(chapterLinkModel, decimalFormat, proximoCapitulo());
     }
 }
