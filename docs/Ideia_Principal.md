@@ -11,7 +11,7 @@ Inicialmente, a ideia é criar um software que irá me permitir salvar os manhwa
 5. Permitir buscar pelo nome de um manga salvo no software.
 6. Filtrar os mangas quea aparecem pelos status dele.
 7. Sistema de sorteio para encontrar um manga aleatório.
-8. Salvar junto com as informações do manga o link do ultimo capítulo lido.
+8. Salvar junto com as informações do manga o modelo do link do ultimo capítulo lido ``Solo Leveling  -> https://site-a.com/manga/solo-leveling/capitulo-{cap}``.
 9. Se eu editar o ultimo capitulo lido no software, o capitulo do link vai ser alterado para esse ultimo.
 10. Redirecionamento do manga para o próximo capítulo que ainda não foi lido no site salvo.
 11. Cada manga salvo vai ter uma página de informações dele, onde vai ter uma descrição, colocada pelo próprio usuário, e as opções de ler (topico 10), edição geral (tópico 3) e o botão de alterar o ultimo capítulo lido (tópico 2).
@@ -26,7 +26,28 @@ Inicialmente, a ideia é criar um software que irá me permitir salvar os manhwa
 3. Mangás não podem ter capítulos negaticos.
 4. A edição não pode permitir que seja salvo o manga sem o nome, status, titulo, ultimo capitulo lido, imagem dele e o link do site
 
-
+## PROVÁVEL ESTRUTURA DO PROJETO
+``
+src/main/java/com/seuapp/mangatracker/
+├── domain/          <- regras que valem sempre
+│   ├── Manga.java
+│   ├── StatusLeitura.java      (LENDO, DROPADO, CONCLUIDO, HIATUS, QUERO_LER)
+│   ├── FormatoDecimal.java     (HIFEN "X-5", PONTO "X.5", UNDERLINE "X_5")
+│   ├── LinkCapitulo.java       (template + formato -> URL)
+│   └── ValidacaoException.java
+├── service/         <- casos de uso
+│   ├── MangaService.java
+│   └── ImagemService.java
+├── repository/      <- persistência
+│   ├── MangaRepository.java        (interface)
+│   └── JsonMangaRepository.java    (Jackson ou Gson)
+├── ui/              <- telas
+│   ├── GradeMangasView.java
+│   ├── DetalhesMangaView.java
+│   ├── FormularioMangaView.java    (cadastro e edição geral)
+│   └── AtualizarCapituloDialog.java
+└── App.java
+``
 
 
 
