@@ -2,9 +2,11 @@ package br.com.seuapp.mangatracker.web;
 
 import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
+import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidImageException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
 import br.com.seuapp.mangatracker.domain.exceptions.PersistenciaException;
@@ -84,6 +86,7 @@ public class ApiServer {
             config.routes.get("/api/mangas", this::listar);
             config.routes.post("/api/mangas", this::cadastrar);
             config.routes.get("/api/mangas/sorteio", this::sortear);
+            config.routes.get("/api/mangas/lancamentos", this::listarLancamentos);
             config.routes.get("/api/mangas/{id}", this::buscar);
             config.routes.put("/api/mangas/{id}", this::editar);
             config.routes.patch("/api/mangas/{id}/progresso", this::atualizarProgresso);
@@ -98,10 +101,12 @@ public class ApiServer {
 
             config.routes.get("/api/status", this::listarStatus);
             config.routes.get("/api/formatos-decimais", this::listarFormatosDecimais);
+            config.routes.get("/api/dias-da-semana", this::listarDiasDaSemana);
 
             config.routes.exception(NullInformationsException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidLinkException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidChapterException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
+            config.routes.exception(InvalidReleaseDayException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidImageException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(RequisicaoInvalidaException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(NotFoundException.class, (e, ctx) -> erro(ctx, HttpStatus.NOT_FOUND, e.getMessage()));
@@ -180,6 +185,18 @@ public class ApiServer {
         json(ctx, HttpStatus.CREATED, MangaResponse.de(mangaService.salvarManga(dados)));
     }
 
+    /** O dia vem do navegador (?dia=QUARTA), porque "hoje" depende do fuso de quem esta usando. */
+    private void listarLancamentos(Context ctx) throws JsonProcessingException {
+        String dia = ctx.queryParam("dia");
+        WeekDay diaDaSemana;
+        try {
+            diaDaSemana = WeekDay.valueOf(dia == null ? "" : dia.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RequisicaoInvalidaException("Dia inválido. Use um de: " + Arrays.toString(WeekDay.values()));
+        }
+        json(ctx, HttpStatus.OK, mangaService.listarLancamentos(diaDaSemana).stream().map(MangaResponse::de).toList());
+    }
+
     private void sortear(Context ctx) throws JsonProcessingException {
         json(ctx, HttpStatus.OK, MangaResponse.de(mangaService.sortearManga(lerStatus(ctx))));
     }
@@ -252,6 +269,12 @@ public class ApiServer {
     private void listarFormatosDecimais(Context ctx) throws JsonProcessingException {
         json(ctx, HttpStatus.OK, Arrays.stream(ChapterDecimalFormat.values())
                 .map(formato -> Map.of("valor", formato.name(), "descricao", formato.getDescricao()))
+                .toList());
+    }
+
+    private void listarDiasDaSemana(Context ctx) throws JsonProcessingException {
+        json(ctx, HttpStatus.OK, Arrays.stream(WeekDay.values())
+                .map(dia -> Map.of("valor", dia.name(), "descricao", dia.getDescricao()))
                 .toList());
     }
 

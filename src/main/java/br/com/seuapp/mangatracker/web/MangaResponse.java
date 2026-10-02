@@ -5,6 +5,7 @@ import br.com.seuapp.mangatracker.domain.ChapterLink;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.WeekDay;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -21,6 +22,7 @@ record MangaResponse(
         ChapterDecimalFormat decimalFormat,
         BigDecimal lastChapter,
         ReadingStatus readingStatus,
+        WeekDay releaseDay,
         String description,
         String firstChapterLink,
         String lastChapterLink,
@@ -40,6 +42,7 @@ record MangaResponse(
                 manga.getDecimalFormat(),
                 manga.getLastChapter(),
                 manga.getReadingStatus(),
+                manga.getReleaseDay(),
                 manga.getDescription(),
                 manga.linkPrimeiroCapitulo(),
                 manga.linkUltimoCapitulo(),

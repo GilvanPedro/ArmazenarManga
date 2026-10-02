@@ -88,10 +88,12 @@ para acordar no próximo acesso.
 | `PATCH`  | `/api/mangas/{id}/progresso`  | Altera só o último capítulo lido e/ou o status                            |
 | `DELETE` | `/api/mangas/{id}`            | Exclui o mangá (e a capa enviada)                                         |
 | `GET`    | `/api/mangas/{id}/ler`        | Redireciona para o próximo capítulo ainda não lido                        |
+| `GET`    | `/api/mangas/lancamentos`     | Mangás com status Lendo que lançam capítulo no dia: `?dia=QUARTA`         |
 | `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá (concluídos e cancelados ficam de fora). Filtro opcional: `?status=LER` |
 | `POST`   | `/api/imagens`                | Envia uma capa (`multipart/form-data`, campo `arquivo`, até 10 MB)        |
 | `GET`    | `/api/imagens/{nome}`         | Devolve a capa enviada                                                    |
 | `GET`    | `/api/status`                 | Status possíveis (`valor` e `descricao`)                                  |
+| `GET`    | `/api/dias-da-semana`         | Dias da semana possíveis (`valor` e `descricao`)                          |
 | `GET`    | `/api/formatos-decimais`      | Formatos de capítulo ".5" no link (`HIFEN`, `PONTO`, `UNDERLINE`)         |
 
 Corpo do `POST` e do `PUT` de mangás:
@@ -105,11 +107,13 @@ Corpo do `POST` e do `PUT` de mangás:
   "decimalFormat": "HIFEN",
   "lastChapter": 48.5,
   "readingStatus": "LENDO",
+  "releaseDay": "QUARTA",
   "description": "Texto livre"
 }
 ```
 
-`tags`, `decimalFormat` (padrão `HIFEN`) e `description` são opcionais. A resposta traz os mesmos campos mais
+`tags`, `decimalFormat` (padrão `HIFEN`), `releaseDay` e `description` são opcionais. `releaseDay` (dia em que
+o mangá lança capítulo) só é aceito com status `LENDO` e é apagado quando o status muda para outro. A resposta traz os mesmos campos mais
 `id`, `imageUrl`, `firstChapterLink`, `lastChapterLink`, `nextChapter` e `nextChapterLink`.
 
 Corpo do `PATCH .../progresso`: `{"lastChapter": 49, "readingStatus": "LENDO"}` (pode mandar só um dos dois).

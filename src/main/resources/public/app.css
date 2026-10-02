@@ -137,6 +137,21 @@ input::placeholder, textarea::placeholder { color: var(--texto-fraco); opacity: 
 
 /* ------------------------------------------------------------ grade */
 
+.abas { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--borda); overflow-x: auto; }
+.aba {
+    flex: none;
+    padding: 9px 14px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    color: var(--texto-fraco);
+    font-weight: 650;
+    text-decoration: none;
+}
+.aba:hover { color: var(--texto); }
+.aba[aria-current=page] { color: var(--texto); border-bottom-color: var(--destaque); }
+.subtitulo { margin: 0 0 20px; color: var(--texto-fraco); }
+select:disabled { opacity: .55; }
+
 .ferramentas {
     display: flex;
     flex-wrap: wrap;

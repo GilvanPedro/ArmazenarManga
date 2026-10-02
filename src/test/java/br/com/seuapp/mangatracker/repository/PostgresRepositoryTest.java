@@ -4,6 +4,7 @@ import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.service.DadosManga;
 import br.com.seuapp.mangatracker.service.ImagemService;
@@ -76,6 +77,7 @@ class PostgresRepositoryTest {
     @Test
     void oQueFoiSalvoVoltaIgualEmOutraConexao() {
         Manga manga = novoManga("Solo Leveling", "48.5");
+        manga.setReleaseDay(WeekDay.TERCA);
         new PostgresMangaRepository(banco).salvar(manga);
 
         try (HikariDataSource outro = BancoPostgres.conectar(endereco)) {
@@ -89,6 +91,7 @@ class PostgresRepositoryTest {
             assertEquals(ChapterDecimalFormat.PONTO, lido.getDecimalFormat());
             assertEquals(0, new BigDecimal("48.5").compareTo(lido.getLastChapter()));
             assertEquals(ReadingStatus.LENDO, lido.getReadingStatus());
+            assertEquals(WeekDay.TERCA, lido.getReleaseDay());
             assertEquals(manga.getDescription(), lido.getDescription());
         }
     }

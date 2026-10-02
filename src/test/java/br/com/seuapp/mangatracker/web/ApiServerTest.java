@@ -310,6 +310,60 @@ class ApiServerTest {
         assertEquals(404, enviar("GET", "/api/mangas/sorteio?status=CONCLUIDO", null).statusCode());
     }
 
+    // ------------------------------------------------------------------ dia de lancamento
+
+    private static String mangaComDia(String titulo, String status, String dia) {
+        return manga(titulo, "1", status).replace("\"description\"", "\"releaseDay\": " + dia + ", \"description\"");
+    }
+
+    @Test
+    void lancamentosMostraSoQuemEstaLendoELancaNoDia() throws Exception {
+        HttpResponse<String> quarta = enviar("POST", "/api/mangas", mangaComDia("Quarta", "LENDO", "\"QUARTA\""));
+        assertEquals(201, quarta.statusCode(), quarta.body());
+        assertEquals("QUARTA", json(quarta).get("releaseDay").asText());
+        String id = json(quarta).get("id").asText();
+        enviar("POST", "/api/mangas", mangaComDia("Sexta", "LENDO", "\"SEXTA\""));
+        HttpResponse<String> semDia = enviar("POST", "/api/mangas", mangaComDia("Sem dia", "LENDO", "null"));
+        assertTrue(json(semDia).get("releaseDay").isNull());
+        cadastrar("Concluído", "1", "CONCLUIDO");
+
+        assertEquals(List.of("Quarta"), titulos("/api/mangas/lancamentos?dia=QUARTA"));
+        assertEquals(List.of("Quarta"), titulos("/api/mangas/lancamentos?dia=quarta"));
+        assertEquals(List.of("Sexta"), titulos("/api/mangas/lancamentos?dia=SEXTA"));
+        assertEquals(List.of(), titulos("/api/mangas/lancamentos?dia=DOMINGO"));
+        assertEquals(400, enviar("GET", "/api/mangas/lancamentos", null).statusCode());
+        assertEquals(400, enviar("GET", "/api/mangas/lancamentos?dia=FERIADO", null).statusCode());
+
+        // parar de ler tira o manga da lista e apaga o dia
+        HttpResponse<String> parou = enviar("PATCH", "/api/mangas/" + id + "/progresso", "{\"readingStatus\": \"HIATUS\"}");
+        assertEquals(200, parou.statusCode(), parou.body());
+        assertTrue(json(parou).get("releaseDay").isNull());
+        assertEquals(List.of(), titulos("/api/mangas/lancamentos?dia=QUARTA"));
+    }
+
+    @Test
+    void recusaDiaDeLancamentoForaDoStatusLendo() throws Exception {
+        for (String status : List.of("DROPADO", "CANCELADO", "CONCLUIDO", "HIATUS", "LER")) {
+            HttpResponse<String> resposta = enviar("POST", "/api/mangas", mangaComDia("T", status, "\"QUARTA\""));
+            assertEquals(400, resposta.statusCode(), status);
+            assertEquals("O dia de lançamento só pode ser definido para mangás com status Lendo", json(resposta).get("mensagem").asText());
+        }
+        HttpResponse<String> diaInvalido = enviar("POST", "/api/mangas", mangaComDia("T", "LENDO", "\"FERIADO\""));
+        assertEquals(400, diaInvalido.statusCode());
+        assertEquals("Valor inválido no campo 'releaseDay'", json(diaInvalido).get("mensagem").asText());
+        assertEquals(List.of(), titulos("/api/mangas"));
+    }
+
+    @Test
+    void listaOsDiasDaSemanaParaOFormulario() throws Exception {
+        JsonNode dias = json(enviar("GET", "/api/dias-da-semana", null));
+        List<String> valores = new ArrayList<>();
+        dias.forEach(item -> valores.add(item.get("valor").asText()));
+
+        assertEquals(List.of("SEGUNDA", "TERCA", "QUARTA", "QUINTA", "SEXTA", "SABADO", "DOMINGO"), valores);
+        assertEquals("Terça-feira", dias.get(1).get("descricao").asText());
+    }
+
     // ------------------------------------------------------------------ imagens
 
     @Test

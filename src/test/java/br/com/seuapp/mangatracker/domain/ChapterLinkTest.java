@@ -90,6 +90,14 @@ class ChapterLinkTest {
     }
 
     @Test
+    void diaDaSemanaAcompanhaOCalendarioDoJava() {
+        assertEquals(WeekDay.SEGUNDA, WeekDay.de(java.time.DayOfWeek.MONDAY));
+        assertEquals(WeekDay.QUARTA, WeekDay.de(java.time.DayOfWeek.WEDNESDAY));
+        assertEquals(WeekDay.SABADO, WeekDay.de(java.time.DayOfWeek.SATURDAY));
+        assertEquals(WeekDay.DOMINGO, WeekDay.de(java.time.DayOfWeek.SUNDAY));
+    }
+
+    @Test
     void mangaSemFormatoUsaOPadrao() {
         Manga manga = new Manga("Solo Leveling", "capa.png", new ArrayList<>(), MODELO,
                 null, new BigDecimal("10.5"), ReadingStatus.LENDO, "");

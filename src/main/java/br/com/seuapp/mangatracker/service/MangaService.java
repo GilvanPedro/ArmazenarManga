@@ -4,6 +4,8 @@ import br.com.seuapp.mangatracker.domain.ChapterLink;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.WeekDay;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
 import br.com.seuapp.mangatracker.repository.MangaRepository;
@@ -87,6 +89,7 @@ public class MangaService implements MangaServiceInterface{
         if (lastChapter != null) {
             VerificarInformacoesNulas.verificarCapitulo(lastChapter);
         }
+        ReadingStatus novoStatus = readingStatus == null ? atual.getReadingStatus() : readingStatus;
         // copia em vez de usar os setters: se o salvar falhar, o manga guardado nao fica alterado
         Manga atualizado = new Manga(
                 atual.getId(),
@@ -96,11 +99,24 @@ public class MangaService implements MangaServiceInterface{
                 atual.getChapterLinkModel(),
                 atual.getDecimalFormat(),
                 lastChapter == null ? atual.getLastChapter() : lastChapter,
-                readingStatus == null ? atual.getReadingStatus() : readingStatus,
+                novoStatus,
                 atual.getDescription()
         );
+        // o dia de lancamento so vale enquanto o manga esta sendo lido
+        atualizado.setReleaseDay(novoStatus == ReadingStatus.LENDO ? atual.getReleaseDay() : null);
         repository.salvar(atualizado);
         return atualizado;
+    }
+
+    @Override
+    public List<Manga> listarLancamentos(WeekDay dia) {
+        if (dia == null) {
+            throw new NullInformationsException("Informe o dia da semana");
+        }
+        return repository.listarTodos().stream()
+                .filter(manga -> manga.getReadingStatus() == ReadingStatus.LENDO)
+                .filter(manga -> manga.getReleaseDay() == dia)
+                .toList();
     }
 
     @Override
@@ -124,8 +140,11 @@ public class MangaService implements MangaServiceInterface{
         ChapterLink.validar(dados.chapterLinkModel());
         String imagePath = dados.imagePath().trim();
         imagemService.verificarReferencia(imagePath);
+        if (dados.releaseDay() != null && dados.readingStatus() != ReadingStatus.LENDO) {
+            throw new InvalidReleaseDayException("O dia de lançamento só pode ser definido para mangás com status Lendo");
+        }
 
-        return new Manga(
+        Manga manga = new Manga(
                 id,
                 dados.title().trim(),
                 imagePath,
@@ -136,6 +155,8 @@ public class MangaService implements MangaServiceInterface{
                 dados.readingStatus(),
                 dados.description() == null ? "" : dados.description().trim()
         );
+        manga.setReleaseDay(dados.releaseDay());
+        return manga;
     }
 
     /** Tira espacos, vazios e repetidos (sem diferenciar maiusculas). */

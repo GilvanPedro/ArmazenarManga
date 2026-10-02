@@ -14,6 +14,8 @@ public class Manga {
     private BigDecimal lastChapter;
     private ReadingStatus readingStatus;
     private String description;
+    /** So existe enquanto o manga esta com status LENDO; null = sem dia definido. */
+    private WeekDay releaseDay;
 
     public Manga(String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
         this(UUID.randomUUID(), title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description);
@@ -97,6 +99,14 @@ public class Manga {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public WeekDay getReleaseDay() {
+        return releaseDay;
+    }
+
+    public void setReleaseDay(WeekDay releaseDay) {
+        this.releaseDay = releaseDay;
     }
 
     /** Link do capitulo 1, para ler de novo desde o comeco. */

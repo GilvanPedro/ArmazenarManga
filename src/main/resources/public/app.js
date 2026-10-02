@@ -7,6 +7,8 @@ const SEPARADORES = {HIFEN: '-', PONTO: '.', UNDERLINE: '_'};
 const estado = {
     status: [],        // [{valor, descricao}] vindo de /api/status
     formatos: [],      // [{valor, descricao}] vindo de /api/formatos-decimais
+    dias: [],          // [{valor, descricao}] vindo de /api/dias-da-semana
+    recarregar: null,  // recarrega so os cartoes da tela atual, sem pular para o topo
     busca: '',
     filtroStatus: '',
     sorteado: null,    // id do manga que acabou de sair no sorteio
@@ -144,6 +146,60 @@ function abrirDialogoReler(manga, ultimo) {
 
 // ------------------------------------------------------------------ grade
 
+/** Dia de hoje no relogio de quem esta usando o site (o servidor pode estar em outro fuso). */
+function diaDeHoje() {
+    return ['DOMINGO', 'SEGUNDA', 'TERCA', 'QUARTA', 'QUINTA', 'SEXTA', 'SABADO'][new Date().getDay()];
+}
+
+function descricaoDia(valor) {
+    const dia = estado.dias.find(d => d.valor === valor);
+    return dia ? dia.descricao : valor;
+}
+
+function abas(atual) {
+    const aba = (nome, endereco, texto) => h('a', {
+        class: 'aba',
+        href: endereco,
+        'aria-current': atual === nome ? 'page' : null,
+    }, texto);
+    return h('nav', {class: 'abas', 'aria-label': 'Listas'},
+        aba('todos', '#/', 'Todos os mangás'),
+        aba('hoje', '#/hoje', 'Lançam hoje'));
+}
+
+/** Aba dos mangas que estou lendo e que lancam capitulo no dia de hoje. */
+function telaHoje() {
+    const lista = h('div', {class: 'grade'});
+    const hoje = diaDeHoje();
+    document.title = 'Lançam hoje · Meus Mangás';
+    app.replaceChildren(
+        abas('hoje'),
+        h('p', {class: 'subtitulo'}, descricaoDia(hoje), ' · mangás que você está lendo e que lançam capítulo hoje'),
+        lista);
+    estado.recarregar = () => carregarHoje(lista, hoje);
+    carregarHoje(lista, hoje);
+}
+
+async function carregarHoje(lista, hoje) {
+    const vez = ++estado.render;
+    let mangas;
+    try {
+        mangas = await chamar('GET', '/api/mangas/lancamentos?dia=' + hoje);
+    } catch (e) {
+        if (vez === estado.render) lista.replaceChildren(vazio('Algo deu errado', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    if (mangas.length === 0) {
+        lista.className = '';
+        lista.replaceChildren(vazio('Nenhum lançamento hoje',
+            'Para um mangá aparecer aqui, deixe-o com o status Lendo e escolha o dia de lançamento na edição geral.'));
+        return;
+    }
+    lista.className = 'grade';
+    lista.replaceChildren(...mangas.map(cartao));
+}
+
 function telaGrade() {
     const lista = h('div', {class: 'grade'});
     const busca = h('input', {
@@ -175,7 +231,9 @@ function telaGrade() {
         }, opcao.descricao));
     }
 
+    estado.recarregar = () => carregarGrade(lista);
     app.replaceChildren(
+        abas('todos'),
         h('div', {class: 'ferramentas'},
             busca,
             h('span', {class: 'espaco'}),
@@ -277,7 +335,10 @@ async function telaDetalhes(id) {
                 h('h1', null, manga.title),
                 h('div', {class: 'linha'},
                     etiquetaStatus(manga.readingStatus),
-                    h('span', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, mostrarCapitulo(manga.lastChapter)))),
+                    h('span', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, mostrarCapitulo(manga.lastChapter))),
+                    manga.releaseDay
+                        ? h('span', {class: 'capitulo-atual'}, '· Capítulo novo: ', h('b', null, descricaoDia(manga.releaseDay)))
+                        : null),
                 manga.tags.length ? h('div', {class: 'linha'}, manga.tags.map(tag => h('span', {class: 'tag'}, tag))) : null,
                 h('div', {class: 'linha'},
                     botaoLer(manga),
@@ -351,9 +412,8 @@ function abrirDialogoProgresso(manga) {
             await chamar('PATCH', '/api/mangas/' + manga.id + '/progresso', {lastChapter: numero, readingStatus: status.value});
             dialogo.close();
             avisar('Progresso salvo');
-            // na grade so recarrega os cartoes, para a pagina nao pular para o topo
-            const grade = document.querySelector('.grade');
-            if (grade) carregarGrade(grade);
+            // nas listas so recarrega os cartoes, para a pagina nao pular para o topo
+            if (estado.recarregar) estado.recarregar();
             else rota();
         } catch (e) {
             erro.textContent = e.message;
@@ -403,6 +463,17 @@ async function telaFormulario(id) {
         manga ? manga.decimalFormat : 'HIFEN');
     const capitulo = h('input', {type: 'text', inputmode: 'decimal', required: true, autocomplete: 'off', value: manga ? mostrarCapitulo(manga.lastChapter) : '0'});
     const status = seletor(estado.status, manga ? manga.readingStatus : 'LENDO');
+    const dia = seletor([{valor: '', descricao: 'Sem dia definido'}, ...estado.dias], manga && manga.releaseDay ? manga.releaseDay : '');
+    const avisoDia = h('small');
+    // o dia de lancamento so existe para o que estou lendo
+    const ajustarDia = () => {
+        const lendo = status.value === 'LENDO';
+        dia.disabled = !lendo;
+        if (!lendo) dia.value = '';
+        avisoDia.textContent = lendo ? 'Aparece na aba “Lançam hoje” nesse dia.' : 'Só para mangás com status Lendo.';
+    };
+    status.addEventListener('change', ajustarDia);
+    ajustarDia();
     const tags = h('input', {type: 'text', placeholder: 'Ação, Fantasia', value: manga ? manga.tags.join(', ') : ''});
     const descricao = h('textarea', {maxlength: '5000'}, manga ? manga.description : '');
     const arquivo = h('input', {type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', id: 'arquivo-capa'});
@@ -467,7 +538,8 @@ async function telaFormulario(id) {
                 h('label', {class: 'campo'}, h('span', null, 'Capítulos “,5” no link'), formato)),
             h('div', {class: 'dupla'},
                 h('label', {class: 'campo'}, h('span', null, 'Status'), status),
-                h('label', {class: 'campo'}, h('span', null, 'Tags'), tags, h('small', null, 'Separadas por vírgula.'))),
+                h('label', {class: 'campo'}, h('span', null, 'Dia de lançamento'), dia, avisoDia)),
+            h('label', {class: 'campo'}, h('span', null, 'Tags'), tags, h('small', null, 'Separadas por vírgula.')),
             h('label', {class: 'campo'}, h('span', null, 'Descrição'), descricao),
             erro,
             h('div', {class: 'acoes-form'},
@@ -508,6 +580,7 @@ async function telaFormulario(id) {
                 decimalFormat: formato.value,
                 lastChapter: numero,
                 readingStatus: status.value,
+                releaseDay: dia.value || null,
                 description: descricao.value,
             };
             const salvo = manga
@@ -537,9 +610,11 @@ function rota() {
     const partes = location.hash.replace(/^#\/?/, '').split('/');
     document.title = 'Meus Mangás';
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
+    estado.recarregar = null;
 
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1]);
     estado.sorteado = null;
+    if (partes[0] === 'hoje') return telaHoje();
     if (partes[0] === 'novo') return telaFormulario(null);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
     return telaGrade();
@@ -547,9 +622,10 @@ function rota() {
 
 async function iniciar() {
     try {
-        [estado.status, estado.formatos] = await Promise.all([
+        [estado.status, estado.formatos, estado.dias] = await Promise.all([
             chamar('GET', '/api/status'),
             chamar('GET', '/api/formatos-decimais'),
+            chamar('GET', '/api/dias-da-semana'),
         ]);
     } catch (e) {
         app.replaceChildren(vazio('Não foi possível carregar', e.message));

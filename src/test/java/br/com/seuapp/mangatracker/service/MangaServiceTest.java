@@ -4,9 +4,11 @@ import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidImageException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
 import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
@@ -340,6 +342,93 @@ class MangaServiceTest {
         service.excluirManga(a.getId());
 
         assertTrue(imagemService.existe(imagem));
+    }
+
+    // ------------------------------------------------------------------ dia de lancamento
+
+    private static DadosManga comDia(String titulo, ReadingStatus status, WeekDay dia) {
+        return new DadosManga(titulo, CAPA, null, LINK, null, BigDecimal.ONE, status, "", dia);
+    }
+
+    @Test
+    void guardaODiaDeLancamentoDeQuemEstaLendo() {
+        Manga salvo = service.salvarManga(comDia("Solo Leveling", ReadingStatus.LENDO, WeekDay.QUARTA));
+
+        assertEquals(WeekDay.QUARTA, salvo.getReleaseDay());
+        Manga lido = new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow();
+        assertEquals(WeekDay.QUARTA, lido.getReleaseDay());
+    }
+
+    @Test
+    void oDiaDeLancamentoEOpcional() {
+        Manga salvo = service.salvarManga(comDia("Solo Leveling", ReadingStatus.LENDO, null));
+
+        assertEquals(null, salvo.getReleaseDay());
+    }
+
+    @Test
+    void soQuemEstaLendoPodeTerDiaDeLancamento() {
+        for (ReadingStatus status : ReadingStatus.values()) {
+            if (status == ReadingStatus.LENDO) {
+                continue;
+            }
+            assertThrows(InvalidReleaseDayException.class, () -> service.salvarManga(comDia("T", status, WeekDay.SEGUNDA)), status.name());
+        }
+        assertTrue(repository.listarTodos().isEmpty());
+
+        Manga lendo = service.salvarManga(comDia("T", ReadingStatus.LENDO, WeekDay.SEGUNDA));
+        assertThrows(InvalidReleaseDayException.class,
+                () -> service.editarManga(lendo.getId(), comDia("T", ReadingStatus.HIATUS, WeekDay.SEGUNDA)));
+        assertEquals(ReadingStatus.LENDO, service.buscarPorId(lendo.getId()).getReadingStatus());
+    }
+
+    @Test
+    void edicaoGeralTrocaOuTiraODia() {
+        Manga salvo = service.salvarManga(comDia("T", ReadingStatus.LENDO, WeekDay.SEGUNDA));
+
+        assertEquals(WeekDay.SEXTA, service.editarManga(salvo.getId(), comDia("T", ReadingStatus.LENDO, WeekDay.SEXTA)).getReleaseDay());
+        assertEquals(null, service.editarManga(salvo.getId(), comDia("T", ReadingStatus.LENDO, null)).getReleaseDay());
+        assertEquals(null, service.buscarPorId(salvo.getId()).getReleaseDay());
+    }
+
+    @Test
+    void sairDeLendoApagaODiaDeLancamento() {
+        Manga salvo = service.salvarManga(comDia("T", ReadingStatus.LENDO, WeekDay.QUARTA));
+
+        // mudar so o capitulo, ou repetir o status Lendo, mantem o dia
+        assertEquals(WeekDay.QUARTA, service.atualizarProgresso(salvo.getId(), BigDecimal.TEN, null).getReleaseDay());
+        assertEquals(WeekDay.QUARTA, service.atualizarProgresso(salvo.getId(), null, ReadingStatus.LENDO).getReleaseDay());
+
+        assertEquals(null, service.atualizarProgresso(salvo.getId(), null, ReadingStatus.HIATUS).getReleaseDay());
+        assertEquals(null, service.buscarPorId(salvo.getId()).getReleaseDay());
+        // voltar a ler nao traz o dia antigo de volta
+        assertEquals(null, service.atualizarProgresso(salvo.getId(), null, ReadingStatus.LENDO).getReleaseDay());
+    }
+
+    @Test
+    void listaOsLancamentosDoDia() {
+        service.salvarManga(comDia("Quarta 1", ReadingStatus.LENDO, WeekDay.QUARTA));
+        service.salvarManga(comDia("Sexta", ReadingStatus.LENDO, WeekDay.SEXTA));
+        service.salvarManga(comDia("Sem dia", ReadingStatus.LENDO, null));
+        service.salvarManga(comDia("Em hiato", ReadingStatus.HIATUS, null));
+        Manga parou = service.salvarManga(comDia("Parou", ReadingStatus.LENDO, WeekDay.QUARTA));
+        service.salvarManga(comDia("Quarta 2", ReadingStatus.LENDO, WeekDay.QUARTA));
+        service.atualizarProgresso(parou.getId(), null, ReadingStatus.DROPADO);
+
+        assertEquals(List.of("Quarta 1", "Quarta 2"), titulos(service.listarLancamentos(WeekDay.QUARTA)));
+        assertEquals(List.of("Sexta"), titulos(service.listarLancamentos(WeekDay.SEXTA)));
+        assertEquals(List.of(), titulos(service.listarLancamentos(WeekDay.DOMINGO)));
+        assertThrows(NullInformationsException.class, () -> service.listarLancamentos(null));
+    }
+
+    @Test
+    void mangaAntigoComDiaMasSemEstarLendoNaoApareceNosLancamentos() {
+        // dado gravado direto no repositorio, como um arquivo editado a mao
+        Manga manga = new Manga("Antigo", CAPA, new java.util.ArrayList<>(), LINK, null, BigDecimal.ONE, ReadingStatus.CONCLUIDO, "");
+        manga.setReleaseDay(WeekDay.QUARTA);
+        repository.salvar(manga);
+
+        assertEquals(List.of(), titulos(service.listarLancamentos(WeekDay.QUARTA)));
     }
 
     // ------------------------------------------------------------------ sorteio

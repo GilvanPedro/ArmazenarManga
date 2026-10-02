@@ -17,6 +17,15 @@ const FORMATOS = {
     PONTO: { separador: '.', descricao: 'X.5' },
     UNDERLINE: { separador: '_', descricao: 'X_5' },
 };
+const DIAS = {
+    SEGUNDA: 'Segunda-feira',
+    TERCA: 'Terça-feira',
+    QUARTA: 'Quarta-feira',
+    QUINTA: 'Quinta-feira',
+    SEXTA: 'Sexta-feira',
+    SABADO: 'Sábado',
+    DOMINGO: 'Domingo',
+};
 // nao ha mais o que ler nesses, entao nao entram no sorteio
 const FORA_DO_SORTEIO = ['CONCLUIDO', 'CANCELADO'];
 const MARCADOR = '{cap}';
@@ -174,6 +183,7 @@ async function montarManga(id, dados) {
     const lastChapter = lerCapituloSemValidarSinal(dados.lastChapter);
     const readingStatus = lerOpcao(dados.readingStatus, STATUS, 'readingStatus');
     const decimalFormat = lerOpcao(dados.decimalFormat, FORMATOS, 'decimalFormat') || 'HIFEN';
+    const releaseDay = lerOpcao(dados.releaseDay, DIAS, 'releaseDay');
     const tags = montarTags(dados.tags);
 
     if (!title || title.trim() === '') throw new Recusa(400, 'O título é obrigatório');
@@ -194,6 +204,9 @@ async function montarManga(id, dados) {
     if (!isUrlHttp(imagem) && !(await imagemExiste(imagem))) {
         throw new Recusa(400, 'A imagem informada não existe. Envie a imagem antes de salvar o mangá');
     }
+    if (releaseDay && readingStatus !== 'LENDO') {
+        throw new Recusa(400, 'O dia de lançamento só pode ser definido para mangás com status Lendo');
+    }
 
     // mesma ordem de campos do mangas.json do backend Java
     return {
@@ -205,6 +218,7 @@ async function montarManga(id, dados) {
         decimalFormat,
         lastChapter,
         readingStatus,
+        releaseDay,
         description: description === null ? '' : description.trim(),
     };
 }
@@ -231,6 +245,7 @@ function resposta(manga) {
         decimalFormat: manga.decimalFormat || 'HIFEN',
         lastChapter: manga.lastChapter,
         readingStatus: manga.readingStatus,
+        releaseDay: manga.releaseDay ?? null,
         description: manga.description ?? '',
         firstChapterLink: montarLink(manga, 1),
         lastChapterLink: montarLink(manga, manga.lastChapter),
@@ -381,6 +396,10 @@ async function rotear(request) {
         return json(200, Object.entries(FORMATOS).map(([valor, formato]) => ({ valor, descricao: formato.descricao })));
     }
 
+    if (recurso === 'dias-da-semana' && partes.length === 1 && metodo === 'GET') {
+        return json(200, Object.entries(DIAS).map(([valor, descricao]) => ({ valor, descricao })));
+    }
+
     if (recurso === 'imagens') {
         if (partes.length === 1 && metodo === 'POST') return enviarImagem(request);
         if (partes.length === 2 && metodo === 'GET') return baixarImagem(id);
@@ -395,6 +414,16 @@ async function rotear(request) {
             const manga = await montarManga(randomUUID(), await lerCorpo(request));
             await salvar(manga);
             return json(201, resposta(manga));
+        }
+        // o dia vem do navegador (?dia=QUARTA), porque "hoje" depende do fuso de quem esta usando
+        if (partes.length === 2 && id === 'lancamentos' && metodo === 'GET') {
+            const dia = (url.searchParams.get('dia') || '').trim().toUpperCase();
+            if (!Object.hasOwn(DIAS, dia)) {
+                throw new Recusa(400, 'Dia inválido. Use um de: [' + Object.keys(DIAS).join(', ') + ']');
+            }
+            const mangas = (await listarTodos())
+                .filter(manga => manga.readingStatus === 'LENDO' && manga.releaseDay === dia);
+            return json(200, mangas.map(resposta));
         }
         if (partes.length === 2 && id === 'sorteio' && metodo === 'GET') {
             const candidatos = (await listar(null, lerStatusDaBusca(url)))
@@ -426,10 +455,13 @@ async function rotear(request) {
             if (lastChapter === null && !readingStatus) {
                 throw new Recusa(400, 'Informe o último capítulo lido ou o status');
             }
+            const novoStatus = readingStatus || atual.readingStatus;
             const atualizado = {
                 ...atual,
                 lastChapter: lastChapter === null ? atual.lastChapter : lastChapter,
-                readingStatus: readingStatus || atual.readingStatus,
+                readingStatus: novoStatus,
+                // o dia de lancamento so vale enquanto o manga esta sendo lido
+                releaseDay: novoStatus === 'LENDO' ? atual.releaseDay ?? null : null,
             };
             await salvar(atualizado);
             return json(200, resposta(atualizado));

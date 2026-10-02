@@ -4,6 +4,7 @@ import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.PersistenciaException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -141,6 +142,17 @@ class JsonMangaRepositoryTest {
 
         assertEquals(ChapterDecimalFormat.HIFEN, manga.getDecimalFormat());
         assertEquals("Ação", manga.getTags().get(0).getNome());
+        assertEquals(null, manga.getReleaseDay()); // arquivo de antes de existir o dia de lancamento
+    }
+
+    @Test
+    void guardaODiaDeLancamento() throws IOException {
+        Manga manga = novoManga("Solo Leveling", "1");
+        manga.setReleaseDay(WeekDay.SABADO);
+        new JsonMangaRepository(arquivo).salvar(manga);
+
+        assertEquals(WeekDay.SABADO, new JsonMangaRepository(arquivo).buscarPorId(manga.getId()).orElseThrow().getReleaseDay());
+        assertTrue(Files.readString(arquivo).contains("\"releaseDay\": \"SABADO\""));
     }
 
     @Test

@@ -4,6 +4,7 @@ import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
+import br.com.seuapp.mangatracker.domain.WeekDay;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import java.math.BigDecimal;
@@ -17,7 +18,7 @@ import java.util.UUID;
  */
 @JsonPropertyOrder({
         "id", "title", "imagePath", "tags", "chapterLinkModel", "decimalFormat",
-        "lastChapter", "readingStatus", "description"
+        "lastChapter", "readingStatus", "releaseDay", "description"
 })
 record MangaJson(
         UUID id,
@@ -28,6 +29,7 @@ record MangaJson(
         ChapterDecimalFormat decimalFormat,
         BigDecimal lastChapter,
         ReadingStatus readingStatus,
+        WeekDay releaseDay,
         String description
 ) {
 
@@ -41,6 +43,7 @@ record MangaJson(
                 manga.getDecimalFormat(),
                 manga.getLastChapter(),
                 manga.getReadingStatus(),
+                manga.getReleaseDay(),
                 manga.getDescription()
         );
     }
@@ -50,7 +53,7 @@ record MangaJson(
         if (tags != null) {
             tags.forEach(nome -> tagsDoManga.add(new Tag(nome)));
         }
-        return new Manga(
+        Manga manga = new Manga(
                 id,
                 title,
                 imagePath,
@@ -61,5 +64,7 @@ record MangaJson(
                 readingStatus,
                 description
         );
+        manga.setReleaseDay(releaseDay);
+        return manga;
     }
 }
