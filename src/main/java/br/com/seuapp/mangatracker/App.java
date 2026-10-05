@@ -10,6 +10,7 @@ import br.com.seuapp.mangatracker.service.BuscadorHttp;
 import br.com.seuapp.mangatracker.service.ClienteHttpPadrao;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.MangaService;
+import br.com.seuapp.mangatracker.service.RecomendacaoService;
 import br.com.seuapp.mangatracker.service.SinopseService;
 import br.com.seuapp.mangatracker.service.VerificadorDeLink;
 import br.com.seuapp.mangatracker.web.ApiServer;
@@ -77,8 +78,8 @@ public class App {
         MangaService mangaService = new MangaService(repository, imagemService, new VerificadorDeLink(new BuscadorHttp()));
         Credenciais credenciais = senha.isBlank() ? null : new Credenciais(usuario, senha);
 
-        SinopseService sinopseService = new SinopseService(new ClienteHttpPadrao());
-        new ApiServer(mangaService, imagemService, origens, credenciais, sinopseService).criar().start(host, porta);
+        ClienteHttpPadrao internet = new ClienteHttpPadrao();
+        new ApiServer(mangaService, imagemService, origens, credenciais, new SinopseService(internet), new RecomendacaoService(internet)).criar().start(host, porta);
         System.out.println("Meus Mangás aberto em http://localhost:" + porta
                 + (credenciais == null ? "" : " (usuário: " + usuario + ")"));
         if (!soEsteComputador) {

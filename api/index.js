@@ -5,8 +5,12 @@ import pg from 'pg';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
+import { criarBuscadorDeRecomendacoes } from './_recomendacoes.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
+const buscarRecomendacoes = criarBuscadorDeRecomendacoes();
+const TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
+const TAMANHO_MAXIMO_DA_PAGINA = 100;
 
 const verificar = criarVerificador(criarBuscador());
 
@@ -392,6 +396,15 @@ async function lerCorpo(request) {
     return corpo;
 }
 
+function lerInteiroPositivo(url, nome, padrao) {
+    const valor = (url.searchParams.get(nome) || '').trim();
+    if (valor === '') return padrao;
+    if (!/^\d{1,9}$/.test(valor) || Number(valor) < 1) {
+        throw new Recusa(400, `O parâmetro '${nome}' precisa ser um número a partir de 1`);
+    }
+    return Number(valor);
+}
+
 function lerStatusDaBusca(url) {
     const status = (url.searchParams.get('status') || '').trim().toUpperCase();
     if (status === '') return null;
@@ -452,8 +465,16 @@ async function rotear(request) {
 
     if (recurso === 'mangas') {
         if (partes.length === 1 && metodo === 'GET') {
-            const mangas = await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url));
-            return json(200, mangas.map(resposta));
+            const mangas = (await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url))).map(resposta);
+            // sem ?pagina devolve a lista inteira (usada por quem precisa de todos, como a busca de mangas);
+            // com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos
+            if (!url.searchParams.has('pagina')) return json(200, mangas);
+            const tamanho = Math.min(TAMANHO_MAXIMO_DA_PAGINA, lerInteiroPositivo(url, 'tamanho', TAMANHO_DA_PAGINA));
+            const paginas = Math.max(1, Math.ceil(mangas.length / tamanho));
+            // pagina alem do fim (um manga foi excluido, por exemplo) vira a ultima
+            const pagina = Math.min(paginas, lerInteiroPositivo(url, 'pagina', 1));
+            const inicio = (pagina - 1) * tamanho;
+            return json(200, { itens: mangas.slice(inicio, inicio + tamanho), pagina, tamanho, total: mangas.length, paginas });
         }
         if (partes.length === 1 && metodo === 'POST') {
             const manga = await montarManga(randomUUID(), await lerCorpo(request));
@@ -533,6 +554,12 @@ async function rotear(request) {
             // pelo modelo daria um link errado, entao abre o ultimo lido, que tem o botao de proximo do site
             if (situacao === 'NAO_VERIFICADO' && !manga.nextChapterUrl && manga.lastChapterUrl) destino = manga.lastChapterUrl;
             return new Response(null, { status: 302, headers: { Location: destino } });
+        }
+        // mangas parecidos com este que ainda nao estao na lista, buscados na internet
+        if (partes.length === 3 && acao === 'recomendacoes' && metodo === 'GET') {
+            const manga = await buscarPorId(id);
+            const cadastrados = (await listarTodos()).map(cadastrado => cadastrado.title);
+            return json(200, await buscarRecomendacoes(manga.title, cadastrados));
         }
         if (partes.length === 3 && acao === 'capitulo-lido' && metodo === 'POST') {
             const atual = await buscarPorId(id);

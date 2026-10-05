@@ -81,13 +81,14 @@ para acordar no próximo acesso.
 
 | Método   | Rota                          | O que faz                                                                 |
 |----------|-------------------------------|---------------------------------------------------------------------------|
-| `GET`    | `/api/mangas`                 | Lista os mangás. Filtros opcionais: `?titulo=solo` e `?status=LENDO`      |
+| `GET`    | `/api/mangas`                 | Lista os mangás. Filtros opcionais: `?titulo=solo` e `?status=LENDO`. Com `?pagina=1` devolve uma página (24 por vez) em `{itens, pagina, tamanho, total, paginas}` |
 | `POST`   | `/api/mangas`                 | Cadastra um mangá                                                         |
 | `GET`    | `/api/mangas/{id}`            | Página de informações de um mangá                                         |
 | `PUT`    | `/api/mangas/{id}`            | Edição geral (todas as informações)                                       |
 | `PATCH`  | `/api/mangas/{id}/progresso`  | Altera só o último capítulo lido e/ou o status                            |
 | `DELETE` | `/api/mangas/{id}`            | Exclui o mangá (e a capa enviada)                                         |
 | `GET`    | `/api/mangas/{id}/ler`        | Confere o link no site e redireciona para o próximo capítulo ainda não lido |
+| `GET`    | `/api/mangas/{id}/recomendacoes` | Até 6 mangás de temas parecidos que ainda não estão na lista (fonte: AniList) |
 | `POST`   | `/api/mangas/{id}/capitulo-lido` | Registra o capítulo lido com o endereço exato da página dele (e do próximo, se conhecido) |
 | `POST`   | `/api/mangas/{id}/verificacao-link` | Confere no site o link do próximo capítulo e corrige se o endereço mudou |
 | `GET`    | `/api/mangas/lancamentos`     | Mangás com status Lendo que lançam capítulo no dia: `?dia=QUARTA`         |

@@ -8,6 +8,8 @@ const estado = {
     status: [],        // [{valor, descricao}] vindo de /api/status
     formatos: [],      // [{valor, descricao}] vindo de /api/formatos-decimais
     dias: [],          // [{valor, descricao}] vindo de /api/dias-da-semana
+    pagina: 1,         // pagina da grade que esta aberta
+    esperaDaBusca: null, // temporizador que espera a pessoa parar de digitar na busca
     recarregar: null,  // recarrega so os cartoes da tela atual, sem pular para o topo
     extensao: false,   // a extensao de navegador esta instalada e liberada para este site
     busca: '',
@@ -383,17 +385,18 @@ async function carregarHoje(lista, hoje) {
 
 function telaGrade() {
     const lista = h('div', {class: 'grade'});
+    const paginacao = h('nav', {class: 'paginacao', 'aria-label': 'Páginas'});
     const busca = h('input', {
         type: 'search',
         placeholder: 'Buscar pelo nome…',
         'aria-label': 'Buscar pelo nome',
         value: estado.busca,
     });
-    let espera;
     busca.addEventListener('input', () => {
         estado.busca = busca.value;
-        clearTimeout(espera);
-        espera = setTimeout(() => carregarGrade(lista), 180);
+        estado.pagina = 1;
+        clearTimeout(estado.esperaDaBusca);
+        estado.esperaDaBusca = setTimeout(() => carregarGrade(lista, paginacao), 180);
     });
 
     const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
@@ -407,12 +410,13 @@ function telaGrade() {
                 estado.filtroStatus = opcao.valor;
                 for (const botao of filtros.children) botao.setAttribute('aria-pressed', 'false');
                 evento.currentTarget.setAttribute('aria-pressed', 'true');
-                carregarGrade(lista);
+                estado.pagina = 1;
+                carregarGrade(lista, paginacao);
             },
         }, opcao.descricao));
     }
 
-    estado.recarregar = () => carregarGrade(lista);
+    estado.recarregar = () => carregarGrade(lista, paginacao);
     app.replaceChildren(
         abas('todos'),
         h('div', {class: 'ferramentas'},
@@ -420,36 +424,73 @@ function telaGrade() {
             h('span', {class: 'espaco'}),
             h('button', {type: 'button', class: 'botao', onclick: sortear}, '🎲 Sortear')),
         filtros,
-        lista);
-    carregarGrade(lista);
+        lista,
+        paginacao);
+    carregarGrade(lista, paginacao);
 }
 
-async function carregarGrade(lista) {
+/** Botoes para trocar de pagina: anterior, numeros (com "…" quando sao muitos) e proxima. */
+function paginador(pagina, paginas, irPara) {
+    const numeros = [...new Set([1, pagina - 1, pagina, pagina + 1, paginas])].filter(n => n >= 1 && n <= paginas).sort((x, y) => x - y);
+    const botoes = [];
+    numeros.forEach((numero, i) => {
+        if (i > 0 && numero - numeros[i - 1] > 1) botoes.push(h('span', {class: 'reticencias', 'aria-hidden': 'true'}, '…'));
+        botoes.push(h('button', {
+            type: 'button',
+            class: 'botao pequeno',
+            'aria-current': numero === pagina ? 'page' : null,
+            'aria-label': 'Página ' + numero,
+            onclick: () => irPara(numero),
+        }, String(numero)));
+    });
+    return [
+        h('button', {type: 'button', class: 'botao pequeno', disabled: pagina <= 1, onclick: () => irPara(pagina - 1)}, '← Anterior'),
+        ...botoes,
+        h('button', {type: 'button', class: 'botao pequeno', disabled: pagina >= paginas, onclick: () => irPara(pagina + 1)}, 'Próxima →'),
+    ];
+}
+
+/** Carrega so a pagina atual da grade (24 mangas: 4 fileiras de 6), em vez da lista inteira. */
+async function carregarGrade(lista, paginacao) {
     const vez = ++estado.render;
     const parametros = new URLSearchParams();
     if (estado.busca.trim()) parametros.set('titulo', estado.busca.trim());
     if (estado.filtroStatus) parametros.set('status', estado.filtroStatus);
+    const filtrando = parametros.toString() !== '';
+    parametros.set('pagina', estado.pagina);
 
-    let mangas;
+    let resposta;
     try {
-        mangas = await chamar('GET', '/api/mangas?' + parametros);
+        resposta = await chamar('GET', '/api/mangas?' + parametros);
     } catch (e) {
-        if (vez === estado.render) lista.replaceWith(vazio('Algo deu errado', e.message));
+        if (vez === estado.render) {
+            lista.className = '';
+            lista.replaceChildren(vazio('Algo deu errado', e.message));
+            paginacao.replaceChildren();
+        }
         return;
     }
     if (vez !== estado.render) return;
+    estado.pagina = resposta.pagina; // o servidor corrige uma pagina que deixou de existir
 
-    if (mangas.length === 0) {
-        const filtrando = parametros.toString() !== '';
+    if (resposta.total === 0) {
         lista.className = '';
         lista.replaceChildren(filtrando
             ? vazio('Nada encontrado', 'Nenhum mangá combina com a busca ou o filtro.')
             : vazio('Sua lista está vazia', 'Adicione o primeiro mangá que você está lendo.',
                 h('a', {class: 'botao primario', href: '#/novo'}, '+ Adicionar mangá')));
+        paginacao.replaceChildren();
         return;
     }
     lista.className = 'grade';
-    lista.replaceChildren(...mangas.map(cartao));
+    lista.replaceChildren(...resposta.itens.map(cartao));
+    const irPara = pagina => {
+        estado.pagina = pagina;
+        carregarGrade(lista, paginacao).then(() => window.scrollTo(0, 0));
+    };
+    paginacao.replaceChildren(
+        ...(resposta.paginas > 1 ? paginador(resposta.pagina, resposta.paginas, irPara) : []),
+        h('span', {class: 'total'}, resposta.total === 1 ? '1 mangá' : resposta.total + ' mangás'));
 }
 
 function cartao(manga) {
@@ -536,6 +577,7 @@ async function telaDetalhes(id, aviso) {
     }
     if (vez !== estado.render) return;
     document.title = manga.title + ' · Meus Mangás';
+    const recomendacoes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
 
     app.replaceChildren(h('div', null,
         h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
@@ -570,7 +612,37 @@ async function telaDetalhes(id, aviso) {
                         title: 'Abre o site e confere se o link do próximo capítulo está certo',
                         onclick: evento => verificarLink(manga, evento.currentTarget),
                     }, 'Verificar link'),
-                    h('button', {type: 'button', class: 'botao perigo', onclick: () => excluir(manga)}, 'Excluir'))))));
+                    h('button', {type: 'button', class: 'botao perigo', onclick: () => excluir(manga)}, 'Excluir')))),
+        recomendacoes));
+    carregarRecomendacoes(manga, recomendacoes, vez);
+}
+
+/**
+ * Mangas parecidos com este que ainda nao estao na lista. Chegam da internet depois de a pagina ja estar
+ * na tela, para nao atrasar o que importa; se nao houver nenhum, a secao simplesmente nao aparece.
+ */
+async function carregarRecomendacoes(manga, secao, vez) {
+    let lista;
+    try {
+        lista = await chamar('GET', '/api/mangas/' + manga.id + '/recomendacoes');
+    } catch (e) {
+        return;
+    }
+    if (vez !== estado.render || !Array.isArray(lista) || lista.length === 0) return;
+    secao.replaceChildren(
+        h('h2', null, 'Parecidos com este, para ler depois'),
+        h('p', {class: 'subtitulo'}, 'Mangás com temas semelhantes que ainda não estão na sua lista.'),
+        h('div', {class: 'grade'}, lista.map(recomendado => {
+            const imagem = recomendado.capa
+                ? h('img', {src: recomendado.capa, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'})
+                : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, recomendado.titulo.charAt(0).toUpperCase());
+            const adicionar = new URLSearchParams({t: recomendado.titulo, i: recomendado.capa || ''});
+            return h('article', {class: 'cartao'},
+                h('a', {class: 'capa', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': recomendado.titulo + ' (abre o AniList)'}, imagem),
+                h('a', {class: 'cartao-titulo', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', title: recomendado.titulo}, recomendado.titulo),
+                h('small', {class: 'generos'}, recomendado.generos.slice(0, 3).join(' · ')),
+                h('a', {class: 'botao pequeno', href: '#/novo?' + adicionar}, '+ Adicionar'));
+        })));
 }
 
 async function excluir(manga) {
@@ -713,13 +785,19 @@ async function telaFormulario(id, consulta) {
     const capturado = new URLSearchParams(id ? '' : consulta || '');
     const paginaLida = ehLinkHttp(capturado.get('u') || '') ? capturado.get('u').trim() : null;
     const capituloLido = paginaLida ? capituloDoLink(paginaLida) : null;
-    const pronto = paginaLida && {
+    const imagemInformada = ehLinkHttp(capturado.get('i') || '') ? capturado.get('i').trim() : '';
+    let pronto = paginaLida && {
         titulo: tituloDoManga(capturado.get('t'), paginaLida),
         link: modeloDoLink(paginaLida, capituloLido),
         capitulo: capituloLido == null ? '' : mostrarCapitulo(capituloLido),
-        imagem: ehLinkHttp(capturado.get('i') || '') ? capturado.get('i').trim() : '',
+        imagem: imagemInformada,
         proximo: ehLinkHttp(capturado.get('p') || '') ? capturado.get('p').trim() : null,
     };
+    // vindo de uma recomendacao: so o nome e a capa sao conhecidos; o link de leitura e com quem cadastra
+    const recomendado = !id && !paginaLida && (capturado.get('t') || '').trim() !== '';
+    if (recomendado) {
+        pronto = {titulo: capturado.get('t').trim().slice(0, 200), link: '', capitulo: '0', imagem: imagemInformada, proximo: null};
+    }
     let manga = null;
     if (id) {
         try {
@@ -745,7 +823,7 @@ async function telaFormulario(id, consulta) {
     const formato = seletor(estado.formatos.map(f => ({valor: f.valor, descricao: f.descricao.replace('X', '48')})),
         manga ? manga.decimalFormat : 'HIFEN');
     const capitulo = h('input', {type: 'text', inputmode: 'decimal', required: true, autocomplete: 'off', value: manga ? mostrarCapitulo(manga.lastChapter) : pronto && pronto.capitulo ? pronto.capitulo : '0'});
-    const status = seletor(estado.status, manga ? manga.readingStatus : 'LENDO');
+    const status = seletor(estado.status, manga ? manga.readingStatus : recomendado ? 'LER' : 'LENDO');
     const dia = seletor([{valor: '', descricao: 'Sem dia definido'}, ...estado.dias], manga && manga.releaseDay ? manga.releaseDay : '');
     const avisoDia = h('small');
     // o dia de lancamento so existe para o que estou lendo
@@ -880,7 +958,7 @@ async function telaFormulario(id, consulta) {
             const salvo = manga
                 ? await chamar('PUT', '/api/mangas/' + manga.id, dados)
                 : await chamar('POST', '/api/mangas', dados);
-            if (pronto) {
+            if (pronto && paginaLida) {
                 // cadastro vindo de uma pagina de capitulo: guarda tambem o endereco exato dela (e do proximo)
                 try {
                     await chamar('POST', '/api/mangas/' + salvo.id + '/capitulo-lido',
@@ -902,11 +980,14 @@ async function telaFormulario(id, consulta) {
     app.replaceChildren(h('div', {class: 'formulario'},
         h('a', {class: 'voltar', href: voltarPara}, '← Voltar'),
         h('h1', null, manga ? 'Edição geral' : 'Novo mangá'),
-        pronto
+        recomendado
             ? h('div', {class: 'sorteado', role: 'status'},
-                h('span', null, 'Este mangá não estava na sua lista. Preenchi o que deu para descobrir pela página; confira antes de cadastrar.'),
-                h('a', {class: 'botao pequeno', href: '#/capturar?' + capturado + '&escolher=1'}, 'Ele já está na lista'))
-            : null,
+                h('span', null, 'Preenchi o nome, a capa e a descrição. Falta o link de onde você vai ler: abra um capítulo no site de leitura, copie o endereço e troque o número do capítulo por {cap}.'))
+            : pronto
+                ? h('div', {class: 'sorteado', role: 'status'},
+                    h('span', null, 'Este mangá não estava na sua lista. Preenchi o que deu para descobrir pela página; confira antes de cadastrar.'),
+                    h('a', {class: 'botao pequeno', href: '#/capturar?' + capturado + '&escolher=1'}, 'Ele já está na lista'))
+                : null,
         formulario));
     mostrarPrevia();
     mostrarExemplo();
@@ -1299,6 +1380,8 @@ function rota() {
     document.title = 'Meus Mangás';
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     estado.recarregar = null;
+    // uma busca digitada logo antes de trocar de tela nao pode disparar depois e atrapalhar a tela nova
+    clearTimeout(estado.esperaDaBusca);
 
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;

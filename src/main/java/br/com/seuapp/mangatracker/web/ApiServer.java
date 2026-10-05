@@ -14,6 +14,7 @@ import br.com.seuapp.mangatracker.domain.exceptions.PersistenciaException;
 import br.com.seuapp.mangatracker.service.DadosManga;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.MangaServiceInterface;
+import br.com.seuapp.mangatracker.service.RecomendacaoService;
 import br.com.seuapp.mangatracker.service.ResultadoVerificacao;
 import br.com.seuapp.mangatracker.service.SinopseService;
 import br.com.seuapp.mangatracker.service.SituacaoDoLink;
@@ -53,6 +54,7 @@ public class ApiServer {
     private final List<String> origensPermitidas;
     private final Credenciais credenciais;
     private final SinopseService sinopseService;
+    private final RecomendacaoService recomendacaoService;
     private final ObjectMapper mapper = JsonMapper.builder()
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -69,6 +71,13 @@ public class ApiServer {
 
     /** @param sinopseService busca na internet a descricao dos mangas para preencher o cadastro */
     public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais, SinopseService sinopseService) {
+        this(mangaService, imagemService, origensPermitidas, credenciais, sinopseService, new RecomendacaoService(SEM_INTERNET));
+    }
+
+    /** @param recomendacaoService busca na internet mangas parecidos com os da lista */
+    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais,
+                     SinopseService sinopseService, RecomendacaoService recomendacaoService) {
+        this.recomendacaoService = recomendacaoService;
         this.sinopseService = sinopseService;
         this.mangaService = mangaService;
         this.imagemService = imagemService;
@@ -118,6 +127,7 @@ public class ApiServer {
             config.routes.get("/api/mangas/{id}/ler", this::ler);
             config.routes.post("/api/mangas/{id}/verificacao-link", this::verificarLink);
             config.routes.post("/api/mangas/{id}/capitulo-lido", this::registrarLeitura);
+            config.routes.get("/api/mangas/{id}/recomendacoes", this::recomendar);
 
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
@@ -200,11 +210,55 @@ public class ApiServer {
 
     // ------------------------------------------------------------------ mangas
 
+    static final int TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
+    private static final int TAMANHO_MAXIMO_DA_PAGINA = 100;
+
+    private record PaginaResponse(List<MangaResponse> itens, int pagina, int tamanho, int total, int paginas) {
+    }
+
+    /**
+     * Sem ?pagina devolve a lista inteira (usada por quem precisa de todos, como a busca de mangas).
+     * Com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos.
+     */
     private void listar(Context ctx) throws JsonProcessingException {
         List<MangaResponse> mangas = mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx)).stream()
                 .map(MangaResponse::de)
                 .toList();
-        json(ctx, HttpStatus.OK, mangas);
+        if (ctx.queryParam("pagina") == null) {
+            json(ctx, HttpStatus.OK, mangas);
+            return;
+        }
+        int tamanho = Math.min(TAMANHO_MAXIMO_DA_PAGINA, lerInteiroPositivo(ctx, "tamanho", TAMANHO_DA_PAGINA));
+        int paginas = Math.max(1, (mangas.size() + tamanho - 1) / tamanho);
+        // pagina alem do fim (um manga foi excluido, por exemplo) vira a ultima
+        int pagina = Math.min(paginas, lerInteiroPositivo(ctx, "pagina", 1));
+        int inicio = (pagina - 1) * tamanho;
+        json(ctx, HttpStatus.OK, new PaginaResponse(
+                mangas.subList(Math.min(inicio, mangas.size()), Math.min(inicio + tamanho, mangas.size())),
+                pagina, tamanho, mangas.size(), paginas));
+    }
+
+    private int lerInteiroPositivo(Context ctx, String nome, int padrao) {
+        String valor = ctx.queryParam(nome);
+        if (valor == null || valor.isBlank()) {
+            return padrao;
+        }
+        try {
+            int numero = Integer.parseInt(valor.trim());
+            if (numero >= 1) {
+                return numero;
+            }
+        } catch (NumberFormatException e) {
+            // cai no erro abaixo
+        }
+        throw new RequisicaoInvalidaException("O parâmetro '" + nome + "' precisa ser um número a partir de 1");
+    }
+
+    /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet. */
+    private void recomendar(Context ctx) throws JsonProcessingException {
+        Manga manga = mangaService.buscarPorId(lerId(ctx));
+        List<String> cadastrados = mangaService.listarMangas(null, null).stream().map(Manga::getTitle).toList();
+        json(ctx, HttpStatus.OK, recomendacaoService.buscar(manga.getTitle(), cadastrados));
     }
 
     private void cadastrar(Context ctx) throws JsonProcessingException {

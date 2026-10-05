@@ -6,6 +6,8 @@ import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.ImagemServiceTest;
 import br.com.seuapp.mangatracker.service.MangaService;
 import br.com.seuapp.mangatracker.service.PaginaWeb;
+import br.com.seuapp.mangatracker.service.RecomendacaoService;
+import br.com.seuapp.mangatracker.service.RecomendacaoServiceTest;
 import br.com.seuapp.mangatracker.service.SinopseService;
 import br.com.seuapp.mangatracker.service.SinopseServiceTest;
 import br.com.seuapp.mangatracker.service.VerificadorDeLink;
@@ -403,6 +405,109 @@ class ApiServerTest {
         assertEquals(302, ler.statusCode());
         assertEquals(CAP + "49", ler.headers().firstValue("Location").orElseThrow());
         assertEquals("NAO_VERIFICADO", json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null)).get("situacao").asText());
+    }
+
+    // ------------------------------------------------------------------ paginacao
+
+    @Test
+    void semPedirPaginaAListaContinuaInteira() throws Exception {
+        for (int i = 1; i <= 30; i++) {
+            cadastrar("Manga " + i, "1", "LENDO");
+        }
+
+        JsonNode tudo = json(enviar("GET", "/api/mangas", null));
+
+        assertTrue(tudo.isArray());
+        assertEquals(30, tudo.size());
+    }
+
+    @Test
+    void devolveUmaPaginaPorVezComOTotal() throws Exception {
+        for (int i = 1; i <= 30; i++) {
+            cadastrar("Manga " + String.format("%02d", i), "1", i % 2 == 0 ? "LENDO" : "DROPADO");
+        }
+
+        JsonNode primeira = json(enviar("GET", "/api/mangas?pagina=1", null));
+        assertEquals(24, primeira.get("itens").size());
+        assertEquals("Manga 01", primeira.get("itens").get(0).get("title").asText());
+        assertEquals(1, primeira.get("pagina").asInt());
+        assertEquals(24, primeira.get("tamanho").asInt());
+        assertEquals(30, primeira.get("total").asInt());
+        assertEquals(2, primeira.get("paginas").asInt());
+
+        JsonNode segunda = json(enviar("GET", "/api/mangas?pagina=2", null));
+        assertEquals(6, segunda.get("itens").size());
+        assertEquals("Manga 25", segunda.get("itens").get(0).get("title").asText());
+        assertEquals("Manga 30", segunda.get("itens").get(5).get("title").asText());
+
+        // pagina alem do fim vira a ultima
+        JsonNode alem = json(enviar("GET", "/api/mangas?pagina=99", null));
+        assertEquals(2, alem.get("pagina").asInt());
+        assertEquals(6, alem.get("itens").size());
+
+        // junto com a busca e o filtro: o total e do que foi encontrado
+        JsonNode lendo = json(enviar("GET", "/api/mangas?pagina=1&status=LENDO&tamanho=10", null));
+        assertEquals(15, lendo.get("total").asInt());
+        assertEquals(2, lendo.get("paginas").asInt());
+        assertEquals(10, lendo.get("itens").size());
+        assertEquals("Manga 02", lendo.get("itens").get(0).get("title").asText());
+        JsonNode busca = json(enviar("GET", "/api/mangas?pagina=1&titulo=manga%203", null));
+        assertEquals(1, busca.get("total").asInt());
+        assertEquals(1, busca.get("paginas").asInt());
+
+        assertEquals(100, json(enviar("GET", "/api/mangas?pagina=1&tamanho=5000", null)).get("tamanho").asInt());
+        for (String invalido : List.of("pagina=0", "pagina=-1", "pagina=abc", "pagina=1&tamanho=0", "pagina=1&tamanho=x")) {
+            assertEquals(400, enviar("GET", "/api/mangas?" + invalido, null).statusCode(), invalido);
+        }
+    }
+
+    @Test
+    void listaVaziaTemUmaPaginaSemItens() throws Exception {
+        JsonNode pagina = json(enviar("GET", "/api/mangas?pagina=1", null));
+
+        assertEquals(0, pagina.get("itens").size());
+        assertEquals(0, pagina.get("total").asInt());
+        assertEquals(1, pagina.get("paginas").asInt());
+        assertEquals(1, pagina.get("pagina").asInt());
+    }
+
+    // ------------------------------------------------------------------ recomendacoes
+
+    @Test
+    void recomendaMangasParecidosQueNaoEstaoNaLista() throws Exception {
+        app.stop();
+        RecomendacaoServiceTest.AniListFalso anilist = new RecomendacaoServiceTest.AniListFalso();
+        anilist.obra = RecomendacaoServiceTest.daObra("\"Action\"", "",
+                RecomendacaoServiceTest.obra(10, "Tower of God", "Sin-ui Tap", "\"Action\",\"Fantasy\""),
+                RecomendacaoServiceTest.obra(11, "Second Life Ranker", "Dubeon Saneun Ranker", "\"Action\""));
+        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
+        app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(new SinopseServiceTest.InternetFalsa()),
+                new RecomendacaoService(anilist)).criar().start("127.0.0.1", 0);
+        base = "http://127.0.0.1:" + app.port();
+        String id = cadastrar("Solo Leveling", "1", "LENDO").get("id").asText();
+        cadastrar("Tower of God", "1", "LER"); // ja esta na lista: nao pode ser sugerido
+
+        HttpResponse<String> resposta = enviar("GET", "/api/mangas/" + id + "/recomendacoes", null);
+
+        assertEquals(200, resposta.statusCode(), resposta.body());
+        JsonNode recomendacoes = json(resposta);
+        assertEquals(1, recomendacoes.size());
+        assertEquals("Second Life Ranker", recomendacoes.get(0).get("titulo").asText());
+        assertEquals("https://s4.anilist.co/capa11.jpg", recomendacoes.get(0).get("capa").asText());
+        assertEquals("Ação", recomendacoes.get(0).get("generos").get(0).asText());
+        assertEquals("https://anilist.co/manga/11", recomendacoes.get(0).get("link").asText());
+        assertEquals(404, enviar("GET", "/api/mangas/" + UUID.randomUUID() + "/recomendacoes", null).statusCode());
+    }
+
+    @Test
+    void semAcessoAInternetNaoHaRecomendacoes() throws Exception {
+        String id = cadastrar("Solo Leveling", "1", "LENDO").get("id").asText();
+
+        HttpResponse<String> resposta = enviar("GET", "/api/mangas/" + id + "/recomendacoes", null);
+
+        assertEquals(200, resposta.statusCode());
+        assertEquals("[]", resposta.body());
     }
 
     // ------------------------------------------------------------------ descricao buscada na internet
