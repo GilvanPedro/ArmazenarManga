@@ -434,6 +434,71 @@ class MangaServiceTest {
     }
 
     @Test
+    void avancarOCapituloJaDescobreESalvaOIdNovo() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.pagina("/title/obra/6880186-chapter-7", "<a href='/title/obra/6912345-chapter-8'>Next</a>")
+                    .pagina("/title/obra/6912345-chapter-8", "<a href='/title/obra/6954321-chapter-9'>Next</a>")
+                    .pagina("/title/obra/6954321-chapter-9", "ultimo lancado");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/title/obra/6880186-chapter-{cap}", "7"));
+
+            // so apertei "+1": sem verificar nada antes, o capitulo 8 ja fica com o id certo
+            Manga oito = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("8"), null);
+            assertEquals(site.url("/title/obra/6912345-chapter-8"), oito.linkUltimoCapitulo());
+
+            Manga nove = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("9"), null);
+            assertEquals(site.url("/title/obra/6954321-chapter-9"), nove.linkUltimoCapitulo());
+            assertEquals(site.url("/title/obra/6954321-chapter-9"),
+                    new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow().getLastChapterUrl());
+        }
+    }
+
+    @Test
+    void avancarOCapituloCorrigeOIdDaObraQueMudou() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.redireciona("/comics/obra-3ec3b16f/chapter/174", "/comics/obra-bd5bdaf8/chapter/174")
+                    .pagina("/comics/obra-bd5bdaf8/chapter/174", "<a href='/comics/obra-bd5bdaf8/chapter/175'>Next</a>")
+                    .pagina("/comics/obra-bd5bdaf8/chapter/175", "ok");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/comics/obra-3ec3b16f/chapter/{cap}", "174"));
+
+            Manga avancou = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("175"), null);
+
+            assertEquals(site.url("/comics/obra-bd5bdaf8/chapter/{cap}"), avancou.getChapterLinkModel());
+            assertEquals(site.url("/comics/obra-bd5bdaf8/chapter/175"), avancou.linkUltimoCapitulo());
+        }
+    }
+
+    @Test
+    void avancarOCapituloFuncionaMesmoComOSiteBloqueado() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.restoResponde(403);
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/manga/x/chapter/{cap}", "7"));
+
+            Manga avancou = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("8"), ReadingStatus.HIATUS);
+
+            assertEquals(new BigDecimal("8"), avancou.getLastChapter());
+            assertEquals(ReadingStatus.HIATUS, avancou.getReadingStatus());
+            assertEquals(site.url("/manga/x/chapter/8"), avancou.linkUltimoCapitulo());
+        }
+    }
+
+    @Test
+    void mudarSoOStatusOuVoltarCapituloNaoConsultaOSite() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/manga/x/chapter/{cap}", "7"));
+
+            comSite.atualizarProgresso(salvo.getId(), null, ReadingStatus.HIATUS);
+            comSite.atualizarProgresso(salvo.getId(), new BigDecimal("3"), null);
+            comSite.atualizarProgresso(salvo.getId(), new BigDecimal("50"), null);
+
+            assertEquals(List.of(), site.visitas());
+        }
+    }
+
+    @Test
     void pularCapitulosDescartaOsEnderecosExatos() throws Exception {
         try (SiteFalso site = new SiteFalso()) {
             site.pagina("/m/y/chapter-49-a1b2", "<a href='/m/y/chapter-50-zz9'>Next</a>").pagina("/m/y/chapter-50-zz9", "ok");

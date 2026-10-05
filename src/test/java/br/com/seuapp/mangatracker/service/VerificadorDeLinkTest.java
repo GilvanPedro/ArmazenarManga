@@ -164,6 +164,19 @@ class VerificadorDeLinkTest {
     }
 
     @Test
+    void achaOEnderecoDentroDosDadosDeUmaPaginaMontadaComJavaScript() {
+        // sem <a>: o endereco do proximo capitulo so aparece no JSON embutido, com as barras escapadas
+        site.pagina("/title/obra/6880186-chapter-7", "<div id=\"app\"></div><script>window.__DADOS__ = {\"prev\":\"\\/title\\/obra\\/6700000-chapter-6\","
+                        + "\"next\":{\"url\":\"\\/title\\/obra\\/6912345-chapter-8\"},\"outra\":\"/title/outra-obra/1-chapter-8\"}</script>")
+                .pagina("/title/obra/6912345-chapter-8", "ok");
+
+        Verificacao resultado = verificador.verificar(manga("/title/obra/6880186-chapter-{cap}", "7"));
+
+        assertEquals(SituacaoDoLink.DISPONIVEL, resultado.situacao());
+        assertEquals(site.url("/title/obra/6912345-chapter-8"), resultado.nextChapterUrl());
+    }
+
+    @Test
     void segueOLinkDeProximoMesmoSemNumeroNoEndereco() {
         site.pagina("/read/aaa111", "<a href='/read/000zzz'>Capítulo anterior</a> <a href='/read/bbb222'>Próximo capítulo</a>")
                 .pagina("/read/bbb222", "ok");

@@ -6,7 +6,11 @@
   "engines": {
     "node": "22.x"
   },
+  "scripts": {
+    "test": "node --test test-api/*.test.mjs"
+  },
   "dependencies": {
+    "node-html-parser": "^9.0.4",
     "pg": "^8.13.0"
   }
 }

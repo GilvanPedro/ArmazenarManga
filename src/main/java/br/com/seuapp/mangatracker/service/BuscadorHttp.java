@@ -27,7 +27,7 @@ public class BuscadorHttp implements BuscadorDePaginas {
 
     private static final int MAXIMO_DE_BYTES = 2 * 1024 * 1024;
     private static final int MAXIMO_DE_REDIRECIONAMENTOS = 5;
-    private static final Duration TEMPO_LIMITE = Duration.ofSeconds(8);
+    private static final Duration TEMPO_LIMITE = Duration.ofSeconds(6);
     private static final Set<Integer> REDIRECIONAMENTOS = Set.of(301, 302, 303, 307, 308);
     // alguns sites recusam quem nao se parece com um navegador
     private static final String NAVEGADOR = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";

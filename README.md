@@ -131,7 +131,11 @@ para nenhum site; funciona com qualquer um que entregue os links no HTML ou redi
 A resposta traz `situacao` (`DISPONIVEL`, `NAO_ENCONTRADO`, `LINK_QUEBRADO` ou `NAO_VERIFICADO`), `linkMudou`,
 `linkAnterior`, `mensagem` e o `manga` já corrigido. `NAO_VERIFICADO` acontece quando o site não responde ou bloqueia
 acessos automáticos; nesse caso nada é alterado. Só sites públicos são consultados: endereços da rede interna do
-servidor são recusados. Na versão do Vercel (`api/index.js`) essa verificação não existe.
+servidor são recusados.
+
+Ela roda sozinha em dois momentos: ao clicar em **Ler** (antes de abrir o capítulo) e ao **avançar o último capítulo
+lido** para o seguinte (para já salvar o link com o id novo). Também há o botão **Verificar link** na página do mangá.
+A versão do Vercel faz o mesmo em `api/_verificador.js`, com testes em `test-api/` (`npm test`).
 
 ### Sites que bloqueiam o servidor
 

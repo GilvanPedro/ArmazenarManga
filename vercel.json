@@ -3,6 +3,9 @@
   "framework": null,
   "buildCommand": null,
   "outputDirectory": "src/main/resources/public",
+  "functions": {
+    "api/index.js": { "maxDuration": 30 }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api?__rota=$1" }
   ],

@@ -9,6 +9,7 @@ import org.jsoup.nodes.Element;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -130,7 +131,35 @@ public class VerificadorDeLink {
                 melhor = semFragmento(endereco);
             }
         }
+        if (melhorNota < 80) {
+            String noTexto = acharNoTextoDaPagina(atual.html(), paginaAtual, proximo, formato);
+            if (noTexto != null) {
+                return noTexto;
+            }
+        }
         return melhor;
+    }
+
+    /**
+     * Sites montados com JavaScript nao trazem os links prontos, mas costumam trazer os enderecos dentro dos dados
+     * da pagina. Procura no texto bruto um endereco da mesma pasta da pagina atual que seja do proximo capitulo.
+     */
+    private static String acharNoTextoDaPagina(String html, URI paginaAtual, BigDecimal proximo, ChapterDecimalFormat formato) {
+        String caminho = paginaAtual.getRawPath() == null ? "" : paginaAtual.getRawPath();
+        String pasta = caminho.substring(0, caminho.lastIndexOf('/') + 1);
+        if (pasta.length() < 2) {
+            return null; // capitulos direto na raiz do site: qualquer endereco "combinaria"
+        }
+        String texto = html.replace("\\/", "/"); // dentro de JSON as barras vem como \/
+        String origem = paginaAtual.getScheme() + "://" + paginaAtual.getRawAuthority();
+        Matcher achado = Pattern.compile(Pattern.quote(pasta) + "[^\"'\\s<>\\\\?#]+").matcher(texto);
+        while (achado.find()) {
+            String endereco = origem + achado.group();
+            if (!ChapterLink.mesmoEndereco(endereco, paginaAtual.toString()) && ChapterLink.derivarModelo(endereco, proximo, formato) != null) {
+                return endereco;
+            }
+        }
+        return null;
     }
 
     /** Quanto maior, mais certeza de que o link leva ao proximo capitulo desta obra. Zero = nao serve. */

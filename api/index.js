@@ -3,6 +3,9 @@
 // Uma mudanca de regra precisa ser feita nos dois lugares.
 import pg from 'pg';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { criarBuscador, criarVerificador, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
+
+const verificar = criarVerificador(criarBuscador());
 
 const STATUS = {
     LENDO: 'Lendo',
@@ -262,6 +265,35 @@ async function listar(titulo, status) {
         .filter(manga => normalizar(manga.title).includes(busca));
 }
 
+// ------------------------------------------------------------------ verificacao de link
+
+/** Confere no site o link do proximo capitulo e salva a correcao se o endereco mudou. */
+async function verificarLink(id) {
+    const consultado = await buscarPorId(id);
+    const linkAnterior = resposta(consultado).nextChapterLink;
+    const verificacao = await verificar(consultado);
+
+    // a consulta ao site demora: so grava se o manga nao foi alterado nesse meio tempo
+    let manga = await buscarPorId(id);
+    const mesmoDeAntes = manga.chapterLinkModel === consultado.chapterLinkModel
+        && manga.lastChapter === consultado.lastChapter
+        && (manga.lastChapterUrl ?? null) === (consultado.lastChapterUrl ?? null);
+    const haCorrecao = manga.chapterLinkModel !== verificacao.chapterLinkModel
+        || (manga.nextChapterUrl ?? null) !== verificacao.nextChapterUrl;
+    if (mesmoDeAntes && haCorrecao && verificacao.situacao !== 'NAO_VERIFICADO') {
+        manga = { ...manga, chapterLinkModel: verificacao.chapterLinkModel, nextChapterUrl: verificacao.nextChapterUrl };
+        await salvar(manga);
+    }
+    const linkMudou = !mesmoEndereco(linkAnterior, resposta(manga).nextChapterLink);
+    return {
+        situacao: verificacao.situacao,
+        linkMudou,
+        linkAnterior,
+        mensagem: mensagemDaVerificacao(verificacao.situacao, linkMudou, manga),
+        manga,
+    };
+}
+
 // ------------------------------------------------------------------ imagens
 
 function comecaCom(bytes, posicao, assinatura) {
@@ -449,12 +481,17 @@ async function rotear(request) {
             return new Response(null, { status: 204 });
         }
         if (partes.length === 3 && acao === 'progresso' && metodo === 'PATCH') {
-            const atual = await buscarPorId(id);
+            let atual = await buscarPorId(id);
             const corpo = await lerCorpo(request);
             const readingStatus = lerOpcao(corpo.readingStatus, STATUS, 'readingStatus');
             const lastChapter = lerCapitulo(corpo.lastChapter);
             if (lastChapter === null && !readingStatus) {
                 throw new Recusa(400, 'Informe o último capítulo lido ou o status');
+            }
+            if (lastChapter === proximoCapitulo(atual) && !atual.nextChapterUrl) {
+                // avancando para o proximo capitulo: antes descobre no site o endereco certo dele
+                // (o id da obra ou do capitulo pode ter mudado), para ja salvar o link com o id novo
+                atual = (await verificarLink(id)).manga;
             }
             const novoStatus = readingStatus || atual.readingStatus;
             const atualizado = {
@@ -472,10 +509,18 @@ async function rotear(request) {
             await salvar(atualizado);
             return json(200, resposta(atualizado));
         }
-        // manda o navegador para o proximo capitulo ainda nao lido, no site salvo
+        // manda o navegador para o proximo capitulo ainda nao lido, no site salvo.
+        // antes confere o link no site, para ja abrir o endereco certo se ele tiver mudado
         if (partes.length === 3 && acao === 'ler' && metodo === 'GET') {
-            const manga = await buscarPorId(id);
-            return new Response(null, { status: 302, headers: { Location: resposta(manga).nextChapterLink } });
+            const { situacao, manga } = await verificarLink(id);
+            let destino = resposta(manga).nextChapterLink;
+            // o capitulo nao existe no site: em vez de abrir uma pagina de erro de la, volta para o manga com o aviso
+            if (situacao === 'NAO_ENCONTRADO') destino = '/#/manga/' + manga.id + '/sem-capitulo';
+            if (situacao === 'LINK_QUEBRADO') destino = '/#/manga/' + manga.id + '/link-quebrado';
+            // o site nao deixou verificar e so se conhece o endereco exato do ultimo capitulo lido: montar o proximo
+            // pelo modelo daria um link errado, entao abre o ultimo lido, que tem o botao de proximo do site
+            if (situacao === 'NAO_VERIFICADO' && !manga.nextChapterUrl && manga.lastChapterUrl) destino = manga.lastChapterUrl;
+            return new Response(null, { status: 302, headers: { Location: destino } });
         }
         if (partes.length === 3 && acao === 'capitulo-lido' && metodo === 'POST') {
             const atual = await buscarPorId(id);
@@ -501,7 +546,8 @@ async function rotear(request) {
             return json(200, resposta(atualizado));
         }
         if (partes.length === 3 && acao === 'verificacao-link' && metodo === 'POST') {
-            throw new Recusa(501, 'A verificação de link só existe na versão Java do site (a do Render)');
+            const resultado = await verificarLink(id);
+            return json(200, { ...resultado, manga: resposta(resultado.manga) });
         }
     }
     throw new Recusa(404, 'Rota não encontrada');

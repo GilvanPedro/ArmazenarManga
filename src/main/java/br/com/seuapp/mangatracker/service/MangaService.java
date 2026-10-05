@@ -101,7 +101,17 @@ public class MangaService implements MangaServiceInterface{
     }
 
     @Override
-    public synchronized Manga atualizarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus) {
+    public Manga atualizarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus) {
+        Manga antes = buscarPorId(id);
+        if (lastChapter != null && lastChapter.compareTo(antes.proximoCapitulo()) == 0 && antes.getNextChapterUrl() == null) {
+            // avancando para o proximo capitulo: antes descobre no site o endereco certo dele
+            // (o id da obra ou do capitulo pode ter mudado), para ja salvar o link com o id novo
+            verificarLink(id);
+        }
+        return gravarProgresso(id, lastChapter, readingStatus);
+    }
+
+    private synchronized Manga gravarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus) {
         Manga atual = buscarPorId(id);
         if (lastChapter == null && readingStatus == null) {
             throw new NullInformationsException("Informe o último capítulo lido ou o status");
