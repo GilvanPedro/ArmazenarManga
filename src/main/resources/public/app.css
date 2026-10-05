@@ -371,6 +371,7 @@ a.capa:hover img { transform: scale(1.035); }
 .sugestoes li span { overflow-wrap: anywhere; }
 .sugestoes li small { flex: none; color: var(--texto-fraco); font-variant-numeric: tabular-nums; }
 .sugestoes li:hover, .sugestoes li[aria-selected=true] { background: var(--superficie-2); }
+.sugestoes li.novo { margin-top: 4px; border-top: 1px solid var(--borda); border-radius: 0 0 7px 7px; color: var(--destaque-forte); font-weight: 650; }
 .sugestoes li.nada { color: var(--texto-fraco); cursor: default; background: none; }
 
 .formulario.estreito { max-width: 520px; }

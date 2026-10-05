@@ -1032,10 +1032,27 @@ async function telaAtalho() {
 }
 
 /** Entre os mangas do mesmo site, o que tem o endereco mais parecido com o da pagina capturada. */
-function mangaDoLink(mangas, endereco) {
+function mangaDoLink(mangas, endereco, tituloDaPagina) {
+    const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    // 1) pelo nome: o titulo da pagina e o de exatamente um manga da lista
+    const nome = semAcento(tituloDoManga(tituloDaPagina, endereco));
+    const comONome = nome ? mangas.filter(manga => semAcento(manga.title) === nome) : [];
+    if (comONome.length === 1) return comONome[0];
+
+    // 2) pelo endereco: mesmo site e mesma obra. Tudo antes do ultimo trecho (que e o capitulo) precisa bater.
+    // Dois trechos batem se forem iguais ou quase iguais ("obra-3ec3b16f" e "obra-bd5bdaf8": so o id do fim mudou).
+    const trechos = url => url.pathname.split('/').filter(Boolean).slice(0, -1);
+    const quaseIguais = (a, b) => {
+        let iguais = 0;
+        while (iguais < a.length && iguais < b.length && a[iguais] === b[iguais]) iguais++;
+        return iguais >= 8 && iguais >= 0.7 * Math.min(a.length, b.length);
+    };
+    // "title", "manga", "read"... sao iguais para o site inteiro; so um trecho com cara de nome de obra identifica
+    const identifica = trecho => trecho.length >= 8 || /[-_\d]/.test(trecho);
     const pagina = new URL(endereco);
-    let melhor = null;
-    let melhorIguais = 0;
+    const daPagina = trechos(pagina);
+    const iguais = new Set();
+    const parecidos = new Set();
     for (const manga of mangas) {
         for (const conhecido of [manga.lastChapterLink, manga.nextChapterLink, manga.chapterLinkModel]) {
             let url;
@@ -1044,28 +1061,28 @@ function mangaDoLink(mangas, endereco) {
             } catch (e) {
                 continue;
             }
-            if (url.host !== pagina.host) continue;
-            let iguais = 0;
-            while (iguais < url.pathname.length && url.pathname[iguais] === pagina.pathname[iguais]) iguais++;
-            if (iguais > melhorIguais) {
-                melhorIguais = iguais;
-                melhor = manga;
-            }
+            const doManga = trechos(url);
+            if (url.host !== pagina.host || doManga.length !== daPagina.length || !daPagina.some(identifica)) continue;
+            if (daPagina.every((trecho, i) => trecho === doManga[i])) iguais.add(manga);
+            else if (daPagina.every((trecho, i) => trecho === doManga[i] || quaseIguais(trecho, doManga[i]))) parecidos.add(manga);
         }
     }
-    // so vale se for alem da primeira pasta do endereco ("/title/", "/manga/"...), que e igual para o site todo
-    return melhorIguais > pagina.pathname.indexOf('/', 1) + 1 ? melhor : null;
+    // endereco identico vale mais que parecido; na duvida entre dois, melhor nao sugerir nenhum do que sugerir o errado
+    if (iguais.size > 0) return iguais.size === 1 ? [...iguais][0] : null;
+    return parecidos.size === 1 ? [...parecidos][0] : null;
 }
 
 /**
  * Campo de busca dos mangas da lista, com sugestoes enquanto se digita (como a busca do Google).
  * Ja vem com o manga reconhecido escrito; apagar e digitar outro nome mostra os que combinam.
+ * A ultima sugestao e sempre "cadastrar como manga novo", que chama cadastrarNovo(nomeDigitado).
  * Devolve { elemento, value }: value e o id do manga escolhido, ou '' enquanto nenhum foi escolhido.
  */
-function buscaDeManga(mangas, escolhido) {
+function buscaDeManga(mangas, escolhido, cadastrarNovo) {
     const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
     let escolhidoAgora = escolhido || null;
     let sugestoes = [];
+    let opcoes = 0;
     let ativa = -1;
 
     const campo = h('input', {
@@ -1095,12 +1112,17 @@ function buscaDeManga(mangas, escolhido) {
         campo.classList.remove('sem-escolha');
         fechar();
     };
+    // o nome digitado so vai para o cadastro se nao for o de um manga que ja esta na lista
+    const nomeNovo = () => (escolhidoAgora ? '' : campo.value.trim());
     const destacar = indice => {
         ativa = indice;
-        [...lista.children].forEach((item, i) => item.setAttribute('aria-selected', String(i === ativa)));
-        if (ativa >= 0) {
-            campo.setAttribute('aria-activedescendant', lista.children[ativa].id);
-            lista.children[ativa].scrollIntoView({block: 'nearest'});
+        for (const item of lista.querySelectorAll('[role=option]')) {
+            item.setAttribute('aria-selected', String(item.id === 'busca-manga-opcao-' + ativa));
+        }
+        const destacada = ativa >= 0 ? document.getElementById('busca-manga-opcao-' + ativa) : null;
+        if (destacada) {
+            campo.setAttribute('aria-activedescendant', destacada.id);
+            destacada.scrollIntoView({block: 'nearest'});
         } else {
             campo.removeAttribute('aria-activedescendant');
         }
@@ -1112,8 +1134,9 @@ function buscaDeManga(mangas, escolhido) {
             .filter(manga => semAcento(manga.title).includes(busca))
             .sort((a, b) => semAcento(b.title).startsWith(busca) - semAcento(a.title).startsWith(busca))
             .slice(0, 8);
-        lista.replaceChildren(...(sugestoes.length
-            ? sugestoes.map((manga, i) => h('li', {
+        const digitado = nomeNovo();
+        lista.replaceChildren(
+            ...sugestoes.map((manga, i) => h('li', {
                 id: 'busca-manga-opcao-' + i,
                 role: 'option',
                 'aria-selected': 'false',
@@ -1122,11 +1145,23 @@ function buscaDeManga(mangas, escolhido) {
                     evento.preventDefault();
                     escolher(manga);
                 },
-            }, h('span', null, manga.title), h('small', null, 'cap. ' + mostrarCapitulo(manga.lastChapter))))
-            : [h('li', {class: 'nada', role: 'presentation'}, 'Nenhum mangá da sua lista com esse nome')]));
+            }, h('span', null, manga.title), h('small', null, 'cap. ' + mostrarCapitulo(manga.lastChapter)))),
+            sugestoes.length ? null : h('li', {class: 'nada', role: 'presentation'}, 'Nenhum mangá da sua lista com esse nome'),
+            // sempre a ultima opcao: o manga pode simplesmente ainda nao estar na lista
+            h('li', {
+                id: 'busca-manga-opcao-' + sugestoes.length,
+                class: 'novo',
+                role: 'option',
+                'aria-selected': 'false',
+                onmousedown: evento => {
+                    evento.preventDefault();
+                    cadastrarNovo(digitado);
+                },
+            }, h('span', null, digitado ? '+ Cadastrar “' + digitado + '” como mangá novo' : '+ É um mangá novo: cadastrar')));
         lista.hidden = false;
         campo.setAttribute('aria-expanded', 'true');
         destacar(sugestoes.length === 1 ? 0 : -1);
+        opcoes = sugestoes.length + 1; // os mangas e a opcao de cadastrar
     };
 
     campo.addEventListener('input', () => {
@@ -1145,12 +1180,12 @@ function buscaDeManga(mangas, escolhido) {
         if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
             evento.preventDefault();
             if (lista.hidden) return mostrar();
-            if (sugestoes.length === 0) return;
             const passo = evento.key === 'ArrowDown' ? 1 : -1;
-            destacar((ativa + passo + sugestoes.length) % sugestoes.length);
+            destacar(ativa < 0 ? (passo > 0 ? 0 : opcoes - 1) : (ativa + passo + opcoes) % opcoes);
         } else if (evento.key === 'Enter' && !lista.hidden && ativa >= 0) {
             evento.preventDefault(); // escolhe a sugestao em vez de enviar o formulario
-            escolher(sugestoes[ativa]);
+            if (ativa < sugestoes.length) escolher(sugestoes[ativa]);
+            else cadastrarNovo(nomeNovo());
         } else if (evento.key === 'Escape' && !lista.hidden) {
             evento.preventDefault();
             fechar();
@@ -1185,7 +1220,7 @@ async function telaCapturar(consulta) {
         return;
     }
     if (vez !== estado.render) return;
-    const achado = mangaDoLink(mangas, endereco);
+    const achado = mangaDoLink(mangas, endereco, parametros.get('t'));
     // manga que ainda nao esta na lista: abre o cadastro ja preenchido (a nao ser que tenham pedido para escolher)
     const paraOCadastro = new URLSearchParams(parametros);
     paraOCadastro.delete('escolher');
@@ -1194,7 +1229,13 @@ async function telaCapturar(consulta) {
         return;
     }
 
-    const manga = buscaDeManga(mangas, achado);
+    // o cadastro abre com o que a pagina informou; um nome digitado na busca vale mais que o titulo da pagina
+    const cadastrarNovo = nomeDigitado => {
+        const dados = new URLSearchParams(paraOCadastro);
+        if (nomeDigitado) dados.set('t', nomeDigitado);
+        location.hash = '#/novo?' + dados;
+    };
+    const manga = buscaDeManga(mangas, achado, cadastrarNovo);
     const numero = capituloDoLink(endereco);
     const capitulo = h('input', {type: 'text', inputmode: 'decimal', autocomplete: 'off', value: numero == null ? '' : mostrarCapitulo(numero)});
     // so sugere guardar o "proximo" se ele parece mesmo ser um capitulo adiante
@@ -1205,10 +1246,11 @@ async function telaCapturar(consulta) {
 
     const formulario = h('form', {class: 'campos', novalidate: true},
         h('div', {class: 'campo'}, h('label', {for: 'busca-manga'}, 'Mangá'), manga.elemento,
-            achado
-                ? h('small', null, 'Não é este? Apague o nome e digite o do mangá certo.')
-                : h('small', null, 'Não reconheci esse endereço em nenhum mangá da sua lista. Digite o nome para procurar, ou ',
-                    h('a', {href: '#/novo?' + paraOCadastro}, 'cadastre como um mangá novo'), '.')),
+            h('small', null,
+                achado
+                    ? 'Não é este? Apague o nome e digite o do mangá certo, ou '
+                    : 'Não reconheci esse endereço em nenhum mangá da sua lista. Digite o nome para procurar, ou ',
+                h('a', {href: '#/novo?' + paraOCadastro}, 'cadastre como um mangá novo'), '.')),
         h('label', {class: 'campo'}, h('span', null, 'Capítulo lido'), capitulo),
         h('div', {class: 'campo'}, h('span', null, 'Página do capítulo'), h('small', null, h('code', null, endereco))),
         ehLinkHttp(proximo)
