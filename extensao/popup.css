@@ -1,0 +1,11 @@
+body { width: 300px; margin: 14px; font: 14px/1.45 system-ui, sans-serif; color: #1c1e23; background: #fff; }
+h1 { margin: 0 0 8px; font-size: 16px; }
+p { margin: 0 0 10px; overflow-wrap: anywhere; }
+.fraco { color: #646a78; font-size: 12px; margin-top: 12px; }
+button { width: 100%; min-height: 36px; border: 0; border-radius: 8px; background: #d9481f; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+button.remover { background: #e9e7e2; color: #1c1e23; }
+@media (prefers-color-scheme: dark) {
+    body { background: #181b22; color: #e9ebf0; }
+    .fraco { color: #9aa1b0; }
+    button.remover { background: #2b303b; color: #e9ebf0; }
+}

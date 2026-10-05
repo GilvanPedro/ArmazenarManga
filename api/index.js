@@ -255,6 +255,7 @@ function resposta(manga) {
         lastChapterLink: manga.lastChapterUrl || montarLink(manga, manga.lastChapter),
         nextChapter: proximoCapitulo(manga),
         nextChapterLink: manga.nextChapterUrl || montarLink(manga, proximoCapitulo(manga)),
+        nextChapterLinkExact: Boolean(manga.nextChapterUrl),
     };
 }
 

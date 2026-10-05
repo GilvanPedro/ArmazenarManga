@@ -348,6 +348,10 @@ a.capa:hover img { transform: scale(1.035); }
 .texto { max-width: 68ch; }
 .texto h1 { font-size: 24px; margin-bottom: 14px; letter-spacing: -.02em; }
 .texto li { margin-bottom: 6px; }
+.texto h1.segundo { margin-top: 34px; }
+.texto code { font-size: 12.5px; padding: 1px 5px; border-radius: 5px; background: var(--superficie-2); }
+.situacao { padding: 9px 13px; border: 1px dashed var(--borda); border-radius: 9px; font-weight: 600; }
+.situacao.boa { border-color: var(--lendo); color: var(--lendo); }
 .codigo { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; min-height: 0; color: var(--texto-fraco); }
 
 /* ------------------------------------------------------------ dialogo e avisos */

@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Meus Mangás - próximo capítulo",
+  "version": "1.0.0",
+  "description": "Abre o próximo capítulo certo nos sites de leitura que mudam o link a cada capítulo e bloqueiam servidores. Funciona junto com o site Meus Mangás.",
+  "permissions": ["tabs", "scripting", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "fundo.js",
+    "scripts": ["fundo.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["conteudo.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_title": "Meus Mangás",
+    "default_popup": "popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "meus-mangas@gilvanpedro",
+      "strict_min_version": "121.0"
+    }
+  }
+}

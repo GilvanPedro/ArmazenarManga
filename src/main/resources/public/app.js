@@ -9,6 +9,7 @@ const estado = {
     formatos: [],      // [{valor, descricao}] vindo de /api/formatos-decimais
     dias: [],          // [{valor, descricao}] vindo de /api/dias-da-semana
     recarregar: null,  // recarrega so os cartoes da tela atual, sem pular para o topo
+    extensao: false,   // a extensao de navegador esta instalada e liberada para este site
     busca: '',
     filtroStatus: '',
     sorteado: null,    // id do manga que acabou de sair no sorteio
@@ -155,7 +156,98 @@ function botaoLer(manga, classe) {
         target: '_blank',
         rel: 'noopener noreferrer',
         title: 'Abrir o capítulo ' + mostrarCapitulo(manga.nextChapter) + ' no site',
+        // com a extensao, o proprio navegador acha o proximo capitulo quando o servidor e barrado pelo site
+        onclick: evento => {
+            if (!estado.extensao) return;
+            evento.preventDefault();
+            lerComExtensao(manga);
+        },
     }, h('span', null, 'Ler ' + mostrarCapitulo(manga.nextChapter)));
+}
+
+// ------------------------------------------------------------------ extensao de navegador
+
+function extensaoInstalada() {
+    return Boolean(document.documentElement.dataset.meusMangasExtensao);
+}
+
+/** Manda um pedido para a extensao (pasta extensao/ do projeto) e espera a resposta. Nunca rejeita. */
+function pedirExtensao(tipo, dados, tempoLimite) {
+    return new Promise(resolver => {
+        const id = Date.now() + '-' + Math.random();
+        const terminar = resposta => {
+            clearTimeout(relogio);
+            window.removeEventListener('message', ouvir);
+            resolver(resposta || {ok: false, motivo: 'erro'});
+        };
+        const ouvir = evento => {
+            const mensagem = evento.data;
+            if (evento.source !== window || evento.origin !== location.origin) return;
+            if (mensagem && mensagem.de === 'meus-mangas-extensao' && mensagem.id === id) terminar(mensagem.resposta);
+        };
+        const relogio = setTimeout(() => terminar({ok: false, motivo: 'tempo'}), tempoLimite || 45000);
+        window.addEventListener('message', ouvir);
+        window.postMessage({de: 'meus-mangas-site', id, tipo, dados: dados || {}}, location.origin);
+    });
+}
+
+async function conferirExtensao() {
+    estado.extensao = extensaoInstalada() && (await pedirExtensao('estado', {}, 3000)).autorizado === true;
+    return estado.extensao;
+}
+
+function mesmoSite(a, b) {
+    try {
+        return new URL(a).host === new URL(b).host;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * O "Ler" com a extensao instalada. Primeiro o servidor confere o link, como sempre. Se o site de leitura barra o
+ * servidor (protecao contra robos), a extensao abre o ultimo capitulo lido no navegador, acha o link do proximo,
+ * vai ate ele, e o endereco encontrado fica salvo para o link continuar certo.
+ */
+async function lerComExtensao(manga) {
+    const voltarComAviso = aviso => {
+        if (location.hash === '#/manga/' + manga.id + '/' + aviso) rota();
+        else location.hash = '#/manga/' + manga.id + '/' + aviso;
+    };
+    let resultado;
+    try {
+        resultado = await chamar('POST', '/api/mangas/' + manga.id + '/verificacao-link');
+    } catch (e) {
+        avisar(e.message, true);
+        return;
+    }
+    const atual = resultado.manga;
+    if (resultado.situacao === 'NAO_ENCONTRADO') return voltarComAviso('sem-capitulo');
+    if (resultado.situacao === 'LINK_QUEBRADO') return voltarComAviso('link-quebrado');
+    if (resultado.situacao === 'DISPONIVEL' || atual.nextChapterLinkExact) {
+        const aberto = await pedirExtensao('abrir', {url: atual.nextChapterLink});
+        if (!aberto.ok) avisar('A extensão não conseguiu abrir o capítulo', true);
+        return;
+    }
+
+    avisar('Procurando o capítulo ' + mostrarCapitulo(atual.nextChapter) + ' no site…');
+    const achado = await pedirExtensao('proximo', {ultimoUrl: atual.lastChapterLink, proximoCapitulo: atual.nextChapter});
+    if (achado.ok && mesmoSite(achado.atualUrl, atual.lastChapterLink) && mesmoSite(achado.proximoUrl, atual.lastChapterLink)) {
+        try {
+            // nao muda o capitulo lido: so guarda os enderecos exatos do atual e do proximo
+            await chamar('POST', '/api/mangas/' + manga.id + '/capitulo-lido',
+                {lastChapter: atual.lastChapter, lastChapterUrl: achado.atualUrl, nextChapterUrl: achado.proximoUrl});
+        } catch (e) {
+            avisar('O capítulo abriu, mas o link não pôde ser salvo: ' + e.message, true);
+        }
+    } else if (achado.motivo === 'sem-proximo') {
+        voltarComAviso('sem-capitulo');
+    } else if (achado.motivo === 'nao-autorizado') {
+        estado.extensao = false;
+        avisar('Libere este site na extensão: clique no ícone dela e em Permitir', true);
+    } else if (achado.motivo !== 'aba-fechada') {
+        avisar('Não encontrei o botão de próximo capítulo. A página do último capítulo lido ficou aberta.', true);
+    }
 }
 
 function abrirDialogoReler(manga, ultimo) {
@@ -192,7 +284,7 @@ function abas(atual) {
     return h('nav', {class: 'abas', 'aria-label': 'Listas'},
         aba('todos', '#/', 'Todos os mangás'),
         aba('hoje', '#/hoje', 'Lançam hoje'),
-        aba('atalho', '#/atalho', 'Atalho do navegador'));
+        aba('atalho', '#/atalho', 'Extensão e atalho'));
 }
 
 /** Aba dos mangas que estou lendo e que lancam capitulo no dia de hoje. */
@@ -724,13 +816,38 @@ function codigoDoAtalho() {
     return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
 }
 
-function telaAtalho() {
+function situacaoDaExtensao() {
+    if (estado.extensao) return h('p', {class: 'situacao boa'}, '✓ Extensão instalada e liberada para este site.');
+    if (extensaoInstalada()) {
+        return h('p', {class: 'situacao'}, 'Extensão instalada, mas ainda não liberada: clique no ícone dela na barra do navegador e em “Permitir que este site use a extensão”.');
+    }
+    return h('p', {class: 'situacao'}, 'Extensão não encontrada neste navegador.');
+}
+
+async function telaAtalho() {
+    const vez = ++estado.render;
     const codigo = codigoDoAtalho();
-    document.title = 'Atalho do navegador · Meus Mangás';
+    await conferirExtensao();
+    if (vez !== estado.render) return;
+    document.title = 'Extensão e atalho · Meus Mangás';
     app.replaceChildren(
         abas('atalho'),
         h('div', {class: 'texto'},
-            h('h1', null, 'Marcar o capítulo direto do site de leitura'),
+            h('h1', null, 'Extensão: próximo capítulo automático'),
+            h('p', null, 'Alguns sites de leitura mudam o link a cada capítulo e só entregam as páginas a um navegador de verdade, então o servidor não consegue descobrir o link do próximo capítulo. '
+                + 'Com a extensão, o botão “Ler” faz isso no seu navegador: abre o último capítulo lido, acha o botão de próximo, vai direto para ele e salva o link certo.'),
+            situacaoDaExtensao(),
+            h('p', null, h('b', null, 'Chrome, Edge ou Brave')),
+            h('ol', null,
+                h('li', null, 'Abra ', h('code', null, 'chrome://extensions'), ' e ligue o “Modo do desenvolvedor”.'),
+                h('li', null, 'Clique em “Carregar sem compactação” e escolha a pasta ', h('code', null, 'extensao'), ' do projeto.'),
+                h('li', null, 'Volte para este site, recarregue a página, clique no ícone da extensão e em “Permitir que este site use a extensão”.')),
+            h('p', null, h('b', null, 'Firefox')),
+            h('ol', null,
+                h('li', null, 'Abra ', h('code', null, 'about:debugging#/runtime/this-firefox'), ' e clique em “Carregar extensão temporária”.'),
+                h('li', null, 'Escolha o arquivo ', h('code', null, 'manifest.json'), ' dentro da pasta ', h('code', null, 'extensao'), '.'),
+                h('li', null, 'Libere este site pelo ícone da extensão, como no Chrome. No Firefox a extensão carregada assim sai ao fechar o navegador.')),
+            h('h1', {class: 'segundo'}, 'Atalho: marcar o capítulo direto do site de leitura'),
             h('p', null, 'Alguns sites mudam o link a cada capítulo e não deixam ninguém além do seu navegador abrir as páginas. '
                 + 'Com este atalho, você marca o capítulo como lido estando na página dele, e o endereço exato fica salvo junto.'),
             h('p', null,
@@ -906,6 +1023,10 @@ async function iniciar() {
         rota();
     });
     rota();
+    // a extensao se apresenta um instante depois de a pagina carregar
+    for (const atraso of [300, 1500]) {
+        setTimeout(() => { if (!estado.extensao) conferirExtensao(); }, atraso);
+    }
 }
 
 iniciar();

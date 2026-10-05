@@ -27,7 +27,9 @@ record MangaResponse(
         String firstChapterLink,
         String lastChapterLink,
         BigDecimal nextChapter,
-        String nextChapterLink
+        String nextChapterLink,
+        /** true quando o link do proximo capitulo e um endereco exato ja encontrado no site, e nao so o modelo preenchido. */
+        boolean nextChapterLinkExact
 ) {
 
     static MangaResponse de(Manga manga) {
@@ -47,7 +49,8 @@ record MangaResponse(
                 manga.linkPrimeiroCapitulo(),
                 manga.linkUltimoCapitulo(),
                 manga.proximoCapitulo(),
-                manga.linkProximoCapitulo()
+                manga.linkProximoCapitulo(),
+                manga.getNextChapterUrl() != null
         );
     }
 }

@@ -143,7 +143,12 @@ Sites com proteção contra robôs (o desafio do Cloudflare, por exemplo) só en
 verdade, então a verificação acima responde `NAO_VERIFICADO` neles. Para esses sites o endereço é capturado no
 navegador de quem está lendo:
 
-- **Atalho do navegador** (aba de mesmo nome no site): um favorito que, clicado na página do capítulo, abre o site
+- **Extensão de navegador** (pasta `extensao/`, para Chrome, Edge, Brave e Firefox): com ela instalada e liberada
+  para o site, o botão Ler resolve tudo sozinho. O servidor tenta primeiro; se for barrado, a extensão abre o último
+  capítulo lido em uma aba, espera a proteção do site passar, acha o link do próximo capítulo, leva a aba até ele e
+  o site salva os endereços exatos. A instalação está explicada na aba **Extensão e atalho** do site. A extensão só
+  atende ao site que o dono liberar pelo ícone dela.
+- **Atalho do navegador** (na mesma aba): um favorito que, clicado na página do capítulo, abre o site
   com o mangá, o capítulo e o link do próximo capítulo já preenchidos para confirmar.
 - **Campo "Link do capítulo lido"** ao alterar o capítulo: basta colar o endereço da página.
 
