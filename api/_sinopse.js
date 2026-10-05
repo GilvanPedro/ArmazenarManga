@@ -88,9 +88,15 @@ export function criarBuscadorDeSinopse(http = clienteHttp) {
     }
     const nomeNoMangaDex = atributos => atributos.nomeParaMostrar ?? atributos.title?.en ?? Object.values(atributos.title || {})[0] ?? '';
 
+    /** Generos e temas da obra, em ingles, para sugerir como tags no cadastro. */
+    const tagsDoMangaDex = atributos => (Array.isArray(atributos?.tags) ? atributos.tags : [])
+        .filter(tag => ['genre', 'theme'].includes(tag?.attributes?.group) && tag.attributes.name?.en)
+        .map(tag => tag.attributes.name.en)
+        .slice(0, 8);
+
     async function buscarNoAniList(titulo) {
         const resposta = await http.postJson('https://graphql.anilist.co', {
-            query: 'query($s:String){Page(perPage:1){media(search:$s,type:MANGA){title{romaji english} description(asHtml:false)}}}',
+            query: 'query($s:String){Page(perPage:1){media(search:$s,type:MANGA){title{romaji english} genres description(asHtml:false)}}}',
             variables: { s: titulo },
         });
         return resposta?.data?.Page?.media?.[0] ?? null;
@@ -127,7 +133,7 @@ export function criarBuscadorDeSinopse(http = clienteHttp) {
         for (const idioma of ['pt-br', 'pt']) {
             const emPortugues = limpar(mangadex?.description?.[idioma]);
             if (emPortugues) {
-                return { descricao: emPortugues, idioma: 'pt', fonte: 'MangaDex', tituloEncontrado: nomeNoMangaDex(mangadex), traduzida: false };
+                return { descricao: emPortugues, idioma: 'pt', fonte: 'MangaDex', tituloEncontrado: nomeNoMangaDex(mangadex), traduzida: false, tags: tagsDoMangaDex(mangadex) };
             }
         }
 
@@ -135,8 +141,10 @@ export function criarBuscadorDeSinopse(http = clienteHttp) {
         let emIngles = '';
         let fonte = null;
         let nome = null;
+        let tags = [];
         const anilist = await buscarNoAniList(busca);
         if (anilist) {
+            tags = Array.isArray(anilist.genres) ? anilist.genres.filter(genero => typeof genero === 'string') : [];
             emIngles = limpar(anilist.description);
             fonte = 'AniList';
             nome = anilist.title?.english || anilist.title?.romaji || busca;
@@ -145,11 +153,12 @@ export function criarBuscadorDeSinopse(http = clienteHttp) {
             emIngles = limpar(mangadex.description?.en);
             fonte = 'MangaDex';
             nome = nomeNoMangaDex(mangadex);
+            tags = tagsDoMangaDex(mangadex);
         }
         if (!emIngles) return null;
         const traduzida = await traduzir(emIngles);
         return traduzida !== null
-            ? { descricao: traduzida, idioma: 'pt', fonte, tituloEncontrado: nome, traduzida: true }
-            : { descricao: emIngles, idioma: 'en', fonte, tituloEncontrado: nome, traduzida: false };
+            ? { descricao: traduzida, idioma: 'pt', fonte, tituloEncontrado: nome, traduzida: true, tags }
+            : { descricao: emIngles, idioma: 'en', fonte, tituloEncontrado: nome, traduzida: false, tags };
     };
 }

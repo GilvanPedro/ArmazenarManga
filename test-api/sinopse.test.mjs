@@ -30,7 +30,7 @@ test('usa a descricao em portugues do MangaDex sem traduzir', async () => {
     const internet = internetFalsa({ mangadex: doMangaDex('Solo Leveling', { en: 'Ten years ago...', 'pt-br': 'Dez anos atrás, o Portal se abriu.' }) });
 
     assert.deepEqual(await criarBuscadorDeSinopse(internet)('  Solo Leveling '),
-        { descricao: 'Dez anos atrás, o Portal se abriu.', idioma: 'pt', fonte: 'MangaDex', tituloEncontrado: 'Solo Leveling', traduzida: false });
+        { descricao: 'Dez anos atrás, o Portal se abriu.', idioma: 'pt', fonte: 'MangaDex', tituloEncontrado: 'Solo Leveling', traduzida: false, tags: [] });
     assert.deepEqual(internet.traduzidos, []);
 });
 
@@ -42,7 +42,7 @@ test('quando so ha ingles, traduz a descricao do AniList', async () => {
 
     assert.deepEqual(await criarBuscadorDeSinopse(internet)('Doomsday Wedding'), {
         descricao: '[pt] Forced onto a team with her rival.\n\n[pt] She would rather fight.',
-        idioma: 'pt', fonte: 'AniList', tituloEncontrado: 'Doomsday Wedding!', traduzida: true,
+        idioma: 'pt', fonte: 'AniList', tituloEncontrado: 'Doomsday Wedding!', traduzida: true, tags: [],
     });
 });
 
@@ -58,7 +58,7 @@ test('se a traducao falhar, devolve em ingles avisando', async () => {
     const internet = internetFalsa({ anilist: doAniList('Obra', 'Some story.'), tradutorFunciona: false });
 
     assert.deepEqual(await criarBuscadorDeSinopse(internet)('Obra'),
-        { descricao: 'Some story.', idioma: 'en', fonte: 'AniList', tituloEncontrado: 'Obra', traduzida: false });
+        { descricao: 'Some story.', idioma: 'en', fonte: 'AniList', tituloEncontrado: 'Obra', traduzida: false, tags: [] });
 });
 
 test('nao encontra quando nenhuma fonte conhece ou os servicos estao fora do ar', async () => {

@@ -16,8 +16,13 @@ import br.com.seuapp.mangatracker.util.VerificarInformacoesNulas;
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +32,14 @@ public class MangaService implements MangaServiceInterface{
 
     /** Nao ha mais o que ler nesses, entao nao entram no sorteio. */
     private static final Set<ReadingStatus> FORA_DO_SORTEIO = Set.of(ReadingStatus.CONCLUIDO, ReadingStatus.CANCELADO);
+
+    /** Tags oferecidas no cadastro mesmo antes de serem usadas (generos e temas comuns, em ingles). */
+    static final List<String> TAGS_SUGERIDAS = List.of(
+            "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", "Mystery", "Psychological", "Romance",
+            "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller",
+            "Dungeon", "Historical", "Isekai", "Magic", "Martial Arts", "Murim", "Regression", "Reincarnation",
+            "Revenge", "School Life", "System", "Villainess");
+    static final int MAXIMO_DE_SEMELHANTES = 6;
 
     private final MangaRepository repository;
     private final ImagemService imagemService;
@@ -67,12 +80,71 @@ public class MangaService implements MangaServiceInterface{
     }
 
     @Override
-    public List<Manga> listarMangas(String titulo, ReadingStatus readingStatus) {
+    public List<Manga> listarMangas(String titulo, ReadingStatus readingStatus, String tag) {
         String busca = titulo == null ? "" : normalizar(titulo);
+        String tagBuscada = tag == null ? "" : normalizar(tag);
         return repository.listarTodos().stream()
                 .filter(manga -> readingStatus == null || manga.getReadingStatus() == readingStatus)
                 .filter(manga -> normalizar(manga.getTitle()).contains(busca))
+                .filter(manga -> tagBuscada.isEmpty() || tagsNormalizadas(manga).contains(tagBuscada))
                 .toList();
+    }
+
+    @Override
+    public List<TagEmUso> listarTags() {
+        // conta por nome sem diferenciar maiusculas nem acentos; o nome mostrado e o primeiro que apareceu
+        Map<String, String> nomes = new LinkedHashMap<>();
+        Map<String, Integer> quantidades = new HashMap<>();
+        for (Manga manga : repository.listarTodos()) {
+            Set<String> doManga = new HashSet<>();
+            for (Tag tag : manga.getTags()) {
+                String chave = normalizar(tag.getNome());
+                if (!chave.isEmpty() && doManga.add(chave)) {
+                    nomes.putIfAbsent(chave, tag.getNome().trim());
+                    quantidades.merge(chave, 1, Integer::sum);
+                }
+            }
+        }
+        List<TagEmUso> tags = new ArrayList<>();
+        nomes.forEach((chave, nome) -> tags.add(new TagEmUso(nome, quantidades.get(chave))));
+        tags.sort(Comparator.comparingInt(TagEmUso::quantidade).reversed().thenComparing(TagEmUso::nome, String.CASE_INSENSITIVE_ORDER));
+        for (String sugerida : TAGS_SUGERIDAS) {
+            if (!nomes.containsKey(normalizar(sugerida))) {
+                tags.add(new TagEmUso(sugerida, 0));
+            }
+        }
+        return tags;
+    }
+
+    @Override
+    public List<Manga> listarSemelhantes(UUID id) {
+        Set<String> tagsDoManga = tagsNormalizadas(buscarPorId(id));
+        Map<Manga, Integer> emComum = new LinkedHashMap<>();
+        for (Manga outro : repository.listarTodos()) {
+            if (outro.getId().equals(id)) {
+                continue;
+            }
+            Set<String> iguais = tagsNormalizadas(outro);
+            iguais.retainAll(tagsDoManga);
+            if (!iguais.isEmpty()) {
+                emComum.put(outro, iguais.size());
+            }
+        }
+        return emComum.entrySet().stream()
+                .sorted(Map.Entry.<Manga, Integer>comparingByValue().reversed()
+                        .thenComparing(entrada -> entrada.getKey().getTitle(), String.CASE_INSENSITIVE_ORDER))
+                .limit(MAXIMO_DE_SEMELHANTES)
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private static Set<String> tagsNormalizadas(Manga manga) {
+        Set<String> tags = new HashSet<>();
+        if (manga.getTags() != null) {
+            manga.getTags().forEach(tag -> tags.add(normalizar(tag.getNome())));
+        }
+        tags.remove("");
+        return tags;
     }
 
     @Override
@@ -257,7 +329,7 @@ public class MangaService implements MangaServiceInterface{
                 id,
                 dados.title().trim(),
                 imagePath,
-                montarTags(dados.tags()),
+                montarTags(dados.tags(), listarTags()),
                 dados.chapterLinkModel().trim(),
                 dados.decimalFormat(),
                 dados.lastChapter(),
@@ -269,20 +341,27 @@ public class MangaService implements MangaServiceInterface{
     }
 
     /** Tira espacos, vazios e repetidos (sem diferenciar maiusculas). */
-    private static List<Tag> montarTags(List<String> nomes) {
+    /**
+     * Tira espacos, vazios e repetidos (sem diferenciar maiusculas).
+     * Uma tag que ja existe na lista geral entra com o nome de la ("action" vira "Action"),
+     * para a mesma tag nao aparecer escrita de dois jeitos; so nome novo cria tag nova.
+     */
+    private static List<Tag> montarTags(List<String> nomes, List<TagEmUso> existentes) {
         List<Tag> tags = new ArrayList<>();
         if (nomes == null) {
             return tags;
         }
+        Map<String, String> nomeNaListaGeral = new HashMap<>();
+        existentes.forEach(existente -> nomeNaListaGeral.putIfAbsent(normalizar(existente.nome()), existente.nome()));
         List<String> vistos = new ArrayList<>();
         for (String nome : nomes) {
             if (nome == null || nome.isBlank()) {
                 continue;
             }
-            String limpo = nome.trim();
+            String limpo = nome.trim().replaceAll("\\s+", " ");
             if (!vistos.contains(normalizar(limpo))) {
                 vistos.add(normalizar(limpo));
-                tags.add(new Tag(limpo));
+                tags.add(new Tag(nomeNaListaGeral.getOrDefault(normalizar(limpo), limpo)));
             }
         }
         return tags;

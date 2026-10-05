@@ -14,6 +14,7 @@ const estado = {
     extensao: false,   // a extensao de navegador esta instalada e liberada para este site
     busca: '',
     filtroStatus: '',
+    filtroTag: '',     // tag escolhida na pagina de um manga, para ver so quem tem ela
     sorteado: null,    // id do manga que acabou de sair no sorteio
     render: 0,         // descarta respostas de telas que ja foram trocadas
 };
@@ -400,6 +401,20 @@ function telaGrade() {
     });
 
     const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
+    if (estado.filtroTag) {
+        // veio de um clique em uma tag: mostra qual e, com o X para voltar a ver todos
+        filtros.append(h('button', {
+            type: 'button',
+            class: 'filtro da-tag',
+            title: 'Parar de filtrar por esta tag',
+            onclick: () => {
+                estado.filtroTag = '';
+                estado.pagina = 1;
+                if (location.hash === '#/') rota();
+                else location.hash = '#/';
+            },
+        }, 'Tag: ' + estado.filtroTag + '  ×'));
+    }
     const opcoes = [{valor: '', descricao: 'Todos'}, ...estado.status];
     for (const opcao of opcoes) {
         filtros.append(h('button', {
@@ -456,6 +471,7 @@ async function carregarGrade(lista, paginacao) {
     const parametros = new URLSearchParams();
     if (estado.busca.trim()) parametros.set('titulo', estado.busca.trim());
     if (estado.filtroStatus) parametros.set('status', estado.filtroStatus);
+    if (estado.filtroTag) parametros.set('tag', estado.filtroTag);
     const filtrando = parametros.toString() !== '';
     parametros.set('pagina', estado.pagina);
 
@@ -577,6 +593,7 @@ async function telaDetalhes(id, aviso) {
     }
     if (vez !== estado.render) return;
     document.title = manga.title + ' · Meus Mangás';
+    const semelhantes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
     const recomendacoes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
 
     app.replaceChildren(h('div', null,
@@ -597,7 +614,13 @@ async function telaDetalhes(id, aviso) {
                     manga.releaseDay
                         ? h('span', {class: 'capitulo-atual'}, '· Capítulo novo: ', h('b', null, descricaoDia(manga.releaseDay)))
                         : null),
-                manga.tags.length ? h('div', {class: 'linha'}, manga.tags.map(tag => h('span', {class: 'tag'}, tag))) : null,
+                manga.tags.length
+                    ? h('div', {class: 'linha'}, manga.tags.map(tag => h('a', {
+                        class: 'tag',
+                        href: '#/tag/' + encodeURIComponent(tag),
+                        title: 'Ver os mangás da sua lista com a tag ' + tag,
+                    }, tag)))
+                    : null,
                 h('div', {class: 'linha'},
                     botaoLer(manga),
                     h('button', {type: 'button', class: 'botao', onclick: () => abrirDialogoProgresso(manga)}, 'Alterar capítulo')),
@@ -613,8 +636,30 @@ async function telaDetalhes(id, aviso) {
                         onclick: evento => verificarLink(manga, evento.currentTarget),
                     }, 'Verificar link'),
                     h('button', {type: 'button', class: 'botao perigo', onclick: () => excluir(manga)}, 'Excluir')))),
+        semelhantes,
         recomendacoes));
+    carregarSemelhantes(manga, semelhantes, vez);
     carregarRecomendacoes(manga, recomendacoes, vez);
+}
+
+/** Mangas da propria lista que dividem tags com este. Sem tags em comum com ninguem, a secao nao aparece. */
+async function carregarSemelhantes(manga, secao, vez) {
+    if (manga.tags.length === 0) return;
+    let lista;
+    try {
+        lista = await chamar('GET', '/api/mangas/' + manga.id + '/semelhantes');
+    } catch (e) {
+        return;
+    }
+    if (vez !== estado.render || !Array.isArray(lista) || lista.length === 0) return;
+    const emComum = outro => outro.tags.filter(tag => manga.tags.some(minha => minha.toLowerCase() === tag.toLowerCase()));
+    secao.replaceChildren(
+        h('h2', null, 'Na sua lista, com tags em comum'),
+        h('p', {class: 'subtitulo'}, 'Os que dividem mais tags com este aparecem primeiro.'),
+        h('div', {class: 'grade'}, lista.map(outro => h('article', {class: 'cartao'},
+            capa(outro, true),
+            h('a', {class: 'cartao-titulo', href: '#/manga/' + outro.id, title: outro.title}, outro.title),
+            h('small', {class: 'generos'}, emComum(outro).slice(0, 3).join(' · '))))));
 }
 
 /**
@@ -631,12 +676,12 @@ async function carregarRecomendacoes(manga, secao, vez) {
     if (vez !== estado.render || !Array.isArray(lista) || lista.length === 0) return;
     secao.replaceChildren(
         h('h2', null, 'Parecidos com este, para ler depois'),
-        h('p', {class: 'subtitulo'}, 'Mangás com temas semelhantes que ainda não estão na sua lista.'),
+        h('p', {class: 'subtitulo'}, 'Buscados na internet pelo título e pelas tags deste mangá. Nenhum deles está na sua lista.'),
         h('div', {class: 'grade'}, lista.map(recomendado => {
             const imagem = recomendado.capa
                 ? h('img', {src: recomendado.capa, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'})
                 : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, recomendado.titulo.charAt(0).toUpperCase());
-            const adicionar = new URLSearchParams({t: recomendado.titulo, i: recomendado.capa || ''});
+            const adicionar = new URLSearchParams({t: recomendado.titulo, i: recomendado.capa || '', g: (recomendado.tags || []).join(',')});
             return h('article', {class: 'cartao'},
                 h('a', {class: 'capa', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': recomendado.titulo + ' (abre o AniList)'}, imagem),
                 h('a', {class: 'cartao-titulo', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', title: recomendado.titulo}, recomendado.titulo),
@@ -750,8 +795,157 @@ function seletor(opcoes, escolhido) {
 
 // ------------------------------------------------------------------ cadastro e edicao geral
 
+/**
+ * Campo de tags do cadastro: as escolhidas viram etiquetas com um X, e o campo de texto sugere as tags da
+ * lista geral enquanto se digita. Um nome que ainda nao existe pode ser criado na hora (Enter ou virgula).
+ * Devolve { elemento, valores(), adicionar(nome), vazio() }.
+ */
+function seletorDeTags(tagsGerais, iniciais) {
+    const igual = (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase();
+    const escolhidas = [];
+    let sugestoes = [];
+    let ativa = -1;
+
+    const etiquetas = h('span', {class: 'etiquetas'});
+    const campo = h('input', {
+        type: 'text',
+        id: 'campo-tags',
+        role: 'combobox',
+        autocomplete: 'off',
+        spellcheck: 'false',
+        placeholder: 'Adicionar tag…',
+        'aria-autocomplete': 'list',
+        'aria-expanded': 'false',
+        'aria-controls': 'campo-tags-sugestoes',
+    });
+    const lista = h('ul', {id: 'campo-tags-sugestoes', class: 'sugestoes', role: 'listbox', 'aria-label': 'Tags', hidden: true});
+    const elemento = h('div', {class: 'seletor-tags busca-manga'}, h('div', {class: 'caixa-tags'}, etiquetas, campo), lista);
+
+    const fechar = () => {
+        lista.hidden = true;
+        ativa = -1;
+        campo.setAttribute('aria-expanded', 'false');
+        campo.removeAttribute('aria-activedescendant');
+    };
+    const desenhar = () => {
+        etiquetas.replaceChildren(...escolhidas.map(nome => h('span', {class: 'tag escolhida'}, nome,
+            h('button', {
+                type: 'button',
+                'aria-label': 'Tirar a tag ' + nome,
+                onclick: () => {
+                    escolhidas.splice(escolhidas.indexOf(nome), 1);
+                    desenhar();
+                    campo.focus();
+                },
+            }, '×'))));
+    };
+    const adicionar = nome => {
+        const limpo = String(nome || '').replace(/\s+/g, ' ').trim();
+        if (!limpo || escolhidas.some(escolhida => igual(escolhida, limpo))) return;
+        // se a tag ja existe na lista geral, vale o nome de la ("action" vira "Action")
+        const existente = tagsGerais.find(tag => igual(tag.nome, limpo));
+        escolhidas.push(existente ? existente.nome : limpo);
+        desenhar();
+    };
+    const destacar = indice => {
+        ativa = indice;
+        for (const item of lista.querySelectorAll('[role=option]')) {
+            item.setAttribute('aria-selected', String(item.id === 'campo-tags-opcao-' + ativa));
+        }
+        const destacada = ativa >= 0 ? document.getElementById('campo-tags-opcao-' + ativa) : null;
+        if (destacada) {
+            campo.setAttribute('aria-activedescendant', destacada.id);
+            destacada.scrollIntoView({block: 'nearest'});
+        } else {
+            campo.removeAttribute('aria-activedescendant');
+        }
+    };
+    const usar = nome => {
+        adicionar(nome);
+        campo.value = '';
+        mostrar();
+    };
+    const mostrar = () => {
+        const digitado = campo.value.replace(/\s+/g, ' ').trim();
+        const livres = tagsGerais.filter(tag => !escolhidas.some(escolhida => igual(escolhida, tag.nome)));
+        // a lista geral ja vem com as mais usadas primeiro; quem comeca com o texto digitado sobe
+        sugestoes = livres
+            .filter(tag => tag.nome.toLowerCase().includes(digitado.toLowerCase()))
+            .sort((a, b) => b.nome.toLowerCase().startsWith(digitado.toLowerCase()) - a.nome.toLowerCase().startsWith(digitado.toLowerCase()))
+            .slice(0, 8)
+            .map(tag => ({nome: tag.nome, detalhe: tag.quantidade > 0 ? tag.quantidade + (tag.quantidade === 1 ? ' mangá' : ' mangás') : ''}));
+        const jaExiste = [...tagsGerais.map(tag => tag.nome), ...escolhidas].some(nome => igual(nome, digitado));
+        if (digitado && !jaExiste) sugestoes.push({nome: digitado, nova: true});
+        if (sugestoes.length === 0) return fechar();
+        lista.replaceChildren(...sugestoes.map((sugestao, i) => h('li', {
+            id: 'campo-tags-opcao-' + i,
+            class: sugestao.nova ? 'novo' : null,
+            role: 'option',
+            'aria-selected': 'false',
+            // mousedown, e nao click: acontece antes de o campo perder o foco e fechar a lista
+            onmousedown: evento => {
+                evento.preventDefault();
+                usar(sugestao.nome);
+            },
+        }, h('span', null, sugestao.nova ? '+ Criar a tag “' + sugestao.nome + '”' : sugestao.nome), h('small', null, sugestao.detalhe || ''))));
+        lista.hidden = false;
+        campo.setAttribute('aria-expanded', 'true');
+        // digitando, Enter pega a primeira opcao (a tag que combina, ou criar a nova)
+        destacar(digitado ? 0 : -1);
+    };
+
+    campo.addEventListener('input', () => {
+        // virgula tambem confirma, para quem esta acostumado a separar assim
+        if (campo.value.includes(',')) {
+            const partes = campo.value.split(',');
+            partes.slice(0, -1).forEach(adicionar);
+            campo.value = partes.at(-1);
+        }
+        mostrar();
+    });
+    campo.addEventListener('focus', mostrar);
+    campo.addEventListener('blur', () => {
+        fechar();
+    });
+    campo.addEventListener('keydown', evento => {
+        if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+            evento.preventDefault();
+            if (lista.hidden) return mostrar();
+            const passo = evento.key === 'ArrowDown' ? 1 : -1;
+            destacar(ativa < 0 ? (passo > 0 ? 0 : sugestoes.length - 1) : (ativa + passo + sugestoes.length) % sugestoes.length);
+        } else if (evento.key === 'Enter') {
+            // nunca envia o formulario de dentro do campo de tags
+            evento.preventDefault();
+            if (!lista.hidden && ativa >= 0) usar(sugestoes[ativa].nome);
+            else if (campo.value.trim()) usar(campo.value);
+        } else if (evento.key === 'Escape' && !lista.hidden) {
+            evento.preventDefault();
+            fechar();
+        } else if (evento.key === 'Backspace' && campo.value === '' && escolhidas.length > 0) {
+            escolhidas.pop();
+            desenhar();
+            mostrar();
+        }
+    });
+
+    (iniciais || []).forEach(adicionar);
+    return {
+        elemento,
+        adicionar,
+        vazio: () => escolhidas.length === 0,
+        // o que ficou digitado sem confirmar tambem conta, para ninguem perder uma tag por esquecer do Enter
+        valores: () => {
+            if (campo.value.trim()) {
+                adicionar(campo.value);
+                campo.value = '';
+            }
+            return [...escolhidas];
+        },
+    };
+}
+
 /** Busca na internet a descricao pelo titulo e coloca no campo, avisando de onde veio. */
-async function preencherDescricao(titulo, descricao, aviso, substituir) {
+async function preencherDescricao(titulo, descricao, aviso, substituir, aoAcharTags) {
     if (!titulo.trim()) {
         aviso.textContent = 'Preencha o título para buscar a descrição.';
         return;
@@ -764,6 +958,7 @@ async function preencherDescricao(titulo, descricao, aviso, substituir) {
         aviso.textContent = 'Não encontrei uma descrição para esse título. Escreva a sua, se quiser.';
         return;
     }
+    if (aoAcharTags && Array.isArray(sinopse.tags)) aoAcharTags(sinopse.tags);
     // quem ja escreveu algo enquanto a busca corria nao perde o que escreveu
     if (descricao.value.trim() && !substituir) {
         aviso.textContent = '';
@@ -810,6 +1005,14 @@ async function telaFormulario(id, consulta) {
         }
         if (vez !== estado.render) return;
     }
+    // lista geral de tags, para escolher em vez de digitar de novo (sem ela o campo ainda deixa criar)
+    let tagsGerais = [];
+    try {
+        tagsGerais = await chamar('GET', '/api/tags');
+    } catch (e) {
+        // segue sem sugestoes
+    }
+    if (vez !== estado.render) return;
     const voltarPara = manga ? '#/manga/' + manga.id : '#/';
     const imagemDeFora = manga && /^https?:\/\//i.test(manga.imagePath);
 
@@ -835,7 +1038,11 @@ async function telaFormulario(id, consulta) {
     };
     status.addEventListener('change', ajustarDia);
     ajustarDia();
-    const tags = h('input', {type: 'text', placeholder: 'Ação, Fantasia', value: manga ? manga.tags.join(', ') : ''});
+    const tags = seletorDeTags(tagsGerais, manga ? manga.tags : (capturado.get('g') || '').split(','));
+    // tags sugeridas pela internet so entram se nenhuma foi escolhida ainda
+    const sugerirTags = sugeridas => {
+        if (tags.vazio()) sugeridas.forEach(tags.adicionar);
+    };
     const descricao = h('textarea', {maxlength: '5000'}, manga ? manga.description : '');
     const avisoDescricao = h('small', {'aria-live': 'polite'});
     const buscarDescricao = h('button', {
@@ -843,7 +1050,7 @@ async function telaFormulario(id, consulta) {
         class: 'botao pequeno',
         onclick: () => {
             if (descricao.value.trim() && !confirm('Substituir a descrição atual pela encontrada na internet?')) return;
-            preencherDescricao(titulo.value, descricao, avisoDescricao, true);
+            preencherDescricao(titulo.value, descricao, avisoDescricao, true, sugerirTags);
         },
     }, 'Buscar na internet');
     const arquivo = h('input', {type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', id: 'arquivo-capa'});
@@ -909,7 +1116,8 @@ async function telaFormulario(id, consulta) {
             h('div', {class: 'dupla'},
                 h('label', {class: 'campo'}, h('span', null, 'Status'), status),
                 h('label', {class: 'campo'}, h('span', null, 'Dia de lançamento'), dia, avisoDia)),
-            h('label', {class: 'campo'}, h('span', null, 'Tags'), tags, h('small', null, 'Separadas por vírgula.')),
+            h('div', {class: 'campo'}, h('label', {for: 'campo-tags'}, 'Tags'), tags.elemento,
+                h('small', null, 'Escolha das que já existem ou digite uma nova e aperte Enter. Em inglês, para combinar com as sugeridas.')),
             h('div', {class: 'campo'},
                 h('div', {class: 'rotulo-com-acao'}, h('label', {for: 'campo-descricao'}, 'Descrição'), buscarDescricao),
                 descricao, avisoDescricao),
@@ -947,7 +1155,7 @@ async function telaFormulario(id, consulta) {
             const dados = {
                 title: titulo.value,
                 imagePath,
-                tags: tags.value.split(','),
+                tags: tags.valores(),
                 chapterLinkModel: link.value,
                 decimalFormat: formato.value,
                 lastChapter: numero,
@@ -995,7 +1203,7 @@ async function telaFormulario(id, consulta) {
     if (pronto) {
         urlImagem.value = pronto.imagem;
         mostrarPrevia();
-        preencherDescricao(titulo.value, descricao, avisoDescricao, false);
+        preencherDescricao(titulo.value, descricao, avisoDescricao, false, sugerirTags);
     }
     if (!manga) titulo.focus();
 }
@@ -1385,6 +1593,11 @@ function rota() {
 
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;
+    if (partes[0] === 'tag' && partes[1]) {
+        estado.filtroTag = decodeURIComponent(partes[1]);
+        estado.pagina = 1;
+        return telaGrade();
+    }
     if (partes[0] === 'hoje') return telaHoje();
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');

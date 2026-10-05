@@ -71,7 +71,8 @@ public class RecomendacaoServiceTest {
         List<Recomendacao> recomendacoes = service.buscar("Solo Leveling", List.of("Solo Leveling"));
 
         assertEquals(new Recomendacao("Tower of God", "https://s4.anilist.co/capa10.jpg",
-                List.of("Ação", "Fantasia", "Ficção científica", "Gênero Novo"), "https://anilist.co/manga/10"), recomendacoes.get(0));
+                List.of("Ação", "Fantasia", "Ficção científica", "Gênero Novo"), "https://anilist.co/manga/10",
+                List.of("Action", "Fantasy", "Sci-Fi", "Gênero Novo")), recomendacoes.get(0));
         assertEquals("Kumo desu ga", recomendacoes.get(1).titulo()); // sem nome em ingles, usa o original
         assertEquals(List.of("Cotidiano"), recomendacoes.get(1).generos());
         assertTrue(anilist.perguntas.get(0).contains("\"s\":\"Solo Leveling\""), anilist.perguntas.get(0));
@@ -123,6 +124,82 @@ public class RecomendacaoServiceTest {
         assertTrue(segundaPergunta.contains("\"g\":[\"Fantasy\",\"Romance\"]"), segundaPergunta);
         assertTrue(segundaPergunta.contains("\"t\":[\"Female Protagonist\",\"Marriage\"]"), segundaPergunta);
         assertTrue(segundaPergunta.contains("isAdult:false"), segundaPergunta);
+    }
+
+    @Test
+    void tituloComSubtituloOuObservacaoETentadoEmVersoesMaisCurtas() {
+        assertEquals(List.of("Solo Leveling: Ragnarok (Novel) [PT-BR]", "Solo Leveling: Ragnarok", "Solo Leveling"),
+                RecomendacaoService.variacoesDoTitulo("Solo Leveling: Ragnarok (Novel) [PT-BR]"));
+        assertEquals(List.of("One Piece"), RecomendacaoService.variacoesDoTitulo(" One Piece "));
+
+        // o AniList so conhece a versao curta do nome
+        SinopseService.ClienteHttp soONomeCurto = new SinopseService.ClienteHttp() {
+            @Override
+            public String get(String endereco) {
+                return null;
+            }
+
+            @Override
+            public String postJson(String endereco, String corpo) {
+                return corpo.contains("\"s\":\"Solo Leveling\"")
+                        ? daObra("\"Action\"", "", obra(10, "Tower of God", "Sin-ui Tap", ""))
+                        : "{\"data\":{\"Media\":null}}";
+            }
+        };
+
+        assertEquals(List.of("Tower of God"), titulos(new RecomendacaoService(soONomeCurto).buscar("Solo Leveling (meu preferido)", List.of())));
+    }
+
+    @Test
+    void quandoOTituloNaoEConhecidoProcuraPelasTagsDoManga() {
+        anilist.porGenero = porGenero(obra(20, "Pela Tag", "x", "\"Fantasy\""), obra(21, "Pelas Duas", "y", "\"Fantasy\",\"Romance\""));
+
+        List<Recomendacao> recomendacoes = service.buscar("Titulo Que Ninguem Conhece", List.of(),
+                List.of("fantasy", "Romance", "Villainess", "Murim", "  "));
+
+        assertEquals(List.of("Pelas Duas", "Pela Tag"), titulos(recomendacoes));
+        String pergunta = anilist.perguntas.get(anilist.perguntas.size() - 1);
+        // tags que sao generos do AniList viram generos; as outras viram temas (com o nome que o AniList usa)
+        assertTrue(pergunta.contains("\"g\":[\"Fantasy\",\"Romance\"]"), pergunta);
+        assertTrue(pergunta.contains("\"t\":[\"Villainess\",\"Wuxia\"]"), pergunta);
+        // sem titulo conhecido e sem tags, nao ha o que sugerir
+        assertEquals(List.of(), service.buscar("Outro Que Ninguem Conhece", List.of(), List.of()));
+    }
+
+    @Test
+    void asTagsCompletamOQueVeioDoTitulo() {
+        anilist.obra = daObra("", "", obra(10, "Dos Leitores", "Dos Leitores", ""));
+        anilist.porGenero = porGenero(obra(20, "Pela Tag", "x", "\"Action\""), obra(10, "Dos Leitores", "Dos Leitores", ""));
+
+        // primeiro o que veio do titulo, depois o que veio das tags, sem repetir
+        assertEquals(List.of("Dos Leitores", "Pela Tag"), titulos(service.buscar("Solo Leveling", List.of(), List.of("Action"))));
+        // tags diferentes sao outra consulta; as mesmas (em qualquer ordem ou grafia) reaproveitam a guardada
+        int antes = anilist.perguntas.size();
+        service.buscar("Solo Leveling", List.of(), List.of("action"));
+        assertEquals(antes, anilist.perguntas.size());
+        service.buscar("Solo Leveling", List.of(), List.of("Romance"));
+        assertTrue(anilist.perguntas.size() > antes);
+    }
+
+    @Test
+    void temaQueOAniListNaoTemNaoImpedeABuscaPelosGeneros() {
+        SinopseService.ClienteHttp semOTema = new SinopseService.ClienteHttp() {
+            @Override
+            public String get(String endereco) {
+                return null;
+            }
+
+            @Override
+            public String postJson(String endereco, String corpo) {
+                if (corpo.contains("Media(search")) {
+                    return "{\"data\":{\"Media\":null}}";
+                }
+                return corpo.contains("tag_in") ? porGenero() : porGenero(obra(20, "So Pelo Genero", "x", "\"Action\""));
+            }
+        };
+
+        assertEquals(List.of("So Pelo Genero"),
+                titulos(new RecomendacaoService(semOTema).buscar("Desconhecido", List.of(), List.of("Action", "Tag Inventada"))));
     }
 
     @Test

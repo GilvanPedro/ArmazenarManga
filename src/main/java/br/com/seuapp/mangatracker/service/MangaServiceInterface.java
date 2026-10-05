@@ -12,7 +12,15 @@ public interface MangaServiceInterface {
     Manga salvarManga(DadosManga dados);
     Manga buscarPorId(UUID id);
     /** Titulo e status sao filtros opcionais (null = sem filtro). */
-    List<Manga> listarMangas(String titulo, ReadingStatus readingStatus);
+    default List<Manga> listarMangas(String titulo, ReadingStatus readingStatus) {
+        return listarMangas(titulo, readingStatus, null);
+    }
+    /** Titulo, status e tag sao filtros opcionais (null = sem filtro). */
+    List<Manga> listarMangas(String titulo, ReadingStatus readingStatus, String tag);
+    /** Lista geral de tags: as que estao em uso (as mais usadas primeiro) e depois as sugeridas ainda sem uso. */
+    List<TagEmUso> listarTags();
+    /** Mangas da lista que dividem tags com este, comecando pelos que dividem mais. */
+    List<Manga> listarSemelhantes(UUID id);
     void excluirManga(UUID id);
     Manga editarManga(UUID id, DadosManga dados);
     /** Altera so o ultimo capitulo lido e/ou o status (null = mantem o atual). Sair de LENDO apaga o dia de lancamento. */

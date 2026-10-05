@@ -33,8 +33,14 @@ public class SinopseService {
      * @param tituloEncontrado nome da obra na fonte, para conferir se e a mesma
      * @param traduzida        true quando o texto veio em ingles e foi traduzido automaticamente
      */
-    public record Sinopse(String descricao, String idioma, String fonte, String tituloEncontrado, boolean traduzida) {
+    public record Sinopse(String descricao, String idioma, String fonte, String tituloEncontrado, boolean traduzida, List<String> tags) {
+        /** Sem tags. */
+        public Sinopse(String descricao, String idioma, String fonte, String tituloEncontrado, boolean traduzida) {
+            this(descricao, idioma, fonte, tituloEncontrado, traduzida, List.of());
+        }
     }
+
+    private static final int MAXIMO_DE_TAGS = 8;
 
     static final int TAMANHO_MAXIMO = 1500;
     private static final int MAXIMO_POR_TRADUCAO = 450; // o MyMemory aceita ate 500 bytes por pedido
@@ -60,7 +66,7 @@ public class SinopseService {
             for (String idioma : List.of("pt-br", "pt")) {
                 String emPortugues = limpar(mangadex.path("description").path(idioma).asText(""));
                 if (!emPortugues.isBlank()) {
-                    return Optional.of(new Sinopse(emPortugues, "pt", "MangaDex", nomeNoMangaDex, false));
+                    return Optional.of(new Sinopse(emPortugues, "pt", "MangaDex", nomeNoMangaDex, false, tagsDoMangaDex(mangadex)));
                 }
             }
         }
@@ -69,8 +75,13 @@ public class SinopseService {
         String emIngles = "";
         String fonte = null;
         String nome = null;
+        List<String> tags = List.of();
         JsonNode anilist = buscarNoAniList(busca);
         if (anilist != null) {
+            tags = new ArrayList<>();
+            for (JsonNode genero : anilist.path("genres")) {
+                tags.add(genero.asText());
+            }
             emIngles = limpar(anilist.path("description").asText(""));
             fonte = "AniList";
             nome = anilist.path("title").path("english").asText(anilist.path("title").path("romaji").asText(busca));
@@ -79,14 +90,28 @@ public class SinopseService {
             emIngles = limpar(mangadex.path("description").path("en").asText(""));
             fonte = "MangaDex";
             nome = nomeNoMangaDex;
+            tags = tagsDoMangaDex(mangadex);
         }
         if (emIngles.isBlank()) {
             return Optional.empty();
         }
         String traduzida = traduzir(emIngles);
         return Optional.of(traduzida != null
-                ? new Sinopse(traduzida, "pt", fonte, nome, true)
-                : new Sinopse(emIngles, "en", fonte, nome, false));
+                ? new Sinopse(traduzida, "pt", fonte, nome, true, List.copyOf(tags))
+                : new Sinopse(emIngles, "en", fonte, nome, false, List.copyOf(tags)));
+    }
+
+    /** Generos e temas da obra, em ingles, para sugerir como tags no cadastro. */
+    private static List<String> tagsDoMangaDex(JsonNode atributos) {
+        List<String> tags = new ArrayList<>();
+        for (JsonNode tag : atributos.path("tags")) {
+            String grupo = tag.path("attributes").path("group").asText("");
+            String nome = tag.path("attributes").path("name").path("en").asText("");
+            if ((grupo.equals("genre") || grupo.equals("theme")) && !nome.isBlank() && tags.size() < MAXIMO_DE_TAGS) {
+                tags.add(nome);
+            }
+        }
+        return List.copyOf(tags);
     }
 
     // ------------------------------------------------------------------ fontes
@@ -124,7 +149,7 @@ public class SinopseService {
     }
 
     private JsonNode buscarNoAniList(String titulo) {
-        String consulta = "query($s:String){Page(perPage:1){media(search:$s,type:MANGA){title{romaji english} description(asHtml:false)}}}";
+        String consulta = "query($s:String){Page(perPage:1){media(search:$s,type:MANGA){title{romaji english} genres description(asHtml:false)}}}";
         try {
             String corpo = mapper.writeValueAsString(Map.of("query", consulta, "variables", Map.of("s", titulo)));
             JsonNode achados = ler(http.postJson("https://graphql.anilist.co", corpo)).path("data").path("Page").path("media");

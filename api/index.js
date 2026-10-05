@@ -36,6 +36,11 @@ const DIAS = {
     SABADO: 'Sábado',
     DOMINGO: 'Domingo',
 };
+// tags oferecidas no cadastro mesmo antes de serem usadas (generos e temas comuns, em ingles)
+const TAGS_SUGERIDAS = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Psychological', 'Romance',
+    'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller',
+    'Dungeon', 'Historical', 'Isekai', 'Magic', 'Martial Arts', 'Murim', 'Regression', 'Reincarnation',
+    'Revenge', 'School Life', 'System', 'Villainess'];
 // nao ha mais o que ler nesses, entao nao entram no sorteio
 const FORA_DO_SORTEIO = ['CONCLUIDO', 'CANCELADO'];
 const MARCADOR = '{cap}';
@@ -169,16 +174,26 @@ function lerTexto(valor, campo) {
 }
 
 /** Tira espacos, vazios e repetidos (sem diferenciar maiusculas). */
-function montarTags(nomes) {
+/**
+ * Tira espacos, vazios e repetidos (sem diferenciar maiusculas).
+ * Uma tag que ja existe na lista geral entra com o nome de la ("action" vira "Action"),
+ * para a mesma tag nao aparecer escrita de dois jeitos; so nome novo cria tag nova.
+ */
+function montarTags(nomes, existentes) {
     if (nomes === null || nomes === undefined) return [];
     if (!Array.isArray(nomes)) throw new Recusa(400, "Valor inválido no campo 'tags'");
+    const nomeNaListaGeral = new Map();
+    for (const existente of existentes) {
+        if (!nomeNaListaGeral.has(normalizar(existente.nome))) nomeNaListaGeral.set(normalizar(existente.nome), existente.nome);
+    }
     const tags = [];
     const vistos = new Set();
     for (const nome of nomes) {
         if (typeof nome !== 'string' || nome.trim() === '') continue;
-        if (!vistos.has(normalizar(nome))) {
-            vistos.add(normalizar(nome));
-            tags.push(nome.trim());
+        const limpo = nome.trim().replace(/\s+/g, ' ');
+        if (!vistos.has(normalizar(limpo))) {
+            vistos.add(normalizar(limpo));
+            tags.push(nomeNaListaGeral.get(normalizar(limpo)) ?? limpo);
         }
     }
     return tags;
@@ -194,7 +209,7 @@ async function montarManga(id, dados) {
     const readingStatus = lerOpcao(dados.readingStatus, STATUS, 'readingStatus');
     const decimalFormat = lerOpcao(dados.decimalFormat, FORMATOS, 'decimalFormat') || 'HIFEN';
     const releaseDay = lerOpcao(dados.releaseDay, DIAS, 'releaseDay');
-    const tags = montarTags(dados.tags);
+    const tags = montarTags(dados.tags, await listarTags());
 
     if (!title || title.trim() === '') throw new Recusa(400, 'O título é obrigatório');
     if (!imagePath || imagePath.trim() === '') throw new Recusa(400, 'A imagem é obrigatória');
@@ -266,11 +281,38 @@ function resposta(manga) {
     };
 }
 
-async function listar(titulo, status) {
+const tagsNormalizadas = manga => new Set((manga.tags || []).map(normalizar).filter(Boolean));
+
+async function listar(titulo, status, tag) {
     const busca = normalizar(titulo);
+    const tagBuscada = normalizar(tag);
     return (await listarTodos())
         .filter(manga => !status || manga.readingStatus === status)
-        .filter(manga => normalizar(manga.title).includes(busca));
+        .filter(manga => normalizar(manga.title).includes(busca))
+        .filter(manga => !tagBuscada || tagsNormalizadas(manga).has(tagBuscada));
+}
+
+/** Lista geral de tags: as que estao em uso (as mais usadas primeiro) e depois as sugeridas ainda sem uso. */
+async function listarTags() {
+    // conta por nome sem diferenciar maiusculas nem acentos; o nome mostrado e o primeiro que apareceu
+    const nomes = new Map();
+    const quantidades = new Map();
+    for (const manga of await listarTodos()) {
+        const doManga = new Set();
+        for (const tag of manga.tags || []) {
+            const chave = normalizar(tag);
+            if (!chave || doManga.has(chave)) continue;
+            doManga.add(chave);
+            if (!nomes.has(chave)) nomes.set(chave, String(tag).trim());
+            quantidades.set(chave, (quantidades.get(chave) || 0) + 1);
+        }
+    }
+    const tags = [...nomes].map(([chave, nome]) => ({ nome, quantidade: quantidades.get(chave) }))
+        .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome, 'en', { sensitivity: 'base' }));
+    for (const sugerida of TAGS_SUGERIDAS) {
+        if (!nomes.has(normalizar(sugerida))) tags.push({ nome: sugerida, quantidade: 0 });
+    }
+    return tags;
 }
 
 // ------------------------------------------------------------------ verificacao de link
@@ -454,6 +496,10 @@ async function rotear(request) {
         if (!sinopse) throw new Recusa(404, 'Não encontrei uma descrição para esse título');
         return json(200, sinopse);
     }
+    // lista geral de tags, para escolher no cadastro em vez de digitar de novo
+    if (recurso === 'tags' && partes.length === 1 && metodo === 'GET') {
+        return json(200, await listarTags());
+    }
     if (recurso === 'dias-da-semana' && partes.length === 1 && metodo === 'GET') {
         return json(200, Object.entries(DIAS).map(([valor, descricao]) => ({ valor, descricao })));
     }
@@ -465,7 +511,7 @@ async function rotear(request) {
 
     if (recurso === 'mangas') {
         if (partes.length === 1 && metodo === 'GET') {
-            const mangas = (await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url))).map(resposta);
+            const mangas = (await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url), url.searchParams.get('tag'))).map(resposta);
             // sem ?pagina devolve a lista inteira (usada por quem precisa de todos, como a busca de mangas);
             // com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos
             if (!url.searchParams.has('pagina')) return json(200, mangas);
@@ -555,11 +601,24 @@ async function rotear(request) {
             if (situacao === 'NAO_VERIFICADO' && !manga.nextChapterUrl && manga.lastChapterUrl) destino = manga.lastChapterUrl;
             return new Response(null, { status: 302, headers: { Location: destino } });
         }
+        // mangas da lista que dividem tags com este, comecando pelos que dividem mais
+        if (partes.length === 3 && acao === 'semelhantes' && metodo === 'GET') {
+            const manga = await buscarPorId(id);
+            const tagsDoManga = tagsNormalizadas(manga);
+            const semelhantes = (await listarTodos())
+                .filter(outro => outro.id !== manga.id)
+                .map(outro => ({ outro, emComum: [...tagsNormalizadas(outro)].filter(tag => tagsDoManga.has(tag)).length }))
+                .filter(item => item.emComum > 0)
+                .sort((a, b) => b.emComum - a.emComum || a.outro.title.localeCompare(b.outro.title, 'en', { sensitivity: 'base' }))
+                .slice(0, 6)
+                .map(item => resposta(item.outro));
+            return json(200, semelhantes);
+        }
         // mangas parecidos com este que ainda nao estao na lista, buscados na internet
         if (partes.length === 3 && acao === 'recomendacoes' && metodo === 'GET') {
             const manga = await buscarPorId(id);
             const cadastrados = (await listarTodos()).map(cadastrado => cadastrado.title);
-            return json(200, await buscarRecomendacoes(manga.title, cadastrados));
+            return json(200, await buscarRecomendacoes(manga.title, cadastrados, manga.tags || []));
         }
         if (partes.length === 3 && acao === 'capitulo-lido' && metodo === 'POST') {
             const atual = await buscarPorId(id);

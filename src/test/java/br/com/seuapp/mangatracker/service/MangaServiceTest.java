@@ -345,6 +345,103 @@ class MangaServiceTest {
         assertTrue(imagemService.existe(imagem));
     }
 
+    // ------------------------------------------------------------------ tags
+
+    private Manga comTags(String titulo, String... tags) {
+        return service.salvarManga(new DadosManga(titulo, CAPA, List.of(tags), LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""));
+    }
+
+    private static List<String> nomes(Manga manga) {
+        return manga.getTags().stream().map(Tag::getNome).toList();
+    }
+
+    @Test
+    void listaGeralTrazAsTagsEmUsoPrimeiroEDepoisAsSugeridas() {
+        comTags("A", "Fantasy", "Tower Climbing");
+        comTags("B", "Fantasy", "Action");
+        comTags("C", "Fantasy", "Action", "Zebra");
+
+        List<TagEmUso> tags = service.listarTags();
+
+        // as mais usadas primeiro; empate em ordem alfabetica
+        assertEquals(List.of(new TagEmUso("Fantasy", 3), new TagEmUso("Action", 2), new TagEmUso("Tower Climbing", 1), new TagEmUso("Zebra", 1)),
+                tags.subList(0, 4));
+        // depois as sugeridas que ainda nao foram usadas, sem repetir as que ja estao em uso
+        assertEquals(new TagEmUso("Adventure", 0), tags.get(4));
+        assertTrue(tags.contains(new TagEmUso("Isekai", 0)));
+        assertEquals(1, tags.stream().filter(tag -> tag.nome().equalsIgnoreCase("fantasy")).count());
+        assertEquals(tags.size(), tags.stream().map(tag -> tag.nome().toLowerCase()).distinct().count());
+    }
+
+    @Test
+    void semMangasAListaGeralSoTemAsSugeridas() {
+        List<TagEmUso> tags = service.listarTags();
+
+        assertFalse(tags.isEmpty());
+        assertTrue(tags.stream().allMatch(tag -> tag.quantidade() == 0));
+        assertEquals("Action", tags.get(0).nome());
+    }
+
+    @Test
+    void tagQueJaExisteEntraComONomeDaListaGeral() {
+        comTags("A", "Tower Climbing", "Fantasy");
+
+        // escrita de outro jeito, e a mesma tag: nao cria uma segunda
+        Manga b = comTags("B", "  tower   climbing ", "FANTASY", "isekai", "Minha Tag Nova", "minha tag nova");
+
+        assertEquals(List.of("Tower Climbing", "Fantasy", "Isekai", "Minha Tag Nova"), nomes(b));
+        assertEquals(new TagEmUso("Tower Climbing", 2), service.listarTags().stream().filter(tag -> tag.nome().equals("Tower Climbing")).findFirst().orElseThrow());
+        // a tag nova passa a fazer parte da lista geral e vale para os proximos
+        assertEquals(List.of("Minha Tag Nova"), nomes(comTags("C", "MINHA TAG NOVA")));
+        // na edicao geral tambem
+        assertEquals(List.of("Fantasy"), nomes(service.editarManga(b.getId(),
+                new DadosManga("B", CAPA, List.of("fantasy"), LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, ""))));
+    }
+
+    @Test
+    void filtraOsMangasPorTag() {
+        comTags("A", "Fantasy", "Action");
+        comTags("B", "Romance");
+        comTags("C", "fantasy");
+
+        assertEquals(List.of("A", "C"), titulos(service.listarMangas(null, null, "Fantasy")));
+        assertEquals(List.of("A", "C"), titulos(service.listarMangas(null, null, " FANTASY ")));
+        assertEquals(List.of("B"), titulos(service.listarMangas(null, null, "romance")));
+        assertEquals(List.of(), titulos(service.listarMangas(null, null, "Horror")));
+        assertEquals(List.of(), titulos(service.listarMangas(null, null, "Fant")), "so a tag inteira vale");
+        assertEquals(3, service.listarMangas(null, null, null).size());
+        assertEquals(3, service.listarMangas(null, null, " ").size());
+        // junto com os outros filtros
+        assertEquals(List.of("C"), titulos(service.listarMangas("c", ReadingStatus.LENDO, "Fantasy")));
+        assertEquals(List.of(), titulos(service.listarMangas(null, ReadingStatus.DROPADO, "Fantasy")));
+    }
+
+    @Test
+    void semelhantesSaoOsQueDividemMaisTags() {
+        Manga base = comTags("Base", "Fantasy", "Action", "Dungeon");
+        comTags("Uma em comum", "Fantasy", "Romance");
+        comTags("Tres em comum", "dungeon", "ACTION", "Fantasy", "Comedy");
+        comTags("Nenhuma", "Romance", "Drama");
+        comTags("Duas em comum B", "Action", "Dungeon");
+        comTags("Duas em comum A", "Fantasy", "Action");
+        comTags("Sem tags");
+
+        assertEquals(List.of("Tres em comum", "Duas em comum A", "Duas em comum B", "Uma em comum"),
+                titulos(service.listarSemelhantes(base.getId())));
+        assertEquals(List.of(), titulos(service.listarSemelhantes(comTags("Outro sem tags").getId())));
+        assertThrows(NotFoundException.class, () -> service.listarSemelhantes(UUID.randomUUID()));
+    }
+
+    @Test
+    void semelhantesTrazNoMaximoSeis() {
+        Manga base = comTags("Base", "Fantasy");
+        for (int i = 0; i < 10; i++) {
+            comTags("Outro " + i, "Fantasy");
+        }
+
+        assertEquals(6, service.listarSemelhantes(base.getId()).size());
+    }
+
     // ------------------------------------------------------------------ verificacao de link
 
     private MangaService comSite(SiteFalso site) {

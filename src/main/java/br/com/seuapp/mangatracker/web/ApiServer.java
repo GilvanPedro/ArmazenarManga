@@ -128,6 +128,8 @@ public class ApiServer {
             config.routes.post("/api/mangas/{id}/verificacao-link", this::verificarLink);
             config.routes.post("/api/mangas/{id}/capitulo-lido", this::registrarLeitura);
             config.routes.get("/api/mangas/{id}/recomendacoes", this::recomendar);
+            config.routes.get("/api/mangas/{id}/semelhantes", this::listarSemelhantes);
+            config.routes.get("/api/tags", this::listarTags);
 
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
@@ -221,7 +223,7 @@ public class ApiServer {
      * Com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos.
      */
     private void listar(Context ctx) throws JsonProcessingException {
-        List<MangaResponse> mangas = mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx)).stream()
+        List<MangaResponse> mangas = mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag")).stream()
                 .map(MangaResponse::de)
                 .toList();
         if (ctx.queryParam("pagina") == null) {
@@ -254,11 +256,22 @@ public class ApiServer {
         throw new RequisicaoInvalidaException("O parâmetro '" + nome + "' precisa ser um número a partir de 1");
     }
 
-    /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet. */
+    /** Mangas da lista que dividem tags com este. */
+    private void listarSemelhantes(Context ctx) throws JsonProcessingException {
+        json(ctx, HttpStatus.OK, mangaService.listarSemelhantes(lerId(ctx)).stream().map(MangaResponse::de).toList());
+    }
+
+    /** Lista geral de tags, para escolher no cadastro em vez de digitar de novo. */
+    private void listarTags(Context ctx) throws JsonProcessingException {
+        json(ctx, HttpStatus.OK, mangaService.listarTags());
+    }
+
+    /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet pelo titulo e pelas tags dele. */
     private void recomendar(Context ctx) throws JsonProcessingException {
         Manga manga = mangaService.buscarPorId(lerId(ctx));
         List<String> cadastrados = mangaService.listarMangas(null, null).stream().map(Manga::getTitle).toList();
-        json(ctx, HttpStatus.OK, recomendacaoService.buscar(manga.getTitle(), cadastrados));
+        List<String> tags = manga.getTags().stream().map(tag -> tag.getNome()).toList();
+        json(ctx, HttpStatus.OK, recomendacaoService.buscar(manga.getTitle(), cadastrados, tags));
     }
 
     private void cadastrar(Context ctx) throws JsonProcessingException {

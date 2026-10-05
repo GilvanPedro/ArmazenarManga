@@ -81,13 +81,14 @@ para acordar no próximo acesso.
 
 | Método   | Rota                          | O que faz                                                                 |
 |----------|-------------------------------|---------------------------------------------------------------------------|
-| `GET`    | `/api/mangas`                 | Lista os mangás. Filtros opcionais: `?titulo=solo` e `?status=LENDO`. Com `?pagina=1` devolve uma página (24 por vez) em `{itens, pagina, tamanho, total, paginas}` |
+| `GET`    | `/api/mangas`                 | Lista os mangás. Filtros opcionais: `?titulo=solo`, `?status=LENDO` e `?tag=Fantasy`. Com `?pagina=1` devolve uma página (24 por vez) em `{itens, pagina, tamanho, total, paginas}` |
 | `POST`   | `/api/mangas`                 | Cadastra um mangá                                                         |
 | `GET`    | `/api/mangas/{id}`            | Página de informações de um mangá                                         |
 | `PUT`    | `/api/mangas/{id}`            | Edição geral (todas as informações)                                       |
 | `PATCH`  | `/api/mangas/{id}/progresso`  | Altera só o último capítulo lido e/ou o status                            |
 | `DELETE` | `/api/mangas/{id}`            | Exclui o mangá (e a capa enviada)                                         |
 | `GET`    | `/api/mangas/{id}/ler`        | Confere o link no site e redireciona para o próximo capítulo ainda não lido |
+| `GET`    | `/api/mangas/{id}/semelhantes` | Até 6 mangás da lista que dividem tags com este, os com mais tags em comum primeiro |
 | `GET`    | `/api/mangas/{id}/recomendacoes` | Até 6 mangás de temas parecidos que ainda não estão na lista (fonte: AniList) |
 | `POST`   | `/api/mangas/{id}/capitulo-lido` | Registra o capítulo lido com o endereço exato da página dele (e do próximo, se conhecido) |
 | `POST`   | `/api/mangas/{id}/verificacao-link` | Confere no site o link do próximo capítulo e corrige se o endereço mudou |
@@ -97,6 +98,7 @@ para acordar no próximo acesso.
 | `GET`    | `/api/imagens/{nome}`         | Devolve a capa enviada                                                    |
 | `GET`    | `/api/status`                 | Status possíveis (`valor` e `descricao`)                                  |
 | `GET`    | `/api/sinopse`                | Descrição do mangá buscada na internet pelo título: `?titulo=Solo Leveling` |
+| `GET`    | `/api/tags`                   | Lista geral de tags (`nome` e `quantidade`): as em uso, mais usadas primeiro, e depois as sugeridas |
 | `GET`    | `/api/dias-da-semana`         | Dias da semana possíveis (`valor` e `descricao`)                          |
 | `GET`    | `/api/formatos-decimais`      | Formatos de capítulo ".5" no link (`HIFEN`, `PONTO`, `UNDERLINE`)         |
 

@@ -407,6 +407,44 @@ class ApiServerTest {
         assertEquals("NAO_VERIFICADO", json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null)).get("situacao").asText());
     }
 
+    // ------------------------------------------------------------------ tags
+
+    private JsonNode cadastrarComTags(String titulo, String tags) throws Exception {
+        HttpResponse<String> resposta = enviar("POST", "/api/mangas", manga(titulo, "1", "LENDO").replace("[\"Ação\", \"Fantasia\"]", tags));
+        assertEquals(201, resposta.statusCode(), resposta.body());
+        return json(resposta);
+    }
+
+    @Test
+    void listaAsTagsFiltraPorElasEAchaOsSemelhantes() throws Exception {
+        String base = cadastrarComTags("Base", "[\"Fantasy\", \"Dungeon\"]").get("id").asText();
+        JsonNode outro = cadastrarComTags("Outro", "[\"fantasy\", \"dungeon\", \"Minha Tag\"]");
+        cadastrarComTags("So uma", "[\"FANTASY\"]");
+        cadastrarComTags("Nada a ver", "[\"Romance\"]");
+
+        // a tag escrita de outro jeito entrou com o nome que ja existia
+        assertEquals("Fantasy", outro.get("tags").get(0).asText());
+        assertEquals("Dungeon", outro.get("tags").get(1).asText());
+
+        JsonNode tags = json(enviar("GET", "/api/tags", null));
+        assertEquals("Fantasy", tags.get(0).get("nome").asText());
+        assertEquals(3, tags.get(0).get("quantidade").asInt());
+        assertEquals("Dungeon", tags.get(1).get("nome").asText());
+        assertEquals(2, tags.get(1).get("quantidade").asInt());
+        List<String> nomes = new ArrayList<>();
+        tags.forEach(tag -> nomes.add(tag.get("nome").asText()));
+        assertTrue(nomes.contains("Minha Tag") && nomes.contains("Isekai"), nomes.toString());
+
+        assertEquals(List.of("Base", "Outro", "So uma"), titulos("/api/mangas?tag=Fantasy"));
+        assertEquals(List.of("Base", "Outro"), titulos("/api/mangas?tag=dungeon"));
+        assertEquals(List.of("Outro"), titulos("/api/mangas?tag=Minha%20Tag&titulo=out"));
+        assertEquals(List.of(), titulos("/api/mangas?tag=Horror"));
+        assertEquals(2, json(enviar("GET", "/api/mangas?tag=Dungeon&pagina=1", null)).get("total").asInt());
+
+        assertEquals(List.of("Outro", "So uma"), titulos("/api/mangas/" + base + "/semelhantes"));
+        assertEquals(404, enviar("GET", "/api/mangas/" + UUID.randomUUID() + "/semelhantes", null).statusCode());
+    }
+
     // ------------------------------------------------------------------ paginacao
 
     @Test
