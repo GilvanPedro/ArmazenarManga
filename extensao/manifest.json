@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Meus Mangás - próximo capítulo",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Abre o próximo capítulo certo nos sites de leitura que mudam o link a cada capítulo e bloqueiam servidores. Funciona junto com o site Meus Mangás.",
   "permissions": ["tabs", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
@@ -16,6 +16,12 @@
       "run_at": "document_end"
     }
   ],
+  "commands": {
+    "marcar-lido": {
+      "suggested_key": { "default": "Alt+Shift+L" },
+      "description": "Marcar o capítulo aberto como lido"
+    }
+  },
   "action": {
     "default_title": "Meus Mangás",
     "default_popup": "popup.html"

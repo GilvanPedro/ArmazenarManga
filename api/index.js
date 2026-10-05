@@ -3,7 +3,10 @@
 // Uma mudanca de regra precisa ser feita nos dois lugares.
 import pg from 'pg';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import { criarBuscador, criarVerificador, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
+import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
+import { criarBuscadorDeSinopse } from './_sinopse.js';
+
+const buscarSinopse = criarBuscadorDeSinopse();
 
 const verificar = criarVerificador(criarBuscador());
 
@@ -430,6 +433,14 @@ async function rotear(request) {
         return json(200, Object.entries(FORMATOS).map(([valor, formato]) => ({ valor, descricao: formato.descricao })));
     }
 
+    // descricao do manga buscada na internet pelo titulo, para preencher o cadastro
+    if (recurso === 'sinopse' && partes.length === 1 && metodo === 'GET') {
+        const titulo = (url.searchParams.get('titulo') || '').trim();
+        if (!titulo) throw new Recusa(400, 'Informe o título');
+        const sinopse = await buscarSinopse(titulo.slice(0, 200));
+        if (!sinopse) throw new Recusa(404, 'Não encontrei uma descrição para esse título');
+        return json(200, sinopse);
+    }
     if (recurso === 'dias-da-semana' && partes.length === 1 && metodo === 'GET') {
         return json(200, Object.entries(DIAS).map(([valor, descricao]) => ({ valor, descricao })));
     }
@@ -538,6 +549,8 @@ async function rotear(request) {
             const semFinal = endereco => endereco.trim().split('#')[0].replace(/\/+$/, '');
             const atualizado = {
                 ...atual,
+                // o modelo acompanha o endereco real: se o id do link mudou, o modelo salvo passa a ter o id novo
+                chapterLinkModel: derivarModelo(corpo.lastChapterUrl.trim(), lastChapter, atual.decimalFormat || 'HIFEN') ?? atual.chapterLinkModel,
                 lastChapter,
                 lastChapterUrl: corpo.lastChapterUrl.trim(),
                 nextChapterUrl: temProximo && semFinal(corpo.nextChapterUrl) !== semFinal(corpo.lastChapterUrl)

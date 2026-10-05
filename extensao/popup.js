@@ -2,6 +2,7 @@
 const ext = globalThis.browser || globalThis.chrome;
 const situacao = document.getElementById('situacao');
 const acao = document.getElementById('acao');
+const marcar = document.getElementById('marcar');
 
 async function mostrar() {
     const [aba] = await ext.tabs.query({ active: true, currentWindow: true });
@@ -22,6 +23,17 @@ async function mostrar() {
     }
     const { origens } = await ext.runtime.sendMessage({ tipo: 'origens' });
     acao.hidden = true;
+
+    // em qualquer pagina que nao seja o proprio site: marcar o capitulo que esta aberto
+    marcar.hidden = !(origem && origens.length > 0 && !origens.includes(origem) && !ehOSite);
+    marcar.onclick = async () => {
+        await ext.runtime.sendMessage({ tipo: 'marcar', dados: { tabId: aba.id } });
+        window.close();
+    };
+    if (!marcar.hidden) {
+        situacao.textContent = 'Terminou de ler? Marque o capítulo desta página.';
+        return;
+    }
 
     if (origem && origens.includes(origem)) {
         situacao.textContent = 'Liberado para ' + origem + '.';

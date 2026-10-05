@@ -110,6 +110,70 @@ async function irParaOProximo(dados, abaDoSite) {
     return { ok: false, motivo: 'tempo', atualUrl: ultimaPagina };
 }
 
+/**
+ * Roda dentro da pagina do capitulo: pega o endereco dela e, se houver, o link de "proximo capitulo".
+ * (Funcao enviada para a aba: nao pode usar nada de fora dela.)
+ */
+function capturarPagina() {
+    const atual = location.href.split('#')[0];
+    const dica = /(^|[^a-z])(next|pr[oó]xim[oa]|siguiente|seguinte)([^a-z]|$)/i;
+    const pastas = caminho => caminho.split('/').filter(Boolean).length;
+    let proximo = '';
+    for (const elemento of document.querySelectorAll('link[href], a[href]')) {
+        const destino = elemento.href;
+        if (!/^https?:/.test(destino) || destino.split('#')[0] === atual) continue;
+        const rel = (' ' + (elemento.getAttribute('rel') || '') + ' ').toLowerCase().includes(' next ');
+        const classe = typeof elemento.className === 'string' ? elemento.className.replace(/[-_]/g, ' ') : '';
+        const texto = [elemento.textContent, elemento.title, elemento.getAttribute('aria-label'), classe].join(' ');
+        // um capitulo fica tao "fundo" no endereco quanto a pagina atual; a pagina da obra, que tambem pode dizer "next", nao
+        const outroCapitulo = elemento.tagName === 'A' && elemento.host === location.host
+            && pastas(elemento.pathname) >= pastas(location.pathname);
+        if (rel || (outroCapitulo && dica.test(texto))) {
+            proximo = destino.split('#')[0];
+            break;
+        }
+    }
+    // nome e capa, para o cadastro vir preenchido quando o manga ainda nao esta na lista
+    const meta = nome => {
+        const tag = document.querySelector('meta[property="' + nome + '"], meta[name="' + nome + '"]');
+        return tag ? tag.content || '' : '';
+    };
+    let imagem = meta('og:image') || meta('twitter:image');
+    try {
+        imagem = imagem ? new URL(imagem, location.href).href : '';
+    } catch (erro) {
+        imagem = '';
+    }
+    return { atual, proximo, titulo: (meta('og:title') || document.title || '').slice(0, 200), imagem };
+}
+
+/**
+ * "Marcar como lido": abre o site Meus Mangas na tela de confirmacao, ja com o endereco do capitulo
+ * que esta aberto na aba. Faz o mesmo que o favorito do site, sem precisar da barra de favoritos.
+ */
+async function marcarComoLido(aba) {
+    const origens = await origensPermitidas();
+    if (origens.length === 0) return { ok: false, motivo: 'nao-autorizado' };
+    if (!aba || !ehHttp(aba.url)) return { ok: false, motivo: 'erro' };
+    let pagina = { atual: aba.url.split('#')[0], proximo: '', titulo: aba.title || '', imagem: '' };
+    try {
+        const [injetado] = await ext.scripting.executeScript({ target: { tabId: aba.id }, func: capturarPagina });
+        if (injetado && injetado.result) pagina = injetado.result;
+    } catch (erro) {
+        // sem acesso a pagina: segue so com o endereco da aba
+    }
+    const destino = origens[0] + '/#/capturar?u=' + encodeURIComponent(pagina.atual) + '&p=' + encodeURIComponent(pagina.proximo || '')
+        + '&t=' + encodeURIComponent(pagina.titulo || aba.title || '') + '&i=' + encodeURIComponent(pagina.imagem || '');
+    await ext.tabs.create({ url: destino, index: aba.index + 1, openerTabId: aba.id });
+    return { ok: true };
+}
+
+/** So nomes de site validos e sem repeticao, para a lista de onde o botao "Lido" aparece. */
+function limparSites(sites) {
+    if (!Array.isArray(sites)) return [];
+    return [...new Set(sites.filter(site => typeof site === 'string' && /^[a-z0-9.-]{1,253}(:\d{1,5})?$/i.test(site)))].slice(0, 500);
+}
+
 async function atender(mensagem, remetente) {
     const tipo = mensagem && mensagem.tipo;
     const dados = (mensagem && mensagem.dados) || {};
@@ -129,11 +193,18 @@ async function atender(mensagem, remetente) {
             await ext.storage.local.set({ origens: origens.filter(origem => origem !== dados.origem) });
             return { ok: true };
         }
+        if (tipo === 'marcar') return marcarComoLido(await ext.tabs.get(dados.tabId));
         return { ok: false, motivo: 'erro' };
     }
 
-    // pedidos vindos de uma pagina: so do site que o dono da extensao liberou
     if (!remetente.tab || !remetente.url) return { ok: false, motivo: 'erro' };
+    // clique no botao "Lido" que a extensao coloca nas paginas de leitura. Vem direto do codigo da extensao;
+    // o que uma pagina pede chega sempre marcado com daPagina, entao nenhum site consegue fingir este pedido
+    if (!mensagem.daPagina) {
+        return tipo === 'marcar-esta' ? marcarComoLido(remetente.tab) : { ok: false, motivo: 'erro' };
+    }
+
+    // pedidos vindos de uma pagina: so do site que o dono da extensao liberou
     const autorizado = (await origensPermitidas()).includes(new URL(remetente.url).origin);
     if (tipo === 'estado') return { ok: true, autorizado, versao: ext.runtime.getManifest().version };
     if (!autorizado) return { ok: false, motivo: 'nao-autorizado' };
@@ -143,7 +214,21 @@ async function atender(mensagem, remetente) {
         return { ok: true };
     }
     if (tipo === 'proximo') return irParaOProximo(dados, remetente.tab);
+    // o site conta em quais sites de leitura estao os mangas, para o botao "Lido" aparecer so neles
+    if (tipo === 'sites') {
+        await ext.storage.local.set({ sites: limparSites(dados.sites) });
+        return { ok: true };
+    }
     return { ok: false, motivo: 'erro' };
+}
+
+// atalho de teclado (Alt+Shift+L por padrao): marca o capitulo da aba aberta
+if (ext.commands) {
+    ext.commands.onCommand.addListener(async comando => {
+        if (comando !== 'marcar-lido') return;
+        const [aba] = await ext.tabs.query({ active: true, currentWindow: true });
+        await marcarComoLido(aba);
+    });
 }
 
 ext.runtime.onMessage.addListener((mensagem, remetente, responder) => {

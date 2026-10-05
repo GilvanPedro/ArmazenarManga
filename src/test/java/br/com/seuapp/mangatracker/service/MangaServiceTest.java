@@ -596,6 +596,27 @@ class MangaServiceTest {
     }
 
     @Test
+    void marcarComoLidoAtualizaOModeloQuandoOIdDoLinkMudou() {
+        // id proprio em cada capitulo: o modelo passa a ter o id do capitulo marcado
+        Manga comix = mangaDoComix();
+        Manga lido = service.registrarLeitura(comix.getId(), new BigDecimal("8"), COMIX + "6912345-chapter-8", null);
+        assertEquals(COMIX + "6912345-chapter-{cap}", lido.getChapterLinkModel());
+
+        // id da obra mudou: o modelo novo vale para todos os capitulos
+        Manga asura = service.salvarManga(new DadosManga("Extra", CAPA, null, "https://asurascans.com/comics/extra-3ec3b16f/chapter/{cap}", null,
+                new BigDecimal("174"), ReadingStatus.LENDO, ""));
+        Manga atualizado = service.registrarLeitura(asura.getId(), new BigDecimal("175"), "https://asurascans.com/comics/extra-bd5bdaf8/chapter/175", null);
+        assertEquals("https://asurascans.com/comics/extra-bd5bdaf8/chapter/{cap}", atualizado.getChapterLinkModel());
+        assertEquals("https://asurascans.com/comics/extra-bd5bdaf8/chapter/176",
+                service.atualizarProgresso(asura.getId(), new BigDecimal("300"), null).getChapterLinkModel().replace("{cap}", "176"));
+
+        // endereco sem o numero do capitulo: nao da para tirar um modelo dele, entao o antigo fica
+        Manga semNumero = service.registrarLeitura(comix.getId(), new BigDecimal("9"), "https://comix.to/read/8f3a9c", null);
+        assertEquals(COMIX + "6912345-chapter-{cap}", semNumero.getChapterLinkModel());
+        assertEquals("https://comix.to/read/8f3a9c", semNumero.linkUltimoCapitulo());
+    }
+
+    @Test
     void registraSoOCapituloLidoQuandoOProximoNaoEConhecido() {
         Manga salvo = mangaDoComix();
         String oito = COMIX + "6912345-chapter-8";

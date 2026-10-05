@@ -159,8 +159,11 @@ public class MangaService implements MangaServiceInterface{
         if (temProximo && !ChapterLink.isUrlHttp(nextChapterUrl)) {
             throw new InvalidLinkException("O link do próximo capítulo precisa ser um endereço http:// ou https:// válido");
         }
+        // o modelo acompanha o endereco real: se o id do link mudou, o modelo salvo passa a ter o id novo
+        String modeloDoEndereco = ChapterLink.derivarModelo(lastChapterUrl.trim(), lastChapter, atual.getDecimalFormat());
         Manga atualizado = new Manga(atual.getId(), atual.getTitle(), atual.getImagePath(), atual.getTags(),
-                atual.getChapterLinkModel(), atual.getDecimalFormat(), lastChapter, atual.getReadingStatus(), atual.getDescription());
+                modeloDoEndereco != null ? modeloDoEndereco : atual.getChapterLinkModel(),
+                atual.getDecimalFormat(), lastChapter, atual.getReadingStatus(), atual.getDescription());
         atualizado.setReleaseDay(atual.getReleaseDay());
         atualizado.setLastChapterUrl(lastChapterUrl.trim());
         // um "proximo" igual a pagina atual nao serve para nada

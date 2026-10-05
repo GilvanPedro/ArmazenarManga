@@ -6,6 +6,8 @@ import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.ImagemServiceTest;
 import br.com.seuapp.mangatracker.service.MangaService;
 import br.com.seuapp.mangatracker.service.PaginaWeb;
+import br.com.seuapp.mangatracker.service.SinopseService;
+import br.com.seuapp.mangatracker.service.SinopseServiceTest;
 import br.com.seuapp.mangatracker.service.VerificadorDeLink;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -401,6 +403,38 @@ class ApiServerTest {
         assertEquals(302, ler.statusCode());
         assertEquals(CAP + "49", ler.headers().firstValue("Location").orElseThrow());
         assertEquals("NAO_VERIFICADO", json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null)).get("situacao").asText());
+    }
+
+    // ------------------------------------------------------------------ descricao buscada na internet
+
+    @Test
+    void buscaADescricaoDoMangaPeloTitulo() throws Exception {
+        app.stop();
+        SinopseServiceTest.InternetFalsa internet = new SinopseServiceTest.InternetFalsa();
+        internet.mangadex = "{\"data\":[{\"attributes\":{\"title\":{\"en\":\"Solo Leveling\"},\"altTitles\":[],\"description\":{\"pt-br\":\"Dez anos atrás, o Portal se abriu.\"}}}]}";
+        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
+        app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(internet)).criar().start("127.0.0.1", 0);
+        base = "http://127.0.0.1:" + app.port();
+
+        HttpResponse<String> resposta = enviar("GET", "/api/sinopse?titulo=Solo%20Leveling", null);
+
+        assertEquals(200, resposta.statusCode(), resposta.body());
+        assertEquals("Dez anos atrás, o Portal se abriu.", json(resposta).get("descricao").asText());
+        assertEquals("pt", json(resposta).get("idioma").asText());
+        assertEquals("MangaDex", json(resposta).get("fonte").asText());
+        assertEquals("Solo Leveling", json(resposta).get("tituloEncontrado").asText());
+        assertFalse(json(resposta).get("traduzida").asBoolean());
+
+        internet.mangadex = "{\"data\":[]}";
+        assertEquals(404, enviar("GET", "/api/sinopse?titulo=zzzz", null).statusCode());
+        assertEquals(400, enviar("GET", "/api/sinopse", null).statusCode());
+        assertEquals(400, enviar("GET", "/api/sinopse?titulo=%20", null).statusCode());
+    }
+
+    @Test
+    void semAcessoAInternetASinopseSoNaoEEncontrada() throws Exception {
+        assertEquals(404, enviar("GET", "/api/sinopse?titulo=Solo%20Leveling", null).statusCode());
     }
 
     // ------------------------------------------------------------------ leitura registrada pelo navegador

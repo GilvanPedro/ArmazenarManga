@@ -323,6 +323,8 @@ a.capa:hover img { transform: scale(1.035); }
 .campo > span, .campo > label { font-weight: 650; font-size: 13.5px; }
 .campo small { color: var(--texto-fraco); font-size: 12.5px; overflow-wrap: anywhere; }
 .campo code { font-size: 12px; padding: 1px 5px; border-radius: 5px; background: var(--superficie-2); }
+.rotulo-com-acao { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rotulo-com-acao label { font-weight: 650; font-size: 13.5px; }
 .dupla { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 420px) { .dupla { grid-template-columns: 1fr; } }
 .lado-capa { display: flex; flex-direction: column; gap: 10px; }

@@ -99,6 +99,45 @@ function capituloDoLink(endereco) {
     return Number(achado[1] + (achado[2] ? '.' + achado[2] : ''));
 }
 
+/**
+ * Nome do manga a partir do titulo da pagina do capitulo.
+ * "The Novel's Extra Chapter 174 - Read Online | Asura Scans" -> "The Novel's Extra".
+ * Sem titulo aproveitavel, usa o endereco: ".../0vx0d-doomsday-wedding/..." -> "Doomsday Wedding".
+ */
+function tituloDoManga(tituloDaPagina, endereco) {
+    let titulo = String(tituloDaPagina || '').replace(/\s+/g, ' ').trim();
+    // corta de "Chapter 7", "Capítulo 7", "Cap. 7", "Ch 7", "Ep 7" em diante
+    titulo = titulo.replace(/[\s\-–—|:,(\[]*(?:^|[^\p{L}])(chapter|chap|ch|cap[ií]tulo|cap|episode|epis[oó]dio|ep)\.?\s*#?\d.*$/iu, '');
+    titulo = titulo.replace(/^(read|ler|leia)\s+/i, '').replace(/\s*\|[^|]*$/, '').replace(/[\s\-–—|:,]+$/, '').trim();
+    if (titulo.length >= 2) return titulo;
+    try {
+        const pedacos = new URL(endereco).pathname.split('/').filter(Boolean).map(decodeURIComponent)
+            .filter(pedaco => /[a-z]{3}/i.test(pedaco) && !/(chapter|capitulo|cap[-_]?\d|episode)/i.test(pedaco));
+        // o trecho mais comprido com palavras costuma ser o nome da obra; ids misturam letras e numeros
+        const nome = pedacos.sort((a, b) => b.length - a.length)[0] || '';
+        return nome.split(/[-_]+/).filter(palavra => palavra && !/\d/.test(palavra))
+            .map(palavra => palavra.charAt(0).toUpperCase() + palavra.slice(1)).join(' ');
+    } catch (e) {
+        return '';
+    }
+}
+
+/** Modelo do link a partir do endereco de um capitulo: troca o numero do capitulo por {cap}. */
+function modeloDoLink(endereco, capitulo) {
+    if (capitulo == null) return endereco;
+    const inicioDoCaminho = endereco.indexOf('/', endereco.indexOf('://') + 3);
+    for (const numero of [String(capitulo).replace('.', '-'), String(capitulo)]) {
+        for (let posicao = endereco.lastIndexOf(numero); posicao > inicioDoCaminho && inicioDoCaminho > 0; posicao = endereco.lastIndexOf(numero, posicao - 1)) {
+            const antes = endereco[posicao - 1];
+            const depois = endereco[posicao + numero.length] || '';
+            if (!/\d/.test(antes) && !/[\p{L}\p{N}]/u.test(depois)) {
+                return endereco.slice(0, posicao) + '{cap}' + endereco.slice(posicao + numero.length);
+            }
+        }
+    }
+    return endereco;
+}
+
 function ehLinkHttp(texto) {
     try {
         return ['http:', 'https:'].includes(new URL(texto).protocol);
@@ -192,8 +231,30 @@ function pedirExtensao(tipo, dados, tempoLimite) {
 }
 
 async function conferirExtensao() {
+    const antes = estado.extensao;
     estado.extensao = extensaoInstalada() && (await pedirExtensao('estado', {}, 3000)).autorizado === true;
+    if (estado.extensao && !antes) informarSitesAExtensao();
     return estado.extensao;
+}
+
+/** Conta a extensao em quais sites de leitura estao os mangas, para o botao "Lido" aparecer neles. */
+async function informarSitesAExtensao() {
+    if (!estado.extensao) return;
+    try {
+        const sites = new Set();
+        for (const manga of await chamar('GET', '/api/mangas')) {
+            for (const endereco of [manga.lastChapterLink, manga.nextChapterLink]) {
+                try {
+                    sites.add(new URL(endereco).host);
+                } catch (e) {
+                    // link fora do padrao: so nao entra na lista
+                }
+            }
+        }
+        await pedirExtensao('sites', {sites: [...sites]}, 5000);
+    } catch (e) {
+        // sem a lista o botao so nao aparece; o resto do site nao depende disso
+    }
 }
 
 function mesmoSite(a, b) {
@@ -617,8 +678,48 @@ function seletor(opcoes, escolhido) {
 
 // ------------------------------------------------------------------ cadastro e edicao geral
 
-async function telaFormulario(id) {
+/** Busca na internet a descricao pelo titulo e coloca no campo, avisando de onde veio. */
+async function preencherDescricao(titulo, descricao, aviso, substituir) {
+    if (!titulo.trim()) {
+        aviso.textContent = 'Preencha o título para buscar a descrição.';
+        return;
+    }
+    aviso.textContent = 'Buscando a descrição na internet…';
+    let sinopse;
+    try {
+        sinopse = await chamar('GET', '/api/sinopse?titulo=' + encodeURIComponent(titulo.trim()));
+    } catch (e) {
+        aviso.textContent = 'Não encontrei uma descrição para esse título. Escreva a sua, se quiser.';
+        return;
+    }
+    // quem ja escreveu algo enquanto a busca corria nao perde o que escreveu
+    if (descricao.value.trim() && !substituir) {
+        aviso.textContent = '';
+        return;
+    }
+    descricao.value = sinopse.descricao;
+    aviso.textContent = 'Descrição de “' + sinopse.tituloEncontrado + '”, do ' + sinopse.fonte
+        + (sinopse.traduzida ? ', traduzida automaticamente' : '')
+        + (sinopse.idioma === 'en' ? ' (só encontrei em inglês)' : '')
+        + '. Confira se é a obra certa.';
+}
+
+/**
+ * @param consulta dados capturados da pagina de um capitulo (u = endereco, t = titulo da pagina, i = capa,
+ *                 p = proximo capitulo), para o cadastro de um manga novo ja vir preenchido
+ */
+async function telaFormulario(id, consulta) {
     const vez = ++estado.render;
+    const capturado = new URLSearchParams(id ? '' : consulta || '');
+    const paginaLida = ehLinkHttp(capturado.get('u') || '') ? capturado.get('u').trim() : null;
+    const capituloLido = paginaLida ? capituloDoLink(paginaLida) : null;
+    const pronto = paginaLida && {
+        titulo: tituloDoManga(capturado.get('t'), paginaLida),
+        link: modeloDoLink(paginaLida, capituloLido),
+        capitulo: capituloLido == null ? '' : mostrarCapitulo(capituloLido),
+        imagem: ehLinkHttp(capturado.get('i') || '') ? capturado.get('i').trim() : '',
+        proximo: ehLinkHttp(capturado.get('p') || '') ? capturado.get('p').trim() : null,
+    };
     let manga = null;
     if (id) {
         try {
@@ -634,16 +735,16 @@ async function telaFormulario(id) {
     const voltarPara = manga ? '#/manga/' + manga.id : '#/';
     const imagemDeFora = manga && /^https?:\/\//i.test(manga.imagePath);
 
-    const titulo = h('input', {type: 'text', required: true, maxlength: '200', value: manga ? manga.title : ''});
+    const titulo = h('input', {type: 'text', required: true, maxlength: '200', value: manga ? manga.title : pronto ? pronto.titulo : ''});
     const link = h('input', {
         type: 'url',
         required: true,
         placeholder: 'https://site.com/manga/solo-leveling/capitulo-{cap}',
-        value: manga ? manga.chapterLinkModel : '',
+        value: manga ? manga.chapterLinkModel : pronto ? pronto.link : '',
     });
     const formato = seletor(estado.formatos.map(f => ({valor: f.valor, descricao: f.descricao.replace('X', '48')})),
         manga ? manga.decimalFormat : 'HIFEN');
-    const capitulo = h('input', {type: 'text', inputmode: 'decimal', required: true, autocomplete: 'off', value: manga ? mostrarCapitulo(manga.lastChapter) : '0'});
+    const capitulo = h('input', {type: 'text', inputmode: 'decimal', required: true, autocomplete: 'off', value: manga ? mostrarCapitulo(manga.lastChapter) : pronto && pronto.capitulo ? pronto.capitulo : '0'});
     const status = seletor(estado.status, manga ? manga.readingStatus : 'LENDO');
     const dia = seletor([{valor: '', descricao: 'Sem dia definido'}, ...estado.dias], manga && manga.releaseDay ? manga.releaseDay : '');
     const avisoDia = h('small');
@@ -658,6 +759,15 @@ async function telaFormulario(id) {
     ajustarDia();
     const tags = h('input', {type: 'text', placeholder: 'Ação, Fantasia', value: manga ? manga.tags.join(', ') : ''});
     const descricao = h('textarea', {maxlength: '5000'}, manga ? manga.description : '');
+    const avisoDescricao = h('small', {'aria-live': 'polite'});
+    const buscarDescricao = h('button', {
+        type: 'button',
+        class: 'botao pequeno',
+        onclick: () => {
+            if (descricao.value.trim() && !confirm('Substituir a descrição atual pela encontrada na internet?')) return;
+            preencherDescricao(titulo.value, descricao, avisoDescricao, true);
+        },
+    }, 'Buscar na internet');
     const arquivo = h('input', {type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', id: 'arquivo-capa'});
     const urlImagem = h('input', {type: 'url', placeholder: 'https://…', value: imagemDeFora ? manga.imagePath : ''});
     const previa = h('div', {class: 'capa'});
@@ -722,7 +832,9 @@ async function telaFormulario(id) {
                 h('label', {class: 'campo'}, h('span', null, 'Status'), status),
                 h('label', {class: 'campo'}, h('span', null, 'Dia de lançamento'), dia, avisoDia)),
             h('label', {class: 'campo'}, h('span', null, 'Tags'), tags, h('small', null, 'Separadas por vírgula.')),
-            h('label', {class: 'campo'}, h('span', null, 'Descrição'), descricao),
+            h('div', {class: 'campo'},
+                h('div', {class: 'rotulo-com-acao'}, h('label', {for: 'campo-descricao'}, 'Descrição'), buscarDescricao),
+                descricao, avisoDescricao),
             erro,
             h('div', {class: 'acoes-form'},
                 h('a', {class: 'botao', href: voltarPara}, 'Cancelar'),
@@ -768,7 +880,17 @@ async function telaFormulario(id) {
             const salvo = manga
                 ? await chamar('PUT', '/api/mangas/' + manga.id, dados)
                 : await chamar('POST', '/api/mangas', dados);
+            if (pronto) {
+                // cadastro vindo de uma pagina de capitulo: guarda tambem o endereco exato dela (e do proximo)
+                try {
+                    await chamar('POST', '/api/mangas/' + salvo.id + '/capitulo-lido',
+                        {lastChapter: numero, lastChapterUrl: paginaLida, nextChapterUrl: pronto.proximo});
+                } catch (e) {
+                    // o manga ja foi cadastrado; sem o endereco exato vale o modelo do link
+                }
+            }
             avisar(manga ? 'Alterações salvas' : 'Mangá cadastrado');
+            informarSitesAExtensao();
             location.hash = '#/manga/' + salvo.id;
         } catch (e) {
             falhar(e.message);
@@ -780,9 +902,20 @@ async function telaFormulario(id) {
     app.replaceChildren(h('div', {class: 'formulario'},
         h('a', {class: 'voltar', href: voltarPara}, '← Voltar'),
         h('h1', null, manga ? 'Edição geral' : 'Novo mangá'),
+        pronto
+            ? h('div', {class: 'sorteado', role: 'status'},
+                h('span', null, 'Este mangá não estava na sua lista. Preenchi o que deu para descobrir pela página; confira antes de cadastrar.'),
+                h('a', {class: 'botao pequeno', href: '#/capturar?' + capturado + '&escolher=1'}, 'Ele já está na lista'))
+            : null,
         formulario));
     mostrarPrevia();
     mostrarExemplo();
+    descricao.id = 'campo-descricao';
+    if (pronto) {
+        urlImagem.value = pronto.imagem;
+        mostrarPrevia();
+        preencherDescricao(titulo.value, descricao, avisoDescricao, false);
+    }
     if (!manga) titulo.focus();
 }
 
@@ -800,18 +933,28 @@ function codigoDoAtalho() {
         var atual = location.href.split(cerquilha)[0], proximo = '';
         var dica = /(^|[^a-z])(next|pr[o\u00f3]xim[oa]|siguiente|seguinte)([^a-z]|$)/i;
         var links = document.querySelectorAll('link[href], a[href]');
+        var pastas = function (caminho) { return caminho.split('/').filter(Boolean).length; };
         for (var i = 0; i < links.length; i++) {
             var e = links[i], destino = e.href;
             if (!/^https?:/.test(destino) || destino.split(cerquilha)[0] === atual) continue;
             var rel = (' ' + (e.getAttribute('rel') || '') + ' ').toLowerCase().indexOf(' next ') >= 0;
             var classe = typeof e.className === 'string' ? e.className.replace(/[-_]/g, ' ') : '';
             var texto = [e.textContent, e.title, e.getAttribute('aria-label'), classe].join(' ');
-            if (rel || (e.tagName === 'A' && e.host === location.host && dica.test(texto))) {
+            var outroCapitulo = e.tagName === 'A' && e.host === location.host && pastas(e.pathname) >= pastas(location.pathname);
+            if (rel || (outroCapitulo && dica.test(texto))) {
                 proximo = destino.split(cerquilha)[0];
                 break;
             }
         }
-        window.open(origem + '/' + cerquilha + '/capturar?u=' + encodeURIComponent(atual) + '&p=' + encodeURIComponent(proximo));
+        var meta = function (nome) {
+            var tag = document.querySelector('meta[property="' + nome + '"], meta[name="' + nome + '"]');
+            return tag ? tag.content || '' : '';
+        };
+        var imagem = meta('og:image') || meta('twitter:image');
+        try { imagem = imagem ? new URL(imagem, location.href).href : ''; } catch (erro) { imagem = ''; }
+        var titulo = (meta('og:title') || document.title || '').slice(0, 200);
+        window.open(origem + '/' + cerquilha + '/capturar?u=' + encodeURIComponent(atual) + '&p=' + encodeURIComponent(proximo)
+            + '&t=' + encodeURIComponent(titulo) + '&i=' + encodeURIComponent(imagem));
     };
     return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
 }
@@ -847,9 +990,15 @@ async function telaAtalho() {
                 h('li', null, 'Abra ', h('code', null, 'about:debugging#/runtime/this-firefox'), ' e clique em “Carregar extensão temporária”.'),
                 h('li', null, 'Escolha o arquivo ', h('code', null, 'manifest.json'), ' dentro da pasta ', h('code', null, 'extensao'), '.'),
                 h('li', null, 'Libere este site pelo ícone da extensão, como no Chrome. No Firefox a extensão carregada assim sai ao fechar o navegador.')),
-            h('h1', {class: 'segundo'}, 'Atalho: marcar o capítulo direto do site de leitura'),
+            h('h1', {class: 'segundo'}, 'Marcar o capítulo como lido direto do site de leitura'),
+            h('p', null, 'Com a extensão instalada não precisa de favorito. Há três jeitos, todos abrem este site com o mangá e o capítulo já preenchidos para você confirmar:'),
+            h('ul', null,
+                h('li', null, h('b', null, 'Botão “✓ Lido”'), ': aparece sozinho no canto de baixo das páginas dos sites onde você tem mangá cadastrado.'),
+                h('li', null, h('b', null, 'Ícone da extensão'), ': clique nele e em “Marcar este capítulo como lido”. Funciona em qualquer site.'),
+                h('li', null, h('b', null, 'Teclado'), ': Alt+Shift+L na página do capítulo.')),
+            h('h1', {class: 'segundo'}, 'Sem a extensão: favorito'),
             h('p', null, 'Alguns sites mudam o link a cada capítulo e não deixam ninguém além do seu navegador abrir as páginas. '
-                + 'Com este atalho, você marca o capítulo como lido estando na página dele, e o endereço exato fica salvo junto.'),
+                + 'Com este favorito, você marca o capítulo como lido estando na página dele, e o endereço exato fica salvo junto.'),
             h('p', null,
                 h('a', {
                     class: 'botao primario',
@@ -928,13 +1077,15 @@ async function telaCapturar(consulta) {
         return;
     }
     if (vez !== estado.render) return;
-    if (mangas.length === 0) {
-        app.replaceChildren(vazio('Sua lista está vazia', 'Cadastre o mangá primeiro e depois use o atalho de novo.',
-            h('a', {class: 'botao primario', href: '#/novo'}, '+ Adicionar mangá')));
+    const achado = mangaDoLink(mangas, endereco);
+    // manga que ainda nao esta na lista: abre o cadastro ja preenchido (a nao ser que tenham pedido para escolher)
+    const paraOCadastro = new URLSearchParams(parametros);
+    paraOCadastro.delete('escolher');
+    if (!achado && (!parametros.has('escolher') || mangas.length === 0)) {
+        location.replace('#/novo?' + paraOCadastro);
         return;
     }
 
-    const achado = mangaDoLink(mangas, endereco);
     const manga = seletor([{valor: '', descricao: 'Escolha o mangá…'}, ...mangas.map(m => ({valor: m.id, descricao: m.title}))],
         achado ? achado.id : '');
     const numero = capituloDoLink(endereco);
@@ -947,7 +1098,8 @@ async function telaCapturar(consulta) {
 
     const formulario = h('form', {class: 'campos', novalidate: true},
         h('label', {class: 'campo'}, h('span', null, 'Mangá'), manga,
-            achado ? null : h('small', null, 'Não reconheci esse endereço em nenhum mangá da sua lista. Escolha qual é.')),
+            achado ? null : h('small', null, 'Não reconheci esse endereço em nenhum mangá da sua lista. Escolha qual é, ou ',
+                h('a', {href: '#/novo?' + paraOCadastro}, 'cadastre como um mangá novo'), '.')),
         h('label', {class: 'campo'}, h('span', null, 'Capítulo lido'), capitulo),
         h('div', {class: 'campo'}, h('span', null, 'Página do capítulo'), h('small', null, h('code', null, endereco))),
         ehLinkHttp(proximo)
@@ -1002,7 +1154,7 @@ function rota() {
     if (partes[0] === 'hoje') return telaHoje();
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
-    if (partes[0] === 'novo') return telaFormulario(null);
+    if (partes[0] === 'novo') return telaFormulario(null, consulta);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
     return telaGrade();
 }

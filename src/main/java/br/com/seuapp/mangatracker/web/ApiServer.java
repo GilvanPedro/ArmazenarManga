@@ -15,6 +15,7 @@ import br.com.seuapp.mangatracker.service.DadosManga;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.MangaServiceInterface;
 import br.com.seuapp.mangatracker.service.ResultadoVerificacao;
+import br.com.seuapp.mangatracker.service.SinopseService;
 import br.com.seuapp.mangatracker.service.SituacaoDoLink;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamWriteFeature;
@@ -51,6 +52,7 @@ public class ApiServer {
     private final ImagemService imagemService;
     private final List<String> origensPermitidas;
     private final Credenciais credenciais;
+    private final SinopseService sinopseService;
     private final ObjectMapper mapper = JsonMapper.builder()
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -62,6 +64,12 @@ public class ApiServer {
      * @param credenciais       usuario e senha pedidos em toda requisicao, ou null para nao pedir login
      */
     public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais) {
+        this(mangaService, imagemService, origensPermitidas, credenciais, new SinopseService(SEM_INTERNET));
+    }
+
+    /** @param sinopseService busca na internet a descricao dos mangas para preencher o cadastro */
+    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais, SinopseService sinopseService) {
+        this.sinopseService = sinopseService;
         this.mangaService = mangaService;
         this.imagemService = imagemService;
         this.origensPermitidas = origensPermitidas;
@@ -70,6 +78,19 @@ public class ApiServer {
 
     public record Credenciais(String usuario, String senha) {
     }
+
+    /** Cliente que nunca encontra nada: usado quando a API e criada sem acesso a outros sites (testes). */
+    private static final SinopseService.ClienteHttp SEM_INTERNET = new SinopseService.ClienteHttp() {
+        @Override
+        public String get(String endereco) {
+            return null;
+        }
+
+        @Override
+        public String postJson(String endereco, String corpo) {
+            return null;
+        }
+    };
 
     private record ProgressoRequest(BigDecimal lastChapter, ReadingStatus readingStatus) {
     }
@@ -107,6 +128,7 @@ public class ApiServer {
             config.routes.get("/api/status", this::listarStatus);
             config.routes.get("/api/formatos-decimais", this::listarFormatosDecimais);
             config.routes.get("/api/dias-da-semana", this::listarDiasDaSemana);
+            config.routes.get("/api/sinopse", this::buscarSinopse);
 
             config.routes.exception(NullInformationsException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidLinkException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
@@ -317,6 +339,18 @@ public class ApiServer {
         json(ctx, HttpStatus.OK, Arrays.stream(ChapterDecimalFormat.values())
                 .map(formato -> Map.of("valor", formato.name(), "descricao", formato.getDescricao()))
                 .toList());
+    }
+
+    /** Descricao do manga buscada na internet pelo titulo, para preencher o cadastro. */
+    private void buscarSinopse(Context ctx) throws JsonProcessingException {
+        String titulo = ctx.queryParam("titulo");
+        if (titulo == null || titulo.isBlank()) {
+            throw new RequisicaoInvalidaException("Informe o título");
+        }
+        String busca = titulo.trim();
+        SinopseService.Sinopse sinopse = sinopseService.buscar(busca.substring(0, Math.min(200, busca.length())))
+                .orElseThrow(() -> new NotFoundException("Não encontrei uma descrição para esse título"));
+        json(ctx, HttpStatus.OK, sinopse);
     }
 
     private void listarDiasDaSemana(Context ctx) throws JsonProcessingException {

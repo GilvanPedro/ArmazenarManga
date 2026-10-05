@@ -95,6 +95,7 @@ para acordar no próximo acesso.
 | `POST`   | `/api/imagens`                | Envia uma capa (`multipart/form-data`, campo `arquivo`, até 10 MB)        |
 | `GET`    | `/api/imagens/{nome}`         | Devolve a capa enviada                                                    |
 | `GET`    | `/api/status`                 | Status possíveis (`valor` e `descricao`)                                  |
+| `GET`    | `/api/sinopse`                | Descrição do mangá buscada na internet pelo título: `?titulo=Solo Leveling` |
 | `GET`    | `/api/dias-da-semana`         | Dias da semana possíveis (`valor` e `descricao`)                          |
 | `GET`    | `/api/formatos-decimais`      | Formatos de capítulo ".5" no link (`HIFEN`, `PONTO`, `UNDERLINE`)         |
 
@@ -148,9 +149,16 @@ navegador de quem está lendo:
   capítulo lido em uma aba, espera a proteção do site passar, acha o link do próximo capítulo, leva a aba até ele e
   o site salva os endereços exatos. A instalação está explicada na aba **Extensão e atalho** do site. A extensão só
   atende ao site que o dono liberar pelo ícone dela.
+  Ela também marca capítulos como lidos sem favorito: um botão "✓ Lido" aparece no canto das páginas dos sites onde
+  há mangá cadastrado, e o mesmo pode ser feito pelo ícone da extensão ou com Alt+Shift+L.
 - **Atalho do navegador** (na mesma aba): um favorito que, clicado na página do capítulo, abre o site
   com o mangá, o capítulo e o link do próximo capítulo já preenchidos para confirmar.
 - **Campo "Link do capítulo lido"** ao alterar o capítulo: basta colar o endereço da página.
+
+Marcar como lido também atualiza o modelo do link com o id que estiver no endereço do capítulo. Se o mangá ainda
+não está na lista, abre o cadastro já preenchido com o que a página informa (nome, capítulo, link e capa) e com a
+descrição buscada por `GET /api/sinopse`: em português do MangaDex quando existe, senão em inglês do AniList
+traduzida automaticamente pelo MyMemory. O campo de descrição do cadastro tem um botão para repetir essa busca.
 
 Os dois chamam `POST /api/mangas/{id}/capitulo-lido` com
 `{"lastChapter": 8, "lastChapterUrl": "...", "nextChapterUrl": "..."}` (`nextChapterUrl` é opcional).
