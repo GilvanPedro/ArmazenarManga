@@ -66,7 +66,10 @@ public class VerificadorDeLink {
         if (atualAbriu) {
             encontrado = acharLinkDoProximo(atual, ChapterLink.montar(modelo, formato, proximo), proximo, formato);
         }
-        if (encontrado != null && !ChapterLink.mesmoEndereco(encontrado, ChapterLink.montar(modelo, formato, proximo))) {
+        if (encontrado == null && manga.getNextChapterUrl() != null) {
+            // a pagina nao mostrou o link, mas ja existe um endereco exato guardado: e ele que precisa ser conferido
+            proximoExato = manga.getNextChapterUrl();
+        } else if (encontrado != null && !ChapterLink.mesmoEndereco(encontrado, ChapterLink.montar(modelo, formato, proximo))) {
             String novoModelo = ChapterLink.derivarModelo(encontrado, proximo, formato);
             boolean valeParaOAtual = novoModelo != null
                     && ChapterLink.mesmoEndereco(ChapterLink.montar(novoModelo, formato, ultimo), atual.urlFinal());

@@ -79,6 +79,33 @@ function lerCapitulo(texto) {
     return /^\d+(\.\d+)?$/.test(limpo) ? Number(limpo) : null;
 }
 
+/**
+ * Descobre o numero do capitulo pelo endereco da pagina dele.
+ * ".../6880186-chapter-7" -> 7, ".../capitulo-48-5" -> 48.5. Devolve null se nao achar.
+ */
+function capituloDoLink(endereco) {
+    let caminho;
+    try {
+        const url = new URL(endereco);
+        caminho = decodeURIComponent(url.pathname) + url.search;
+    } catch (e) {
+        return null;
+    }
+    const comPalavra = [...caminho.matchAll(/(?:chapter|chap|capitulo|capítulo|cap|episode|episodio|ep|ch)[-_\/ =]?(\d+)(?:[.\-_](\d{1,2})(?![0-9a-z]))?/gi)].pop();
+    // sem a palavra "capitulo" no endereco, vale o ultimo numero dele
+    const achado = comPalavra || [...caminho.matchAll(/(\d+)(?:\.(\d{1,2}))?(?![0-9a-z])/gi)].pop();
+    if (!achado) return null;
+    return Number(achado[1] + (achado[2] ? '.' + achado[2] : ''));
+}
+
+function ehLinkHttp(texto) {
+    try {
+        return ['http:', 'https:'].includes(new URL(texto).protocol);
+    } catch (e) {
+        return false;
+    }
+}
+
 function mostrarCapitulo(numero) {
     return String(numero).replace('.', ',');
 }
@@ -164,7 +191,8 @@ function abas(atual) {
     }, texto);
     return h('nav', {class: 'abas', 'aria-label': 'Listas'},
         aba('todos', '#/', 'Todos os mangás'),
-        aba('hoje', '#/hoje', 'Lançam hoje'));
+        aba('hoje', '#/hoje', 'Lançam hoje'),
+        aba('atalho', '#/atalho', 'Atalho do navegador'));
 }
 
 /** Aba dos mangas que estou lendo e que lancam capitulo no dia de hoje. */
@@ -414,8 +442,14 @@ function abrirDialogoProgresso(manga) {
         value: mostrarCapitulo(manga.lastChapter),
     });
     const status = seletor(estado.status, manga.readingStatus);
+    const link = h('input', {type: 'url', autocomplete: 'off', placeholder: 'Cole o endereço da página do capítulo'});
     const erro = h('div', {class: 'erro', role: 'alert', hidden: true});
     const salvar = h('button', {type: 'submit', class: 'botao primario'}, 'Salvar');
+    // colar o link ja preenche o numero do capitulo
+    link.addEventListener('input', () => {
+        const numero = capituloDoLink(link.value.trim());
+        if (numero != null) capitulo.value = mostrarCapitulo(numero);
+    });
 
     const passo = quanto => {
         const atual = lerCapitulo(capitulo.value);
@@ -435,6 +469,8 @@ function abrirDialogoProgresso(manga) {
                     capitulo,
                     h('button', {type: 'button', class: 'botao', 'aria-label': 'Um capítulo a mais', onclick: () => passo(1)}, '+'))),
             h('label', {class: 'campo'}, h('span', null, 'Status'), status),
+            h('label', {class: 'campo'}, h('span', null, 'Link do capítulo lido (opcional)'), link,
+                h('small', null, 'Para sites em que o link muda a cada capítulo.')),
             erro,
             h('div', {class: 'acoes-form'},
                 h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'),
@@ -443,14 +479,27 @@ function abrirDialogoProgresso(manga) {
     dialogo.querySelector('form').addEventListener('submit', async evento => {
         evento.preventDefault();
         const numero = lerCapitulo(capitulo.value);
+        const endereco = link.value.trim();
         if (numero == null) {
             erro.textContent = 'Digite um capítulo válido, como 48 ou 48,5';
             erro.hidden = false;
             return;
         }
+        if (endereco && !ehLinkHttp(endereco)) {
+            erro.textContent = 'O link precisa começar com http:// ou https://';
+            erro.hidden = false;
+            return;
+        }
         salvar.disabled = true;
         try {
-            await chamar('PATCH', '/api/mangas/' + manga.id + '/progresso', {lastChapter: numero, readingStatus: status.value});
+            if (endereco) {
+                await chamar('POST', '/api/mangas/' + manga.id + '/capitulo-lido', {lastChapter: numero, lastChapterUrl: endereco});
+                if (status.value !== manga.readingStatus) {
+                    await chamar('PATCH', '/api/mangas/' + manga.id + '/progresso', {readingStatus: status.value});
+                }
+            } else {
+                await chamar('PATCH', '/api/mangas/' + manga.id + '/progresso', {lastChapter: numero, readingStatus: status.value});
+            }
             dialogo.close();
             avisar('Progresso salvo');
             // nas listas so recarrega os cartoes, para a pagina nao pular para o topo
@@ -645,10 +694,188 @@ async function telaFormulario(id) {
     if (!manga) titulo.focus();
 }
 
+// ------------------------------------------------------------------ captura do capitulo pelo navegador
+
+/**
+ * Codigo do favorito ("bookmarklet"). Roda na pagina do capitulo, no site de leitura, dentro do navegador
+ * de quem esta lendo: pega o endereco da pagina e o link de "proximo capitulo" e abre este site para confirmar.
+ * E assim que sites que bloqueiam o servidor (protecao contra robos) continuam funcionando.
+ */
+function codigoDoAtalho() {
+    // sem "#" e sem acentos no codigo: dentro de um endereco javascript: eles podem ser alterados pelo navegador
+    const codigo = function (origem) {
+        var cerquilha = String.fromCharCode(35);
+        var atual = location.href.split(cerquilha)[0], proximo = '';
+        var dica = /(^|[^a-z])(next|pr[o\u00f3]xim[oa]|siguiente|seguinte)([^a-z]|$)/i;
+        var links = document.querySelectorAll('link[href], a[href]');
+        for (var i = 0; i < links.length; i++) {
+            var e = links[i], destino = e.href;
+            if (!/^https?:/.test(destino) || destino.split(cerquilha)[0] === atual) continue;
+            var rel = (' ' + (e.getAttribute('rel') || '') + ' ').toLowerCase().indexOf(' next ') >= 0;
+            var classe = typeof e.className === 'string' ? e.className.replace(/[-_]/g, ' ') : '';
+            var texto = [e.textContent, e.title, e.getAttribute('aria-label'), classe].join(' ');
+            if (rel || (e.tagName === 'A' && e.host === location.host && dica.test(texto))) {
+                proximo = destino.split(cerquilha)[0];
+                break;
+            }
+        }
+        window.open(origem + '/' + cerquilha + '/capturar?u=' + encodeURIComponent(atual) + '&p=' + encodeURIComponent(proximo));
+    };
+    return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
+}
+
+function telaAtalho() {
+    const codigo = codigoDoAtalho();
+    document.title = 'Atalho do navegador · Meus Mangás';
+    app.replaceChildren(
+        abas('atalho'),
+        h('div', {class: 'texto'},
+            h('h1', null, 'Marcar o capítulo direto do site de leitura'),
+            h('p', null, 'Alguns sites mudam o link a cada capítulo e não deixam ninguém além do seu navegador abrir as páginas. '
+                + 'Com este atalho, você marca o capítulo como lido estando na página dele, e o endereço exato fica salvo junto.'),
+            h('p', null,
+                h('a', {
+                    class: 'botao primario',
+                    href: codigo,
+                    title: 'Arraste para a barra de favoritos',
+                    onclick: evento => {
+                        evento.preventDefault();
+                        avisar('Arraste este botão para a barra de favoritos do navegador');
+                    },
+                }, '📖 Marcar capítulo lido')),
+            h('ol', null,
+                h('li', null, 'Arraste o botão acima para a barra de favoritos do navegador (Ctrl+Shift+B mostra a barra).'),
+                h('li', null, 'Quando terminar de ler um capítulo, ainda na página dele, clique no favorito.'),
+                h('li', null, 'Este site abre mostrando o mangá e o capítulo encontrados. Confira e clique em Salvar.')),
+            h('p', null, 'Se a página tiver um botão de próximo capítulo, o link dele também é guardado, e o botão “Ler” passa a abrir direto o capítulo certo.'),
+            h('p', null, h('b', null, 'No celular'), ', onde não dá para arrastar: crie um favorito de qualquer página, edite-o e cole o código abaixo no lugar do endereço. '
+                + 'Ou então use o campo “Link do capítulo lido” ao alterar o capítulo aqui no site.'),
+            h('p', null, h('button', {
+                type: 'button',
+                class: 'botao',
+                onclick: async () => {
+                    try {
+                        await navigator.clipboard.writeText(codigo);
+                        avisar('Código copiado');
+                    } catch (e) {
+                        avisar('Não foi possível copiar. Selecione o código abaixo e copie.', true);
+                    }
+                },
+            }, 'Copiar código')),
+            h('textarea', {class: 'codigo', readonly: true, rows: '4', 'aria-label': 'Código do atalho'}, codigo)));
+}
+
+/** Entre os mangas do mesmo site, o que tem o endereco mais parecido com o da pagina capturada. */
+function mangaDoLink(mangas, endereco) {
+    const pagina = new URL(endereco);
+    let melhor = null;
+    let melhorIguais = 0;
+    for (const manga of mangas) {
+        for (const conhecido of [manga.lastChapterLink, manga.nextChapterLink, manga.chapterLinkModel]) {
+            let url;
+            try {
+                url = new URL(conhecido.replace('{cap}', '0'));
+            } catch (e) {
+                continue;
+            }
+            if (url.host !== pagina.host) continue;
+            let iguais = 0;
+            while (iguais < url.pathname.length && url.pathname[iguais] === pagina.pathname[iguais]) iguais++;
+            if (iguais > melhorIguais) {
+                melhorIguais = iguais;
+                melhor = manga;
+            }
+        }
+    }
+    // so vale se for alem da primeira pasta do endereco ("/title/", "/manga/"...), que e igual para o site todo
+    return melhorIguais > pagina.pathname.indexOf('/', 1) + 1 ? melhor : null;
+}
+
+/** Tela aberta pelo atalho: confirma o que foi capturado antes de salvar. Nada e gravado sem o clique em Salvar. */
+async function telaCapturar(consulta) {
+    const vez = ++estado.render;
+    const parametros = new URLSearchParams(consulta);
+    const endereco = (parametros.get('u') || '').trim();
+    const proximo = (parametros.get('p') || '').trim();
+    document.title = 'Marcar capítulo lido · Meus Mangás';
+    if (!ehLinkHttp(endereco)) {
+        app.replaceChildren(vazio('Nada para marcar', 'Use o atalho estando na página de um capítulo.',
+            h('a', {class: 'botao', href: '#/atalho'}, 'Ver como funciona')));
+        return;
+    }
+    let mangas;
+    try {
+        mangas = await chamar('GET', '/api/mangas');
+    } catch (e) {
+        if (vez === estado.render) app.replaceChildren(vazio('Algo deu errado', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    if (mangas.length === 0) {
+        app.replaceChildren(vazio('Sua lista está vazia', 'Cadastre o mangá primeiro e depois use o atalho de novo.',
+            h('a', {class: 'botao primario', href: '#/novo'}, '+ Adicionar mangá')));
+        return;
+    }
+
+    const achado = mangaDoLink(mangas, endereco);
+    const manga = seletor([{valor: '', descricao: 'Escolha o mangá…'}, ...mangas.map(m => ({valor: m.id, descricao: m.title}))],
+        achado ? achado.id : '');
+    const numero = capituloDoLink(endereco);
+    const capitulo = h('input', {type: 'text', inputmode: 'decimal', autocomplete: 'off', value: numero == null ? '' : mostrarCapitulo(numero)});
+    // so sugere guardar o "proximo" se ele parece mesmo ser um capitulo adiante
+    const numeroDoProximo = ehLinkHttp(proximo) ? capituloDoLink(proximo) : null;
+    const guardarProximo = h('input', {type: 'checkbox', checked: numero != null && numeroDoProximo != null && numeroDoProximo > numero});
+    const erro = h('div', {class: 'erro', role: 'alert', hidden: true});
+    const salvar = h('button', {type: 'submit', class: 'botao primario'}, 'Salvar');
+
+    const formulario = h('form', {class: 'campos', novalidate: true},
+        h('label', {class: 'campo'}, h('span', null, 'Mangá'), manga,
+            achado ? null : h('small', null, 'Não reconheci esse endereço em nenhum mangá da sua lista. Escolha qual é.')),
+        h('label', {class: 'campo'}, h('span', null, 'Capítulo lido'), capitulo),
+        h('div', {class: 'campo'}, h('span', null, 'Página do capítulo'), h('small', null, h('code', null, endereco))),
+        ehLinkHttp(proximo)
+            ? h('label', {class: 'campo marcar'}, guardarProximo,
+                h('span', null, 'Guardar também o link do próximo capítulo'), h('small', null, h('code', null, proximo)))
+            : h('div', {class: 'campo'}, h('small', null, 'A página não mostrou link para o próximo capítulo. O botão “Ler” vai abrir este capítulo, que tem o botão de próximo do site.')),
+        erro,
+        h('div', {class: 'acoes-form'},
+            h('a', {class: 'botao', href: '#/'}, 'Cancelar'),
+            salvar));
+
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        const lido = lerCapitulo(capitulo.value);
+        const falhar = mensagem => {
+            erro.textContent = mensagem;
+            erro.hidden = false;
+        };
+        if (!manga.value) return falhar('Escolha o mangá');
+        if (lido == null) return falhar('Digite o capítulo lido, como 48 ou 48,5');
+        salvar.disabled = true;
+        try {
+            await chamar('POST', '/api/mangas/' + manga.value + '/capitulo-lido', {
+                lastChapter: lido,
+                lastChapterUrl: endereco,
+                nextChapterUrl: ehLinkHttp(proximo) && guardarProximo.checked ? proximo : null,
+            });
+            avisar('Capítulo ' + mostrarCapitulo(lido) + ' marcado como lido');
+            location.hash = '#/manga/' + manga.value;
+        } catch (e) {
+            falhar(e.message);
+            salvar.disabled = false;
+        }
+    });
+
+    app.replaceChildren(h('div', {class: 'formulario estreito'},
+        h('h1', null, 'Marcar capítulo lido'),
+        formulario));
+}
+
 // ------------------------------------------------------------------ rotas
 
 function rota() {
-    const partes = location.hash.replace(/^#\/?/, '').split('/');
+    const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
+    const partes = caminho.split('/');
     document.title = 'Meus Mangás';
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     estado.recarregar = null;
@@ -656,6 +883,8 @@ function rota() {
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;
     if (partes[0] === 'hoje') return telaHoje();
+    if (partes[0] === 'atalho') return telaAtalho();
+    if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
     return telaGrade();

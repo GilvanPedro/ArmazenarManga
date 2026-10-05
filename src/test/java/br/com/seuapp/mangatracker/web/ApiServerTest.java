@@ -403,6 +403,40 @@ class ApiServerTest {
         assertEquals("NAO_VERIFICADO", json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null)).get("situacao").asText());
     }
 
+    // ------------------------------------------------------------------ leitura registrada pelo navegador
+
+    @Test
+    void registraALeituraELerUsaOsEnderecosExatos() throws Exception {
+        String comix = "https://comix.to/title/0vx0d-doomsday-wedding/";
+        HttpResponse<String> criado = enviar("POST", "/api/mangas", manga("Doomsday Wedding", "7", "LENDO")
+                .replace("https://site-a.com/manga/solo-leveling/capitulo-{cap}", comix + "6880186-chapter-{cap}"));
+        assertEquals(201, criado.statusCode(), criado.body());
+        String id = json(criado).get("id").asText();
+        // so com o modelo, o proximo sairia com o id errado
+        assertEquals(comix + "6880186-chapter-8", json(criado).get("nextChapterLink").asText());
+
+        // li o 8 e a pagina mostrava o link do 9
+        HttpResponse<String> leitura = enviar("POST", "/api/mangas/" + id + "/capitulo-lido",
+                "{\"lastChapter\": 8, \"lastChapterUrl\": \"" + comix + "6912345-chapter-8\", \"nextChapterUrl\": \"" + comix + "6954321-chapter-9\"}");
+        assertEquals(200, leitura.statusCode(), leitura.body());
+        assertEquals("8", json(leitura).get("lastChapter").asText());
+        assertEquals(comix + "6912345-chapter-8", json(leitura).get("lastChapterLink").asText());
+        assertEquals(comix + "6954321-chapter-9", json(leitura).get("nextChapterLink").asText());
+        assertEquals(comix + "6954321-chapter-9", enviar("GET", "/api/mangas/" + id + "/ler", null).headers().firstValue("Location").orElseThrow());
+
+        // li o 9 e a pagina nao mostrava o proximo: "Ler" abre o 9, que tem o botao de proximo do site
+        enviar("POST", "/api/mangas/" + id + "/capitulo-lido", "{\"lastChapter\": 9, \"lastChapterUrl\": \"" + comix + "6954321-chapter-9\"}");
+        assertEquals(comix + "6954321-chapter-9", enviar("GET", "/api/mangas/" + id + "/ler", null).headers().firstValue("Location").orElseThrow());
+
+        for (String corpo : List.of("{}", "{\"lastChapter\": 8}", "{\"lastChapter\": -1, \"lastChapterUrl\": \"" + comix + "x\"}",
+                "{\"lastChapter\": 8, \"lastChapterUrl\": \"javascript:alert(1)\"}",
+                "{\"lastChapter\": 8, \"lastChapterUrl\": \"" + comix + "x\", \"nextChapterUrl\": \"ftp://x\"}")) {
+            assertEquals(400, enviar("POST", "/api/mangas/" + id + "/capitulo-lido", corpo).statusCode(), corpo);
+        }
+        assertEquals(404, enviar("POST", "/api/mangas/" + UUID.randomUUID() + "/capitulo-lido", "{\"lastChapter\": 8, \"lastChapterUrl\": \"" + comix + "x\"}").statusCode());
+        assertEquals("9", json(enviar("GET", "/api/mangas/" + id, null)).get("lastChapter").asText());
+    }
+
     // ------------------------------------------------------------------ dia de lancamento
 
     private static String mangaComDia(String titulo, String status, String dia) {

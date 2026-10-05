@@ -477,6 +477,29 @@ async function rotear(request) {
             const manga = await buscarPorId(id);
             return new Response(null, { status: 302, headers: { Location: resposta(manga).nextChapterLink } });
         }
+        if (partes.length === 3 && acao === 'capitulo-lido' && metodo === 'POST') {
+            const atual = await buscarPorId(id);
+            const corpo = await lerCorpo(request);
+            const lastChapter = lerCapitulo(corpo.lastChapter);
+            if (lastChapter === null) throw new Recusa(400, 'O último capítulo lido é obrigatório');
+            if (!isUrlHttp(corpo.lastChapterUrl)) {
+                throw new Recusa(400, 'O link do capítulo lido precisa ser um endereço http:// ou https:// válido');
+            }
+            const temProximo = typeof corpo.nextChapterUrl === 'string' && corpo.nextChapterUrl.trim() !== '';
+            if (temProximo && !isUrlHttp(corpo.nextChapterUrl)) {
+                throw new Recusa(400, 'O link do próximo capítulo precisa ser um endereço http:// ou https:// válido');
+            }
+            const semFinal = endereco => endereco.trim().split('#')[0].replace(/\/+$/, '');
+            const atualizado = {
+                ...atual,
+                lastChapter,
+                lastChapterUrl: corpo.lastChapterUrl.trim(),
+                nextChapterUrl: temProximo && semFinal(corpo.nextChapterUrl) !== semFinal(corpo.lastChapterUrl)
+                    ? corpo.nextChapterUrl.trim() : null,
+            };
+            await salvar(atualizado);
+            return json(200, resposta(atualizado));
+        }
         if (partes.length === 3 && acao === 'verificacao-link' && metodo === 'POST') {
             throw new Recusa(501, 'A verificação de link só existe na versão Java do site (a do Render)');
         }

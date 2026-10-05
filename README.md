@@ -88,6 +88,7 @@ para acordar no próximo acesso.
 | `PATCH`  | `/api/mangas/{id}/progresso`  | Altera só o último capítulo lido e/ou o status                            |
 | `DELETE` | `/api/mangas/{id}`            | Exclui o mangá (e a capa enviada)                                         |
 | `GET`    | `/api/mangas/{id}/ler`        | Confere o link no site e redireciona para o próximo capítulo ainda não lido |
+| `POST`   | `/api/mangas/{id}/capitulo-lido` | Registra o capítulo lido com o endereço exato da página dele (e do próximo, se conhecido) |
 | `POST`   | `/api/mangas/{id}/verificacao-link` | Confere no site o link do próximo capítulo e corrige se o endereço mudou |
 | `GET`    | `/api/mangas/lancamentos`     | Mangás com status Lendo que lançam capítulo no dia: `?dia=QUARTA`         |
 | `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá (concluídos e cancelados ficam de fora). Filtro opcional: `?status=LER` |
@@ -131,5 +132,20 @@ A resposta traz `situacao` (`DISPONIVEL`, `NAO_ENCONTRADO`, `LINK_QUEBRADO` ou `
 `linkAnterior`, `mensagem` e o `manga` já corrigido. `NAO_VERIFICADO` acontece quando o site não responde ou bloqueia
 acessos automáticos; nesse caso nada é alterado. Só sites públicos são consultados: endereços da rede interna do
 servidor são recusados. Na versão do Vercel (`api/index.js`) essa verificação não existe.
+
+### Sites que bloqueiam o servidor
+
+Sites com proteção contra robôs (o desafio do Cloudflare, por exemplo) só entregam as páginas a um navegador de
+verdade, então a verificação acima responde `NAO_VERIFICADO` neles. Para esses sites o endereço é capturado no
+navegador de quem está lendo:
+
+- **Atalho do navegador** (aba de mesmo nome no site): um favorito que, clicado na página do capítulo, abre o site
+  com o mangá, o capítulo e o link do próximo capítulo já preenchidos para confirmar.
+- **Campo "Link do capítulo lido"** ao alterar o capítulo: basta colar o endereço da página.
+
+Os dois chamam `POST /api/mangas/{id}/capitulo-lido` com
+`{"lastChapter": 8, "lastChapterUrl": "...", "nextChapterUrl": "..."}` (`nextChapterUrl` é opcional).
+Com o endereço do próximo capítulo guardado, o botão Ler abre direto nele; sem ele, abre o último capítulo lido,
+que tem o botão de próximo do próprio site.
 
 Erros voltam como `{"mensagem": "..."}` com status `400` (dados inválidos) ou `404` (não encontrado).

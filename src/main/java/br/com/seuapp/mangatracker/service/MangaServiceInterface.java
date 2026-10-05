@@ -17,6 +17,13 @@ public interface MangaServiceInterface {
     Manga editarManga(UUID id, DadosManga dados);
     /** Altera so o ultimo capitulo lido e/ou o status (null = mantem o atual). Sair de LENDO apaga o dia de lancamento. */
     Manga atualizarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus);
+    /**
+     * Registra o capitulo lido junto com o endereco exato da pagina dele, copiado do site de leitura.
+     * E o caminho para sites em que cada capitulo tem um id proprio e que nao deixam o servidor conferir o link.
+     *
+     * @param nextChapterUrl endereco exato do proximo capitulo, se for conhecido; senao null
+     */
+    Manga registrarLeitura(UUID id, BigDecimal lastChapter, String lastChapterUrl, String nextChapterUrl);
     /** Confere no site o link do proximo capitulo e salva a correcao se o endereco mudou. */
     ResultadoVerificacao verificarLink(UUID id);
     /** Mangas com status LENDO que lancam capitulo no dia informado. */

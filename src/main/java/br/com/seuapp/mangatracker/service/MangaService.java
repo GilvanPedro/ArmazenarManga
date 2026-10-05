@@ -6,6 +6,7 @@ import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
 import br.com.seuapp.mangatracker.domain.WeekDay;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
@@ -130,6 +131,30 @@ public class MangaService implements MangaServiceInterface{
             // avancou para o capitulo que ja tinha sido conferido: o endereco exato dele passa a ser o do ultimo lido
             atualizado.setLastChapterUrl(atual.getNextChapterUrl());
         }
+        repository.salvar(atualizado);
+        return atualizado;
+    }
+
+    @Override
+    public synchronized Manga registrarLeitura(UUID id, BigDecimal lastChapter, String lastChapterUrl, String nextChapterUrl) {
+        Manga atual = buscarPorId(id);
+        if (lastChapter == null) {
+            throw new NullInformationsException("O último capítulo lido é obrigatório");
+        }
+        VerificarInformacoesNulas.verificarCapitulo(lastChapter);
+        if (!ChapterLink.isUrlHttp(lastChapterUrl)) {
+            throw new InvalidLinkException("O link do capítulo lido precisa ser um endereço http:// ou https:// válido");
+        }
+        boolean temProximo = nextChapterUrl != null && !nextChapterUrl.isBlank();
+        if (temProximo && !ChapterLink.isUrlHttp(nextChapterUrl)) {
+            throw new InvalidLinkException("O link do próximo capítulo precisa ser um endereço http:// ou https:// válido");
+        }
+        Manga atualizado = new Manga(atual.getId(), atual.getTitle(), atual.getImagePath(), atual.getTags(),
+                atual.getChapterLinkModel(), atual.getDecimalFormat(), lastChapter, atual.getReadingStatus(), atual.getDescription());
+        atualizado.setReleaseDay(atual.getReleaseDay());
+        atualizado.setLastChapterUrl(lastChapterUrl.trim());
+        // um "proximo" igual a pagina atual nao serve para nada
+        atualizado.setNextChapterUrl(temProximo && !ChapterLink.mesmoEndereco(nextChapterUrl, lastChapterUrl) ? nextChapterUrl.trim() : null);
         repository.salvar(atualizado);
         return atualizado;
     }

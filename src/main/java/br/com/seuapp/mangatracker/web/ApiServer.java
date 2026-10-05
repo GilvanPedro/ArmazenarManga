@@ -1,6 +1,7 @@
 package br.com.seuapp.mangatracker.web;
 
 import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
+import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
@@ -95,6 +96,7 @@ public class ApiServer {
             config.routes.delete("/api/mangas/{id}", this::excluir);
             config.routes.get("/api/mangas/{id}/ler", this::ler);
             config.routes.post("/api/mangas/{id}/verificacao-link", this::verificarLink);
+            config.routes.post("/api/mangas/{id}/capitulo-lido", this::registrarLeitura);
 
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
@@ -226,6 +228,17 @@ public class ApiServer {
         ctx.status(HttpStatus.NO_CONTENT);
     }
 
+    private record LeituraRequest(BigDecimal lastChapter, String lastChapterUrl, String nextChapterUrl) {
+    }
+
+    /** Recebe do navegador o endereco exato do capitulo lido (e do proximo, se a pagina mostrava). */
+    private void registrarLeitura(Context ctx) throws JsonProcessingException {
+        UUID id = lerId(ctx);
+        LeituraRequest leitura = lerCorpo(ctx, LeituraRequest.class);
+        json(ctx, HttpStatus.OK, MangaResponse.de(mangaService.registrarLeitura(
+                id, leitura.lastChapter(), leitura.lastChapterUrl(), leitura.nextChapterUrl())));
+    }
+
     private record VerificacaoResponse(SituacaoDoLink situacao, boolean linkMudou, String linkAnterior, String mensagem, MangaResponse manga) {
     }
 
@@ -246,9 +259,20 @@ public class ApiServer {
             // o capitulo nao existe no site: em vez de abrir uma pagina de erro de la, volta para o manga com o aviso
             case NAO_ENCONTRADO -> ctx.redirect("/#/manga/" + id + "/sem-capitulo", HttpStatus.FOUND);
             case LINK_QUEBRADO -> ctx.redirect("/#/manga/" + id + "/link-quebrado", HttpStatus.FOUND);
-            // sem conseguir verificar, abre o link como esta
-            case DISPONIVEL, NAO_VERIFICADO -> ctx.redirect(resultado.manga().linkProximoCapitulo(), HttpStatus.FOUND);
+            case DISPONIVEL -> ctx.redirect(resultado.manga().linkProximoCapitulo(), HttpStatus.FOUND);
+            // o site nao deixou verificar: abre o melhor endereco conhecido
+            case NAO_VERIFICADO -> ctx.redirect(melhorLinkSemVerificar(resultado.manga()), HttpStatus.FOUND);
         }
+    }
+
+    /**
+     * Quando so se conhece o endereco exato do ultimo capitulo lido (sites com id proprio em cada capitulo),
+     * montar o proximo pelo modelo daria um link errado. Melhor abrir o ultimo lido, que tem o botao de proximo do site.
+     */
+    private static String melhorLinkSemVerificar(Manga manga) {
+        return manga.getNextChapterUrl() == null && manga.getLastChapterUrl() != null
+                ? manga.getLastChapterUrl()
+                : manga.linkProximoCapitulo();
     }
 
     // ------------------------------------------------------------------ imagens

@@ -499,6 +499,98 @@ class MangaServiceTest {
         assertEquals("https://site-a.com/manga/solo-leveling/capitulo-49", resultado.manga().linkProximoCapitulo());
     }
 
+    // ------------------------------------------------------------------ leitura registrada pelo navegador
+
+    private static final String COMIX = "https://comix.to/title/0vx0d-doomsday-wedding/";
+
+    private Manga mangaDoComix() {
+        return service.salvarManga(new DadosManga("Doomsday Wedding", CAPA, null, COMIX + "6880186-chapter-{cap}", null,
+                new BigDecimal("7"), ReadingStatus.LENDO, "", WeekDay.SEXTA));
+    }
+
+    @Test
+    void registraOCapituloLidoComOsEnderecosExatos() {
+        Manga salvo = mangaDoComix();
+
+        Manga lido = service.registrarLeitura(salvo.getId(), new BigDecimal("8"), " " + COMIX + "6912345-chapter-8 ", COMIX + "6954321-chapter-9");
+
+        assertEquals(new BigDecimal("8"), lido.getLastChapter());
+        assertEquals(COMIX + "6912345-chapter-8", lido.linkUltimoCapitulo());
+        assertEquals(COMIX + "6954321-chapter-9", lido.linkProximoCapitulo());
+        // status, dia e o resto continuam iguais
+        assertEquals(ReadingStatus.LENDO, lido.getReadingStatus());
+        assertEquals(WeekDay.SEXTA, lido.getReleaseDay());
+        assertEquals("Doomsday Wedding", lido.getTitle());
+        Manga doArquivo = new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow();
+        assertEquals(COMIX + "6954321-chapter-9", doArquivo.getNextChapterUrl());
+
+        // ao avancar para o 9, o endereco do 9 vira o do ultimo lido e o proximo fica desconhecido
+        Manga avancou = service.atualizarProgresso(salvo.getId(), new BigDecimal("9"), null);
+        assertEquals(COMIX + "6954321-chapter-9", avancou.linkUltimoCapitulo());
+        assertNull(avancou.getNextChapterUrl());
+    }
+
+    @Test
+    void registraSoOCapituloLidoQuandoOProximoNaoEConhecido() {
+        Manga salvo = mangaDoComix();
+        String oito = COMIX + "6912345-chapter-8";
+
+        assertNull(service.registrarLeitura(salvo.getId(), new BigDecimal("8"), oito, null).getNextChapterUrl());
+        assertNull(service.registrarLeitura(salvo.getId(), new BigDecimal("8"), oito, "  ").getNextChapterUrl());
+        // "proximo" igual a pagina atual e descartado
+        assertNull(service.registrarLeitura(salvo.getId(), new BigDecimal("8"), oito, oito + "/#topo").getNextChapterUrl());
+        assertEquals(oito, service.buscarPorId(salvo.getId()).getLastChapterUrl());
+    }
+
+    @Test
+    void recusaLeituraComDadosInvalidos() {
+        Manga salvo = mangaDoComix();
+        UUID id = salvo.getId();
+        String oito = COMIX + "6912345-chapter-8";
+
+        assertThrows(NullInformationsException.class, () -> service.registrarLeitura(id, null, oito, null));
+        assertThrows(InvalidChapterException.class, () -> service.registrarLeitura(id, new BigDecimal("-1"), oito, null));
+        assertThrows(InvalidLinkException.class, () -> service.registrarLeitura(id, BigDecimal.ONE, null, null));
+        assertThrows(InvalidLinkException.class, () -> service.registrarLeitura(id, BigDecimal.ONE, "javascript:alert(1)", null));
+        assertThrows(InvalidLinkException.class, () -> service.registrarLeitura(id, BigDecimal.ONE, oito, "javascript:alert(1)"));
+        assertThrows(NotFoundException.class, () -> service.registrarLeitura(UUID.randomUUID(), BigDecimal.ONE, oito, null));
+
+        Manga atual = service.buscarPorId(id);
+        assertEquals(new BigDecimal("7"), atual.getLastChapter());
+        assertNull(atual.getLastChapterUrl());
+    }
+
+    @Test
+    void verificacaoBloqueadaNaoApagaOsEnderecosRegistrados() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.restoResponde(403); // como um site com protecao contra robos
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/title/obra/111-chapter-{cap}", "7"));
+            comSite.registrarLeitura(salvo.getId(), new BigDecimal("8"), site.url("/title/obra/222-chapter-8"), site.url("/title/obra/333-chapter-9"));
+
+            ResultadoVerificacao resultado = comSite.verificarLink(salvo.getId());
+
+            assertEquals(SituacaoDoLink.NAO_VERIFICADO, resultado.situacao());
+            assertEquals(site.url("/title/obra/333-chapter-9"), comSite.buscarPorId(salvo.getId()).linkProximoCapitulo());
+        }
+    }
+
+    @Test
+    void verificacaoConfereOEnderecoRegistradoQuandoAPaginaNaoMostraOLink() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.pagina("/title/obra/222-chapter-8", "<div id='app'></div>").pagina("/title/obra/333-chapter-9", "ok");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/title/obra/111-chapter-{cap}", "7"));
+            comSite.registrarLeitura(salvo.getId(), new BigDecimal("8"), site.url("/title/obra/222-chapter-8"), site.url("/title/obra/333-chapter-9"));
+
+            ResultadoVerificacao resultado = comSite.verificarLink(salvo.getId());
+
+            assertEquals(SituacaoDoLink.DISPONIVEL, resultado.situacao());
+            assertFalse(resultado.linkMudou());
+            assertEquals(site.url("/title/obra/333-chapter-9"), comSite.buscarPorId(salvo.getId()).getNextChapterUrl());
+        }
+    }
+
     // ------------------------------------------------------------------ dia de lancamento
 
     private static DadosManga comDia(String titulo, ReadingStatus status, WeekDay dia) {
