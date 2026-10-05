@@ -1057,6 +1057,114 @@ function mangaDoLink(mangas, endereco) {
     return melhorIguais > pagina.pathname.indexOf('/', 1) + 1 ? melhor : null;
 }
 
+/**
+ * Campo de busca dos mangas da lista, com sugestoes enquanto se digita (como a busca do Google).
+ * Ja vem com o manga reconhecido escrito; apagar e digitar outro nome mostra os que combinam.
+ * Devolve { elemento, value }: value e o id do manga escolhido, ou '' enquanto nenhum foi escolhido.
+ */
+function buscaDeManga(mangas, escolhido) {
+    const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+    let escolhidoAgora = escolhido || null;
+    let sugestoes = [];
+    let ativa = -1;
+
+    const campo = h('input', {
+        type: 'text',
+        id: 'busca-manga',
+        role: 'combobox',
+        autocomplete: 'off',
+        spellcheck: 'false',
+        placeholder: 'Digite o nome do mangá…',
+        'aria-autocomplete': 'list',
+        'aria-expanded': 'false',
+        'aria-controls': 'busca-manga-sugestoes',
+        value: escolhido ? escolhido.title : '',
+    });
+    const lista = h('ul', {id: 'busca-manga-sugestoes', class: 'sugestoes', role: 'listbox', 'aria-label': 'Mangás da sua lista', hidden: true});
+    const elemento = h('div', {class: 'busca-manga'}, campo, lista);
+
+    const fechar = () => {
+        lista.hidden = true;
+        ativa = -1;
+        campo.setAttribute('aria-expanded', 'false');
+        campo.removeAttribute('aria-activedescendant');
+    };
+    const escolher = manga => {
+        escolhidoAgora = manga;
+        campo.value = manga.title;
+        campo.classList.remove('sem-escolha');
+        fechar();
+    };
+    const destacar = indice => {
+        ativa = indice;
+        [...lista.children].forEach((item, i) => item.setAttribute('aria-selected', String(i === ativa)));
+        if (ativa >= 0) {
+            campo.setAttribute('aria-activedescendant', lista.children[ativa].id);
+            lista.children[ativa].scrollIntoView({block: 'nearest'});
+        } else {
+            campo.removeAttribute('aria-activedescendant');
+        }
+    };
+    const mostrar = () => {
+        const busca = semAcento(campo.value);
+        // quem comeca com o que foi digitado vem antes de quem so contem
+        sugestoes = mangas
+            .filter(manga => semAcento(manga.title).includes(busca))
+            .sort((a, b) => semAcento(b.title).startsWith(busca) - semAcento(a.title).startsWith(busca))
+            .slice(0, 8);
+        lista.replaceChildren(...(sugestoes.length
+            ? sugestoes.map((manga, i) => h('li', {
+                id: 'busca-manga-opcao-' + i,
+                role: 'option',
+                'aria-selected': 'false',
+                // mousedown, e nao click: acontece antes de o campo perder o foco e fechar a lista
+                onmousedown: evento => {
+                    evento.preventDefault();
+                    escolher(manga);
+                },
+            }, h('span', null, manga.title), h('small', null, 'cap. ' + mostrarCapitulo(manga.lastChapter))))
+            : [h('li', {class: 'nada', role: 'presentation'}, 'Nenhum mangá da sua lista com esse nome')]));
+        lista.hidden = false;
+        campo.setAttribute('aria-expanded', 'true');
+        destacar(sugestoes.length === 1 ? 0 : -1);
+    };
+
+    campo.addEventListener('input', () => {
+        // mudou o texto: a escolha anterior so vale se o nome escrito ainda for exatamente o dela
+        const igual = mangas.filter(manga => semAcento(manga.title) === semAcento(campo.value));
+        escolhidoAgora = igual.length === 1 ? igual[0] : null;
+        campo.classList.toggle('sem-escolha', !escolhidoAgora && campo.value.trim() !== '');
+        mostrar();
+    });
+    campo.addEventListener('focus', () => {
+        campo.select();
+        mostrar();
+    });
+    campo.addEventListener('blur', fechar);
+    campo.addEventListener('keydown', evento => {
+        if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+            evento.preventDefault();
+            if (lista.hidden) return mostrar();
+            if (sugestoes.length === 0) return;
+            const passo = evento.key === 'ArrowDown' ? 1 : -1;
+            destacar((ativa + passo + sugestoes.length) % sugestoes.length);
+        } else if (evento.key === 'Enter' && !lista.hidden && ativa >= 0) {
+            evento.preventDefault(); // escolhe a sugestao em vez de enviar o formulario
+            escolher(sugestoes[ativa]);
+        } else if (evento.key === 'Escape' && !lista.hidden) {
+            evento.preventDefault();
+            fechar();
+        }
+    });
+
+    return {
+        elemento,
+        get value() {
+            return escolhidoAgora ? escolhidoAgora.id : '';
+        },
+    };
+}
+
 /** Tela aberta pelo atalho: confirma o que foi capturado antes de salvar. Nada e gravado sem o clique em Salvar. */
 async function telaCapturar(consulta) {
     const vez = ++estado.render;
@@ -1086,8 +1194,7 @@ async function telaCapturar(consulta) {
         return;
     }
 
-    const manga = seletor([{valor: '', descricao: 'Escolha o mangá…'}, ...mangas.map(m => ({valor: m.id, descricao: m.title}))],
-        achado ? achado.id : '');
+    const manga = buscaDeManga(mangas, achado);
     const numero = capituloDoLink(endereco);
     const capitulo = h('input', {type: 'text', inputmode: 'decimal', autocomplete: 'off', value: numero == null ? '' : mostrarCapitulo(numero)});
     // so sugere guardar o "proximo" se ele parece mesmo ser um capitulo adiante
@@ -1097,9 +1204,11 @@ async function telaCapturar(consulta) {
     const salvar = h('button', {type: 'submit', class: 'botao primario'}, 'Salvar');
 
     const formulario = h('form', {class: 'campos', novalidate: true},
-        h('label', {class: 'campo'}, h('span', null, 'Mangá'), manga,
-            achado ? null : h('small', null, 'Não reconheci esse endereço em nenhum mangá da sua lista. Escolha qual é, ou ',
-                h('a', {href: '#/novo?' + paraOCadastro}, 'cadastre como um mangá novo'), '.')),
+        h('div', {class: 'campo'}, h('label', {for: 'busca-manga'}, 'Mangá'), manga.elemento,
+            achado
+                ? h('small', null, 'Não é este? Apague o nome e digite o do mangá certo.')
+                : h('small', null, 'Não reconheci esse endereço em nenhum mangá da sua lista. Digite o nome para procurar, ou ',
+                    h('a', {href: '#/novo?' + paraOCadastro}, 'cadastre como um mangá novo'), '.')),
         h('label', {class: 'campo'}, h('span', null, 'Capítulo lido'), capitulo),
         h('div', {class: 'campo'}, h('span', null, 'Página do capítulo'), h('small', null, h('code', null, endereco))),
         ehLinkHttp(proximo)
@@ -1118,7 +1227,7 @@ async function telaCapturar(consulta) {
             erro.textContent = mensagem;
             erro.hidden = false;
         };
-        if (!manga.value) return falhar('Escolha o mangá');
+        if (!manga.value) return falhar('Escolha o mangá: digite o nome e clique em uma das sugestões');
         if (lido == null) return falhar('Digite o capítulo lido, como 48 ou 48,5');
         salvar.disabled = true;
         try {
