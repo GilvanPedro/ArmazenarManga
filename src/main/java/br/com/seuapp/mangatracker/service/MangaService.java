@@ -1,5 +1,6 @@
 package br.com.seuapp.mangatracker.service;
 
+import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.ChapterLink;
 import br.com.seuapp.mangatracker.domain.Manga;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
@@ -29,15 +30,26 @@ public class MangaService implements MangaServiceInterface{
     private final MangaRepository repository;
     private final ImagemService imagemService;
     private final RandomGenerator random;
+    private final VerificadorDeLink verificador;
 
+    /** Sem acesso a outros sites: a verificacao de link sempre responde "nao verificado". */
     public MangaService(MangaRepository repository, ImagemService imagemService) {
         this(repository, imagemService, RandomGenerator.getDefault());
     }
 
     public MangaService(MangaRepository repository, ImagemService imagemService, RandomGenerator random) {
+        this(repository, imagemService, random, new VerificadorDeLink(PaginaWeb::semResposta));
+    }
+
+    public MangaService(MangaRepository repository, ImagemService imagemService, VerificadorDeLink verificador) {
+        this(repository, imagemService, RandomGenerator.getDefault(), verificador);
+    }
+
+    public MangaService(MangaRepository repository, ImagemService imagemService, RandomGenerator random, VerificadorDeLink verificador) {
         this.repository = repository;
         this.imagemService = imagemService;
         this.random = random;
+        this.verificador = verificador;
     }
 
     @Override
@@ -73,6 +85,13 @@ public class MangaService implements MangaServiceInterface{
     public synchronized Manga editarManga(UUID id, DadosManga dados) {
         Manga atual = buscarPorId(id);
         Manga editado = montar(id, dados);
+        // os enderecos exatos conferidos no site continuam valendo se o link e o capitulo nao mudaram
+        if (atual.getChapterLinkModel().equals(editado.getChapterLinkModel())
+                && atual.getDecimalFormat() == editado.getDecimalFormat()
+                && atual.getLastChapter().compareTo(editado.getLastChapter()) == 0) {
+            editado.setLastChapterUrl(atual.getLastChapterUrl());
+            editado.setNextChapterUrl(atual.getNextChapterUrl());
+        }
         repository.salvar(editado);
         if (!atual.getImagePath().equals(editado.getImagePath())) {
             excluirImagemSemUso(atual.getImagePath());
@@ -104,8 +123,60 @@ public class MangaService implements MangaServiceInterface{
         );
         // o dia de lancamento so vale enquanto o manga esta sendo lido
         atualizado.setReleaseDay(novoStatus == ReadingStatus.LENDO ? atual.getReleaseDay() : null);
+        if (atualizado.getLastChapter().compareTo(atual.getLastChapter()) == 0) {
+            atualizado.setLastChapterUrl(atual.getLastChapterUrl());
+            atualizado.setNextChapterUrl(atual.getNextChapterUrl());
+        } else if (atualizado.getLastChapter().compareTo(atual.proximoCapitulo()) == 0) {
+            // avancou para o capitulo que ja tinha sido conferido: o endereco exato dele passa a ser o do ultimo lido
+            atualizado.setLastChapterUrl(atual.getNextChapterUrl());
+        }
         repository.salvar(atualizado);
         return atualizado;
+    }
+
+    @Override
+    public ResultadoVerificacao verificarLink(UUID id) {
+        Manga consultado = buscarPorId(id);
+        String linkAnterior = consultado.linkProximoCapitulo();
+        // a consulta ao site demora, entao acontece fora da trava; a gravacao confere se nada mudou no meio tempo
+        VerificadorDeLink.Verificacao verificacao = verificador.verificar(consultado);
+
+        Manga manga;
+        synchronized (this) {
+            manga = buscarPorId(id);
+            boolean mesmoDeAntes = manga.getChapterLinkModel().equals(consultado.getChapterLinkModel())
+                    && manga.getLastChapter().compareTo(consultado.getLastChapter()) == 0
+                    && Objects.equals(manga.getLastChapterUrl(), consultado.getLastChapterUrl());
+            boolean haCorrecao = !manga.getChapterLinkModel().equals(verificacao.chapterLinkModel())
+                    || !Objects.equals(manga.getNextChapterUrl(), verificacao.nextChapterUrl());
+            if (mesmoDeAntes && haCorrecao && verificacao.situacao() != SituacaoDoLink.NAO_VERIFICADO) {
+                Manga corrigido = new Manga(manga.getId(), manga.getTitle(), manga.getImagePath(), manga.getTags(),
+                        verificacao.chapterLinkModel(), manga.getDecimalFormat(), manga.getLastChapter(),
+                        manga.getReadingStatus(), manga.getDescription());
+                corrigido.setReleaseDay(manga.getReleaseDay());
+                corrigido.setLastChapterUrl(manga.getLastChapterUrl());
+                corrigido.setNextChapterUrl(verificacao.nextChapterUrl());
+                repository.salvar(corrigido);
+                manga = corrigido;
+            }
+        }
+        boolean linkMudou = !ChapterLink.mesmoEndereco(linkAnterior, manga.linkProximoCapitulo());
+        return new ResultadoVerificacao(verificacao.situacao(), linkMudou, linkAnterior,
+                mensagemDaVerificacao(verificacao.situacao(), linkMudou, manga), manga);
+    }
+
+    private static String mensagemDaVerificacao(SituacaoDoLink situacao, boolean linkMudou, Manga manga) {
+        String proximo = ChapterDecimalFormat.PONTO.formatar(manga.proximoCapitulo());
+        String ultimo = ChapterDecimalFormat.PONTO.formatar(manga.getLastChapter()).replace('.', ',');
+        String troca = linkMudou ? "O site mudou o endereço e o link foi atualizado. " : "";
+        return switch (situacao) {
+            case DISPONIVEL -> linkMudou
+                    ? troca + "O capítulo " + proximo + " está disponível."
+                    : "Link confirmado: o capítulo " + proximo + " está disponível.";
+            case NAO_ENCONTRADO -> troca + "O capítulo " + proximo + " não foi encontrado no site; ele pode ainda não ter sido lançado.";
+            case LINK_QUEBRADO -> "Nem o capítulo " + ultimo + " nem o " + proximo + " abrem com esse link. Confira o link na edição geral.";
+            case NAO_VERIFICADO -> "Não foi possível verificar: o site não respondeu ou bloqueia verificações automáticas. O link foi mantido.";
+        };
     }
 
     @Override

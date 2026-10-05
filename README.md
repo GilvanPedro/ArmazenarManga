@@ -87,7 +87,8 @@ para acordar no próximo acesso.
 | `PUT`    | `/api/mangas/{id}`            | Edição geral (todas as informações)                                       |
 | `PATCH`  | `/api/mangas/{id}/progresso`  | Altera só o último capítulo lido e/ou o status                            |
 | `DELETE` | `/api/mangas/{id}`            | Exclui o mangá (e a capa enviada)                                         |
-| `GET`    | `/api/mangas/{id}/ler`        | Redireciona para o próximo capítulo ainda não lido                        |
+| `GET`    | `/api/mangas/{id}/ler`        | Confere o link no site e redireciona para o próximo capítulo ainda não lido |
+| `POST`   | `/api/mangas/{id}/verificacao-link` | Confere no site o link do próximo capítulo e corrige se o endereço mudou |
 | `GET`    | `/api/mangas/lancamentos`     | Mangás com status Lendo que lançam capítulo no dia: `?dia=QUARTA`         |
 | `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá (concluídos e cancelados ficam de fora). Filtro opcional: `?status=LER` |
 | `POST`   | `/api/imagens`                | Envia uma capa (`multipart/form-data`, campo `arquivo`, até 10 MB)        |
@@ -117,5 +118,18 @@ o mangá lança capítulo) só é aceito com status `LENDO` e é apagado quando 
 `id`, `imageUrl`, `firstChapterLink`, `lastChapterLink`, `nextChapter` e `nextChapterLink`.
 
 Corpo do `PATCH .../progresso`: `{"lastChapter": 49, "readingStatus": "LENDO"}` (pode mandar só um dos dois).
+
+### Verificação de link
+
+Alguns sites trocam o id do endereço (da obra ou de cada capítulo), e o modelo com `{cap}` deixa de funcionar.
+A verificação abre a página do último capítulo lido, procura nela o link do próximo capítulo e confirma que ele abre.
+Se o endereço mudou, o cadastro é corrigido: o modelo é atualizado quando o id novo vale para todos os capítulos,
+ou o endereço exato do próximo capítulo é guardado quando cada capítulo tem um id próprio. Não há código específico
+para nenhum site; funciona com qualquer um que entregue os links no HTML ou redirecione o endereço antigo.
+
+A resposta traz `situacao` (`DISPONIVEL`, `NAO_ENCONTRADO`, `LINK_QUEBRADO` ou `NAO_VERIFICADO`), `linkMudou`,
+`linkAnterior`, `mensagem` e o `manga` já corrigido. `NAO_VERIFICADO` acontece quando o site não responde ou bloqueia
+acessos automáticos; nesse caso nada é alterado. Só sites públicos são consultados: endereços da rede interna do
+servidor são recusados. Na versão do Vercel (`api/index.js`) essa verificação não existe.
 
 Erros voltam como `{"mensagem": "..."}` com status `400` (dados inválidos) ou `404` (não encontrado).

@@ -1,9 +1,12 @@
 package br.com.seuapp.mangatracker.web;
 
 import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
+import br.com.seuapp.mangatracker.service.BuscadorDePaginas;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.ImagemServiceTest;
 import br.com.seuapp.mangatracker.service.MangaService;
+import br.com.seuapp.mangatracker.service.PaginaWeb;
+import br.com.seuapp.mangatracker.service.VerificadorDeLink;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.javalin.Javalin;
@@ -25,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -308,6 +312,95 @@ class ApiServerTest {
             assertTrue(List.of("A", "B").contains(json(enviar("GET", "/api/mangas/sorteio", null)).get("title").asText()));
         }
         assertEquals(404, enviar("GET", "/api/mangas/sorteio?status=CONCLUIDO", null).statusCode());
+    }
+
+    // ------------------------------------------------------------------ verificacao de link
+
+    /** Sobe a API com um "site" de mentira: enderecos que abrem e para onde cada pagina aponta. */
+    private void reiniciarComSite(Map<String, String> paginas) {
+        app.stop();
+        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        BuscadorDePaginas site = endereco -> paginas.containsKey(endereco)
+                ? new PaginaWeb(200, endereco, paginas.get(endereco))
+                : new PaginaWeb(404, endereco, "");
+        MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService,
+                new VerificadorDeLink(site));
+        app = new ApiServer(mangaService, imagemService, List.of(SITE), null).criar().start("127.0.0.1", 0);
+        base = "http://127.0.0.1:" + app.port();
+    }
+
+    private static final String CAP = "https://site-a.com/manga/solo-leveling/capitulo-";
+
+    @Test
+    void verificaOLinkEDevolveOResultado() throws Exception {
+        reiniciarComSite(Map.of(CAP + "48", "<a href='" + CAP + "49'>Next</a>", CAP + "49", "ok"));
+        String id = cadastrar("Solo Leveling", "48", "LENDO").get("id").asText();
+
+        HttpResponse<String> resposta = enviar("POST", "/api/mangas/" + id + "/verificacao-link", null);
+
+        assertEquals(200, resposta.statusCode(), resposta.body());
+        JsonNode resultado = json(resposta);
+        assertEquals("DISPONIVEL", resultado.get("situacao").asText());
+        assertFalse(resultado.get("linkMudou").asBoolean());
+        assertEquals("Link confirmado: o capítulo 49 está disponível.", resultado.get("mensagem").asText());
+        assertEquals(CAP + "49", resultado.get("manga").get("nextChapterLink").asText());
+        assertEquals(404, enviar("POST", "/api/mangas/" + UUID.randomUUID() + "/verificacao-link", null).statusCode());
+    }
+
+    @Test
+    void verificacaoCorrigeOLinkQueMudouEOLerUsaOLinkNovo() throws Exception {
+        String novo = "https://site-a.com/manga/solo-leveling/capitulo-49-zz9";
+        reiniciarComSite(Map.of(CAP + "48", "<a href='" + novo + "'>Next</a>", novo, "ok"));
+        String id = cadastrar("Solo Leveling", "48", "LENDO").get("id").asText();
+
+        // o "Ler" confere antes de abrir e ja manda para o endereco certo
+        HttpResponse<String> ler = enviar("GET", "/api/mangas/" + id + "/ler", null);
+        assertEquals(302, ler.statusCode());
+        assertEquals(novo, ler.headers().firstValue("Location").orElseThrow());
+
+        JsonNode resultado = json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null));
+        assertEquals("DISPONIVEL", resultado.get("situacao").asText());
+        JsonNode manga = json(enviar("GET", "/api/mangas/" + id, null));
+        assertEquals(novo, manga.get("nextChapterLink").asText());
+        assertEquals(CAP + "48", manga.get("lastChapterLink").asText());
+
+        // depois de ler, o endereco exato vira o do ultimo capitulo lido
+        JsonNode avancou = json(enviar("PATCH", "/api/mangas/" + id + "/progresso", "{\"lastChapter\": 49}"));
+        assertEquals(novo, avancou.get("lastChapterLink").asText());
+    }
+
+    @Test
+    void lerDeCapituloQueNaoExisteVoltaParaOMangaComAviso() throws Exception {
+        reiniciarComSite(Map.of(CAP + "48", "sem link para o proximo"));
+        String id = cadastrar("Solo Leveling", "48", "LENDO").get("id").asText();
+
+        HttpResponse<String> ler = enviar("GET", "/api/mangas/" + id + "/ler", null);
+
+        assertEquals(302, ler.statusCode());
+        assertEquals("/#/manga/" + id + "/sem-capitulo", ler.headers().firstValue("Location").orElseThrow());
+        assertEquals("NAO_ENCONTRADO", json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null)).get("situacao").asText());
+    }
+
+    @Test
+    void lerComLinkQuebradoVoltaParaOMangaComAviso() throws Exception {
+        reiniciarComSite(Map.of());
+        String id = cadastrar("Solo Leveling", "48", "LENDO").get("id").asText();
+
+        HttpResponse<String> ler = enviar("GET", "/api/mangas/" + id + "/ler", null);
+
+        assertEquals("/#/manga/" + id + "/link-quebrado", ler.headers().firstValue("Location").orElseThrow());
+    }
+
+    @Test
+    void lerAbreOLinkComoEstaQuandoNaoDaParaVerificar() throws Exception {
+        // a API dos outros testes nao tem acesso a sites: equivale a um site que bloqueia a verificacao
+        String id = cadastrar("Solo Leveling", "48", "LENDO").get("id").asText();
+
+        HttpResponse<String> ler = enviar("GET", "/api/mangas/" + id + "/ler", null);
+
+        assertEquals(302, ler.statusCode());
+        assertEquals(CAP + "49", ler.headers().firstValue("Location").orElseThrow());
+        assertEquals("NAO_VERIFICADO", json(enviar("POST", "/api/mangas/" + id + "/verificacao-link", null)).get("situacao").asText());
     }
 
     // ------------------------------------------------------------------ dia de lancamento

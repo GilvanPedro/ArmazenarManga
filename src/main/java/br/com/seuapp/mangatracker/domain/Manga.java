@@ -16,6 +16,10 @@ public class Manga {
     private String description;
     /** So existe enquanto o manga esta com status LENDO; null = sem dia definido. */
     private WeekDay releaseDay;
+    /** Endereco exato do ultimo capitulo lido, quando o modelo do link nao serve para ele; senao null. */
+    private String lastChapterUrl;
+    /** Endereco exato do proximo capitulo, conferido no site, quando o modelo nao serve para ele; senao null. */
+    private String nextChapterUrl;
 
     public Manga(String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
         this(UUID.randomUUID(), title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description);
@@ -114,9 +118,25 @@ public class Manga {
         return ChapterLink.montar(chapterLinkModel, decimalFormat, BigDecimal.ONE);
     }
 
-    /** Link do ultimo capitulo lido, sempre montado a partir do lastChapter atual. */
+    public String getLastChapterUrl() {
+        return lastChapterUrl;
+    }
+
+    public void setLastChapterUrl(String lastChapterUrl) {
+        this.lastChapterUrl = lastChapterUrl;
+    }
+
+    public String getNextChapterUrl() {
+        return nextChapterUrl;
+    }
+
+    public void setNextChapterUrl(String nextChapterUrl) {
+        this.nextChapterUrl = nextChapterUrl;
+    }
+
+    /** Link do ultimo capitulo lido: o endereco exato se for conhecido, senao montado a partir do lastChapter atual. */
     public String linkUltimoCapitulo() {
-        return ChapterLink.montar(chapterLinkModel, decimalFormat, lastChapter);
+        return lastChapterUrl != null ? lastChapterUrl : ChapterLink.montar(chapterLinkModel, decimalFormat, lastChapter);
     }
 
     public BigDecimal proximoCapitulo() {
@@ -125,6 +145,6 @@ public class Manga {
 
     /** Link do proximo capitulo que ainda nao foi lido. */
     public String linkProximoCapitulo() {
-        return ChapterLink.montar(chapterLinkModel, decimalFormat, proximoCapitulo());
+        return nextChapterUrl != null ? nextChapterUrl : ChapterLink.montar(chapterLinkModel, decimalFormat, proximoCapitulo());
     }
 }

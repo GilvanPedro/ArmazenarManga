@@ -29,6 +29,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -342,6 +343,160 @@ class MangaServiceTest {
         service.excluirManga(a.getId());
 
         assertTrue(imagemService.existe(imagem));
+    }
+
+    // ------------------------------------------------------------------ verificacao de link
+
+    private MangaService comSite(SiteFalso site) {
+        return new MangaService(repository, imagemService, new VerificadorDeLink(new BuscadorHttp(true)));
+    }
+
+    private static DadosManga noSite(SiteFalso site, String modelo, String capitulo) {
+        return new DadosManga("Teste", CAPA, null, site.url(modelo), null, new BigDecimal(capitulo), ReadingStatus.LENDO, "");
+    }
+
+    @Test
+    void verificacaoConfirmaSemAlterarOManga() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.pagina("/manga/x/chapter/49", "<a href='/manga/x/chapter/50'>Next</a>").pagina("/manga/x/chapter/50", "ok");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/manga/x/chapter/{cap}", "49"));
+
+            ResultadoVerificacao resultado = comSite.verificarLink(salvo.getId());
+
+            assertEquals(SituacaoDoLink.DISPONIVEL, resultado.situacao());
+            assertFalse(resultado.linkMudou());
+            assertEquals("Link confirmado: o capítulo 50 está disponível.", resultado.mensagem());
+            assertEquals(site.url("/manga/x/chapter/50"), resultado.manga().linkProximoCapitulo());
+            assertEquals(site.url("/manga/x/chapter/{cap}"), comSite.buscarPorId(salvo.getId()).getChapterLinkModel());
+        }
+    }
+
+    @Test
+    void verificacaoSalvaOModeloNovoQuandoOIdDaObraMuda() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.redireciona("/comics/obra-3ec3b16f/chapter/174", "/comics/obra-bd5bdaf8/chapter/174")
+                    .pagina("/comics/obra-bd5bdaf8/chapter/174", "<a href='/comics/obra-bd5bdaf8/chapter/175'>Next</a>")
+                    .pagina("/comics/obra-bd5bdaf8/chapter/175", "ok");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/comics/obra-3ec3b16f/chapter/{cap}", "174"));
+
+            ResultadoVerificacao resultado = comSite.verificarLink(salvo.getId());
+
+            assertEquals(SituacaoDoLink.DISPONIVEL, resultado.situacao());
+            assertTrue(resultado.linkMudou());
+            assertEquals(site.url("/comics/obra-3ec3b16f/chapter/175"), resultado.linkAnterior());
+            assertEquals("O site mudou o endereço e o link foi atualizado. O capítulo 175 está disponível.", resultado.mensagem());
+            // ficou salvo, e continua valendo depois de avancar o capitulo
+            Manga lido = new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow();
+            assertEquals(site.url("/comics/obra-bd5bdaf8/chapter/{cap}"), lido.getChapterLinkModel());
+            Manga avancou = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("175"), null);
+            assertEquals(site.url("/comics/obra-bd5bdaf8/chapter/175"), avancou.linkUltimoCapitulo());
+            assertEquals(site.url("/comics/obra-bd5bdaf8/chapter/176"), avancou.linkProximoCapitulo());
+            // o resto do manga nao foi mexido
+            assertEquals("Teste", lido.getTitle());
+            assertEquals(new BigDecimal("174"), lido.getLastChapter());
+            assertEquals(ReadingStatus.LENDO, lido.getReadingStatus());
+        }
+    }
+
+    @Test
+    void verificacaoAcompanhaSitesComIdEmCadaCapitulo() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.pagina("/m/y/chapter-49-a1b2", "<a href='/m/y/chapter-50-zz9'>Next</a>")
+                    .pagina("/m/y/chapter-50-zz9", "<a href='/m/y/chapter-51-k3k3'>Next</a>")
+                    .pagina("/m/y/chapter-51-k3k3", "ultimo");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/m/y/chapter-{cap}-a1b2", "49"));
+
+            ResultadoVerificacao primeira = comSite.verificarLink(salvo.getId());
+            assertTrue(primeira.linkMudou());
+            assertEquals(site.url("/m/y/chapter-50-zz9"), primeira.manga().linkProximoCapitulo());
+            assertEquals(site.url("/m/y/chapter-50-zz9"), new JsonMangaRepository(pasta.resolve("mangas.json"))
+                    .buscarPorId(salvo.getId()).orElseThrow().getNextChapterUrl());
+
+            // li o capitulo 50: o endereco exato dele vira o ponto de partida da proxima verificacao
+            Manga avancou = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("50"), null);
+            assertEquals(site.url("/m/y/chapter-50-zz9"), avancou.linkUltimoCapitulo());
+            assertNull(avancou.getNextChapterUrl());
+
+            ResultadoVerificacao segunda = comSite.verificarLink(salvo.getId());
+            assertEquals(SituacaoDoLink.DISPONIVEL, segunda.situacao());
+            assertEquals(site.url("/m/y/chapter-51-k3k3"), segunda.manga().linkProximoCapitulo());
+
+            // e no fim da obra avisa que o proximo ainda nao existe, sem inventar link
+            comSite.atualizarProgresso(salvo.getId(), new BigDecimal("51"), null);
+            ResultadoVerificacao terceira = comSite.verificarLink(salvo.getId());
+            assertEquals(SituacaoDoLink.NAO_ENCONTRADO, terceira.situacao());
+            assertEquals("O capítulo 52 não foi encontrado no site; ele pode ainda não ter sido lançado.", terceira.mensagem());
+            assertNull(terceira.manga().getNextChapterUrl());
+        }
+    }
+
+    @Test
+    void pularCapitulosDescartaOsEnderecosExatos() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.pagina("/m/y/chapter-49-a1b2", "<a href='/m/y/chapter-50-zz9'>Next</a>").pagina("/m/y/chapter-50-zz9", "ok");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/m/y/chapter-{cap}-a1b2", "49"));
+            comSite.verificarLink(salvo.getId());
+
+            // mudar so o status mantem o que foi conferido
+            assertEquals(site.url("/m/y/chapter-50-zz9"), comSite.atualizarProgresso(salvo.getId(), null, ReadingStatus.HIATUS).getNextChapterUrl());
+            // editar sem mexer no link nem no capitulo tambem
+            assertEquals(site.url("/m/y/chapter-50-zz9"), comSite.editarManga(salvo.getId(),
+                    new DadosManga("Outro título", CAPA, null, site.url("/m/y/chapter-{cap}-a1b2"), null, new BigDecimal("49"), ReadingStatus.LENDO, "")).getNextChapterUrl());
+
+            Manga pulou = comSite.atualizarProgresso(salvo.getId(), new BigDecimal("80"), null);
+            assertNull(pulou.getLastChapterUrl());
+            assertNull(pulou.getNextChapterUrl());
+            assertEquals(site.url("/m/y/chapter-81-a1b2"), pulou.linkProximoCapitulo());
+        }
+    }
+
+    @Test
+    void trocarOLinkNaEdicaoGeralDescartaOsEnderecosExatos() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            site.pagina("/m/y/chapter-49-a1b2", "<a href='/m/y/chapter-50-zz9'>Next</a>").pagina("/m/y/chapter-50-zz9", "ok");
+            MangaService comSite = comSite(site);
+            Manga salvo = comSite.salvarManga(noSite(site, "/m/y/chapter-{cap}-a1b2", "49"));
+            comSite.verificarLink(salvo.getId());
+
+            Manga editado = comSite.editarManga(salvo.getId(), noSite(site, "/outro/caminho/{cap}", "49"));
+
+            assertNull(editado.getNextChapterUrl());
+            assertEquals(site.url("/outro/caminho/50"), editado.linkProximoCapitulo());
+        }
+    }
+
+    @Test
+    void verificacaoQueFalhaNaoAlteraNada() throws Exception {
+        try (SiteFalso site = new SiteFalso()) {
+            MangaService comSite = comSite(site);
+            Manga quebrado = comSite.salvarManga(noSite(site, "/nao/existe/{cap}", "49"));
+            site.restoResponde(404);
+            ResultadoVerificacao naoAbre = comSite.verificarLink(quebrado.getId());
+            assertEquals(SituacaoDoLink.LINK_QUEBRADO, naoAbre.situacao());
+            assertEquals("Nem o capítulo 49 nem o 50 abrem com esse link. Confira o link na edição geral.", naoAbre.mensagem());
+
+            site.restoResponde(403);
+            ResultadoVerificacao bloqueado = comSite.verificarLink(quebrado.getId());
+            assertEquals(SituacaoDoLink.NAO_VERIFICADO, bloqueado.situacao());
+            assertFalse(bloqueado.linkMudou());
+
+            assertEquals(site.url("/nao/existe/{cap}"), comSite.buscarPorId(quebrado.getId()).getChapterLinkModel());
+            assertThrows(NotFoundException.class, () -> comSite.verificarLink(UUID.randomUUID()));
+        }
+    }
+
+    @Test
+    void semAcessoAOutrosSitesAVerificacaoNaoMudaNada() {
+        Manga salvo = service.salvarManga(dados("Solo Leveling", "48", ReadingStatus.LENDO));
+
+        ResultadoVerificacao resultado = service.verificarLink(salvo.getId());
+
+        assertEquals(SituacaoDoLink.NAO_VERIFICADO, resultado.situacao());
+        assertEquals("https://site-a.com/manga/solo-leveling/capitulo-49", resultado.manga().linkProximoCapitulo());
     }
 
     // ------------------------------------------------------------------ dia de lancamento

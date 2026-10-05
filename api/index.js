@@ -248,9 +248,10 @@ function resposta(manga) {
         releaseDay: manga.releaseDay ?? null,
         description: manga.description ?? '',
         firstChapterLink: montarLink(manga, 1),
-        lastChapterLink: montarLink(manga, manga.lastChapter),
+        // enderecos exatos gravados pela verificacao de link do backend Java, quando existem
+        lastChapterLink: manga.lastChapterUrl || montarLink(manga, manga.lastChapter),
         nextChapter: proximoCapitulo(manga),
-        nextChapterLink: montarLink(manga, proximoCapitulo(manga)),
+        nextChapterLink: manga.nextChapterUrl || montarLink(manga, proximoCapitulo(manga)),
     };
 }
 
@@ -463,13 +464,21 @@ async function rotear(request) {
                 // o dia de lancamento so vale enquanto o manga esta sendo lido
                 releaseDay: novoStatus === 'LENDO' ? atual.releaseDay ?? null : null,
             };
+            if (atualizado.lastChapter !== atual.lastChapter) {
+                // os enderecos exatos eram do capitulo anterior
+                atualizado.lastChapterUrl = atualizado.lastChapter === proximoCapitulo(atual) ? atual.nextChapterUrl ?? null : null;
+                atualizado.nextChapterUrl = null;
+            }
             await salvar(atualizado);
             return json(200, resposta(atualizado));
         }
         // manda o navegador para o proximo capitulo ainda nao lido, no site salvo
         if (partes.length === 3 && acao === 'ler' && metodo === 'GET') {
             const manga = await buscarPorId(id);
-            return new Response(null, { status: 302, headers: { Location: montarLink(manga, proximoCapitulo(manga)) } });
+            return new Response(null, { status: 302, headers: { Location: resposta(manga).nextChapterLink } });
+        }
+        if (partes.length === 3 && acao === 'verificacao-link' && metodo === 'POST') {
+            throw new Recusa(501, 'A verificação de link só existe na versão Java do site (a do Render)');
         }
     }
     throw new Recusa(404, 'Rota não encontrada');

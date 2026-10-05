@@ -6,8 +6,10 @@ import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
 import br.com.seuapp.mangatracker.repository.MangaRepository;
 import br.com.seuapp.mangatracker.repository.PostgresImagemRepository;
 import br.com.seuapp.mangatracker.repository.PostgresMangaRepository;
+import br.com.seuapp.mangatracker.service.BuscadorHttp;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.MangaService;
+import br.com.seuapp.mangatracker.service.VerificadorDeLink;
 import br.com.seuapp.mangatracker.web.ApiServer;
 import br.com.seuapp.mangatracker.web.ApiServer.Credenciais;
 
@@ -70,7 +72,7 @@ public class App {
                 System.out.println(importados + " mangá(s) de " + pasta.toAbsolutePath() + " copiado(s) para o banco");
             }
         }
-        MangaService mangaService = new MangaService(repository, imagemService);
+        MangaService mangaService = new MangaService(repository, imagemService, new VerificadorDeLink(new BuscadorHttp()));
         Credenciais credenciais = senha.isBlank() ? null : new Credenciais(usuario, senha);
 
         new ApiServer(mangaService, imagemService, origens, credenciais).criar().start(host, porta);

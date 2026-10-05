@@ -308,7 +308,41 @@ async function sortear() {
 
 // ------------------------------------------------------------------ detalhes
 
-async function telaDetalhes(id) {
+/** Confere no site o link do proximo capitulo e mostra o que encontrou. */
+async function verificarLink(manga, botao) {
+    botao.disabled = true;
+    botao.textContent = 'Verificando…';
+    try {
+        const resultado = await chamar('POST', '/api/mangas/' + manga.id + '/verificacao-link');
+        const deuCerto = resultado.situacao === 'DISPONIVEL' || (resultado.situacao === 'NAO_ENCONTRADO' && resultado.linkMudou);
+        avisar(resultado.mensagem, !deuCerto && resultado.situacao !== 'NAO_ENCONTRADO');
+        // o link pode ter sido corrigido: mostra o manga de novo, sem o aviso antigo
+        if (location.hash === '#/manga/' + manga.id) rota();
+        else location.hash = '#/manga/' + manga.id;
+    } catch (e) {
+        avisar(e.message, true);
+        botao.disabled = false;
+        botao.textContent = 'Verificar link';
+    }
+}
+
+/** Aviso mostrado quando o botao "Ler" nao tinha para onde ir (ver /api/mangas/{id}/ler). */
+function avisoDeLeitura(manga, aviso) {
+    if (aviso === 'sem-capitulo') {
+        return h('div', {class: 'sorteado', role: 'status'},
+            h('span', null, 'O capítulo ' + mostrarCapitulo(manga.nextChapter) + ' ainda não foi encontrado no site. Ele pode não ter sido lançado.'),
+            linkExterno('botao pequeno', manga.lastChapterLink, 'Abrir o último capítulo lido no site',
+                'Abrir o capítulo ' + mostrarCapitulo(manga.lastChapter)));
+    }
+    if (aviso === 'link-quebrado') {
+        return h('div', {class: 'sorteado', role: 'status'},
+            h('span', null, 'O link deste mangá não abre mais no site. Atualize o link do capítulo.'),
+            h('a', {class: 'botao pequeno', href: '#/editar/' + manga.id}, 'Edição geral'));
+    }
+    return null;
+}
+
+async function telaDetalhes(id, aviso) {
     const vez = ++estado.render;
     let manga;
     try {
@@ -324,6 +358,7 @@ async function telaDetalhes(id) {
 
     app.replaceChildren(h('div', null,
         h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
+        avisoDeLeitura(manga, aviso),
         estado.sorteado === manga.id
             ? h('div', {class: 'sorteado'},
                 h('span', null, '🎲 Este foi o sorteado!'),
@@ -348,6 +383,12 @@ async function telaDetalhes(id) {
                     : h('p', {class: 'descricao sem'}, 'Sem descrição.'),
                 h('div', {class: 'linha'},
                     h('a', {class: 'botao', href: '#/editar/' + manga.id}, 'Edição geral'),
+                    h('button', {
+                        type: 'button',
+                        class: 'botao',
+                        title: 'Abre o site e confere se o link do próximo capítulo está certo',
+                        onclick: evento => verificarLink(manga, evento.currentTarget),
+                    }, 'Verificar link'),
                     h('button', {type: 'button', class: 'botao perigo', onclick: () => excluir(manga)}, 'Excluir'))))));
 }
 
@@ -612,7 +653,7 @@ function rota() {
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     estado.recarregar = null;
 
-    if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1]);
+    if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;
     if (partes[0] === 'hoje') return telaHoje();
     if (partes[0] === 'novo') return telaFormulario(null);

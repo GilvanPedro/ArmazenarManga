@@ -18,7 +18,7 @@ import java.util.UUID;
  */
 @JsonPropertyOrder({
         "id", "title", "imagePath", "tags", "chapterLinkModel", "decimalFormat",
-        "lastChapter", "readingStatus", "releaseDay", "description"
+        "lastChapter", "readingStatus", "releaseDay", "description", "lastChapterUrl", "nextChapterUrl"
 })
 record MangaJson(
         UUID id,
@@ -30,7 +30,9 @@ record MangaJson(
         BigDecimal lastChapter,
         ReadingStatus readingStatus,
         WeekDay releaseDay,
-        String description
+        String description,
+        String lastChapterUrl,
+        String nextChapterUrl
 ) {
 
     static MangaJson de(Manga manga) {
@@ -44,7 +46,9 @@ record MangaJson(
                 manga.getLastChapter(),
                 manga.getReadingStatus(),
                 manga.getReleaseDay(),
-                manga.getDescription()
+                manga.getDescription(),
+                manga.getLastChapterUrl(),
+                manga.getNextChapterUrl()
         );
     }
 
@@ -65,6 +69,8 @@ record MangaJson(
                 description
         );
         manga.setReleaseDay(releaseDay);
+        manga.setLastChapterUrl(lastChapterUrl);
+        manga.setNextChapterUrl(nextChapterUrl);
         return manga;
     }
 }

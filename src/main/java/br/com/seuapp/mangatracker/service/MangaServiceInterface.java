@@ -17,6 +17,8 @@ public interface MangaServiceInterface {
     Manga editarManga(UUID id, DadosManga dados);
     /** Altera so o ultimo capitulo lido e/ou o status (null = mantem o atual). Sair de LENDO apaga o dia de lancamento. */
     Manga atualizarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus);
+    /** Confere no site o link do proximo capitulo e salva a correcao se o endereco mudou. */
+    ResultadoVerificacao verificarLink(UUID id);
     /** Mangas com status LENDO que lancam capitulo no dia informado. */
     List<Manga> listarLancamentos(WeekDay dia);
     /** Concluidos e cancelados nunca sao sorteados. */

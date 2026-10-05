@@ -13,6 +13,8 @@ import br.com.seuapp.mangatracker.domain.exceptions.PersistenciaException;
 import br.com.seuapp.mangatracker.service.DadosManga;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.MangaServiceInterface;
+import br.com.seuapp.mangatracker.service.ResultadoVerificacao;
+import br.com.seuapp.mangatracker.service.SituacaoDoLink;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.StreamWriteFeature;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -92,6 +94,7 @@ public class ApiServer {
             config.routes.patch("/api/mangas/{id}/progresso", this::atualizarProgresso);
             config.routes.delete("/api/mangas/{id}", this::excluir);
             config.routes.get("/api/mangas/{id}/ler", this::ler);
+            config.routes.post("/api/mangas/{id}/verificacao-link", this::verificarLink);
 
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
@@ -223,9 +226,29 @@ public class ApiServer {
         ctx.status(HttpStatus.NO_CONTENT);
     }
 
-    /** Manda o navegador para o proximo capitulo ainda nao lido, no site salvo. */
+    private record VerificacaoResponse(SituacaoDoLink situacao, boolean linkMudou, String linkAnterior, String mensagem, MangaResponse manga) {
+    }
+
+    private void verificarLink(Context ctx) throws JsonProcessingException {
+        ResultadoVerificacao resultado = mangaService.verificarLink(lerId(ctx));
+        json(ctx, HttpStatus.OK, new VerificacaoResponse(resultado.situacao(), resultado.linkMudou(),
+                resultado.linkAnterior(), resultado.mensagem(), MangaResponse.de(resultado.manga())));
+    }
+
+    /**
+     * Manda o navegador para o proximo capitulo ainda nao lido, no site salvo.
+     * Antes confere o link no site, para ja abrir o endereco certo se ele tiver mudado.
+     */
     private void ler(Context ctx) {
-        ctx.redirect(mangaService.buscarPorId(lerId(ctx)).linkProximoCapitulo(), HttpStatus.FOUND);
+        UUID id = lerId(ctx);
+        ResultadoVerificacao resultado = mangaService.verificarLink(id);
+        switch (resultado.situacao()) {
+            // o capitulo nao existe no site: em vez de abrir uma pagina de erro de la, volta para o manga com o aviso
+            case NAO_ENCONTRADO -> ctx.redirect("/#/manga/" + id + "/sem-capitulo", HttpStatus.FOUND);
+            case LINK_QUEBRADO -> ctx.redirect("/#/manga/" + id + "/link-quebrado", HttpStatus.FOUND);
+            // sem conseguir verificar, abre o link como esta
+            case DISPONIVEL, NAO_VERIFICADO -> ctx.redirect(resultado.manga().linkProximoCapitulo(), HttpStatus.FOUND);
+        }
     }
 
     // ------------------------------------------------------------------ imagens

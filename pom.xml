@@ -26,6 +26,12 @@
             <artifactId>javalin</artifactId>
             <version>7.2.3</version>
         </dependency>
+        <!-- le o HTML das paginas dos sites para conferir o link do proximo capitulo -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.23.2</version>
+        </dependency>
         <!-- banco Postgres, usado quando DATABASE_URL esta definida (hospedagem sem disco permanente) -->
         <dependency>
             <groupId>org.postgresql</groupId>
