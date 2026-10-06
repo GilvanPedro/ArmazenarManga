@@ -5,12 +5,19 @@ import { criarBuscadorDeRecomendacoes, variacoesDoTitulo } from '../api/_recomen
 
 const obra = (id, ingles, romaji, generos = [], mais = {}) => ({ id, type: 'MANGA', isAdult: false, title: { romaji, english: ingles }, synonyms: [],
     genres: generos, siteUrl: 'https://anilist.co/manga/' + id, coverImage: { large: 'https://s4.anilist.co/capa' + id + '.jpg' }, ...mais });
-function anilistFalso({ media = null, porGenero = [], generos = ['Action'], temas = [] } = {}) {
+function anilistFalso({ media = null, porGenero = [], generos = ['Action'], temas = [], obrasDaLista = { data: { m0: { media: [] } } } } = {}) {
     const perguntas = [];
+    const perguntasSobreALista = [];
     return {
         perguntas,
+        perguntasSobreALista,
         async get() { return null; },
         async postJson(endereco, corpo) {
+            // "a que obra corresponde cada titulo da lista" (m0, m1...)
+            if (corpo.query.includes('m0:Page')) {
+                perguntasSobreALista.push(corpo);
+                return obrasDaLista;
+            }
             perguntas.push(corpo);
             if (corpo.query.includes('Media(search')) {
                 return media === null ? { data: { Media: null } }
@@ -115,4 +122,24 @@ test('tema que o AniList nao tem nao impede a busca pelos generos', async () => 
         : { data: { Page: { media: corpo.query.includes('tag_in') ? [] : [obra(20, 'So Pelo Genero', 'x', ['Action'])] } } } };
 
     assert.deepEqual(titulos(await criarBuscadorDeRecomendacoes(semOTema)('Desconhecido', [], ['Action', 'Tag Inventada'])), ['So Pelo Genero']);
+});
+
+test('nao sugere obra cadastrada com outro nome', async () => {
+    const anilist = anilistFalso({
+        media: [obra(109957, 'Second Life Ranker', 'Dubeon Saneun Ranker'), obra(119257, 'Omniscient Reader', 'Jeonjijeok Dokja Sijeom'), obra(85143, 'Tower of God', 'Sin-ui Tap'), obra(555, 'Realmente Nova', 'Realmente Nova')],
+        obrasDaLista: { data: { m0: { media: [{ id: 109957 }] }, m1: { media: [{ id: 119257 }] }, m2: { media: [] } } },
+    });
+    const buscar = criarBuscadorDeRecomendacoes(anilist);
+    const lista = ['Ranker Who Lives a Second Time', 'Ponto de Vista do Leitor (relendo)', 'Titulo Que Ninguem Conhece'];
+
+    assert.deepEqual(titulos(await buscar('Solo Leveling', lista)), ['Tower of God', 'Realmente Nova']);
+    assert.deepEqual(anilist.perguntasSobreALista[0].variables, { t0: 'Ranker Who Lives a Second Time', t1: 'Ponto de Vista do Leitor', t2: 'Titulo Que Ninguem Conhece' });
+    await buscar('Solo Leveling', lista);
+    assert.equal(anilist.perguntasSobreALista.length, 1);
+});
+
+test('nome cadastrado com observacao entre parenteses tambem bate, e a falha na consulta da lista nao impede a comparacao por nome', async () => {
+    const media = [obra(10, 'Tower of God', 'Sin-ui Tap'), obra(11, 'Outro', 'Outro')];
+    assert.deepEqual(titulos(await criarBuscadorDeRecomendacoes(anilistFalso({ media }))('Solo Leveling', ['Tower of God (parei no 300) [PT]'])), ['Outro']);
+    assert.deepEqual(titulos(await criarBuscadorDeRecomendacoes(anilistFalso({ media, obrasDaLista: null }))('Solo Leveling', ['Tower of God', 'Qualquer Um'])), ['Outro']);
 });

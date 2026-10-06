@@ -17,7 +17,10 @@ public class RecomendacaoServiceTest {
     public static class AniListFalso implements SinopseService.ClienteHttp {
         public String obra = "{\"data\":{\"Media\":null}}";
         public String porGenero = "{\"data\":{\"Page\":{\"media\":[]}}}";
+        /** Resposta para "a que obra corresponde cada titulo da lista" (m0, m1...). null = servico fora do ar. */
+        public String obrasDaLista = "{\"data\":{\"m0\":{\"media\":[]}}}";
         public final List<String> perguntas = new ArrayList<>();
+        public final List<String> perguntasSobreALista = new ArrayList<>();
 
         @Override
         public String get(String endereco) {
@@ -26,6 +29,10 @@ public class RecomendacaoServiceTest {
 
         @Override
         public String postJson(String endereco, String corpo) {
+            if (corpo.contains("m0:Page")) {
+                perguntasSobreALista.add(corpo);
+                return obrasDaLista;
+            }
             perguntas.add(corpo);
             return corpo.contains("Media(search") ? obra : porGenero;
         }
@@ -91,6 +98,47 @@ public class RecomendacaoServiceTest {
 
         // fora: pelo nome em ingles sem ligar para maiusculas, por um nome alternativo e pelo nome original
         assertEquals(List.of("Second Life Ranker"), titulos(recomendacoes));
+    }
+
+    @Test
+    void naoSugereObraCadastradaComOutroNome() {
+        anilist.obra = daObra("\"Action\"", "",
+                obra(109957, "Second Life Ranker", "Dubeon Saneun Ranker", ""),
+                obra(119257, "Omniscient Reader", "Jeonjijeok Dokja Sijeom", ""),
+                obra(85143, "Tower of God", "Sin-ui Tap", ""),
+                obra(555, "Realmente Nova", "Realmente Nova", ""));
+        // o AniList reconhece os titulos da lista como estas obras (o terceiro ele nao conhece)
+        anilist.obrasDaLista = "{\"data\":{\"m0\":{\"media\":[{\"id\":109957}]},\"m1\":{\"media\":[{\"id\":119257}]},\"m2\":{\"media\":[]}}}";
+
+        List<String> lista = List.of("Ranker Who Lives a Second Time", "Ponto de Vista do Leitor (relendo)", "Titulo Que Ninguem Conhece");
+        List<Recomendacao> recomendacoes = service.buscar("Solo Leveling", lista);
+
+        // nenhum dos dois nomes cadastrados bate com os nomes das candidatas; saem porque sao a mesma obra
+        assertEquals(List.of("Tower of God", "Realmente Nova"), titulos(recomendacoes));
+        String pergunta = anilist.perguntasSobreALista.get(0);
+        assertTrue(pergunta.contains("\"t0\":\"Ranker Who Lives a Second Time\""), pergunta);
+        assertTrue(pergunta.contains("\"t1\":\"Ponto de Vista do Leitor\""), "a observacao entre parenteses nao vai na busca: " + pergunta);
+        // cada titulo so e consultado uma vez, inclusive o que o AniList nao conhece
+        service.buscar("Solo Leveling", lista);
+        assertEquals(1, anilist.perguntasSobreALista.size());
+    }
+
+    @Test
+    void nomeCadastradoComObservacaoEntreParentesesTambemBate() {
+        anilist.obra = daObra("\"Action\"", "", obra(10, "Tower of God", "Sin-ui Tap", ""), obra(11, "Outro", "Outro", ""));
+
+        assertEquals(List.of("Outro"), titulos(service.buscar("Solo Leveling", List.of("Tower of God (parei no 300) [PT]"))));
+    }
+
+    @Test
+    void seNaoDerParaConsultarAListaAindaValeAComparacaoPorNome() {
+        anilist.obra = daObra("\"Action\"", "", obra(10, "Tower of God", "Sin-ui Tap", ""), obra(11, "Outro", "Outro", ""));
+        anilist.obrasDaLista = null;
+
+        assertEquals(List.of("Outro"), titulos(service.buscar("Solo Leveling", List.of("Tower of God", "Qualquer Um"))));
+        // a falha nao ficou guardada: quando o servico volta, a lista e consultada
+        anilist.obrasDaLista = "{\"data\":{\"m0\":{\"media\":[]},\"m1\":{\"media\":[{\"id\":11}]}}}";
+        assertEquals(List.of(), titulos(service.buscar("Solo Leveling", List.of("Tower of God", "Qualquer Um"))));
     }
 
     @Test

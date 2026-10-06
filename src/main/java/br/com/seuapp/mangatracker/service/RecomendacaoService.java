@@ -35,7 +35,7 @@ public class RecomendacaoService {
     }
 
     /** Uma obra candidata, com todos os nomes pelos quais ela e conhecida (para comparar com a lista). */
-    private record Candidata(Recomendacao recomendacao, Set<String> nomes) {
+    private record Candidata(long id, Recomendacao recomendacao, Set<String> nomes) {
     }
 
     private record Guardado(Instant quando, List<Candidata> candidatas) {
@@ -61,6 +61,10 @@ public class RecomendacaoService {
     private final ObjectMapper mapper = new ObjectMapper();
     // as recomendacoes de uma obra mudam pouco: guardar evita consultar o AniList a cada visita a pagina do manga
     private final Map<String, Guardado> guardados = new ConcurrentHashMap<>();
+    // titulo da lista -> obra do AniList (0 se ele nao conhece)
+    private final Map<String, Long> obrasPorTitulo = new ConcurrentHashMap<>();
+    private static final int TITULOS_POR_PEDIDO = 20;
+    private static final int MAXIMO_DE_PEDIDOS = 10;
 
     public RecomendacaoService(SinopseService.ClienteHttp http) {
         this.http = http;
@@ -84,13 +88,21 @@ public class RecomendacaoService {
         if (titulo == null || titulo.isBlank()) {
             return List.of();
         }
+        // quem ja esta na lista sai de duas formas: pelo nome (com e sem o que esta entre parenteses) e pela obra
+        // que o AniList reconhece naquele titulo, que pega os casos em que o nome cadastrado e outro nome da mesma obra
         Set<String> cadastrados = new HashSet<>();
-        titulosCadastrados.forEach(cadastrado -> cadastrados.add(normalizar(cadastrado)));
+        for (String cadastrado : titulosCadastrados) {
+            cadastrados.add(normalizar(cadastrado));
+            cadastrados.add(normalizar(semObservacoes(cadastrado)));
+        }
         cadastrados.add(normalizar(titulo));
+        cadastrados.remove("");
 
+        List<Candidata> candidatas = candidatas(titulo.trim(), tagsDoManga == null ? List.of() : tagsDoManga);
+        Set<Long> obrasCadastradas = candidatas.isEmpty() ? Set.of() : obrasDosCadastrados(titulosCadastrados);
         List<Recomendacao> sugestoes = new ArrayList<>();
-        for (Candidata candidata : candidatas(titulo.trim(), tagsDoManga == null ? List.of() : tagsDoManga)) {
-            if (candidata.nomes().stream().noneMatch(cadastrados::contains)) {
+        for (Candidata candidata : candidatas) {
+            if (!obrasCadastradas.contains(candidata.id()) && candidata.nomes().stream().noneMatch(cadastrados::contains)) {
                 sugestoes.add(candidata.recomendacao());
                 if (sugestoes.size() == QUANTIDADE) {
                     break;
@@ -98,6 +110,52 @@ public class RecomendacaoService {
             }
         }
         return sugestoes;
+    }
+
+    /** O titulo sem o que esta entre (parenteses) e [colchetes], que costuma ser observacao de quem cadastrou. */
+    private static String semObservacoes(String titulo) {
+        return titulo == null ? "" : titulo.replaceAll("[\\(\\[][^)\\]]*[)\\]]", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * Descobre a que obra do AniList corresponde cada titulo da lista. Varias perguntas vao juntas no mesmo pedido,
+     * e a resposta fica guardada, entao cada titulo so e consultado uma vez.
+     */
+    private Set<Long> obrasDosCadastrados(Collection<String> titulos) {
+        List<String> novos = new ArrayList<>();
+        for (String titulo : titulos) {
+            String busca = semObservacoes(titulo);
+            if (!busca.isBlank() && !obrasPorTitulo.containsKey(normalizar(busca)) && !novos.contains(busca)) {
+                novos.add(busca);
+            }
+        }
+        for (int inicio = 0; inicio < novos.size() && inicio < TITULOS_POR_PEDIDO * MAXIMO_DE_PEDIDOS; inicio += TITULOS_POR_PEDIDO) {
+            List<String> lote = novos.subList(inicio, Math.min(inicio + TITULOS_POR_PEDIDO, novos.size()));
+            StringBuilder parametros = new StringBuilder();
+            StringBuilder perguntas = new StringBuilder();
+            Map<String, Object> variaveis = new HashMap<>();
+            for (int i = 0; i < lote.size(); i++) {
+                parametros.append(i == 0 ? "" : ",").append("$t").append(i).append(":String");
+                perguntas.append("m").append(i).append(":Page(perPage:1){media(search:$t").append(i).append(",type:MANGA){id}} ");
+                variaveis.put("t" + i, lote.get(i));
+            }
+            JsonNode resposta = perguntar("query(" + parametros + "){" + perguntas + "}", variaveis);
+            if (resposta.isMissingNode() || !resposta.has("m0")) {
+                break; // servico fora do ar ou no limite: tenta de novo na proxima vez, sem guardar nada errado
+            }
+            for (int i = 0; i < lote.size(); i++) {
+                // 0 = o AniList nao conhece esse titulo (fica guardado para nao perguntar de novo)
+                obrasPorTitulo.put(normalizar(lote.get(i)), resposta.path("m" + i).path("media").path(0).path("id").asLong(0));
+            }
+        }
+        Set<Long> obras = new HashSet<>();
+        for (String titulo : titulos) {
+            Long obra = obrasPorTitulo.get(normalizar(semObservacoes(titulo)));
+            if (obra != null && obra != 0) {
+                obras.add(obra);
+            }
+        }
+        return obras;
     }
 
     private List<Candidata> candidatas(String titulo, Collection<String> tagsDoManga) {
@@ -248,7 +306,7 @@ public class RecomendacaoService {
             tags.add(genero.asText());
         });
         String capa = obra.path("coverImage").path("large").asText("");
-        candidatas.add(new Candidata(new Recomendacao(titulo, capa.startsWith("https://") ? capa : "", List.copyOf(generos), link, List.copyOf(tags)), nomes));
+        candidatas.add(new Candidata(obra.path("id").asLong(), new Recomendacao(titulo, capa.startsWith("https://") ? capa : "", List.copyOf(generos), link, List.copyOf(tags)), nomes));
     }
 
     /** Faz a pergunta ao AniList e devolve o "data" da resposta (vazio se falhar). */

@@ -262,11 +262,16 @@ a.capa:hover img { transform: scale(1.035); }
 .cartao-acoes .botao { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .cartao-acoes .botao span { overflow: hidden; text-overflow: ellipsis; }
 
-.paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-top: 30px; }
+.paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 40px; }
+.paginacao .botao { min-height: 46px; min-width: 46px; padding: 0 18px; font-size: 16px; border-radius: 10px; }
 .paginacao:empty { display: none; }
 .paginacao .botao[aria-current=page] { background: var(--texto); border-color: var(--texto); color: var(--fundo); }
-.paginacao .reticencias, .paginacao .total { color: var(--texto-fraco); padding: 0 4px; }
-.paginacao .total { flex-basis: 100%; text-align: center; font-size: 13px; margin-top: 4px; }
+.paginacao .reticencias, .paginacao .total { color: var(--texto-fraco); padding: 0 4px; font-size: 16px; }
+.paginacao .total { flex-basis: 100%; text-align: center; font-size: 15px; margin-top: 6px; }
+@media (max-width: 480px) {
+    .paginacao { gap: 6px; }
+    .paginacao .botao { padding: 0 12px; font-size: 15px; }
+}
 
 .recomendacoes:empty { display: none; }
 .recomendacoes { margin-top: 44px; padding-top: 26px; border-top: 1px solid var(--borda); }

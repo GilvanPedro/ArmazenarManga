@@ -20,6 +20,12 @@ const TEMAS_COM_OUTRO_NOME = { murim: 'Wuxia', regression: 'Time Manipulation', 
 
 const normalizar = texto => String(texto ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+const TITULOS_POR_PEDIDO = 20;
+const MAXIMO_DE_PEDIDOS = 10;
+
+/** O titulo sem o que esta entre (parenteses) e [colchetes], que costuma ser observacao de quem cadastrou. */
+const semObservacoes = titulo => String(titulo ?? '').replace(/[([][^)\]]*[)\]]/g, ' ').replace(/\s+/g, ' ').trim();
+
 /** O titulo como esta e versoes mais curtas dele, para quando o cadastro tem subtitulo ou observacao a mais. */
 export function variacoesDoTitulo(titulo) {
     const variacoes = new Set([titulo.trim(), titulo.replace(/[([][^)\]]*[)\]]/g, ' ').replace(/\s+/g, ' ').trim()]);
@@ -37,6 +43,8 @@ export function variacoesDoTitulo(titulo) {
 export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
     // as recomendacoes de uma obra mudam pouco: guardar evita consultar o AniList a cada visita a pagina do manga
     const guardados = new Map();
+    // titulo da lista -> obra do AniList (0 se ele nao conhece)
+    const obrasPorTitulo = new Map();
 
     const perguntar = async (query, variables) => (await http.postJson('https://graphql.anilist.co', { query, variables }))?.data ?? {};
 
@@ -50,6 +58,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
         vistos.add(obra.id);
         const capa = obra.coverImage?.large || '';
         candidatas.push({
+            id: obra.id,
             recomendacao: {
                 titulo,
                 capa: capa.startsWith('https://') ? capa : '',
@@ -81,6 +90,26 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             + filtros.join('') + 'sort:POPULARITY_DESC){' + CAMPOS + '}}}', variaveis)).Page?.media || [];
         const emComum = parecida => (parecida?.genres || []).filter(genero => generos.includes(genero)).length;
         return [...parecidas].sort((a, b) => emComum(b) - emComum(a));
+    }
+
+    /**
+     * Descobre a que obra do AniList corresponde cada titulo da lista. Varias perguntas vao juntas no mesmo pedido,
+     * e a resposta fica guardada, entao cada titulo so e consultado uma vez.
+     */
+    async function obrasDosCadastrados(titulos) {
+        const novos = [...new Set(titulos.map(semObservacoes).filter(busca => busca && !obrasPorTitulo.has(normalizar(busca))))];
+        for (let inicio = 0; inicio < novos.length && inicio < TITULOS_POR_PEDIDO * MAXIMO_DE_PEDIDOS; inicio += TITULOS_POR_PEDIDO) {
+            const lote = novos.slice(inicio, inicio + TITULOS_POR_PEDIDO);
+            const resposta = await perguntar(
+                'query(' + lote.map((_, i) => '$t' + i + ':String').join(',') + '){'
+                + lote.map((_, i) => 'm' + i + ':Page(perPage:1){media(search:$t' + i + ',type:MANGA){id}}').join(' ') + '}',
+                Object.fromEntries(lote.map((busca, i) => ['t' + i, busca])));
+            // servico fora do ar ou no limite: tenta de novo na proxima vez, sem guardar nada errado
+            if (!resposta.m0) break;
+            // 0 = o AniList nao conhece esse titulo (fica guardado para nao perguntar de novo)
+            lote.forEach((busca, i) => obrasPorTitulo.set(normalizar(busca), resposta['m' + i]?.media?.[0]?.id ?? 0));
+        }
+        return new Set(titulos.map(titulo => obrasPorTitulo.get(normalizar(semObservacoes(titulo)))).filter(Boolean));
     }
 
     async function consultar(titulo, tagsDoManga) {
@@ -141,9 +170,13 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
                 guardados.set(chave, guardado);
             }
         }
-        const cadastrados = new Set([titulo, ...titulosCadastrados].map(normalizar));
+        // quem ja esta na lista sai de duas formas: pelo nome (com e sem o que esta entre parenteses) e pela obra
+        // que o AniList reconhece naquele titulo, que pega os casos em que o nome cadastrado e outro nome da mesma obra
+        const lista = Array.isArray(titulosCadastrados) ? titulosCadastrados.filter(nome => typeof nome === 'string') : [];
+        const cadastrados = new Set([titulo, ...lista, ...lista.map(semObservacoes)].map(normalizar).filter(Boolean));
+        const obrasCadastradas = guardado.candidatas.length > 0 ? await obrasDosCadastrados(lista) : new Set();
         return guardado.candidatas
-            .filter(candidata => ![...candidata.nomes].some(nome => cadastrados.has(nome)))
+            .filter(candidata => !obrasCadastradas.has(candidata.id) && ![...candidata.nomes].some(nome => cadastrados.has(nome)))
             .slice(0, QUANTIDADE)
             .map(candidata => candidata.recomendacao);
     };
