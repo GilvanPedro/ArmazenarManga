@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -104,6 +105,13 @@ public class RecomendacaoService {
     private static final Map<String, String> TEMAS_COM_OUTRO_NOME = Map.of(
             "murim", "Wuxia", "regression", "Time Manipulation", "school life", "School", "martial arts", "Martial Arts");
 
+    /**
+     * Tags gerais que no AniList sao divididas em varias: uma obra serve se tiver QUALQUER uma delas.
+     * "Harem" la e "Female Harem" (varias garotas) ou "Male Harem" (varios rapazes).
+     */
+    private static final Map<String, List<String>> TEMAS_COM_VARIAS_FORMAS = Map.of("harem", List.of("Female Harem", "Male Harem"));
+    private static final int MAXIMO_DE_COMBINACOES = 4;
+
     private final SinopseService.ClienteHttp http;
     private final ObjectMapper mapper = new ObjectMapper();
     // as recomendacoes de uma obra mudam pouco: guardar evita consultar o AniList a cada visita a pagina do manga
@@ -142,9 +150,14 @@ public class RecomendacaoService {
         List<String> generos = new ArrayList<>();
         List<String> temas = new ArrayList<>();
         List<String> ignoradas = new ArrayList<>();
+        List<List<String>> comVariasFormas = new ArrayList<>();
         Map<String, String> conhecidos = generosETemasDoAniList();
         for (String tag : tags == null ? List.<String>of() : tags) {
             if (tag == null || tag.isBlank()) {
+                continue;
+            }
+            if (TEMAS_COM_VARIAS_FORMAS.containsKey(normalizar(tag))) {
+                comVariasFormas.add(TEMAS_COM_VARIAS_FORMAS.get(normalizar(tag)));
                 continue;
             }
             String procurada = TEMAS_COM_OUTRO_NOME.getOrDefault(normalizar(tag), tag.trim());
@@ -177,20 +190,42 @@ public class RecomendacaoService {
             filtros.append("genre_in:$g,");
             variaveis.put("g", generos);
         }
-        if (!temas.isEmpty()) {
-            parametros.add("$t:[String]");
-            filtros.append("tag_in:$t,");
-            variaveis.put("t", temas);
+        // o AniList so sabe pedir "todas estas tags". Para uma tag com varias formas (qualquer uma serve), faz uma busca
+        // para cada forma e junta os resultados
+        List<List<String>> buscas = combinar(temas, comVariasFormas);
+        boolean variasBuscas = buscas.size() > 1;
+        List<JsonNode> achadas = new ArrayList<>();
+        Set<Long> jaVistas = new HashSet<>();
+        boolean temMais = false;
+        for (List<String> temasDaBusca : buscas) {
+            List<String> parametrosDaBusca = new ArrayList<>(parametros);
+            String filtrosDaBusca = filtros.toString();
+            Map<String, Object> variaveisDaBusca = new HashMap<>(variaveis);
+            if (!temasDaBusca.isEmpty()) {
+                parametrosDaBusca.add("$t:[String]");
+                filtrosDaBusca += "tag_in:$t,";
+                variaveisDaBusca.put("t", temasDaBusca);
+            }
+            JsonNode resposta = perguntar("query(" + String.join(",", parametrosDaBusca) + "){Page(page:$p,perPage:" + POR_PAGINA + "){pageInfo{hasNextPage} "
+                    + "media(type:MANGA,isAdult:false," + filtrosDaBusca + "sort:$o){" + CAMPOS
+                    + " averageScore popularity trending startDate{year month day}}}}", variaveisDaBusca).path("Page");
+            temMais |= resposta.path("pageInfo").path("hasNextPage").asBoolean(false);
+            for (JsonNode obra : resposta.path("media")) {
+                if (jaVistas.add(obra.path("id").asLong())) {
+                    achadas.add(obra);
+                }
+            }
         }
-        JsonNode resposta = perguntar("query(" + String.join(",", parametros) + "){Page(page:$p,perPage:" + POR_PAGINA + "){pageInfo{hasNextPage} "
-                + "media(type:MANGA,isAdult:false," + filtros + "sort:$o){" + CAMPOS + " averageScore startDate{year}}}}", variaveis).path("Page");
+        if (variasBuscas) {
+            ordenarJuntas(achadas, escolhida);
+        }
 
         Set<String> nomes = new HashSet<>();
         Set<Long> obras = new HashSet<>();
         separarNomesEObras(nomesCadastrados, nomes, obras);
         List<ObraEncontrada> itens = new ArrayList<>();
         int ocultos = 0;
-        for (JsonNode obra : resposta.path("media")) {
+        for (JsonNode obra : achadas) {
             List<Candidata> lida = new ArrayList<>();
             adicionar(obra, lida, new HashSet<>());
             if (lida.isEmpty()) {
@@ -206,7 +241,45 @@ public class RecomendacaoService {
                     obra.path("averageScore").isInt() ? obra.path("averageScore").asInt() : null,
                     obra.path("startDate").path("year").isInt() ? obra.path("startDate").path("year").asInt() : null));
         }
-        return new Exploracao(List.copyOf(itens), numero, resposta.path("pageInfo").path("hasNextPage").asBoolean(false), ocultos, List.copyOf(ignoradas));
+        return new Exploracao(List.copyOf(itens), numero, temMais, ocultos, List.copyOf(ignoradas));
+    }
+
+    /**
+     * As listas de temas a buscar: os temas fixos mais uma forma de cada tag que tem varias.
+     * Sem tags assim, e uma busca so. O total e limitado para nao fazer pedidos demais.
+     */
+    private static List<List<String>> combinar(List<String> temas, List<List<String>> comVariasFormas) {
+        List<List<String>> buscas = new ArrayList<>();
+        buscas.add(new ArrayList<>(temas));
+        for (List<String> formasDaTag : comVariasFormas) {
+            List<List<String>> ampliadas = new ArrayList<>();
+            for (List<String> busca : buscas) {
+                for (String forma : formasDaTag) {
+                    if (ampliadas.size() < MAXIMO_DE_COMBINACOES) {
+                        List<String> nova = new ArrayList<>(busca);
+                        nova.add(forma);
+                        ampliadas.add(nova);
+                    }
+                }
+            }
+            buscas = ampliadas;
+        }
+        return buscas;
+    }
+
+    /** Resultados de varias buscas juntos precisam ser ordenados de novo, pela mesma regra pedida ao AniList. */
+    private static void ordenarJuntas(List<JsonNode> obras, Ordem ordem) {
+        Comparator<JsonNode> regra = switch (ordem) {
+            case NOTA -> Comparator.comparingInt((JsonNode obra) -> obra.path("averageScore").asInt(0)).reversed();
+            case EM_ALTA -> Comparator.comparingInt((JsonNode obra) -> obra.path("trending").asInt(0)).reversed();
+            case RECENTES -> Comparator.comparingInt((JsonNode obra) -> obra.path("startDate").path("year").asInt(0) * 10000
+                    + obra.path("startDate").path("month").asInt(0) * 100 + obra.path("startDate").path("day").asInt(0)).reversed();
+            case TITULO -> Comparator.comparing((JsonNode obra) -> normalizar(obra.path("title").path("english").asText(obra.path("title").path("romaji").asText(""))));
+            // POPULARIDADE; e RELEVANCIA, que nao tem um numero para comparar: as mais conhecidas primeiro
+            default -> Comparator.comparingInt((JsonNode obra) -> obra.path("popularity").asInt(0)).reversed();
+        };
+        obras.sort(regra);
+
     }
 
     /** Nomes dos temas (tags) que o AniList tem, pelo nome normalizado. Guardado por um dia; vazio se nao deu para buscar. */
@@ -564,16 +637,24 @@ public class RecomendacaoService {
         if (candidatas.size() < QUANTIDADE * 2 && !tagsDoManga.isEmpty()) {
             List<String> generos = new ArrayList<>();
             List<String> temas = new ArrayList<>();
+            List<List<String>> comVariasFormas = new ArrayList<>();
             for (String tag : tagsDoManga) {
                 String genero = GENEROS.keySet().stream().filter(conhecido -> normalizar(conhecido).equals(normalizar(tag))).findFirst().orElse(null);
                 if (genero != null) {
                     generos.add(genero);
+                } else if (tag != null && TEMAS_COM_VARIAS_FORMAS.containsKey(normalizar(tag))) {
+                    comVariasFormas.add(TEMAS_COM_VARIAS_FORMAS.get(normalizar(tag)));
                 } else if (tag != null && !tag.isBlank() && temas.size() < 4) {
                     temas.add(TEMAS_COM_OUTRO_NOME.getOrDefault(normalizar(tag), tag.trim()));
                 }
             }
-            List<JsonNode> parecidas = porGenerosETemas(generos, temas);
-            if (parecidas.isEmpty() && !generos.isEmpty() && !temas.isEmpty()) {
+            List<JsonNode> parecidas = new ArrayList<>();
+            for (List<String> temasDaBusca : combinar(temas, comVariasFormas)) {
+                parecidas.addAll(porGenerosETemas(generos, temasDaBusca));
+            }
+            // varias buscas juntas: de novo quem divide mais generos primeiro
+            parecidas.sort((a, b) -> Integer.compare(generosEmComum(b, generos), generosEmComum(a, generos)));
+            if (parecidas.isEmpty() && !generos.isEmpty() && (!temas.isEmpty() || !comVariasFormas.isEmpty())) {
                 // nenhuma obra com esses generos E esses temas (ou o AniList nao tem tema com esse nome): tenta so os generos
                 parecidas = porGenerosETemas(generos, List.of());
             }

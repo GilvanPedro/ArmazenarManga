@@ -263,3 +263,29 @@ test('busca geral com o servico fora do ar volta vazia', async () => {
 
     assert.deepEqual(pagina, { itens: [], pagina: 1, temMais: false, ocultos: 0, tagsIgnoradas: [] });
 });
+
+test('tag Harem vale para os dois tipos do AniList', async () => {
+    // no AniList nao existe "Harem": existe "Female Harem" e "Male Harem". A tag geral busca nos dois e junta
+    const perguntas = [];
+    const comHarem = { get: async () => null, postJson: async (e, corpo) => {
+        if (corpo.query.includes('MediaTagCollection')) return { data: { MediaTagCollection: [{ name: 'Female Harem' }, { name: 'Male Harem' }, { name: 'Isekai' }] } };
+        if (corpo.query.includes('Media(search')) return { data: { Media: null } };
+        perguntas.push(corpo.variables);
+        const feminino = corpo.variables.t?.includes('Female Harem');
+        const masculino = corpo.variables.t?.includes('Male Harem');
+        const nosDois = obra(3, 'Nos Dois Nota 70', 'c', ['Comedy'], { averageScore: 70 });
+        return { data: { Page: { pageInfo: { hasNextPage: Boolean(masculino) }, media: feminino ? [obra(1, 'Feminino Nota 80', 'a', ['Comedy'], { averageScore: 80 }), nosDois]
+            : masculino ? [obra(2, 'Masculino Nota 90', 'b', ['Comedy', 'Romance'], { averageScore: 90 }), nosDois] : [] } } };
+    } };
+    const buscar = criarBuscadorDeRecomendacoes(comHarem);
+
+    const pagina = await buscar.explorar('', ['harem', 'Isekai', 'Comedy'], 'NOTA', 1, []);
+
+    assert.deepEqual(titulos(pagina.itens), ['Masculino Nota 90', 'Feminino Nota 80', 'Nos Dois Nota 70']);
+    assert.deepEqual([pagina.tagsIgnoradas, pagina.temMais], [[], true]);
+    assert.deepEqual(perguntas.map(p => [p.g, p.t]), [[['Comedy'], ['Isekai', 'Female Harem']], [['Comedy'], ['Isekai', 'Male Harem']]]);
+    perguntas.length = 0;
+    // os tres dividem o mesmo genero com o manga, entao ficam na ordem em que vieram, sem repetir
+    assert.deepEqual(titulos(await buscar('Titulo Que Ninguem Conhece', [], ['Harem', 'Comedy'])), ['Feminino Nota 80', 'Nos Dois Nota 70', 'Masculino Nota 90']);
+    assert.equal(perguntas.length, 2);
+});

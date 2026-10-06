@@ -397,6 +397,54 @@ public class RecomendacaoServiceTest {
     }
 
     @Test
+    void tagHaremValeParaOsDoisTiposDoAniList() {
+        // no AniList nao existe "Harem": existe "Female Harem" e "Male Harem". A tag geral busca nos dois e junta
+        List<String> perguntas = new ArrayList<>();
+        SinopseService.ClienteHttp anilistComHarem = new SinopseService.ClienteHttp() {
+            @Override
+            public String get(String endereco) {
+                return null;
+            }
+
+            @Override
+            public String postJson(String endereco, String corpo) {
+                if (corpo.contains("MediaTagCollection")) {
+                    return "{\"data\":{\"MediaTagCollection\":[{\"name\":\"Female Harem\",\"isAdult\":false},{\"name\":\"Male Harem\",\"isAdult\":false},{\"name\":\"Isekai\",\"isAdult\":false}]}}";
+                }
+                if (corpo.contains("Media(search")) {
+                    return "{\"data\":{\"Media\":null}}";
+                }
+                perguntas.add(corpo);
+                String obras = corpo.contains("Female Harem")
+                        ? comNotaEAno(obra(1, "Feminino Nota 80", "a", "\"Comedy\""), 80, 2020) + "," + comNotaEAno(obra(3, "Nos Dois Nota 70", "c", "\"Comedy\""), 70, 2019)
+                        : corpo.contains("Male Harem")
+                        ? comNotaEAno(obra(2, "Masculino Nota 90", "b", "\"Comedy\",\"Romance\""), 90, 2021) + "," + comNotaEAno(obra(3, "Nos Dois Nota 70", "c", "\"Comedy\""), 70, 2019)
+                        : "";
+                return "{\"data\":{\"Page\":{\"pageInfo\":{\"hasNextPage\":" + corpo.contains("Male Harem") + "},\"media\":[" + obras + "]}}}";
+            }
+        };
+        RecomendacaoService comHarem = new RecomendacaoService(anilistComHarem);
+
+        RecomendacaoService.Exploracao pagina = comHarem.explorar("", List.of("harem", "Isekai", "Comedy"), RecomendacaoService.Ordem.NOTA, 1, List.of());
+
+        // as duas buscas juntas, sem repetir, na ordem pedida (maior nota primeiro)
+        assertEquals(List.of("Masculino Nota 90", "Feminino Nota 80", "Nos Dois Nota 70"), pagina.itens().stream().map(RecomendacaoService.ObraEncontrada::titulo).toList());
+        assertEquals(List.of(), pagina.tagsIgnoradas());
+        assertTrue(pagina.temMais(), "basta uma das buscas ter mais paginas");
+        assertEquals(2, perguntas.size());
+        // as outras tags continuam obrigatorias nas duas buscas
+        assertTrue(perguntas.get(0).contains("\"t\":[\"Isekai\",\"Female Harem\"]") && perguntas.get(0).contains("\"g\":[\"Comedy\"]"), perguntas.get(0));
+        assertTrue(perguntas.get(1).contains("\"t\":[\"Isekai\",\"Male Harem\"]"), perguntas.get(1));
+
+        // nas recomendacoes de um manga com a tag Harem tambem: busca nos dois tipos
+        perguntas.clear();
+        List<String> sugestoes = titulos(comHarem.buscar("Titulo Que Ninguem Conhece", List.of(), List.of("Harem", "Comedy")));
+        assertEquals(2, perguntas.size());
+        // os tres dividem o mesmo genero com o manga, entao ficam na ordem em que vieram, sem repetir
+        assertEquals(List.of("Feminino Nota 80", "Nos Dois Nota 70", "Masculino Nota 90"), sugestoes);
+    }
+
+    @Test
     void buscaGeralSemFiltrosMostraAsMaisPopulares() {
         service.explorar(null, null, null, 1, List.of());
         service.explorar("", List.of(), RecomendacaoService.Ordem.RELEVANCIA, 0, List.of());

@@ -19,6 +19,23 @@ const GENEROS = {
 const TEMAS_COM_OUTRO_NOME = { murim: 'Wuxia', regression: 'Time Manipulation', 'school life': 'School', 'martial arts': 'Martial Arts' };
 
 // letras de qualquer alfabeto, sem acentos nem sinais
+// tags gerais que no AniList sao divididas em varias: uma obra serve se tiver QUALQUER uma delas.
+// "Harem" la e "Female Harem" (varias garotas) ou "Male Harem" (varios rapazes)
+const TEMAS_COM_VARIAS_FORMAS = { harem: ['Female Harem', 'Male Harem'] };
+const MAXIMO_DE_COMBINACOES = 4;
+
+/**
+ * As listas de temas a buscar: os temas fixos mais uma forma de cada tag que tem varias.
+ * Sem tags assim, e uma busca so. O total e limitado para nao fazer pedidos demais.
+ */
+function combinar(temas, comVariasFormas) {
+    let buscas = [[...temas]];
+    for (const formasDaTag of comVariasFormas) {
+        buscas = buscas.flatMap(busca => formasDaTag.map(forma => [...busca, forma])).slice(0, MAXIMO_DE_COMBINACOES);
+    }
+    return buscas;
+}
+
 const normalizar = texto => String(texto ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
 /** Entre os nomes guardados de um manga, o que comeca assim diz qual e a obra no AniList: "anilist:105398". */
@@ -180,14 +197,20 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
         if (candidatas.length < QUANTIDADE * 2 && tagsDoManga.length > 0) {
             const generos = [];
             const temas = [];
+            const comVariasFormas = [];
             for (const tag of tagsDoManga) {
                 const genero = Object.keys(GENEROS).find(conhecido => normalizar(conhecido) === normalizar(tag));
                 if (genero) generos.push(genero);
+                else if (TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]) comVariasFormas.push(TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]);
                 else if (typeof tag === 'string' && tag.trim() && temas.length < 4) temas.push(TEMAS_COM_OUTRO_NOME[normalizar(tag)] ?? tag.trim());
             }
-            let parecidas = await porGenerosETemas(generos, temas);
+            let parecidas = [];
+            for (const temasDaBusca of combinar(temas, comVariasFormas)) parecidas.push(...await porGenerosETemas(generos, temasDaBusca));
+            // varias buscas juntas: de novo quem divide mais generos primeiro
+            const emComum = parecida => (parecida?.genres || []).filter(genero => generos.includes(genero)).length;
+            parecidas.sort((a, b) => emComum(b) - emComum(a));
             // nenhuma obra com esses generos E esses temas (ou o AniList nao tem tema com esse nome): tenta so os generos
-            if (parecidas.length === 0 && generos.length > 0 && temas.length > 0) parecidas = await porGenerosETemas(generos, []);
+            if (parecidas.length === 0 && generos.length > 0 && (temas.length > 0 || comVariasFormas.length > 0)) parecidas = await porGenerosETemas(generos, []);
             for (const parecida of parecidas) adicionar(parecida, candidatas, vistos);
         }
         return candidatas;
@@ -350,9 +373,14 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
         const generos = [];
         const temas = [];
         const tagsIgnoradas = [];
+        const comVariasFormas = [];
         const conhecidos = await temasDoAniList();
         for (const tag of Array.isArray(tags) ? tags : []) {
             if (typeof tag !== 'string' || !tag.trim()) continue;
+            if (TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]) {
+                comVariasFormas.push(TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]);
+                continue;
+            }
             const procurada = TEMAS_COM_OUTRO_NOME[normalizar(tag)] ?? tag.trim();
             const genero = Object.keys(GENEROS).find(conhecido => normalizar(conhecido) === normalizar(procurada));
             if (genero) generos.push(genero);
@@ -376,20 +404,45 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             filtros += 'genre_in:$g,';
             variaveis.g = generos;
         }
-        if (temas.length > 0) {
-            parametros.push('$t:[String]');
-            filtros += 'tag_in:$t,';
-            variaveis.t = temas;
+        // o AniList so sabe pedir "todas estas tags". Para uma tag com varias formas (qualquer uma serve), faz uma busca
+        // para cada forma e junta os resultados
+        const buscas = combinar(temas, comVariasFormas);
+        const achadas = [];
+        const jaVistas = new Set();
+        let temMais = false;
+        for (const temasDaBusca of buscas) {
+            const comTemas = temasDaBusca.length > 0;
+            const pagina = (await perguntar('query(' + [...parametros, ...(comTemas ? ['$t:[String]'] : [])].join(',') + '){Page(page:$p,perPage:' + POR_PAGINA + '){pageInfo{hasNextPage} '
+                + 'media(type:MANGA,isAdult:false,' + filtros + (comTemas ? 'tag_in:$t,' : '') + 'sort:$o){' + CAMPOS
+                + ' averageScore popularity trending startDate{year month day}}}}', comTemas ? { ...variaveis, t: temasDaBusca } : variaveis)).Page;
+            temMais = temMais || pagina?.pageInfo?.hasNextPage === true;
+            for (const obra of pagina?.media || []) {
+                if (obra && !jaVistas.has(obra.id)) {
+                    jaVistas.add(obra.id);
+                    achadas.push(obra);
+                }
+            }
         }
-        const resposta = (await perguntar('query(' + parametros.join(',') + '){Page(page:$p,perPage:' + POR_PAGINA + '){pageInfo{hasNextPage} '
-            + 'media(type:MANGA,isAdult:false,' + filtros + 'sort:$o){' + CAMPOS + ' averageScore startDate{year}}}}', variaveis)).Page;
+        // resultados de varias buscas juntos precisam ser ordenados de novo, pela mesma regra pedida ao AniList
+        if (buscas.length > 1) {
+            const data = obra => (obra.startDate?.year || 0) * 10000 + (obra.startDate?.month || 0) * 100 + (obra.startDate?.day || 0);
+            const nomeDe = obra => normalizar(obra.title?.english || obra.title?.romaji || '');
+            const regras = {
+                NOTA: (a, b) => (b.averageScore || 0) - (a.averageScore || 0),
+                EM_ALTA: (a, b) => (b.trending || 0) - (a.trending || 0),
+                RECENTES: (a, b) => data(b) - data(a),
+                TITULO: (a, b) => (nomeDe(a) < nomeDe(b) ? -1 : nomeDe(a) > nomeDe(b) ? 1 : 0),
+            };
+            // POPULARIDADE; e RELEVANCIA, que nao tem um numero para comparar: as mais conhecidas primeiro
+            achadas.sort(regras[escolhida] || ((a, b) => (b.popularity || 0) - (a.popularity || 0)));
+        }
 
         const lista = Array.isArray(nomesCadastrados) ? nomesCadastrados.filter(cadastrado => typeof cadastrado === 'string') : [];
         const obras = new Set(lista.filter(cadastrado => cadastrado.startsWith(MARCA_DA_OBRA)).map(cadastrado => Number(cadastrado.slice(MARCA_DA_OBRA.length))));
         const nomes = new Set(lista.filter(cadastrado => !cadastrado.startsWith(MARCA_DA_OBRA)).flatMap(cadastrado => [...formas(cadastrado), ...formas(semObservacoes(cadastrado))]));
         const itens = [];
         let ocultos = 0;
-        for (const obra of resposta?.media || []) {
+        for (const obra of achadas) {
             const lida = [];
             adicionar(obra, lida, new Set());
             if (lida.length === 0) continue;
@@ -403,7 +456,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
                 ano: Number.isInteger(obra.startDate?.year) ? obra.startDate.year : null,
             });
         }
-        return { itens, pagina: numero, temMais: resposta?.pageInfo?.hasNextPage === true, ocultos, tagsIgnoradas };
+        return { itens, pagina: numero, temMais, ocultos, tagsIgnoradas };
     }
 
     buscarRecomendacoes.nomesAlternativos = nomesAlternativos;
