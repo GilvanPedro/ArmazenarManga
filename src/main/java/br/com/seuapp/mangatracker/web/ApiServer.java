@@ -38,7 +38,11 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Locale;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -131,6 +135,9 @@ public class ApiServer {
             config.routes.get("/api/mangas/{id}/recomendacoes", this::recomendar);
             config.routes.get("/api/mangas/{id}/semelhantes", this::listarSemelhantes);
             config.routes.get("/api/tags", this::listarTags);
+            config.routes.get("/api/recomendacoes", this::explorarRecomendacoes);
+            config.routes.get("/api/recomendacoes/ordens", this::listarOrdensDeRecomendacao);
+            config.routes.get("/api/ordens-da-lista", this::listarOrdensDaLista);
 
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
@@ -213,6 +220,56 @@ public class ApiServer {
 
     // ------------------------------------------------------------------ mangas
 
+    /** Formas de ordenar a lista de mangas cadastrados (?ordem=). */
+    enum OrdemDaLista {
+        CADASTRO("Ordem de cadastro"),
+        RECENTES("Adicionados por último"),
+        TITULO("Título (A–Z)"),
+        TITULO_DESC("Título (Z–A)"),
+        MAIS_CAPITULOS("Mais capítulos lidos"),
+        MENOS_CAPITULOS("Menos capítulos lidos");
+
+        private final String descricao;
+
+        OrdemDaLista(String descricao) {
+            this.descricao = descricao;
+        }
+
+        /** A lista chega na ordem de cadastro. */
+        void aplicar(List<Manga> mangas) {
+            Comparator<Manga> porTitulo = Comparator.comparing(manga -> semAcentos(manga.getTitle()));
+            switch (this) {
+                case CADASTRO -> { }
+                case RECENTES -> Collections.reverse(mangas);
+                case TITULO -> mangas.sort(porTitulo);
+                case TITULO_DESC -> mangas.sort(porTitulo.reversed());
+                // empate fica em ordem alfabetica
+                case MAIS_CAPITULOS -> mangas.sort(Comparator.comparing(Manga::getLastChapter).reversed().thenComparing(porTitulo));
+                case MENOS_CAPITULOS -> mangas.sort(Comparator.comparing(Manga::getLastChapter).thenComparing(porTitulo));
+            }
+        }
+
+        private static String semAcentos(String texto) {
+            return Normalizer.normalize(texto == null ? "" : texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).trim();
+        }
+    }
+
+    private OrdemDaLista lerOrdemDaLista(Context ctx) {
+        String ordem = ctx.queryParam("ordem");
+        if (ordem == null || ordem.isBlank()) {
+            return OrdemDaLista.CADASTRO;
+        }
+        try {
+            return OrdemDaLista.valueOf(ordem.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RequisicaoInvalidaException("Ordem inválida. Use uma de: " + Arrays.toString(OrdemDaLista.values()));
+        }
+    }
+
+    private void listarOrdensDaLista(Context ctx) throws JsonProcessingException {
+        json(ctx, HttpStatus.OK, Arrays.stream(OrdemDaLista.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.descricao)).toList());
+    }
+
     static final int TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
     private static final int TAMANHO_MAXIMO_DA_PAGINA = 100;
 
@@ -224,7 +281,9 @@ public class ApiServer {
      * Com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos.
      */
     private void listar(Context ctx) throws JsonProcessingException {
-        List<MangaResponse> mangas = mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag")).stream()
+        List<Manga> encontrados = new ArrayList<>(mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag")));
+        lerOrdemDaLista(ctx).aplicar(encontrados);
+        List<MangaResponse> mangas = encontrados.stream()
                 .map(MangaResponse::de)
                 .toList();
         if (ctx.queryParam("pagina") == null) {
@@ -267,10 +326,12 @@ public class ApiServer {
         json(ctx, HttpStatus.OK, mangaService.listarTags());
     }
 
-    /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet pelo titulo e pelas tags dele. */
-    private void recomendar(Context ctx) throws JsonProcessingException {
-        Manga manga = mangaService.buscarPorId(lerId(ctx));
-        // antes de recomendar, descobre os outros nomes dos mangas da lista que ainda nao foram consultados
+    /**
+     * Todos os nomes pelos quais os mangas da lista sao conhecidos, para nao sugerir o que ja esta cadastrado:
+     * o titulo, os outros nomes da obra e o nome que vem no link de leitura.
+     */
+    private List<String> nomesDosCadastrados() {
+        // antes, descobre os outros nomes dos mangas da lista que ainda nao foram consultados
         // (alguns por vez), para nao sugerir uma obra que ja esta cadastrada com um titulo alternativo ou traduzido
         List<Manga> semNomes = mangaService.listarMangas(null, null).stream()
                 .filter(cadastrado -> cadastrado.getAltTitles() == null)
@@ -294,6 +355,37 @@ public class ApiServer {
             cadastrados.addAll(RecomendacaoService.nomesDoLink(cadastrado.getChapterLinkModel()));
             cadastrados.addAll(RecomendacaoService.nomesDoLink(cadastrado.getLastChapterUrl()));
         }
+        return cadastrados;
+    }
+
+    private record OrdemResponse(String valor, String descricao) {
+    }
+
+    /**
+     * Busca geral de obras para ler: por nome, pelas tags escolhidas e na ordem pedida.
+     * ?busca=solo&tags=Fantasy,Isekai&ordem=NOTA&pagina=1
+     */
+    private void explorarRecomendacoes(Context ctx) throws JsonProcessingException {
+        String ordem = ctx.queryParam("ordem");
+        RecomendacaoService.Ordem escolhida;
+        try {
+            escolhida = ordem == null || ordem.isBlank() ? RecomendacaoService.Ordem.POPULARIDADE : RecomendacaoService.Ordem.valueOf(ordem.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RequisicaoInvalidaException("Ordem inválida. Use uma de: " + Arrays.toString(RecomendacaoService.Ordem.values()));
+        }
+        String tags = ctx.queryParam("tags");
+        List<String> escolhidas = tags == null || tags.isBlank() ? List.of() : Arrays.stream(tags.split(",")).map(String::trim).filter(tag -> !tag.isEmpty()).limit(10).toList();
+        json(ctx, HttpStatus.OK, recomendacaoService.explorar(ctx.queryParam("busca"), escolhidas, escolhida, lerInteiroPositivo(ctx, "pagina", 1), nomesDosCadastrados()));
+    }
+
+    private void listarOrdensDeRecomendacao(Context ctx) throws JsonProcessingException {
+        json(ctx, HttpStatus.OK, Arrays.stream(RecomendacaoService.Ordem.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.getDescricao())).toList());
+    }
+
+    /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet pelo titulo e pelas tags dele. */
+    private void recomendar(Context ctx) throws JsonProcessingException {
+        Manga manga = mangaService.buscarPorId(lerId(ctx));
+        List<String> cadastrados = nomesDosCadastrados();
         List<String> tags = manga.getTags().stream().map(tag -> tag.getNome()).toList();
         json(ctx, HttpStatus.OK, recomendacaoService.buscar(manga.getTitle(), cadastrados, tags));
     }

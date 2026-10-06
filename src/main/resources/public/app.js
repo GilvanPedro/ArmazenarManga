@@ -4,10 +4,31 @@ const app = document.getElementById('app');
 const avisos = document.getElementById('avisos');
 const SEPARADORES = {HIFEN: '-', PONTO: '.', UNDERLINE: '_'};
 
+/** Preferencia guardada neste navegador (o site funciona igual se o navegador nao deixar guardar). */
+function lembrado(chave, padrao) {
+    try {
+        return localStorage.getItem('meus-mangas-' + chave) || padrao;
+    } catch (e) {
+        return padrao;
+    }
+}
+
+function lembrar(chave, valor) {
+    try {
+        localStorage.setItem('meus-mangas-' + chave, valor);
+    } catch (e) {
+        // sem armazenamento: a escolha vale so ate fechar a pagina
+    }
+}
+
 const estado = {
     status: [],        // [{valor, descricao}] vindo de /api/status
     formatos: [],      // [{valor, descricao}] vindo de /api/formatos-decimais
     dias: [],          // [{valor, descricao}] vindo de /api/dias-da-semana
+    ordens: [],        // formas de ordenar a lista, vindas de /api/ordens-da-lista
+    ordem: lembrado('ordem', 'CADASTRO'), // forma de ordenar escolhida na pagina principal
+    ordensDeDescoberta: [], // formas de ordenar a aba Descobrir, vindas de /api/recomendacoes/ordens
+    descobrir: {busca: '', tags: [], ordem: 'POPULARIDADE', pagina: 1}, // o que esta escolhido na aba Descobrir
     pagina: 1,         // pagina da grade que esta aberta
     esperaDaBusca: null, // temporizador que espera a pessoa parar de digitar na busca
     recarregar: null,  // recarrega so os cartoes da tela atual, sem pular para o topo
@@ -348,6 +369,7 @@ function abas(atual) {
     return h('nav', {class: 'abas', 'aria-label': 'Listas'},
         aba('todos', '#/', 'Todos os mangás'),
         aba('hoje', '#/hoje', 'Lançam hoje'),
+        aba('descobrir', '#/descobrir', 'Descobrir'),
         aba('atalho', '#/atalho', 'Extensão e atalho'));
 }
 
@@ -400,6 +422,17 @@ function telaGrade() {
         estado.esperaDaBusca = setTimeout(() => carregarGrade(lista, paginacao), 180);
     });
 
+    const ordenar = seletor(estado.ordens, estado.ordem);
+    ordenar.setAttribute('aria-label', 'Ordenar por');
+    ordenar.className = 'ordenar';
+    ordenar.hidden = estado.ordens.length === 0;
+    ordenar.addEventListener('change', () => {
+        estado.ordem = ordenar.value;
+        lembrar('ordem', estado.ordem);
+        estado.pagina = 1;
+        carregarGrade(lista, paginacao);
+    });
+
     const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
     if (estado.filtroTag) {
         // veio de um clique em uma tag: mostra qual e, com o X para voltar a ver todos
@@ -437,6 +470,7 @@ function telaGrade() {
         h('div', {class: 'ferramentas'},
             busca,
             h('span', {class: 'espaco'}),
+            ordenar,
             h('button', {type: 'button', class: 'botao', onclick: sortear}, '🎲 Sortear')),
         filtros,
         lista,
@@ -472,7 +506,8 @@ async function carregarGrade(lista, paginacao) {
     if (estado.busca.trim()) parametros.set('titulo', estado.busca.trim());
     if (estado.filtroStatus) parametros.set('status', estado.filtroStatus);
     if (estado.filtroTag) parametros.set('tag', estado.filtroTag);
-    const filtrando = parametros.toString() !== '';
+    if (estado.ordem && estado.ordem !== 'CADASTRO') parametros.set('ordem', estado.ordem);
+    const filtrando = Boolean(estado.busca.trim() || estado.filtroStatus || estado.filtroTag);
     parametros.set('pagina', estado.pagina);
 
     let resposta;
@@ -660,6 +695,143 @@ async function carregarSemelhantes(manga, secao, vez) {
             capa(outro, true),
             h('a', {class: 'cartao-titulo', href: '#/manga/' + outro.id, title: outro.title}, outro.title),
             h('small', {class: 'generos'}, emComum(outro).slice(0, 3).join(' · '))))));
+}
+
+// ------------------------------------------------------------------ aba Descobrir
+
+/**
+ * Busca geral de mangas para ler, fora da lista: por nome, pelas tags que ja uso (a obra precisa ter todas as
+ * marcadas) e em varias ordens. Quem ja esta cadastrado nao aparece.
+ */
+async function telaDescobrir() {
+    const vez = ++estado.render;
+    const escolhas = estado.descobrir;
+    document.title = 'Descobrir · Meus Mangás';
+    let tagsEmUso = [];
+    try {
+        tagsEmUso = (await chamar('GET', '/api/tags')).filter(tag => tag.quantidade > 0);
+    } catch (e) {
+        // sem as tags ainda da para buscar por nome
+    }
+    if (vez !== estado.render) return;
+    escolhas.tags = escolhas.tags.filter(tag => tagsEmUso.some(emUso => emUso.nome === tag));
+
+    const lista = h('div', {class: 'grade'});
+    const aviso = h('p', {class: 'subtitulo', 'aria-live': 'polite'});
+    const paginacao = h('nav', {class: 'paginacao', 'aria-label': 'Páginas'});
+    const carregar = () => carregarDescobertas(lista, aviso, paginacao);
+
+    const busca = h('input', {type: 'search', placeholder: 'Buscar pelo nome…', 'aria-label': 'Buscar pelo nome', value: escolhas.busca});
+    busca.addEventListener('input', () => {
+        escolhas.busca = busca.value;
+        escolhas.pagina = 1;
+        // com um nome digitado, o mais util e ver primeiro o que mais combina com ele
+        if (busca.value.trim() && escolhas.ordem === 'POPULARIDADE') ordenar.value = escolhas.ordem = 'RELEVANCIA';
+        if (!busca.value.trim() && escolhas.ordem === 'RELEVANCIA') ordenar.value = escolhas.ordem = 'POPULARIDADE';
+        clearTimeout(estado.esperaDaBusca);
+        estado.esperaDaBusca = setTimeout(carregar, 350);
+    });
+    const ordenar = seletor(estado.ordensDeDescoberta, escolhas.ordem);
+    ordenar.setAttribute('aria-label', 'Ordenar por');
+    ordenar.className = 'ordenar';
+    ordenar.addEventListener('change', () => {
+        escolhas.ordem = ordenar.value;
+        escolhas.pagina = 1;
+        carregar();
+    });
+
+    const tags = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar pelas suas tags'},
+        tagsEmUso.map(tag => h('button', {
+            type: 'button',
+            class: 'filtro',
+            'aria-pressed': String(escolhas.tags.includes(tag.nome)),
+            onclick: evento => {
+                const marcada = !escolhas.tags.includes(tag.nome);
+                escolhas.tags = marcada ? [...escolhas.tags, tag.nome] : escolhas.tags.filter(outra => outra !== tag.nome);
+                evento.currentTarget.setAttribute('aria-pressed', String(marcada));
+                escolhas.pagina = 1;
+                carregar();
+            },
+        }, tag.nome)));
+
+    app.replaceChildren(
+        abas('descobrir'),
+        h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar),
+        tagsEmUso.length
+            ? tags
+            : h('p', {class: 'subtitulo'}, 'Quando você colocar tags nos seus mangás, elas aparecem aqui para filtrar a busca.'),
+        aviso,
+        lista,
+        paginacao);
+    carregar();
+}
+
+async function carregarDescobertas(lista, aviso, paginacao) {
+    const vez = ++estado.render;
+    const escolhas = estado.descobrir;
+    const parametros = new URLSearchParams({ordem: escolhas.ordem, pagina: escolhas.pagina});
+    if (escolhas.busca.trim()) parametros.set('busca', escolhas.busca.trim());
+    if (escolhas.tags.length) parametros.set('tags', escolhas.tags.join(','));
+    aviso.textContent = 'Buscando…';
+
+    let resposta;
+    try {
+        resposta = await chamar('GET', '/api/recomendacoes?' + parametros);
+    } catch (e) {
+        if (vez === estado.render) {
+            lista.className = '';
+            lista.replaceChildren(vazio('Algo deu errado', e.message));
+            aviso.textContent = '';
+            paginacao.replaceChildren();
+        }
+        return;
+    }
+    if (vez !== estado.render) return;
+
+    const avisos = [];
+    if (escolhas.tags.length > 1) avisos.push('Mostrando obras que têm todas as tags marcadas.');
+    if (resposta.tagsIgnoradas.length) {
+        avisos.push('A fonte da busca não tem ' + (resposta.tagsIgnoradas.length === 1 ? 'a tag ' : 'as tags ')
+            + resposta.tagsIgnoradas.map(tag => '“' + tag + '”').join(', ') + '; a busca foi feita sem ' + (resposta.tagsIgnoradas.length === 1 ? 'ela.' : 'elas.'));
+    }
+    if (resposta.ocultos) {
+        avisos.push(resposta.ocultos === 1 ? '1 obra desta página já está na sua lista e foi escondida.' : resposta.ocultos + ' obras desta página já estão na sua lista e foram escondidas.');
+    }
+    aviso.textContent = avisos.join(' ');
+
+    if (resposta.itens.length === 0) {
+        lista.className = '';
+        lista.replaceChildren(resposta.ocultos
+            ? vazio('Tudo desta página já está na sua lista', 'Vá para a próxima página ou mude a busca.')
+            : vazio('Nada encontrado', 'Tente outro nome, menos tags ou outra ordem.'));
+    } else {
+        lista.className = 'grade';
+        lista.replaceChildren(...resposta.itens.map(obra => cartaoDeObra(obra)));
+    }
+    const irPara = pagina => {
+        escolhas.pagina = pagina;
+        carregarDescobertas(lista, aviso, paginacao).then(() => window.scrollTo(0, 0));
+    };
+    // a fonte nao diz quantas paginas existem, so se ha uma proxima
+    paginacao.replaceChildren(...(resposta.pagina > 1 || resposta.temMais ? [
+        h('button', {type: 'button', class: 'botao pequeno', disabled: resposta.pagina <= 1, onclick: () => irPara(resposta.pagina - 1)}, '← Anterior'),
+        h('span', {class: 'total'}, 'Página ' + resposta.pagina),
+        h('button', {type: 'button', class: 'botao pequeno', disabled: !resposta.temMais, onclick: () => irPara(resposta.pagina + 1)}, 'Próxima →'),
+    ] : []));
+}
+
+/** Cartao de uma obra que ainda nao esta na lista: capa e nome abrem a pagina dela no AniList; "+ Adicionar" abre o cadastro. */
+function cartaoDeObra(obra) {
+    const imagem = obra.capa
+        ? h('img', {src: obra.capa, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'})
+        : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, obra.titulo.charAt(0).toUpperCase());
+    const adicionar = new URLSearchParams({t: obra.titulo, i: obra.capa || '', g: (obra.tags || []).join(',')});
+    const detalhes = [obra.nota != null ? '★ ' + (obra.nota / 10).toFixed(1).replace('.', ',') : null, obra.ano, ...obra.generos.slice(0, 2)].filter(Boolean);
+    return h('article', {class: 'cartao'},
+        h('a', {class: 'capa', href: obra.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': obra.titulo + ' (abre o AniList)'}, imagem),
+        h('a', {class: 'cartao-titulo', href: obra.link, target: '_blank', rel: 'noopener noreferrer', title: obra.titulo}, obra.titulo),
+        h('small', {class: 'generos'}, detalhes.join(' · ')),
+        h('a', {class: 'botao pequeno', href: '#/novo?' + adicionar}, '+ Adicionar'));
 }
 
 /**
@@ -1599,6 +1771,7 @@ function rota() {
         return telaGrade();
     }
     if (partes[0] === 'hoje') return telaHoje();
+    if (partes[0] === 'descobrir') return telaDescobrir();
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null, consulta);
@@ -1608,11 +1781,16 @@ function rota() {
 
 async function iniciar() {
     try {
-        [estado.status, estado.formatos, estado.dias] = await Promise.all([
+        // as ordens sao opcionais: sem elas o site abre igual, so sem os seletores de ordem
+        const ouVazio = promessa => promessa.catch(() => []);
+        [estado.status, estado.formatos, estado.dias, estado.ordens, estado.ordensDeDescoberta] = await Promise.all([
             chamar('GET', '/api/status'),
             chamar('GET', '/api/formatos-decimais'),
             chamar('GET', '/api/dias-da-semana'),
+            ouVazio(chamar('GET', '/api/ordens-da-lista')),
+            ouVazio(chamar('GET', '/api/recomendacoes/ordens')),
         ]);
+        if (!estado.ordens.some(ordem => ordem.valor === estado.ordem)) estado.ordem = 'CADASTRO';
     } catch (e) {
         app.replaceChildren(vazio('Não foi possível carregar', e.message));
         return;

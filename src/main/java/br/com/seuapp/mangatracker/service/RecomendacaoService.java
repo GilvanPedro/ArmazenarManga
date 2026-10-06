@@ -37,6 +37,50 @@ public class RecomendacaoService {
     public record Recomendacao(String titulo, String capa, List<String> generos, String link, List<String> tags) {
     }
 
+    /** Como ordenar a busca geral de obras ({@link #explorar}). */
+    public enum Ordem {
+        /** As que mais combinam com o nome buscado (sem nome buscado, vale a popularidade). */
+        RELEVANCIA("SEARCH_MATCH", "Mais relevantes"),
+        POPULARIDADE("POPULARITY_DESC", "Mais populares"),
+        NOTA("SCORE_DESC", "Melhor avaliados"),
+        EM_ALTA("TRENDING_DESC", "Em alta agora"),
+        RECENTES("START_DATE_DESC", "Mais recentes"),
+        TITULO("TITLE_ENGLISH", "Título (A–Z)");
+
+        private final String noAniList;
+        private final String descricao;
+
+        Ordem(String noAniList, String descricao) {
+            this.noAniList = noAniList;
+            this.descricao = descricao;
+        }
+
+        public String getDescricao() {
+            return descricao;
+        }
+    }
+
+    /**
+     * Uma obra achada na busca geral.
+     *
+     * @param generos em portugues, para mostrar
+     * @param tags    os mesmos generos em ingles, para virar tags se a obra for cadastrada
+     * @param nota    media das notas dos leitores, de 0 a 100; null se ainda nao tem
+     * @param ano     ano em que comecou a ser publicada; null se desconhecido
+     */
+    public record ObraEncontrada(String titulo, String capa, List<String> generos, String link, List<String> tags, Integer nota, Integer ano) {
+    }
+
+    /**
+     * Uma pagina da busca geral.
+     *
+     * @param temMais       ha mais resultados depois desta pagina
+     * @param ocultos       quantas obras desta pagina foram escondidas por ja estarem na lista
+     * @param tagsIgnoradas tags pedidas que o AniList nao tem (a busca foi feita sem elas)
+     */
+    public record Exploracao(List<ObraEncontrada> itens, int pagina, boolean temMais, int ocultos, List<String> tagsIgnoradas) {
+    }
+
     /** Uma obra candidata, com todos os nomes pelos quais ela e conhecida (para comparar com a lista). */
     private record Candidata(long id, Recomendacao recomendacao, Set<String> nomes) {
     }
@@ -67,6 +111,9 @@ public class RecomendacaoService {
     /** Entre os nomes guardados de um manga, o que comeca assim diz qual e a obra no AniList: "anilist:105398". */
     public static final String MARCA_DA_OBRA = "anilist:";
     public static final int TITULOS_POR_PEDIDO = 20;
+    public static final int POR_PAGINA = 24;
+    private volatile Map<String, String> temasConhecidos = Map.of();
+    private volatile Instant temasBuscadosEm = Instant.EPOCH;
     private static final int MAXIMO_NO_MANGADEX = 8;
     private static final int MAXIMO_DE_TRADUCOES = 6;
     private static final Set<String> PALAVRAS_DE_LIGACAO = Set.of("the", "a", "an", "of", "and", "to", "in", "o", "os", "as", "de", "do", "da",
@@ -78,6 +125,125 @@ public class RecomendacaoService {
 
     public RecomendacaoService(SinopseService.ClienteHttp http) {
         this.http = http;
+    }
+
+    /**
+     * Busca geral de obras no AniList: por nome, por tags (a obra precisa ter todas as escolhidas) e em varias ordens.
+     * Quem ja esta na lista nao aparece.
+     *
+     * @param busca            parte do nome, ou null/vazio para nao filtrar por nome
+     * @param tags             tags da lista (em ingles); as que o AniList nao tem sao ignoradas e devolvidas no resultado
+     * @param nomesCadastrados titulos e outros nomes dos mangas da lista (como em {@link #buscar})
+     * @return a pagina pedida; sem itens se o servico falhar
+     */
+    public Exploracao explorar(String busca, Collection<String> tags, Ordem ordem, int pagina, Collection<String> nomesCadastrados) {
+        String nome = busca == null ? "" : busca.trim();
+        int numero = Math.max(1, Math.min(pagina, 200));
+        List<String> generos = new ArrayList<>();
+        List<String> temas = new ArrayList<>();
+        List<String> ignoradas = new ArrayList<>();
+        Map<String, String> conhecidos = generosETemasDoAniList();
+        for (String tag : tags == null ? List.<String>of() : tags) {
+            if (tag == null || tag.isBlank()) {
+                continue;
+            }
+            String procurada = TEMAS_COM_OUTRO_NOME.getOrDefault(normalizar(tag), tag.trim());
+            String genero = GENEROS.keySet().stream().filter(conhecido -> normalizar(conhecido).equals(normalizar(procurada))).findFirst().orElse(null);
+            if (genero != null) {
+                generos.add(genero);
+            } else if (conhecidos.containsKey(normalizar(procurada))) {
+                temas.add(conhecidos.get(normalizar(procurada)));
+            } else if (conhecidos.isEmpty()) {
+                temas.add(procurada); // nao deu para conferir a lista de temas: tenta com o nome como esta
+            } else {
+                ignoradas.add(tag.trim());
+            }
+        }
+        // "mais relevantes" so faz sentido com um nome buscado
+        Ordem escolhida = ordem == null || (ordem == Ordem.RELEVANCIA && nome.isEmpty()) ? Ordem.POPULARIDADE : ordem;
+
+        List<String> parametros = new ArrayList<>(List.of("$p:Int", "$o:[MediaSort]"));
+        StringBuilder filtros = new StringBuilder();
+        Map<String, Object> variaveis = new HashMap<>();
+        variaveis.put("p", numero);
+        variaveis.put("o", List.of(escolhida.noAniList));
+        if (!nome.isEmpty()) {
+            parametros.add("$s:String");
+            filtros.append("search:$s,");
+            variaveis.put("s", nome.substring(0, Math.min(100, nome.length())));
+        }
+        if (!generos.isEmpty()) {
+            parametros.add("$g:[String]");
+            filtros.append("genre_in:$g,");
+            variaveis.put("g", generos);
+        }
+        if (!temas.isEmpty()) {
+            parametros.add("$t:[String]");
+            filtros.append("tag_in:$t,");
+            variaveis.put("t", temas);
+        }
+        JsonNode resposta = perguntar("query(" + String.join(",", parametros) + "){Page(page:$p,perPage:" + POR_PAGINA + "){pageInfo{hasNextPage} "
+                + "media(type:MANGA,isAdult:false," + filtros + "sort:$o){" + CAMPOS + " averageScore startDate{year}}}}", variaveis).path("Page");
+
+        Set<String> nomes = new HashSet<>();
+        Set<Long> obras = new HashSet<>();
+        separarNomesEObras(nomesCadastrados, nomes, obras);
+        List<ObraEncontrada> itens = new ArrayList<>();
+        int ocultos = 0;
+        for (JsonNode obra : resposta.path("media")) {
+            List<Candidata> lida = new ArrayList<>();
+            adicionar(obra, lida, new HashSet<>());
+            if (lida.isEmpty()) {
+                continue;
+            }
+            Candidata candidata = lida.get(0);
+            if (obras.contains(candidata.id()) || candidata.nomes().stream().anyMatch(nomes::contains)) {
+                ocultos++;
+                continue;
+            }
+            Recomendacao dados = candidata.recomendacao();
+            itens.add(new ObraEncontrada(dados.titulo(), dados.capa(), dados.generos(), dados.link(), dados.tags(),
+                    obra.path("averageScore").isInt() ? obra.path("averageScore").asInt() : null,
+                    obra.path("startDate").path("year").isInt() ? obra.path("startDate").path("year").asInt() : null));
+        }
+        return new Exploracao(List.copyOf(itens), numero, resposta.path("pageInfo").path("hasNextPage").asBoolean(false), ocultos, List.copyOf(ignoradas));
+    }
+
+    /** Nomes dos temas (tags) que o AniList tem, pelo nome normalizado. Guardado por um dia; vazio se nao deu para buscar. */
+    private Map<String, String> generosETemasDoAniList() {
+        if (temasConhecidos.isEmpty() || temasBuscadosEm.plus(Duration.ofDays(1)).isBefore(Instant.now())) {
+            Map<String, String> novos = new HashMap<>();
+            perguntar("query{MediaTagCollection{name isAdult}}", Map.of()).path("MediaTagCollection").forEach(tema -> {
+                if (!tema.path("isAdult").asBoolean()) {
+                    novos.put(normalizar(tema.path("name").asText("")), tema.path("name").asText(""));
+                }
+            });
+            novos.remove("");
+            if (!novos.isEmpty()) {
+                temasConhecidos = Map.copyOf(novos);
+                temasBuscadosEm = Instant.now();
+            }
+        }
+        return temasConhecidos;
+    }
+
+    /** Separa a lista de nomes dos cadastrados em nomes (em todas as formas) e marcas de obra ("anilist:123"). */
+    private static void separarNomesEObras(Collection<String> nomesCadastrados, Set<String> nomes, Set<Long> obras) {
+        for (String nome : nomesCadastrados == null ? List.<String>of() : nomesCadastrados) {
+            if (nome == null) {
+                continue;
+            }
+            if (nome.startsWith(MARCA_DA_OBRA)) {
+                try {
+                    obras.add(Long.parseLong(nome.substring(MARCA_DA_OBRA.length())));
+                } catch (NumberFormatException e) {
+                    // marca estragada: ignora
+                }
+                continue;
+            }
+            nomes.addAll(formas(nome));
+            nomes.addAll(formas(semObservacoes(nome)));
+        }
     }
 
     /**
@@ -105,21 +271,7 @@ public class RecomendacaoService {
         Set<Long> obras = new HashSet<>();
         List<String> todos = new ArrayList<>(nomesCadastrados);
         todos.add(titulo);
-        for (String nome : todos) {
-            if (nome == null) {
-                continue;
-            }
-            if (nome.startsWith(MARCA_DA_OBRA)) {
-                try {
-                    obras.add(Long.parseLong(nome.substring(MARCA_DA_OBRA.length())));
-                } catch (NumberFormatException e) {
-                    // marca estragada: ignora
-                }
-                continue;
-            }
-            nomes.addAll(formas(nome));
-            nomes.addAll(formas(semObservacoes(nome)));
-        }
+        separarNomesEObras(todos, nomes, obras);
 
         List<Recomendacao> sugestoes = new ArrayList<>();
         for (Candidata candidata : candidatas(titulo.trim(), tagsDoManga == null ? List.of() : tagsDoManga)) {

@@ -161,6 +161,9 @@ select:disabled { opacity: .55; }
 }
 .ferramentas input[type=search] { flex: 1 1 240px; max-width: 420px; }
 .ferramentas .espaco { flex: 1 1 0; }
+.ferramentas select.ordenar { width: auto; flex: 0 1 auto; max-width: 100%; }
+.recomendacoes .generos, .cartao > .generos { text-align: center; color: var(--texto-fraco); font-size: 12px; min-height: 1.5em; margin-top: -4px; }
+.paginacao span.total:not(:last-child) { flex-basis: auto; margin-top: 0; }
 
 .filtros {
     display: flex;

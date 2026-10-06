@@ -22,6 +22,11 @@ public class RecomendacaoServiceTest {
         public String obrasDaLista = "{\"data\":{\"m0\":{\"media\":[]}}}";
         /** Resposta do MangaDex a busca pelos nomes de uma obra. null = servico fora do ar. */
         public String mangadex = null;
+        /** Resposta da busca geral (pergunta com "pageInfo"). */
+        public String exploracao = "{\"data\":{\"Page\":{\"pageInfo\":{\"hasNextPage\":false},\"media\":[]}}}";
+        /** Temas que o AniList diz ter. null = servico fora do ar. */
+        public String temas = "{\"data\":{\"MediaTagCollection\":[{\"name\":\"Villainess\",\"isAdult\":false},{\"name\":\"Wuxia\",\"isAdult\":false},{\"name\":\"Tema Adulto\",\"isAdult\":true}]}}";
+        public final List<String> perguntasDeExploracao = new ArrayList<>();
         public final List<String> perguntas = new ArrayList<>();
         public final List<String> perguntasSobreALista = new ArrayList<>();
 
@@ -45,6 +50,13 @@ public class RecomendacaoServiceTest {
 
         @Override
         public String postJson(String endereco, String corpo) {
+            if (corpo.contains("MediaTagCollection")) {
+                return temas;
+            }
+            if (corpo.contains("pageInfo")) {
+                perguntasDeExploracao.add(corpo);
+                return exploracao;
+            }
             if (corpo.contains("m0:Page(perPage:2)")) {
                 perguntasSobreALista.add(corpo);
                 return obrasPeloIngles;
@@ -351,6 +363,78 @@ public class RecomendacaoServiceTest {
 
         assertEquals(List.of("So Pelo Genero"),
                 titulos(new RecomendacaoService(semOTema).buscar("Desconhecido", List.of(), List.of("Action", "Tag Inventada"))));
+    }
+
+    // ------------------------------------------------------------------ busca geral
+
+    static String comNotaEAno(String obra, Integer nota, Integer ano) {
+        return obra.substring(0, obra.length() - 1) + ",\"averageScore\":" + nota + ",\"startDate\":{\"year\":" + ano + "}}";
+    }
+
+    @Test
+    void buscaGeralFiltraPorNomeETagsNaOrdemPedida() {
+        anilist.exploracao = "{\"data\":{\"Page\":{\"pageInfo\":{\"hasNextPage\":true},\"media\":["
+                + comNotaEAno(obra(20, "Villains Are Destined to Die", "Akyeogui Ending", "\"Fantasy\",\"Romance\""), 84, 2020) + ","
+                + comNotaEAno(obra(21, null, "Sem Nota", "\"Fantasy\""), null, null) + "]}}}";
+
+        RecomendacaoService.Exploracao pagina = service.explorar(" vilã ", List.of("fantasy", "Romance", "Villainess", "Murim", "Minha Tag Inventada", " "),
+                RecomendacaoService.Ordem.NOTA, 3, List.of());
+
+        assertEquals(new RecomendacaoService.ObraEncontrada("Villains Are Destined to Die", "https://s4.anilist.co/capa20.jpg",
+                List.of("Fantasia", "Romance"), "https://anilist.co/manga/20", List.of("Fantasy", "Romance"), 84, 2020), pagina.itens().get(0));
+        assertEquals(new RecomendacaoService.ObraEncontrada("Sem Nota", "https://s4.anilist.co/capa21.jpg",
+                List.of("Fantasia"), "https://anilist.co/manga/21", List.of("Fantasy"), null, null), pagina.itens().get(1));
+        assertEquals(3, pagina.pagina());
+        assertTrue(pagina.temMais());
+        assertEquals(0, pagina.ocultos());
+        // a tag que o AniList nao tem fica de fora da busca e e avisada
+        assertEquals(List.of("Minha Tag Inventada"), pagina.tagsIgnoradas());
+        String pergunta = anilist.perguntasDeExploracao.get(0);
+        assertTrue(pergunta.contains("\"s\":\"vilã\""), pergunta);
+        assertTrue(pergunta.contains("\"g\":[\"Fantasy\",\"Romance\"]"), pergunta);
+        assertTrue(pergunta.contains("\"t\":[\"Villainess\",\"Wuxia\"]"), "Murim e Wuxia no AniList: " + pergunta);
+        assertTrue(pergunta.contains("\"o\":[\"SCORE_DESC\"]") && pergunta.contains("\"p\":3") && pergunta.contains("isAdult:false"), pergunta);
+    }
+
+    @Test
+    void buscaGeralSemFiltrosMostraAsMaisPopulares() {
+        service.explorar(null, null, null, 1, List.of());
+        service.explorar("", List.of(), RecomendacaoService.Ordem.RELEVANCIA, 0, List.of());
+        service.explorar("solo", List.of(), RecomendacaoService.Ordem.RELEVANCIA, 1, List.of());
+
+        // sem nome buscado, "mais relevantes" vira "mais populares"; sem filtros, nenhum filtro vai na pergunta
+        assertTrue(anilist.perguntasDeExploracao.get(0).contains("\"o\":[\"POPULARITY_DESC\"]"));
+        assertFalse(anilist.perguntasDeExploracao.get(0).contains("search:") || anilist.perguntasDeExploracao.get(0).contains("genre_in") || anilist.perguntasDeExploracao.get(0).contains("tag_in"));
+        assertTrue(anilist.perguntasDeExploracao.get(1).contains("\"o\":[\"POPULARITY_DESC\"]") && anilist.perguntasDeExploracao.get(1).contains("\"p\":1"));
+        assertTrue(anilist.perguntasDeExploracao.get(2).contains("\"o\":[\"SEARCH_MATCH\"]"));
+    }
+
+    @Test
+    void buscaGeralEscondeOQueJaEstaNaLista() {
+        anilist.exploracao = "{\"data\":{\"Page\":{\"pageInfo\":{\"hasNextPage\":false},\"media\":["
+                + obra(105398, "Solo Leveling", "Na Honjaman Level Up", "") + "," + obra(119257, "Omniscient Reader", "Jeonjijeok Dokja Sijeom", "") + ","
+                + obra(85143, "Tower of God", "Sin-ui Tap", "") + "," + obra(30, "Nova", "Nova", "") + ","
+                + obra(31, "Anime", "Anime", "", "ANIME", false, "") + "]}}}";
+
+        RecomendacaoService.Exploracao pagina = service.explorar("", List.of(), RecomendacaoService.Ordem.POPULARIDADE, 1,
+                List.of("Solo Leveling", "Ponto de Vista do Leitor", "anilist:119257", "Torre de Deus", "tower of god"));
+
+        assertEquals(List.of("Nova"), pagina.itens().stream().map(RecomendacaoService.ObraEncontrada::titulo).toList());
+        assertEquals(3, pagina.ocultos());
+        assertFalse(pagina.temMais());
+    }
+
+    @Test
+    void buscaGeralComServicoForaDoArVoltaVazia() {
+        anilist.exploracao = null;
+        anilist.temas = null;
+
+        RecomendacaoService.Exploracao pagina = service.explorar("solo", List.of("Fantasy", "Tema Que Nao Deu Para Conferir"), RecomendacaoService.Ordem.NOTA, 1, List.of());
+
+        assertEquals(List.of(), pagina.itens());
+        assertFalse(pagina.temMais());
+        // sem a lista de temas nao da para dizer que a tag nao existe: ela vai na busca como esta
+        assertEquals(List.of(), pagina.tagsIgnoradas());
     }
 
     @Test

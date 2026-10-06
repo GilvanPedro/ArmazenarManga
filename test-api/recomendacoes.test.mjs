@@ -5,15 +5,23 @@ import { criarBuscadorDeRecomendacoes, nomesDoLink, variacoesDoTitulo } from '..
 
 const obra = (id, ingles, romaji, generos = [], mais = {}) => ({ id, type: 'MANGA', isAdult: false, title: { romaji, english: ingles }, synonyms: [],
     genres: generos, siteUrl: 'https://anilist.co/manga/' + id, coverImage: { large: 'https://s4.anilist.co/capa' + id + '.jpg' }, ...mais });
-function anilistFalso({ media = null, porGenero = [], generos = ['Action'], temas = [], obrasDaLista = { data: { m0: { media: [] } } }, obrasPeloIngles = { data: { m0: { media: [] } } } } = {}) {
+function anilistFalso({ media = null, porGenero = [], generos = ['Action'], temas = [], obrasDaLista = { data: { m0: { media: [] } } }, obrasPeloIngles = { data: { m0: { media: [] } } }, exploracao = { data: { Page: { pageInfo: { hasNextPage: false }, media: [] } } },
+    temasDoAniList = { data: { MediaTagCollection: [{ name: 'Villainess', isAdult: false }, { name: 'Wuxia', isAdult: false }, { name: 'Tema Adulto', isAdult: true }] } } } = {}) {
     const perguntas = [];
     const perguntasSobreALista = [];
+    const perguntasDeExploracao = [];
     return {
         perguntas,
         perguntasSobreALista,
+        perguntasDeExploracao,
         async get() { return null; },
         async postJson(endereco, corpo) {
             // "a que obra corresponde cada titulo da lista" (m0, m1...)
+            if (corpo.query.includes('MediaTagCollection')) return temasDoAniList;
+            if (corpo.query.includes('pageInfo')) {
+                perguntasDeExploracao.push(corpo);
+                return exploracao;
+            }
             if (corpo.query.includes('m0:Page(perPage:2)')) {
                 perguntasSobreALista.push(corpo);
                 return obrasPeloIngles;
@@ -215,4 +223,43 @@ test('mesmas palavras com ligacoes diferentes sao o mesmo nome', async () => {
     const media = [obra(10, 'Ponto de Vista de um Leitor Onisciente', 'x'), obra(11, 'The Return of the Hero', 'y'), obra(12, 'Solo Leveling: Ragnarok', 'z')];
     assert.deepEqual(titulos(await criarBuscadorDeRecomendacoes(anilistFalso({ media }))('Solo Leveling', ['Ponto de Vista do Leitor Onisciente', 'Return of Hero', 'Solo Leveling'])),
         ['Solo Leveling: Ragnarok']);
+});
+
+test('busca geral filtra por nome e tags na ordem pedida', async () => {
+    const anilist = anilistFalso({ exploracao: { data: { Page: { pageInfo: { hasNextPage: true }, media: [
+        obra(20, 'Villains Are Destined to Die', 'Akyeogui Ending', ['Fantasy', 'Romance'], { averageScore: 84, startDate: { year: 2020 } }),
+        obra(21, null, 'Sem Nota', ['Fantasy'], { averageScore: null, startDate: { year: null } })] } } } });
+    const buscar = criarBuscadorDeRecomendacoes(anilist);
+
+    const pagina = await buscar.explorar(' vilã ', ['fantasy', 'Romance', 'Villainess', 'Murim', 'Minha Tag Inventada', ' '], 'NOTA', 3, []);
+
+    assert.deepEqual(pagina.itens[0], { titulo: 'Villains Are Destined to Die', capa: 'https://s4.anilist.co/capa20.jpg', generos: ['Fantasia', 'Romance'],
+        link: 'https://anilist.co/manga/20', tags: ['Fantasy', 'Romance'], nota: 84, ano: 2020 });
+    assert.deepEqual([pagina.itens[1].titulo, pagina.itens[1].nota, pagina.itens[1].ano], ['Sem Nota', null, null]);
+    assert.deepEqual([pagina.pagina, pagina.temMais, pagina.ocultos, pagina.tagsIgnoradas], [3, true, 0, ['Minha Tag Inventada']]);
+    assert.deepEqual(anilist.perguntasDeExploracao[0].variables, { p: 3, o: ['SCORE_DESC'], s: 'vilã', g: ['Fantasy', 'Romance'], t: ['Villainess', 'Wuxia'] });
+    assert.ok(anilist.perguntasDeExploracao[0].query.includes('isAdult:false'));
+});
+
+test('busca geral sem filtros mostra as mais populares, e esconde o que ja esta na lista', async () => {
+    const anilist = anilistFalso({ exploracao: { data: { Page: { pageInfo: { hasNextPage: false }, media: [obra(105398, 'Solo Leveling', 'Na Honjaman Level Up'),
+        obra(119257, 'Omniscient Reader', 'Jeonjijeok Dokja Sijeom'), obra(85143, 'Tower of God', 'Sin-ui Tap'), obra(30, 'Nova', 'Nova'), obra(31, 'Anime', 'Anime', [], { type: 'ANIME' })] } } } });
+    const buscar = criarBuscadorDeRecomendacoes(anilist);
+
+    const pagina = await buscar.explorar('', [], 'RELEVANCIA', 0, ['Solo Leveling', 'Ponto de Vista do Leitor', 'anilist:119257', 'Torre de Deus', 'tower of god']);
+
+    assert.deepEqual(titulos(pagina.itens), ['Nova']);
+    assert.deepEqual([pagina.ocultos, pagina.temMais, pagina.pagina], [3, false, 1]);
+    assert.deepEqual(anilist.perguntasDeExploracao[0].variables, { p: 1, o: ['POPULARITY_DESC'] });
+    assert.ok(!/search:|genre_in|tag_in/.test(anilist.perguntasDeExploracao[0].query));
+    await buscar.explorar('solo', [], 'RELEVANCIA', 1, []);
+    assert.deepEqual(anilist.perguntasDeExploracao[1].variables.o, ['SEARCH_MATCH']);
+    await buscar.explorar('', [], 'ORDEM_QUE_NAO_EXISTE', 1, []);
+    assert.deepEqual(anilist.perguntasDeExploracao[2].variables.o, ['POPULARITY_DESC']);
+});
+
+test('busca geral com o servico fora do ar volta vazia', async () => {
+    const pagina = await criarBuscadorDeRecomendacoes({ get: async () => null, postJson: async () => null }).explorar('solo', ['Fantasy', 'Tema Sem Conferir'], 'NOTA', 1, []);
+
+    assert.deepEqual(pagina, { itens: [], pagina: 1, temMais: false, ocultos: 0, tagsIgnoradas: [] });
 });

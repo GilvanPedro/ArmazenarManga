@@ -5,7 +5,7 @@ import pg from 'pg';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
-import { criarBuscadorDeRecomendacoes, nomesDoLink, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
+import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
 const buscarRecomendacoes = criarBuscadorDeRecomendacoes();
@@ -315,6 +315,51 @@ async function listarTags() {
     return tags;
 }
 
+// ------------------------------------------------------------------ recomendacoes e ordenacao
+
+/**
+ * Todos os nomes pelos quais os mangas da lista sao conhecidos, para nao sugerir o que ja esta cadastrado:
+ * o titulo, os outros nomes da obra e o nome que vem no link de leitura.
+ */
+async function nomesDosCadastrados() {
+    // antes, descobre os outros nomes dos mangas da lista que ainda nao foram consultados (alguns por vez)
+    let lista = await listarTodos();
+    const semNomes = lista.filter(cadastrado => !Array.isArray(cadastrado.altTitles)).slice(0, TITULOS_POR_PEDIDO);
+    if (semNomes.length > 0) {
+        const nomes = await buscarRecomendacoes.nomesAlternativos(semNomes.map(cadastrado => cadastrado.title));
+        const db = await banco();
+        for (const cadastrado of semNomes) {
+            if (!nomes.has(cadastrado.title)) continue;
+            // so esse campo e so se o titulo continua o mesmo: nao desfaz uma mudanca feita enquanto a busca corria
+            await db.query(`UPDATE mangas SET dados = jsonb_set(dados, '{altTitles}', $2::jsonb) WHERE id = $1 AND dados->>'title' = $3`,
+                [cadastrado.id, JSON.stringify(nomes.get(cadastrado.title)), cadastrado.title]);
+        }
+        lista = await listarTodos();
+    }
+    return lista.flatMap(cadastrado => [cadastrado.title, ...(Array.isArray(cadastrado.altTitles) ? cadastrado.altTitles : []),
+        ...nomesDoLink(cadastrado.chapterLinkModel), ...nomesDoLink(cadastrado.lastChapterUrl)]);
+}
+
+/** Formas de ordenar a lista de mangas cadastrados (?ordem=). A lista chega na ordem de cadastro. */
+const semAcentos = texto => String(texto ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+const porTitulo = (a, b) => (semAcentos(a.title) < semAcentos(b.title) ? -1 : semAcentos(a.title) > semAcentos(b.title) ? 1 : 0);
+const ORDENS_DA_LISTA = {
+    CADASTRO: { descricao: 'Ordem de cadastro', aplicar: mangas => mangas },
+    RECENTES: { descricao: 'Adicionados por último', aplicar: mangas => [...mangas].reverse() },
+    TITULO: { descricao: 'Título (A–Z)', aplicar: mangas => [...mangas].sort(porTitulo) },
+    TITULO_DESC: { descricao: 'Título (Z–A)', aplicar: mangas => [...mangas].sort((a, b) => porTitulo(b, a)) },
+    // empate fica em ordem alfabetica
+    MAIS_CAPITULOS: { descricao: 'Mais capítulos lidos', aplicar: mangas => [...mangas].sort((a, b) => b.lastChapter - a.lastChapter || porTitulo(a, b)) },
+    MENOS_CAPITULOS: { descricao: 'Menos capítulos lidos', aplicar: mangas => [...mangas].sort((a, b) => a.lastChapter - b.lastChapter || porTitulo(a, b)) },
+};
+
+function lerOrdem(url, ordens, padrao) {
+    const ordem = (url.searchParams.get('ordem') || '').trim().toUpperCase();
+    if (ordem === '') return padrao;
+    if (!Object.hasOwn(ordens, ordem)) throw new Recusa(400, 'Ordem inválida. Use uma de: [' + Object.keys(ordens).join(', ') + ']');
+    return ordem;
+}
+
 // ------------------------------------------------------------------ verificacao de link
 
 /** Confere no site o link do proximo capitulo e salva a correcao se o endereco mudou. */
@@ -496,6 +541,18 @@ async function rotear(request) {
         if (!sinopse) throw new Recusa(404, 'Não encontrei uma descrição para esse título');
         return json(200, sinopse);
     }
+    // busca geral de obras para ler: ?busca=solo&tags=Fantasy,Isekai&ordem=NOTA&pagina=1
+    if (recurso === 'recomendacoes' && partes.length === 1 && metodo === 'GET') {
+        const ordem = lerOrdem(url, ORDENS, 'POPULARIDADE');
+        const tags = (url.searchParams.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 10);
+        return json(200, await buscarRecomendacoes.explorar(url.searchParams.get('busca'), tags, ordem, lerInteiroPositivo(url, 'pagina', 1), await nomesDosCadastrados()));
+    }
+    if (recurso === 'recomendacoes' && partes.length === 2 && id === 'ordens' && metodo === 'GET') {
+        return json(200, Object.entries(ORDENS).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao })));
+    }
+    if (recurso === 'ordens-da-lista' && partes.length === 1 && metodo === 'GET') {
+        return json(200, Object.entries(ORDENS_DA_LISTA).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao })));
+    }
     // lista geral de tags, para escolher no cadastro em vez de digitar de novo
     if (recurso === 'tags' && partes.length === 1 && metodo === 'GET') {
         return json(200, await listarTags());
@@ -511,7 +568,9 @@ async function rotear(request) {
 
     if (recurso === 'mangas') {
         if (partes.length === 1 && metodo === 'GET') {
-            const mangas = (await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url), url.searchParams.get('tag'))).map(resposta);
+            const ordem = lerOrdem(url, ORDENS_DA_LISTA, 'CADASTRO');
+            const encontrados = await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url), url.searchParams.get('tag'));
+            const mangas = ORDENS_DA_LISTA[ordem].aplicar(encontrados).map(resposta);
             // sem ?pagina devolve a lista inteira (usada por quem precisa de todos, como a busca de mangas);
             // com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos
             if (!url.searchParams.has('pagina')) return json(200, mangas);
@@ -619,24 +678,7 @@ async function rotear(request) {
         // mangas parecidos com este que ainda nao estao na lista, buscados na internet
         if (partes.length === 3 && acao === 'recomendacoes' && metodo === 'GET') {
             const manga = await buscarPorId(id);
-            // antes de recomendar, descobre os outros nomes dos mangas da lista que ainda nao foram consultados
-            // (alguns por vez), para nao sugerir uma obra que ja esta cadastrada com um titulo alternativo ou traduzido
-            let lista = await listarTodos();
-            const semNomes = lista.filter(cadastrado => !Array.isArray(cadastrado.altTitles)).slice(0, TITULOS_POR_PEDIDO);
-            if (semNomes.length > 0) {
-                const nomes = await buscarRecomendacoes.nomesAlternativos(semNomes.map(cadastrado => cadastrado.title));
-                const db = await banco();
-                for (const cadastrado of semNomes) {
-                    if (!nomes.has(cadastrado.title)) continue;
-                    // so esse campo e so se o titulo continua o mesmo: nao desfaz uma mudanca feita enquanto a busca corria
-                    await db.query(`UPDATE mangas SET dados = jsonb_set(dados, '{altTitles}', $2::jsonb) WHERE id = $1 AND dados->>'title' = $3`,
-                        [cadastrado.id, JSON.stringify(nomes.get(cadastrado.title)), cadastrado.title]);
-                }
-                lista = await listarTodos();
-            }
-            // alem do titulo e dos outros nomes guardados, o link de leitura costuma ter o nome da obra em ingles ou no original
-            const cadastrados = lista.flatMap(cadastrado => [cadastrado.title, ...(Array.isArray(cadastrado.altTitles) ? cadastrado.altTitles : []),
-                ...nomesDoLink(cadastrado.chapterLinkModel), ...nomesDoLink(cadastrado.lastChapterUrl)]);
+            const cadastrados = await nomesDosCadastrados();
             return json(200, await buscarRecomendacoes(manga.title, cadastrados, manga.tags || []));
         }
         if (partes.length === 3 && acao === 'capitulo-lido' && metodo === 'POST') {

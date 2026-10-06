@@ -76,6 +76,17 @@ const acrescentar = (nomes, nome) => {
     if (limpo && limpo.length <= 200 && nomes.length < MAXIMO_DE_NOMES && !nomes.includes(limpo)) nomes.push(limpo);
 };
 
+export const POR_PAGINA = 24;
+/** Como ordenar a busca geral de obras. RELEVANCIA = as que mais combinam com o nome buscado. */
+export const ORDENS = {
+    RELEVANCIA: { noAniList: 'SEARCH_MATCH', descricao: 'Mais relevantes' },
+    POPULARIDADE: { noAniList: 'POPULARITY_DESC', descricao: 'Mais populares' },
+    NOTA: { noAniList: 'SCORE_DESC', descricao: 'Melhor avaliados' },
+    EM_ALTA: { noAniList: 'TRENDING_DESC', descricao: 'Em alta agora' },
+    RECENTES: { noAniList: 'START_DATE_DESC', descricao: 'Mais recentes' },
+    TITULO: { noAniList: 'TITLE_ENGLISH', descricao: 'Título (A–Z)' },
+};
+
 /** O titulo sem o que esta entre (parenteses) e [colchetes], que costuma ser observacao de quem cadastrou. */
 const semObservacoes = titulo => String(titulo ?? '').replace(/[([][^)\]]*[)\]]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -313,6 +324,89 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
         return resultado;
     }
 
+    // nomes dos temas (tags) que o AniList tem, pelo nome normalizado; guardado por um dia
+    let temasConhecidos = new Map();
+    let temasBuscadosEm = 0;
+    async function temasDoAniList() {
+        if (temasConhecidos.size === 0 || Date.now() - temasBuscadosEm > 24 * 60 * 60 * 1000) {
+            const lista = (await perguntar('query{MediaTagCollection{name isAdult}}', {})).MediaTagCollection;
+            const novos = new Map((Array.isArray(lista) ? lista : []).filter(tema => tema?.name && !tema.isAdult).map(tema => [normalizar(tema.name), tema.name]));
+            if (novos.size > 0) {
+                temasConhecidos = novos;
+                temasBuscadosEm = Date.now();
+            }
+        }
+        return temasConhecidos;
+    }
+
+    /**
+     * Busca geral de obras no AniList: por nome, por tags (a obra precisa ter todas as escolhidas) e em varias ordens.
+     * Quem ja esta na lista nao aparece. As tags que o AniList nao tem sao ignoradas e devolvidas em tagsIgnoradas.
+     * Devolve { itens, pagina, temMais, ocultos, tagsIgnoradas }; sem itens se o servico falhar.
+     */
+    async function explorar(busca, tags, ordem, pagina, nomesCadastrados) {
+        const nome = typeof busca === 'string' ? busca.trim() : '';
+        const numero = Math.max(1, Math.min(Number(pagina) || 1, 200));
+        const generos = [];
+        const temas = [];
+        const tagsIgnoradas = [];
+        const conhecidos = await temasDoAniList();
+        for (const tag of Array.isArray(tags) ? tags : []) {
+            if (typeof tag !== 'string' || !tag.trim()) continue;
+            const procurada = TEMAS_COM_OUTRO_NOME[normalizar(tag)] ?? tag.trim();
+            const genero = Object.keys(GENEROS).find(conhecido => normalizar(conhecido) === normalizar(procurada));
+            if (genero) generos.push(genero);
+            else if (conhecidos.has(normalizar(procurada))) temas.push(conhecidos.get(normalizar(procurada)));
+            else if (conhecidos.size === 0) temas.push(procurada); // nao deu para conferir a lista de temas: tenta com o nome como esta
+            else tagsIgnoradas.push(tag.trim());
+        }
+        // "mais relevantes" so faz sentido com um nome buscado
+        const escolhida = !ORDENS[ordem] || (ordem === 'RELEVANCIA' && !nome) ? 'POPULARIDADE' : ordem;
+
+        const parametros = ['$p:Int', '$o:[MediaSort]'];
+        let filtros = '';
+        const variaveis = { p: numero, o: [ORDENS[escolhida].noAniList] };
+        if (nome) {
+            parametros.push('$s:String');
+            filtros += 'search:$s,';
+            variaveis.s = nome.slice(0, 100);
+        }
+        if (generos.length > 0) {
+            parametros.push('$g:[String]');
+            filtros += 'genre_in:$g,';
+            variaveis.g = generos;
+        }
+        if (temas.length > 0) {
+            parametros.push('$t:[String]');
+            filtros += 'tag_in:$t,';
+            variaveis.t = temas;
+        }
+        const resposta = (await perguntar('query(' + parametros.join(',') + '){Page(page:$p,perPage:' + POR_PAGINA + '){pageInfo{hasNextPage} '
+            + 'media(type:MANGA,isAdult:false,' + filtros + 'sort:$o){' + CAMPOS + ' averageScore startDate{year}}}}', variaveis)).Page;
+
+        const lista = Array.isArray(nomesCadastrados) ? nomesCadastrados.filter(cadastrado => typeof cadastrado === 'string') : [];
+        const obras = new Set(lista.filter(cadastrado => cadastrado.startsWith(MARCA_DA_OBRA)).map(cadastrado => Number(cadastrado.slice(MARCA_DA_OBRA.length))));
+        const nomes = new Set(lista.filter(cadastrado => !cadastrado.startsWith(MARCA_DA_OBRA)).flatMap(cadastrado => [...formas(cadastrado), ...formas(semObservacoes(cadastrado))]));
+        const itens = [];
+        let ocultos = 0;
+        for (const obra of resposta?.media || []) {
+            const lida = [];
+            adicionar(obra, lida, new Set());
+            if (lida.length === 0) continue;
+            if (obras.has(lida[0].id) || [...lida[0].nomes].some(forma => nomes.has(forma))) {
+                ocultos++;
+                continue;
+            }
+            itens.push({
+                ...lida[0].recomendacao,
+                nota: Number.isInteger(obra.averageScore) ? obra.averageScore : null,
+                ano: Number.isInteger(obra.startDate?.year) ? obra.startDate.year : null,
+            });
+        }
+        return { itens, pagina: numero, temMais: resposta?.pageInfo?.hasNextPage === true, ocultos, tagsIgnoradas };
+    }
+
     buscarRecomendacoes.nomesAlternativos = nomesAlternativos;
+    buscarRecomendacoes.explorar = explorar;
     return buscarRecomendacoes;
 }

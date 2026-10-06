@@ -445,6 +445,74 @@ class ApiServerTest {
         assertEquals(404, enviar("GET", "/api/mangas/" + UUID.randomUUID() + "/semelhantes", null).statusCode());
     }
 
+    // ------------------------------------------------------------------ ordenacao da lista
+
+    @Test
+    void ordenaAListaDeVariasFormas() throws Exception {
+        cadastrar("Berserk", "364", "LENDO");
+        cadastrar("ação total", "5", "LENDO");
+        cadastrar("Zetman", "5", "DROPADO");
+        cadastrar("Abara", "1120", "LENDO");
+
+        assertEquals(List.of("Berserk", "ação total", "Zetman", "Abara"), titulos("/api/mangas"));
+        assertEquals(List.of("Berserk", "ação total", "Zetman", "Abara"), titulos("/api/mangas?ordem=CADASTRO"));
+        assertEquals(List.of("Abara", "Zetman", "ação total", "Berserk"), titulos("/api/mangas?ordem=RECENTES"));
+        // maiusculas e acentos nao mudam a ordem alfabetica
+        assertEquals(List.of("Abara", "ação total", "Berserk", "Zetman"), titulos("/api/mangas?ordem=titulo"));
+        assertEquals(List.of("Zetman", "Berserk", "ação total", "Abara"), titulos("/api/mangas?ordem=TITULO_DESC"));
+        assertEquals(List.of("Abara", "Berserk", "ação total", "Zetman"), titulos("/api/mangas?ordem=MAIS_CAPITULOS"));
+        assertEquals(List.of("ação total", "Zetman", "Berserk", "Abara"), titulos("/api/mangas?ordem=MENOS_CAPITULOS"));
+        // junto com filtro e paginacao: ordena antes de cortar a pagina
+        assertEquals(List.of("Abara", "ação total", "Berserk"), titulos("/api/mangas?ordem=TITULO&status=LENDO"));
+        JsonNode pagina = json(enviar("GET", "/api/mangas?ordem=TITULO&pagina=2&tamanho=3", null));
+        assertEquals("Zetman", pagina.get("itens").get(0).get("title").asText());
+        assertEquals(400, enviar("GET", "/api/mangas?ordem=ALEATORIA", null).statusCode());
+
+        JsonNode ordens = json(enviar("GET", "/api/ordens-da-lista", null));
+        assertEquals(6, ordens.size());
+        assertEquals("CADASTRO", ordens.get(0).get("valor").asText());
+        assertEquals("Título (A–Z)", ordens.get(2).get("descricao").asText());
+    }
+
+    // ------------------------------------------------------------------ busca geral de recomendacoes
+
+    @Test
+    void buscaGeralDeRecomendacoes() throws Exception {
+        app.stop();
+        RecomendacaoServiceTest.AniListFalso anilist = new RecomendacaoServiceTest.AniListFalso();
+        anilist.exploracao = "{\"data\":{\"Page\":{\"pageInfo\":{\"hasNextPage\":true},\"media\":["
+                + RecomendacaoServiceTest.obra(105398, "Solo Leveling", "Na Honjaman Level Up", "\"Action\"") + ","
+                + RecomendacaoServiceTest.obra(30, "Obra Nova", "Obra Nova", "\"Action\",\"Fantasy\"") + "]}}}";
+        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
+        app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(new SinopseServiceTest.InternetFalsa()),
+                new RecomendacaoService(anilist)).criar().start("127.0.0.1", 0);
+        base = "http://127.0.0.1:" + app.port();
+        cadastrar("Solo Leveling", "1", "LENDO");
+
+        HttpResponse<String> resposta = enviar("GET", "/api/recomendacoes?busca=level&tags=Action,%20Fantasy,,Inventada&ordem=nota&pagina=2", null);
+
+        assertEquals(200, resposta.statusCode(), resposta.body());
+        JsonNode pagina = json(resposta);
+        assertEquals(1, pagina.get("itens").size());
+        assertEquals("Obra Nova", pagina.get("itens").get(0).get("titulo").asText());
+        assertEquals("Ação", pagina.get("itens").get(0).get("generos").get(0).asText());
+        assertEquals("Action", pagina.get("itens").get(0).get("tags").get(0).asText());
+        assertEquals(2, pagina.get("pagina").asInt());
+        assertTrue(pagina.get("temMais").asBoolean());
+        assertEquals(1, pagina.get("ocultos").asInt());
+        assertEquals("Inventada", pagina.get("tagsIgnoradas").get(0).asText());
+        String pergunta = anilist.perguntasDeExploracao.get(0);
+        assertTrue(pergunta.contains("\"s\":\"level\"") && pergunta.contains("\"g\":[\"Action\",\"Fantasy\"]") && pergunta.contains("SCORE_DESC") && pergunta.contains("\"p\":2"), pergunta);
+
+        assertEquals(200, enviar("GET", "/api/recomendacoes", null).statusCode());
+        assertEquals(400, enviar("GET", "/api/recomendacoes?ordem=QUALQUER", null).statusCode());
+        assertEquals(400, enviar("GET", "/api/recomendacoes?pagina=0", null).statusCode());
+        JsonNode ordens = json(enviar("GET", "/api/recomendacoes/ordens", null));
+        assertEquals("RELEVANCIA", ordens.get(0).get("valor").asText());
+        assertEquals("Melhor avaliados", ordens.get(2).get("descricao").asText());
+    }
+
     // ------------------------------------------------------------------ paginacao
 
     @Test

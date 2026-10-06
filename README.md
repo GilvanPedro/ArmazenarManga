@@ -81,7 +81,7 @@ para acordar no próximo acesso.
 
 | Método   | Rota                          | O que faz                                                                 |
 |----------|-------------------------------|---------------------------------------------------------------------------|
-| `GET`    | `/api/mangas`                 | Lista os mangás. Filtros opcionais: `?titulo=solo`, `?status=LENDO` e `?tag=Fantasy`. Com `?pagina=1` devolve uma página (24 por vez) em `{itens, pagina, tamanho, total, paginas}` |
+| `GET`    | `/api/mangas`                 | Lista os mangás. Filtros opcionais: `?titulo=solo`, `?status=LENDO` e `?tag=Fantasy`; ordem com `?ordem=TITULO`. Com `?pagina=1` devolve uma página (24 por vez) em `{itens, pagina, tamanho, total, paginas}` |
 | `POST`   | `/api/mangas`                 | Cadastra um mangá                                                         |
 | `GET`    | `/api/mangas/{id}`            | Página de informações de um mangá                                         |
 | `PUT`    | `/api/mangas/{id}`            | Edição geral (todas as informações)                                       |
@@ -98,6 +98,9 @@ para acordar no próximo acesso.
 | `GET`    | `/api/imagens/{nome}`         | Devolve a capa enviada                                                    |
 | `GET`    | `/api/status`                 | Status possíveis (`valor` e `descricao`)                                  |
 | `GET`    | `/api/sinopse`                | Descrição do mangá buscada na internet pelo título: `?titulo=Solo Leveling` |
+| `GET`    | `/api/recomendacoes`          | Busca geral de obras fora da lista (fonte: AniList): `?busca=solo&tags=Fantasy,Isekai&ordem=NOTA&pagina=1`. A obra precisa ter todas as tags; devolve `{itens, pagina, temMais, ocultos, tagsIgnoradas}` |
+| `GET`    | `/api/recomendacoes/ordens`   | Formas de ordenar a busca geral (`valor` e `descricao`)                   |
+| `GET`    | `/api/ordens-da-lista`        | Formas de ordenar a lista de mangás (`valor` e `descricao`), usadas em `/api/mangas?ordem=` |
 | `GET`    | `/api/tags`                   | Lista geral de tags (`nome` e `quantidade`): as em uso, mais usadas primeiro, e depois as sugeridas |
 | `GET`    | `/api/dias-da-semana`         | Dias da semana possíveis (`valor` e `descricao`)                          |
 | `GET`    | `/api/formatos-decimais`      | Formatos de capítulo ".5" no link (`HIFEN`, `PONTO`, `UNDERLINE`)         |
