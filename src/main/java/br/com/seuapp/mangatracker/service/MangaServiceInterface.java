@@ -32,6 +32,13 @@ public interface MangaServiceInterface {
      * @param nextChapterUrl endereco exato do proximo capitulo, se for conhecido; senao null
      */
     Manga registrarLeitura(UUID id, BigDecimal lastChapter, String lastChapterUrl, String nextChapterUrl);
+    /**
+     * Guarda os outros nomes pelos quais a obra e conhecida (ver {@link br.com.seuapp.mangatracker.domain.Manga#getAltTitles()}).
+     * Nao faz nada se o manga foi excluido ou teve o titulo trocado desde a consulta.
+     *
+     * @param tituloConsultado o titulo que o manga tinha quando os nomes foram buscados
+     */
+    void definirNomesAlternativos(UUID id, String tituloConsultado, List<String> nomes);
     /** Confere no site o link do proximo capitulo e salva a correcao se o endereco mudou. */
     ResultadoVerificacao verificarLink(UUID id);
     /** Mangas com status LENDO que lancam capitulo no dia informado. */

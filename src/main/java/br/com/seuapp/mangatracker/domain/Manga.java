@@ -20,6 +20,12 @@ public class Manga {
     private String lastChapterUrl;
     /** Endereco exato do proximo capitulo, conferido no site, quando o modelo nao serve para ele; senao null. */
     private String nextChapterUrl;
+    /**
+     * Outros nomes da mesma obra (titulo original, em outras linguas, apelidos), buscados na internet.
+     * Servem para nao recomendar um manga que ja esta na lista com outro nome.
+     * null = ainda nao foi buscado; lista vazia = buscado e nada encontrado.
+     */
+    private List<String> altTitles;
 
     public Manga(String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
         this(UUID.randomUUID(), title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description);
@@ -124,6 +130,14 @@ public class Manga {
 
     public void setLastChapterUrl(String lastChapterUrl) {
         this.lastChapterUrl = lastChapterUrl;
+    }
+
+    public List<String> getAltTitles() {
+        return altTitles;
+    }
+
+    public void setAltTitles(List<String> altTitles) {
+        this.altTitles = altTitles;
     }
 
     public String getNextChapterUrl() {

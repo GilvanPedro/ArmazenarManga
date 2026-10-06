@@ -38,6 +38,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
@@ -269,7 +270,30 @@ public class ApiServer {
     /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet pelo titulo e pelas tags dele. */
     private void recomendar(Context ctx) throws JsonProcessingException {
         Manga manga = mangaService.buscarPorId(lerId(ctx));
-        List<String> cadastrados = mangaService.listarMangas(null, null).stream().map(Manga::getTitle).toList();
+        // antes de recomendar, descobre os outros nomes dos mangas da lista que ainda nao foram consultados
+        // (alguns por vez), para nao sugerir uma obra que ja esta cadastrada com um titulo alternativo ou traduzido
+        List<Manga> semNomes = mangaService.listarMangas(null, null).stream()
+                .filter(cadastrado -> cadastrado.getAltTitles() == null)
+                .limit(RecomendacaoService.TITULOS_POR_PEDIDO)
+                .toList();
+        if (!semNomes.isEmpty()) {
+            Map<String, List<String>> nomes = recomendacaoService.nomesAlternativos(semNomes.stream().map(Manga::getTitle).toList());
+            for (Manga cadastrado : semNomes) {
+                if (nomes.containsKey(cadastrado.getTitle())) {
+                    mangaService.definirNomesAlternativos(cadastrado.getId(), cadastrado.getTitle(), nomes.get(cadastrado.getTitle()));
+                }
+            }
+        }
+        List<String> cadastrados = new ArrayList<>();
+        for (Manga cadastrado : mangaService.listarMangas(null, null)) {
+            cadastrados.add(cadastrado.getTitle());
+            if (cadastrado.getAltTitles() != null) {
+                cadastrados.addAll(cadastrado.getAltTitles());
+            }
+            // o link de leitura costuma ter o nome da obra em ingles ou no original
+            cadastrados.addAll(RecomendacaoService.nomesDoLink(cadastrado.getChapterLinkModel()));
+            cadastrados.addAll(RecomendacaoService.nomesDoLink(cadastrado.getLastChapterUrl()));
+        }
         List<String> tags = manga.getTags().stream().map(tag -> tag.getNome()).toList();
         json(ctx, HttpStatus.OK, recomendacaoService.buscar(manga.getTitle(), cadastrados, tags));
     }

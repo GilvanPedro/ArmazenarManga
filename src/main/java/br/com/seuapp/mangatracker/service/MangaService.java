@@ -165,6 +165,10 @@ public class MangaService implements MangaServiceInterface{
             editado.setLastChapterUrl(atual.getLastChapterUrl());
             editado.setNextChapterUrl(atual.getNextChapterUrl());
         }
+        // os outros nomes da obra continuam valendo enquanto o titulo for o mesmo; titulo novo, busca nova
+        if (normalizar(atual.getTitle()).equals(normalizar(editado.getTitle()))) {
+            editado.setAltTitles(atual.getAltTitles());
+        }
         repository.salvar(editado);
         if (!atual.getImagePath().equals(editado.getImagePath())) {
             excluirImagemSemUso(atual.getImagePath());
@@ -206,6 +210,7 @@ public class MangaService implements MangaServiceInterface{
         );
         // o dia de lancamento so vale enquanto o manga esta sendo lido
         atualizado.setReleaseDay(novoStatus == ReadingStatus.LENDO ? atual.getReleaseDay() : null);
+        atualizado.setAltTitles(atual.getAltTitles());
         if (atualizado.getLastChapter().compareTo(atual.getLastChapter()) == 0) {
             atualizado.setLastChapterUrl(atual.getLastChapterUrl());
             atualizado.setNextChapterUrl(atual.getNextChapterUrl());
@@ -237,11 +242,28 @@ public class MangaService implements MangaServiceInterface{
                 modeloDoEndereco != null ? modeloDoEndereco : atual.getChapterLinkModel(),
                 atual.getDecimalFormat(), lastChapter, atual.getReadingStatus(), atual.getDescription());
         atualizado.setReleaseDay(atual.getReleaseDay());
+        atualizado.setAltTitles(atual.getAltTitles());
         atualizado.setLastChapterUrl(lastChapterUrl.trim());
         // um "proximo" igual a pagina atual nao serve para nada
         atualizado.setNextChapterUrl(temProximo && !ChapterLink.mesmoEndereco(nextChapterUrl, lastChapterUrl) ? nextChapterUrl.trim() : null);
         repository.salvar(atualizado);
         return atualizado;
+    }
+
+    @Override
+    public synchronized void definirNomesAlternativos(UUID id, String tituloConsultado, List<String> nomes) {
+        Manga manga = repository.buscarPorId(id).orElse(null);
+        // excluido ou renomeado enquanto a busca corria: os nomes seriam de outro titulo
+        if (manga == null || !normalizar(manga.getTitle()).equals(normalizar(tituloConsultado))) {
+            return;
+        }
+        Manga atualizado = new Manga(manga.getId(), manga.getTitle(), manga.getImagePath(), manga.getTags(), manga.getChapterLinkModel(),
+                manga.getDecimalFormat(), manga.getLastChapter(), manga.getReadingStatus(), manga.getDescription());
+        atualizado.setReleaseDay(manga.getReleaseDay());
+        atualizado.setLastChapterUrl(manga.getLastChapterUrl());
+        atualizado.setNextChapterUrl(manga.getNextChapterUrl());
+        atualizado.setAltTitles(nomes == null ? List.of() : List.copyOf(nomes));
+        repository.salvar(atualizado);
     }
 
     @Override
@@ -264,6 +286,7 @@ public class MangaService implements MangaServiceInterface{
                         verificacao.chapterLinkModel(), manga.getDecimalFormat(), manga.getLastChapter(),
                         manga.getReadingStatus(), manga.getDescription());
                 corrigido.setReleaseDay(manga.getReleaseDay());
+                corrigido.setAltTitles(manga.getAltTitles());
                 corrigido.setLastChapterUrl(manga.getLastChapterUrl());
                 corrigido.setNextChapterUrl(verificacao.nextChapterUrl());
                 repository.salvar(corrigido);

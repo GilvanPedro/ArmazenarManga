@@ -539,6 +539,46 @@ class ApiServerTest {
     }
 
     @Test
+    void recomendacoesGuardamOsOutrosNomesDosMangasDaLista() throws Exception {
+        app.stop();
+        RecomendacaoServiceTest.AniListFalso anilist = new RecomendacaoServiceTest.AniListFalso();
+        anilist.obra = RecomendacaoServiceTest.daObra("\"Action\"", "",
+                RecomendacaoServiceTest.obra(109957, "Second Life Ranker", "Dubeon Saneun Ranker", ""),
+                RecomendacaoServiceTest.obra(11, "Realmente Nova", "Realmente Nova", ""));
+        // a lista tem dois mangas: o AniList conhece os dois, e o segundo e a obra 109957 com outro nome
+        anilist.obrasDaLista = "{\"data\":{\"m0\":{\"media\":[{\"id\":1,\"title\":{\"romaji\":\"Na Honjaman Level Up\",\"english\":\"Solo Leveling\",\"native\":null},\"synonyms\":[]}]},"
+                + "\"m1\":{\"media\":[{\"id\":109957,\"title\":{\"romaji\":\"Dubeon Saneun Ranker\",\"english\":\"Second Life Ranker\",\"native\":null},\"synonyms\":[]}]}}}";
+        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
+        app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(new SinopseServiceTest.InternetFalsa()),
+                new RecomendacaoService(anilist)).criar().start("127.0.0.1", 0);
+        base = "http://127.0.0.1:" + app.port();
+        String id = cadastrar("Solo Leveling", "1", "LENDO").get("id").asText();
+        String outro = cadastrar("Ranker que Vive Duas Vezes", "7", "DROPADO").get("id").asText();
+
+        JsonNode recomendacoes = json(enviar("GET", "/api/mangas/" + id + "/recomendacoes", null));
+
+        // o manga cadastrado com um nome que nao aparece em lugar nenhum da candidata fica de fora mesmo assim
+        assertEquals(1, recomendacoes.size());
+        assertEquals("Realmente Nova", recomendacoes.get(0).get("titulo").asText());
+        // os nomes ficaram salvos junto do manga, sem mexer no resto dele
+        JsonNode arquivo = mapper.readTree(Files.readString(pasta.resolve("mangas.json")));
+        assertEquals("anilist:109957", arquivo.get(1).get("altTitles").get(0).asText());
+        assertEquals("Second Life Ranker", arquivo.get(1).get("altTitles").get(2).asText());
+        JsonNode salvo = json(enviar("GET", "/api/mangas/" + outro, null));
+        assertEquals("Ranker que Vive Duas Vezes", salvo.get("title").asText());
+        assertEquals("7", salvo.get("lastChapter").asText());
+        assertEquals("DROPADO", salvo.get("readingStatus").asText());
+        // da segunda vez nao pergunta de novo pelos nomes, e eles sobrevivem a uma mudanca de capitulo
+        enviar("PATCH", "/api/mangas/" + outro + "/progresso", "{\"lastChapter\": 8}");
+        json(enviar("GET", "/api/mangas/" + id + "/recomendacoes", null));
+        assertEquals(1, anilist.perguntasSobreALista.size());
+        // trocar o titulo apaga os nomes guardados, que eram do titulo antigo
+        enviar("PUT", "/api/mangas/" + outro, manga("Outro Nome", "8", "DROPADO"));
+        assertFalse(mapper.readTree(Files.readString(pasta.resolve("mangas.json"))).get(1).hasNonNull("altTitles"));
+    }
+
+    @Test
     void semAcessoAInternetNaoHaRecomendacoes() throws Exception {
         String id = cadastrar("Solo Leveling", "1", "LENDO").get("id").asText();
 
