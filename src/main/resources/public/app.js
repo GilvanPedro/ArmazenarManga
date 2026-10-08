@@ -28,7 +28,7 @@ const estado = {
     ordens: [],        // formas de ordenar a lista, vindas de /api/ordens-da-lista
     ordem: lembrado('ordem', 'CADASTRO'), // forma de ordenar escolhida na pagina principal
     ordensDeDescoberta: [], // formas de ordenar a aba Descobrir, vindas de /api/recomendacoes/ordens
-    descobrir: {busca: '', tags: [], ordem: 'POPULARIDADE', pagina: 1}, // o que esta escolhido na aba Descobrir
+    descobrir: {busca: '', tags: [], sem: [], ordem: 'POPULARIDADE', pagina: 1}, // o que esta escolhido na aba Descobrir
     pagina: 1,         // pagina da grade que esta aberta
     esperaDaBusca: null, // temporizador que espera a pessoa parar de digitar na busca
     recarregar: null,  // recarrega so os cartoes da tela atual, sem pular para o topo
@@ -762,21 +762,25 @@ async function carregarSemelhantes(manga, secao, vez) {
 // ------------------------------------------------------------------ aba Descobrir
 
 /**
- * Busca geral de mangas para ler, fora da lista: por nome, pelas tags que ja uso (a obra precisa ter todas as
- * marcadas) e em varias ordens. Quem ja esta cadastrado nao aparece.
+ * Busca geral de mangas para ler, fora da lista: por nome, pelas tags que quero (a obra precisa ter todas as
+ * marcadas), sem as tags que nao quero (a obra nao pode ter nenhuma) e em varias ordens. Quem ja esta cadastrado
+ * nao aparece.
  */
 async function telaDescobrir() {
     const vez = ++estado.render;
     const escolhas = estado.descobrir;
     document.title = 'Descobrir · Meus Mangás';
-    let tagsEmUso = [];
+    let todasAsTags = [];
     try {
-        tagsEmUso = (await chamar('GET', '/api/tags')).filter(tag => tag.quantidade > 0);
+        // as que ja uso vem primeiro; as outras tambem entram, porque o que nao quero ler quase nunca esta na lista
+        const tags = await chamar('GET', '/api/tags');
+        todasAsTags = [...tags.filter(tag => tag.quantidade > 0), ...tags.filter(tag => !(tag.quantidade > 0))].map(tag => tag.nome);
     } catch (e) {
         // sem as tags ainda da para buscar por nome
     }
     if (vez !== estado.render) return;
-    escolhas.tags = escolhas.tags.filter(tag => tagsEmUso.some(emUso => emUso.nome === tag));
+    escolhas.tags = escolhas.tags.filter(tag => todasAsTags.includes(tag));
+    escolhas.sem = escolhas.sem.filter(tag => todasAsTags.includes(tag) && !escolhas.tags.includes(tag));
 
     const lista = h('div', {class: 'grade'});
     const aviso = h('p', {class: 'subtitulo', 'aria-live': 'polite'});
@@ -802,30 +806,69 @@ async function telaDescobrir() {
         carregar();
     });
 
-    const tags = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar pelas suas tags'},
-        tagsEmUso.map(tag => h('button', {
-            type: 'button',
-            class: 'filtro',
-            'aria-pressed': String(escolhas.tags.includes(tag.nome)),
-            onclick: evento => {
-                const marcada = !escolhas.tags.includes(tag.nome);
-                escolhas.tags = marcada ? [...escolhas.tags, tag.nome] : escolhas.tags.filter(outra => outra !== tag.nome);
-                evento.currentTarget.setAttribute('aria-pressed', String(marcada));
-                escolhas.pagina = 1;
-                carregar();
-            },
-        }, tag.nome)));
+    // os dois quadros se redesenham juntos: uma tag marcada em um fica travada no outro
+    const quadros = [];
+    const mudou = () => {
+        quadros.forEach(quadro => quadro.desenhar());
+        escolhas.pagina = 1;
+        carregar();
+    };
+    quadros.push(
+        quadroDeTags('Quero com estas tags', 'quero', todasAsTags, () => escolhas.tags, lista => escolhas.tags = lista, () => escolhas.sem, 'Já está em “Não quero”', mudou),
+        quadroDeTags('Não quero com estas tags', 'nao-quero', todasAsTags, () => escolhas.sem, lista => escolhas.sem = lista, () => escolhas.tags, 'Já está em “Quero”', mudou));
 
     app.replaceChildren(
         abas('descobrir'),
         h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar),
-        tagsEmUso.length
-            ? tags
-            : h('p', {class: 'subtitulo'}, 'Quando você colocar tags nos seus mangás, elas aparecem aqui para filtrar a busca.'),
+        todasAsTags.length ? h('div', {class: 'quadros-de-tags'}, quadros.map(quadro => quadro.elemento)) : null,
         aviso,
         lista,
         paginacao);
     carregar();
+}
+
+/**
+ * Quadro para escolher tags: as marcadas ficam em cima (o × tira), um campo filtra pelo nome e a lista rola para
+ * baixo. As tags marcadas no outro quadro aparecem travadas, porque uma tag nao pode ser pedida e excluida ao mesmo tempo.
+ */
+function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrava, aoMudar) {
+    const simples = texto => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const marcadas = h('div', {class: 'tags-marcadas'});
+    const opcoes = h('div', {class: 'opcoes-de-tag', role: 'group', 'aria-label': titulo});
+    const campo = h('input', {type: 'search', placeholder: 'Pesquisar tag…', 'aria-label': 'Pesquisar tag em “' + titulo + '”'});
+    const limpar = h('button', {type: 'button', class: 'limpar-tags', onclick: () => { gravar([]); aoMudar(); }}, 'Limpar');
+    const alternar = nome => {
+        if (lerDoOutro().includes(nome)) return;
+        gravar(ler().includes(nome) ? ler().filter(outra => outra !== nome) : [...ler(), nome]);
+        aoMudar();
+    };
+    const visiveis = () => todas.filter(nome => simples(nome).includes(simples(campo.value)));
+    const desenhar = () => {
+        marcadas.replaceChildren(...ler().map(nome => h('span', {class: 'tag escolhida'}, nome,
+            h('button', {type: 'button', 'aria-label': 'Tirar ' + nome, onclick: () => alternar(nome)}, '×'))));
+        limpar.hidden = ler().length === 0;
+        const lista = visiveis();
+        opcoes.replaceChildren(...(lista.length ? lista.map(nome => {
+            const travada = lerDoOutro().includes(nome);
+            return h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(ler().includes(nome)), disabled: travada,
+                title: travada ? motivoDaTrava : null, onclick: () => alternar(nome)}, nome);
+        }) : [h('span', {class: 'sem-tag'}, 'Nenhuma tag com esse nome.')]));
+    };
+    campo.addEventListener('input', desenhar);
+    // Enter marca a primeira tag que sobrou na pesquisa e deixa o campo pronto para a proxima
+    campo.addEventListener('keydown', evento => {
+        if (evento.key !== 'Enter') return;
+        evento.preventDefault();
+        const primeira = campo.value.trim() ? visiveis().find(nome => !lerDoOutro().includes(nome)) : null;
+        if (!primeira) return;
+        campo.value = '';
+        if (ler().includes(primeira)) desenhar(); else alternar(primeira);
+    });
+    desenhar();
+    return {
+        desenhar,
+        elemento: h('section', {class: 'quadro-de-tags ' + tipo}, h('header', null, h('h3', null, titulo), limpar), marcadas, campo, opcoes),
+    };
 }
 
 async function carregarDescobertas(lista, aviso, paginacao) {
@@ -834,6 +877,7 @@ async function carregarDescobertas(lista, aviso, paginacao) {
     const parametros = new URLSearchParams({ordem: escolhas.ordem, pagina: escolhas.pagina});
     if (escolhas.busca.trim()) parametros.set('busca', escolhas.busca.trim());
     if (escolhas.tags.length) parametros.set('tags', escolhas.tags.join(','));
+    if (escolhas.sem.length) parametros.set('sem', escolhas.sem.join(','));
     aviso.textContent = 'Buscando…';
 
     let resposta;
@@ -851,7 +895,8 @@ async function carregarDescobertas(lista, aviso, paginacao) {
     if (vez !== estado.render) return;
 
     const avisos = [];
-    if (escolhas.tags.length > 1) avisos.push('Mostrando obras que têm todas as tags marcadas.');
+    if (escolhas.tags.length > 1) avisos.push('Mostrando obras que têm todas as tags de “Quero”.');
+    if (escolhas.sem.length) avisos.push('Obras com qualquer tag de “Não quero” ficam de fora.');
     if (resposta.tagsIgnoradas.length) {
         avisos.push('A fonte da busca não tem ' + (resposta.tagsIgnoradas.length === 1 ? 'a tag ' : 'as tags ')
             + resposta.tagsIgnoradas.map(tag => '“' + tag + '”').join(', ') + '; a busca foi feita sem ' + (resposta.tagsIgnoradas.length === 1 ? 'ela.' : 'elas.'));
@@ -865,7 +910,7 @@ async function carregarDescobertas(lista, aviso, paginacao) {
         lista.className = '';
         lista.replaceChildren(resposta.ocultos
             ? vazio('Tudo desta página já está na sua lista', 'Vá para a próxima página ou mude a busca.')
-            : vazio('Nada encontrado', 'Tente outro nome, menos tags ou outra ordem.'));
+            : vazio('Nada encontrado', 'Tente outro nome ou menos tags.'));
     } else {
         lista.className = 'grade';
         lista.replaceChildren(...resposta.itens.map(obra => cartaoDeObra(obra)));

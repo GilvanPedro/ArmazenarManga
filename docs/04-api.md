@@ -115,7 +115,7 @@ seguinte, o servidor antes confere o link no site de leitura (ver [05](05-links-
 Em `lancamentos`, o parâmetro opcional `desde` (data e hora ISO, o início do dia de quem está olhando) tira da
 resposta os mangás cujo capítulo já avançou desde então.
 
-`GET /api/recomendacoes` aceita `busca`, `tags` (separadas por vírgula; a obra precisa ter todas), `ordem`
+`GET /api/recomendacoes` aceita `busca`, `tags` (separadas por vírgula; a obra precisa ter todas), `sem` (separadas por vírgula; a obra não pode ter nenhuma; uma tag que esteja também em `tags` vale como pedida), `ordem`
 (`RELEVANCIA`, `POPULARIDADE`, `NOTA`, `EM_ALTA`, `RECENTES`, `TITULO`) e `pagina`. Responde:
 
 ```json

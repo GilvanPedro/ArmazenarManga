@@ -188,6 +188,24 @@ select:disabled { opacity: .55; }
 .filtro:hover { color: var(--texto); }
 .filtro[aria-pressed=true] { background: var(--texto); border-color: var(--texto); color: var(--fundo); }
 
+/* aba Descobrir: um quadro para as tags que quero e outro para as que nao quero */
+.quadros-de-tags { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; margin-bottom: 20px; }
+.quadro-de-tags { display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.quadro-de-tags header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.quadro-de-tags h3 { margin: 0; font-size: 14.5px; }
+.quadro-de-tags.quero h3::before { content: "✓ "; color: var(--lendo); }
+.quadro-de-tags.nao-quero h3::before { content: "✕ "; color: var(--perigo); }
+.limpar-tags { all: unset; cursor: pointer; color: var(--texto-fraco); font-size: 13px; text-decoration: underline; }
+.limpar-tags:hover { color: var(--texto); }
+.limpar-tags:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.limpar-tags[hidden] { display: none; }
+.tags-marcadas { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags-marcadas:empty { display: none; }
+.opcoes-de-tag { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; max-height: 132px; overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+.opcoes-de-tag .filtro:disabled { opacity: .4; cursor: not-allowed; text-decoration: line-through; }
+.quadro-de-tags.nao-quero .filtro[aria-pressed=true] { background: var(--perigo); border-color: var(--perigo); color: #fff; }
+.sem-tag { color: var(--texto-fraco); font-size: 13.5px; }
+
 .grade {
     --colunas: 6;
     --vao: 18px;

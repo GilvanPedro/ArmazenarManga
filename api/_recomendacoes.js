@@ -365,9 +365,11 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
     /**
      * Busca geral de obras no AniList: por nome, por tags (a obra precisa ter todas as escolhidas) e em varias ordens.
      * Quem ja esta na lista nao aparece. As tags que o AniList nao tem sao ignoradas e devolvidas em tagsIgnoradas.
+     * tagsExcluidas sao tags que a obra NAO pode ter: quem tiver qualquer uma fica de fora. Uma tag que esteja nas
+     * duas listas vale como pedida.
      * Devolve { itens, pagina, temMais, ocultos, tagsIgnoradas }; sem itens se o servico falhar.
      */
-    async function explorar(busca, tags, ordem, pagina, nomesCadastrados) {
+    async function explorar(busca, tags, ordem, pagina, nomesCadastrados, tagsExcluidas = []) {
         const nome = typeof busca === 'string' ? busca.trim() : '';
         const numero = Math.max(1, Math.min(Number(pagina) || 1, 200));
         const generos = [];
@@ -403,6 +405,33 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             parametros.push('$g:[String]');
             filtros += 'genre_in:$g,';
             variaveis.g = generos;
+        }
+        // tags que a obra nao pode ter. Aqui uma tag com varias formas (Harem) tira as duas formas de uma vez
+        const pedidas = new Set((Array.isArray(tags) ? tags : []).map(normalizar));
+        const generosFora = [];
+        const temasFora = [];
+        for (const tag of Array.isArray(tagsExcluidas) ? tagsExcluidas : []) {
+            if (typeof tag !== 'string' || !tag.trim() || pedidas.has(normalizar(tag))) continue;
+            if (TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]) {
+                temasFora.push(...TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]);
+                continue;
+            }
+            const procurada = TEMAS_COM_OUTRO_NOME[normalizar(tag)] ?? tag.trim();
+            const genero = Object.keys(GENEROS).find(conhecido => normalizar(conhecido) === normalizar(procurada));
+            if (genero) generosFora.push(genero);
+            else if (conhecidos.has(normalizar(procurada))) temasFora.push(conhecidos.get(normalizar(procurada)));
+            else if (conhecidos.size === 0) temasFora.push(procurada);
+            else tagsIgnoradas.push(tag.trim()); // o AniList nao tem essa tag: nao ha o que tirar
+        }
+        if (generosFora.length > 0) {
+            parametros.push('$gn:[String]');
+            filtros += 'genre_not_in:$gn,';
+            variaveis.gn = generosFora;
+        }
+        if (temasFora.length > 0) {
+            parametros.push('$tn:[String]');
+            filtros += 'tag_not_in:$tn,';
+            variaveis.tn = temasFora;
         }
         // o AniList so sabe pedir "todas estas tags". Para uma tag com varias formas (qualquer uma serve), faz uma busca
         // para cada forma e junta os resultados

@@ -365,7 +365,7 @@ public class ApiServer {
 
     /**
      * Busca geral de obras para ler: por nome, pelas tags escolhidas e na ordem pedida.
-     * ?busca=solo&tags=Fantasy,Isekai&ordem=NOTA&pagina=1
+     * ?busca=solo&tags=Fantasy,Isekai&sem=Harem&ordem=NOTA&pagina=1
      */
     private void explorarRecomendacoes(Context ctx) throws JsonProcessingException {
         String ordem = ctx.queryParam("ordem");
@@ -377,7 +377,10 @@ public class ApiServer {
         }
         String tags = ctx.queryParam("tags");
         List<String> escolhidas = tags == null || tags.isBlank() ? List.of() : Arrays.stream(tags.split(",")).map(String::trim).filter(tag -> !tag.isEmpty()).limit(10).toList();
-        json(ctx, HttpStatus.OK, recomendacaoService.explorar(ctx.queryParam("busca"), escolhidas, escolhida, lerInteiroPositivo(ctx, "pagina", 1), nomesDosCadastrados()));
+        // ?sem=Harem,Horror: tags que a obra nao pode ter
+        String sem = ctx.queryParam("sem");
+        List<String> excluidas = sem == null || sem.isBlank() ? List.of() : Arrays.stream(sem.split(",")).map(String::trim).filter(tag -> !tag.isEmpty()).limit(20).toList();
+        json(ctx, HttpStatus.OK, recomendacaoService.explorar(ctx.queryParam("busca"), escolhidas, excluidas, escolhida, lerInteiroPositivo(ctx, "pagina", 1), nomesDosCadastrados()));
     }
 
     private void listarOrdensDeRecomendacao(Context ctx) throws JsonProcessingException {

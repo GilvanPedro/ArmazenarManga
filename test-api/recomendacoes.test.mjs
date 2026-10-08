@@ -289,3 +289,18 @@ test('tag Harem vale para os dois tipos do AniList', async () => {
     assert.deepEqual(titulos(await buscar('Titulo Que Ninguem Conhece', [], ['Harem', 'Comedy'])), ['Feminino Nota 80', 'Nos Dois Nota 70', 'Masculino Nota 90']);
     assert.equal(perguntas.length, 2);
 });
+
+test('busca geral deixa de fora obras com as tags excluidas', async () => {
+    const anilist = anilistFalso({ temasDoAniList: { data: { MediaTagCollection: [{ name: 'Villainess' }, { name: 'Wuxia' }, { name: 'Female Harem' }, { name: 'Male Harem' }] } } });
+    const buscar = criarBuscadorDeRecomendacoes(anilist);
+
+    const pagina = await buscar.explorar('', ['Fantasy', 'Villainess'], 'POPULARIDADE', 1, [], ['horror', 'Murim', 'Harem', 'Tag Que Nao Existe La', 'fantasy', ' ']);
+
+    // "fantasy" estava nas duas listas: vale como pedida. Murim e Wuxia la, e Harem tira os dois tipos de uma vez
+    assert.deepEqual(anilist.perguntasDeExploracao[0].variables, { p: 1, o: ['POPULARITY_DESC'], g: ['Fantasy'], gn: ['Horror'], tn: ['Wuxia', 'Female Harem', 'Male Harem'], t: ['Villainess'] });
+    assert.ok(anilist.perguntasDeExploracao[0].query.includes('genre_not_in:$gn') && anilist.perguntasDeExploracao[0].query.includes('tag_not_in:$tn'));
+    assert.deepEqual(pagina.tagsIgnoradas, ['Tag Que Nao Existe La']);
+    assert.equal(anilist.perguntasDeExploracao.length, 1);
+    await buscar.explorar('', ['Fantasy'], 'POPULARIDADE', 1, [], []);
+    assert.ok(!anilist.perguntasDeExploracao[1].query.includes('not_in'));
+});

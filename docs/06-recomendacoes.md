@@ -42,7 +42,8 @@ O título é procurado como está e em versões mais curtas, sem o que vem entre
 Busca geral no AniList, fora da lista:
 
 - por **nome**;
-- por **tags** em uso nos mangás do dono (a obra precisa ter todas as marcadas);
+- por **tags que quero** (a obra precisa ter todas as marcadas);
+- sem as **tags que não quero** (a obra não pode ter nenhuma; "Harem" tira os dois tipos de harém de uma vez);
 - em seis **ordens**: mais relevantes, mais populares, melhor avaliados, em alta, mais recentes e título.
 
 ### Tags e o AniList

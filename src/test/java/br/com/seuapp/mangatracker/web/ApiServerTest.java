@@ -507,6 +507,11 @@ class ApiServerTest {
         String pergunta = anilist.perguntasDeExploracao.get(0);
         assertTrue(pergunta.contains("\"s\":\"level\"") && pergunta.contains("\"g\":[\"Action\",\"Fantasy\"]") && pergunta.contains("SCORE_DESC") && pergunta.contains("\"p\":2"), pergunta);
 
+        // tags que a obra nao pode ter
+        assertEquals(200, enviar("GET", "/api/recomendacoes?tags=Fantasy&sem=Horror,%20Romance,,", null).statusCode());
+        String comExclusao = anilist.perguntasDeExploracao.get(1);
+        assertTrue(comExclusao.contains("\"gn\":[\"Horror\",\"Romance\"]") && comExclusao.contains("\"g\":[\"Fantasy\"]"), comExclusao);
+
         assertEquals(200, enviar("GET", "/api/recomendacoes", null).statusCode());
         assertEquals(400, enviar("GET", "/api/recomendacoes?ordem=QUALQUER", null).statusCode());
         assertEquals(400, enviar("GET", "/api/recomendacoes?pagina=0", null).statusCode());

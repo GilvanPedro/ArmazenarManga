@@ -145,6 +145,15 @@ public class RecomendacaoService {
      * @return a pagina pedida; sem itens se o servico falhar
      */
     public Exploracao explorar(String busca, Collection<String> tags, Ordem ordem, int pagina, Collection<String> nomesCadastrados) {
+        return explorar(busca, tags, List.of(), ordem, pagina, nomesCadastrados);
+    }
+
+    /**
+     * @param tagsExcluidas tags que a obra NAO pode ter: quem tiver qualquer uma delas fica de fora da busca.
+     *                      Uma tag que esteja nas duas listas vale como pedida (a exclusao dela e ignorada)
+     */
+    public Exploracao explorar(String busca, Collection<String> tags, Collection<String> tagsExcluidas, Ordem ordem, int pagina,
+                               Collection<String> nomesCadastrados) {
         String nome = busca == null ? "" : busca.trim();
         int numero = Math.max(1, Math.min(pagina, 200));
         List<String> generos = new ArrayList<>();
@@ -189,6 +198,41 @@ public class RecomendacaoService {
             parametros.add("$g:[String]");
             filtros.append("genre_in:$g,");
             variaveis.put("g", generos);
+        }
+        // tags que a obra nao pode ter. Aqui uma tag com varias formas (Harem) tira as duas formas de uma vez
+        Set<String> pedidas = new HashSet<>();
+        (tags == null ? List.<String>of() : tags).forEach(tag -> pedidas.add(normalizar(tag)));
+        List<String> generosFora = new ArrayList<>();
+        List<String> temasFora = new ArrayList<>();
+        for (String tag : tagsExcluidas == null ? List.<String>of() : tagsExcluidas) {
+            if (tag == null || tag.isBlank() || pedidas.contains(normalizar(tag))) {
+                continue;
+            }
+            if (TEMAS_COM_VARIAS_FORMAS.containsKey(normalizar(tag))) {
+                temasFora.addAll(TEMAS_COM_VARIAS_FORMAS.get(normalizar(tag)));
+                continue;
+            }
+            String procurada = TEMAS_COM_OUTRO_NOME.getOrDefault(normalizar(tag), tag.trim());
+            String genero = GENEROS.keySet().stream().filter(conhecido -> normalizar(conhecido).equals(normalizar(procurada))).findFirst().orElse(null);
+            if (genero != null) {
+                generosFora.add(genero);
+            } else if (conhecidos.containsKey(normalizar(procurada))) {
+                temasFora.add(conhecidos.get(normalizar(procurada)));
+            } else if (conhecidos.isEmpty()) {
+                temasFora.add(procurada);
+            } else {
+                ignoradas.add(tag.trim()); // o AniList nao tem essa tag: nao ha o que tirar
+            }
+        }
+        if (!generosFora.isEmpty()) {
+            parametros.add("$gn:[String]");
+            filtros.append("genre_not_in:$gn,");
+            variaveis.put("gn", generosFora);
+        }
+        if (!temasFora.isEmpty()) {
+            parametros.add("$tn:[String]");
+            filtros.append("tag_not_in:$tn,");
+            variaveis.put("tn", temasFora);
         }
         // o AniList so sabe pedir "todas estas tags". Para uma tag com varias formas (qualquer uma serve), faz uma busca
         // para cada forma e junta os resultados

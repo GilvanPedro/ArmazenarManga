@@ -550,7 +550,9 @@ async function rotear(request) {
     if (recurso === 'recomendacoes' && partes.length === 1 && metodo === 'GET') {
         const ordem = lerOrdem(url, ORDENS, 'POPULARIDADE');
         const tags = (url.searchParams.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 10);
-        return json(200, await buscarRecomendacoes.explorar(url.searchParams.get('busca'), tags, ordem, lerInteiroPositivo(url, 'pagina', 1), await nomesDosCadastrados()));
+        // ?sem=Harem,Horror: tags que a obra nao pode ter
+        const sem = (url.searchParams.get('sem') || '').split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 20);
+        return json(200, await buscarRecomendacoes.explorar(url.searchParams.get('busca'), tags, ordem, lerInteiroPositivo(url, 'pagina', 1), await nomesDosCadastrados(), sem));
     }
     if (recurso === 'recomendacoes' && partes.length === 2 && id === 'ordens' && metodo === 'GET') {
         return json(200, Object.entries(ORDENS).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao })));

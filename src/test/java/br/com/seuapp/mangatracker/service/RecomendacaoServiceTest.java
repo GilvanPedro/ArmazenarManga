@@ -445,6 +445,30 @@ public class RecomendacaoServiceTest {
     }
 
     @Test
+    void buscaGeralDeixaDeForaObrasComAsTagsExcluidas() {
+        anilist.temas = "{\"data\":{\"MediaTagCollection\":[{\"name\":\"Villainess\",\"isAdult\":false},{\"name\":\"Wuxia\",\"isAdult\":false},"
+                + "{\"name\":\"Female Harem\",\"isAdult\":false},{\"name\":\"Male Harem\",\"isAdult\":false}]}}";
+
+        RecomendacaoService.Exploracao pagina = service.explorar("", List.of("Fantasy", "Villainess"),
+                List.of("horror", "Murim", "Harem", "Tag Que Nao Existe La", "fantasy", " "), RecomendacaoService.Ordem.POPULARIDADE, 1, List.of());
+
+        String pergunta = anilist.perguntasDeExploracao.get(0);
+        // generos e temas pedidos continuam; os excluidos vao como "nao pode ter"
+        assertTrue(pergunta.contains("\"g\":[\"Fantasy\"]") && pergunta.contains("\"t\":[\"Villainess\"]"), pergunta);
+        assertTrue(pergunta.contains("genre_not_in:$gn") && pergunta.contains("\"gn\":[\"Horror\"]"), pergunta);
+        // Murim e Wuxia la, e Harem tira os dois tipos de uma vez
+        assertTrue(pergunta.contains("tag_not_in:$tn") && pergunta.contains("\"tn\":[\"Wuxia\",\"Female Harem\",\"Male Harem\"]"), pergunta);
+        // "fantasy" estava nas duas listas: vale como pedida, nao como excluida
+        assertFalse(pergunta.contains("\"gn\":[\"Horror\",\"Fantasy\"]") || pergunta.contains("\"gn\":[\"Fantasy\""), pergunta);
+        assertEquals(List.of("Tag Que Nao Existe La"), pagina.tagsIgnoradas());
+        assertEquals(1, anilist.perguntasDeExploracao.size(), "excluir Harem nao precisa de duas buscas");
+
+        // sem nada excluido, a pergunta nao leva esses filtros
+        service.explorar("", List.of("Fantasy"), List.of(), RecomendacaoService.Ordem.POPULARIDADE, 1, List.of());
+        assertFalse(anilist.perguntasDeExploracao.get(1).contains("not_in"));
+    }
+
+    @Test
     void buscaGeralSemFiltrosMostraAsMaisPopulares() {
         service.explorar(null, null, null, 1, List.of());
         service.explorar("", List.of(), RecomendacaoService.Ordem.RELEVANCIA, 0, List.of());
