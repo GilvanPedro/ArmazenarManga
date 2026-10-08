@@ -28,6 +28,8 @@ record MangaResponse(
         String lastChapterLink,
         BigDecimal nextChapter,
         String nextChapterLink,
+        /** Outros nomes da mesma obra ja descobertos (original, em outras linguas, apelidos); vazio se ainda nao foram buscados. */
+        List<String> altTitles,
         /** true quando o link do proximo capitulo e um endereco exato ja encontrado no site, e nao so o modelo preenchido. */
         boolean nextChapterLinkExact
 ) {
@@ -50,6 +52,8 @@ record MangaResponse(
                 manga.linkUltimoCapitulo(),
                 manga.proximoCapitulo(),
                 manga.linkProximoCapitulo(),
+                // as marcas internas ("anilist:123") nao sao nomes
+                manga.getAltTitles() == null ? List.of() : manga.getAltTitles().stream().filter(nome -> !nome.startsWith("anilist:")).toList(),
                 manga.getNextChapterUrl() != null
         );
     }

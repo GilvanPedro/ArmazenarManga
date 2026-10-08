@@ -309,13 +309,15 @@ class ApiServerTest {
         }
         assertEquals(404, enviar("GET", "/api/mangas/sorteio?status=DROPADO", null).statusCode());
 
-        // concluidos e cancelados ficam de fora
+        // concluidos e cancelados tambem podem ser sorteados
         cadastrar("C", "1", "CONCLUIDO");
         cadastrar("D", "1", "CANCELADO");
-        for (int i = 0; i < 30; i++) {
-            assertTrue(List.of("A", "B").contains(json(enviar("GET", "/api/mangas/sorteio", null)).get("title").asText()));
+        java.util.Set<String> sorteados = new java.util.HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            sorteados.add(json(enviar("GET", "/api/mangas/sorteio", null)).get("title").asText());
         }
-        assertEquals(404, enviar("GET", "/api/mangas/sorteio?status=CONCLUIDO", null).statusCode());
+        assertEquals(java.util.Set.of("A", "B", "C", "D"), sorteados);
+        assertEquals("C", json(enviar("GET", "/api/mangas/sorteio?status=CONCLUIDO", null)).get("title").asText());
     }
 
     // ------------------------------------------------------------------ verificacao de link
@@ -751,6 +753,23 @@ class ApiServerTest {
         assertEquals(200, parou.statusCode(), parou.body());
         assertTrue(json(parou).get("releaseDay").isNull());
         assertEquals(List.of(), titulos("/api/mangas/lancamentos?dia=QUARTA"));
+    }
+
+    @Test
+    void lancamentosEscondemQuemJaLeuHoje() throws Exception {
+        String id = json(enviar("POST", "/api/mangas", mangaComDia("Leio hoje", "LENDO", "\"QUARTA\""))).get("id").asText();
+        enviar("POST", "/api/mangas", mangaComDia("Deixo para depois", "LENDO", "\"QUARTA\""));
+        String inicioDoDia = java.time.Instant.now().minusSeconds(3600).toString();
+        String amanha = java.time.Instant.now().plusSeconds(3600).toString();
+
+        assertEquals(List.of("Leio hoje", "Deixo para depois"), titulos("/api/mangas/lancamentos?dia=QUARTA&desde=" + inicioDoDia));
+        assertEquals(200, enviar("PATCH", "/api/mangas/" + id + "/progresso", "{\"lastChapter\": 2}").statusCode());
+
+        // li o capitulo: some da lista de hoje, mas continua nos lancamentos de quarta para a semana que vem
+        assertEquals(List.of("Deixo para depois"), titulos("/api/mangas/lancamentos?dia=QUARTA&desde=" + inicioDoDia));
+        assertEquals(List.of("Leio hoje", "Deixo para depois"), titulos("/api/mangas/lancamentos?dia=QUARTA&desde=" + amanha));
+        assertEquals(List.of("Leio hoje", "Deixo para depois"), titulos("/api/mangas/lancamentos?dia=QUARTA"));
+        assertEquals(400, enviar("GET", "/api/mangas/lancamentos?dia=QUARTA&desde=ontem", null).statusCode());
     }
 
     @Test

@@ -5,6 +5,7 @@ import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.WeekDay;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,7 +43,14 @@ public interface MangaServiceInterface {
     /** Confere no site o link do proximo capitulo e salva a correcao se o endereco mudou. */
     ResultadoVerificacao verificarLink(UUID id);
     /** Mangas com status LENDO que lancam capitulo no dia informado. */
-    List<Manga> listarLancamentos(WeekDay dia);
-    /** Concluidos e cancelados nunca sao sorteados. */
+    default List<Manga> listarLancamentos(WeekDay dia) {
+        return listarLancamentos(dia, null);
+    }
+    /**
+     * @param desde inicio do dia de quem esta olhando; quem ja teve o capitulo avancado de la para ca fica de fora,
+     *              porque o lancamento do dia ja foi lido. null = nao tira ninguem
+     */
+    List<Manga> listarLancamentos(WeekDay dia, Instant desde);
+    /** Qualquer manga pode ser sorteado, de qualquer status (ou so do status pedido). */
     Manga sortearManga(ReadingStatus readingStatus);
 }

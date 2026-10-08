@@ -41,8 +41,6 @@ const TAGS_SUGERIDAS = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Ho
     'Sci-Fi', 'Slice of Life', 'Sports', 'Supernatural', 'Thriller',
     'Dungeon', 'Historical', 'Isekai', 'Magic', 'Martial Arts', 'Murim', 'Regression', 'Reincarnation',
     'Revenge', 'School Life', 'System', 'Villainess'];
-// nao ha mais o que ler nesses, entao nao entram no sorteio
-const FORA_DO_SORTEIO = ['CONCLUIDO', 'CANCELADO'];
 const MARCADOR = '{cap}';
 const SENHA_MINIMA = 12;
 // o Vercel recusa requisicoes maiores que 4,5 MB
@@ -258,6 +256,11 @@ function lerCapituloSemValidarSinal(valor) {
     }
 }
 
+/** Guarda a hora em que o capitulo avancou; se nao avancou (ficou igual ou voltou), mantem a que ja havia. */
+function anotarLeitura(antes, depois) {
+    depois.lastChapterAt = depois.lastChapter > antes.lastChapter ? new Date().toISOString() : antes.lastChapterAt ?? null;
+}
+
 /** Manga do jeito que a API devolve: os dados salvos + os links ja montados. */
 function resposta(manga) {
     return {
@@ -277,6 +280,8 @@ function resposta(manga) {
         lastChapterLink: manga.lastChapterUrl || montarLink(manga, manga.lastChapter),
         nextChapter: proximoCapitulo(manga),
         nextChapterLink: manga.nextChapterUrl || montarLink(manga, proximoCapitulo(manga)),
+        // outros nomes da mesma obra ja descobertos; as marcas internas ("anilist:123") nao sao nomes
+        altTitles: (Array.isArray(manga.altTitles) ? manga.altTitles : []).filter(nome => typeof nome === 'string' && !nome.startsWith('anilist:')),
         nextChapterLinkExact: Boolean(manga.nextChapterUrl),
     };
 }
@@ -592,13 +597,21 @@ async function rotear(request) {
             if (!Object.hasOwn(DIAS, dia)) {
                 throw new Recusa(400, 'Dia inválido. Use um de: [' + Object.keys(DIAS).join(', ') + ']');
             }
+            // ?desde=2026-10-08T03:00:00Z: a meia-noite de quem esta olhando. Quem ja avancou o capitulo de la para ca
+            // ja leu o lancamento do dia e sai da lista
+            const desde = (url.searchParams.get('desde') || '').trim();
+            const inicioDoDia = desde ? Date.parse(desde) : null;
+            if (desde && (Number.isNaN(inicioDoDia) || !/^\d{4}-\d{2}-\d{2}T/.test(desde))) {
+                throw new Recusa(400, "O parâmetro 'desde' precisa ser uma data e hora como 2026-10-08T03:00:00Z");
+            }
+            const lidoDesde = manga => inicioDoDia !== null && manga.lastChapterAt && Date.parse(manga.lastChapterAt) >= inicioDoDia;
             const mangas = (await listarTodos())
-                .filter(manga => manga.readingStatus === 'LENDO' && manga.releaseDay === dia);
+                .filter(manga => manga.readingStatus === 'LENDO' && manga.releaseDay === dia && !lidoDesde(manga));
             return json(200, mangas.map(resposta));
         }
         if (partes.length === 2 && id === 'sorteio' && metodo === 'GET') {
-            const candidatos = (await listar(null, lerStatusDaBusca(url)))
-                .filter(manga => !FORA_DO_SORTEIO.includes(manga.readingStatus));
+            // qualquer manga pode ser sorteado, de qualquer status (ou so do status pedido)
+            const candidatos = await listar(null, lerStatusDaBusca(url));
             if (candidatos.length === 0) throw new Recusa(404, 'Nenhum mangá para sortear');
             return json(200, resposta(candidatos[Math.floor(Math.random() * candidatos.length)]));
         }
@@ -610,6 +623,7 @@ async function rotear(request) {
             const editado = await montarManga(atual.id, await lerCorpo(request));
             // os outros nomes da obra continuam valendo enquanto o titulo for o mesmo; titulo novo, busca nova
             if (Array.isArray(atual.altTitles) && normalizar(atual.title) === normalizar(editado.title)) editado.altTitles = atual.altTitles;
+            anotarLeitura(atual, editado);
             await salvar(editado);
             if (atual.imagePath !== editado.imagePath) await excluirImagemSemUso(atual.imagePath);
             return json(200, resposta(editado));
@@ -646,6 +660,7 @@ async function rotear(request) {
                 atualizado.lastChapterUrl = atualizado.lastChapter === proximoCapitulo(atual) ? atual.nextChapterUrl ?? null : null;
                 atualizado.nextChapterUrl = null;
             }
+            anotarLeitura(atual, atualizado);
             await salvar(atualizado);
             return json(200, resposta(atualizado));
         }
@@ -703,6 +718,7 @@ async function rotear(request) {
                 nextChapterUrl: temProximo && semFinal(corpo.nextChapterUrl) !== semFinal(corpo.lastChapterUrl)
                     ? corpo.nextChapterUrl.trim() : null,
             };
+            anotarLeitura(atual, atualizado);
             await salvar(atualizado);
             return json(200, resposta(atualizado));
         }

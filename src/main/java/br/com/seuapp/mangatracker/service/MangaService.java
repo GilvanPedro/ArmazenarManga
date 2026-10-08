@@ -15,6 +15,7 @@ import br.com.seuapp.mangatracker.util.VerificarInformacoesNulas;
 
 import java.math.BigDecimal;
 import java.text.Normalizer;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -29,9 +30,6 @@ import java.util.UUID;
 import java.util.random.RandomGenerator;
 
 public class MangaService implements MangaServiceInterface{
-
-    /** Nao ha mais o que ler nesses, entao nao entram no sorteio. */
-    private static final Set<ReadingStatus> FORA_DO_SORTEIO = Set.of(ReadingStatus.CONCLUIDO, ReadingStatus.CANCELADO);
 
     /** Tags oferecidas no cadastro mesmo antes de serem usadas (generos e temas comuns, em ingles). */
     static final List<String> TAGS_SUGERIDAS = List.of(
@@ -169,6 +167,7 @@ public class MangaService implements MangaServiceInterface{
         if (normalizar(atual.getTitle()).equals(normalizar(editado.getTitle()))) {
             editado.setAltTitles(atual.getAltTitles());
         }
+        anotarLeitura(atual, editado);
         repository.salvar(editado);
         if (!atual.getImagePath().equals(editado.getImagePath())) {
             excluirImagemSemUso(atual.getImagePath());
@@ -211,6 +210,7 @@ public class MangaService implements MangaServiceInterface{
         // o dia de lancamento so vale enquanto o manga esta sendo lido
         atualizado.setReleaseDay(novoStatus == ReadingStatus.LENDO ? atual.getReleaseDay() : null);
         atualizado.setAltTitles(atual.getAltTitles());
+        anotarLeitura(atual, atualizado);
         if (atualizado.getLastChapter().compareTo(atual.getLastChapter()) == 0) {
             atualizado.setLastChapterUrl(atual.getLastChapterUrl());
             atualizado.setNextChapterUrl(atual.getNextChapterUrl());
@@ -243,11 +243,17 @@ public class MangaService implements MangaServiceInterface{
                 atual.getDecimalFormat(), lastChapter, atual.getReadingStatus(), atual.getDescription());
         atualizado.setReleaseDay(atual.getReleaseDay());
         atualizado.setAltTitles(atual.getAltTitles());
+        anotarLeitura(atual, atualizado);
         atualizado.setLastChapterUrl(lastChapterUrl.trim());
         // um "proximo" igual a pagina atual nao serve para nada
         atualizado.setNextChapterUrl(temProximo && !ChapterLink.mesmoEndereco(nextChapterUrl, lastChapterUrl) ? nextChapterUrl.trim() : null);
         repository.salvar(atualizado);
         return atualizado;
+    }
+
+    /** Guarda a hora em que o capitulo avancou; se nao avancou (ficou igual ou voltou), mantem a que ja havia. */
+    private static void anotarLeitura(Manga antes, Manga depois) {
+        depois.setLastChapterAt(depois.getLastChapter().compareTo(antes.getLastChapter()) > 0 ? Instant.now() : antes.getLastChapterAt());
     }
 
     @Override
@@ -263,6 +269,7 @@ public class MangaService implements MangaServiceInterface{
         atualizado.setLastChapterUrl(manga.getLastChapterUrl());
         atualizado.setNextChapterUrl(manga.getNextChapterUrl());
         atualizado.setAltTitles(nomes == null ? List.of() : List.copyOf(nomes));
+        atualizado.setLastChapterAt(manga.getLastChapterAt());
         repository.salvar(atualizado);
     }
 
@@ -287,6 +294,7 @@ public class MangaService implements MangaServiceInterface{
                         manga.getReadingStatus(), manga.getDescription());
                 corrigido.setReleaseDay(manga.getReleaseDay());
                 corrigido.setAltTitles(manga.getAltTitles());
+                corrigido.setLastChapterAt(manga.getLastChapterAt());
                 corrigido.setLastChapterUrl(manga.getLastChapterUrl());
                 corrigido.setNextChapterUrl(verificacao.nextChapterUrl());
                 repository.salvar(corrigido);
@@ -313,21 +321,21 @@ public class MangaService implements MangaServiceInterface{
     }
 
     @Override
-    public List<Manga> listarLancamentos(WeekDay dia) {
+    public List<Manga> listarLancamentos(WeekDay dia, Instant desde) {
         if (dia == null) {
             throw new NullInformationsException("Informe o dia da semana");
         }
         return repository.listarTodos().stream()
                 .filter(manga -> manga.getReadingStatus() == ReadingStatus.LENDO)
                 .filter(manga -> manga.getReleaseDay() == dia)
+                // quem ja avancou o capitulo de "desde" para ca ja leu o lancamento do dia: sai da lista
+                .filter(manga -> desde == null || manga.getLastChapterAt() == null || manga.getLastChapterAt().isBefore(desde))
                 .toList();
     }
 
     @Override
     public Manga sortearManga(ReadingStatus readingStatus) {
-        List<Manga> candidatos = listarMangas(null, readingStatus).stream()
-                .filter(manga -> !FORA_DO_SORTEIO.contains(manga.getReadingStatus()))
-                .toList();
+        List<Manga> candidatos = listarMangas(null, readingStatus);
         if (candidatos.isEmpty()) {
             throw new NotFoundException("Nenhum mangá para sortear");
         }

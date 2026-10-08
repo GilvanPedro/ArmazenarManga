@@ -19,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -852,6 +853,39 @@ class MangaServiceTest {
     }
 
     @Test
+    void quemJaLeuOCapituloDeHojeSaiDosLancamentos() {
+        Manga lido = service.salvarManga(comDia("Ja li hoje", ReadingStatus.LENDO, WeekDay.QUARTA));
+        Manga naoLido = service.salvarManga(comDia("Ainda nao li", ReadingStatus.LENDO, WeekDay.QUARTA));
+        Manga soStatus = service.salvarManga(comDia("So mexi no status", ReadingStatus.LENDO, WeekDay.QUARTA));
+        Manga voltei = service.salvarManga(comDia("Voltei um capitulo", ReadingStatus.LENDO, WeekDay.QUARTA));
+        Instant inicioDoDia = Instant.now().minusSeconds(60);
+        assertNull(lido.getLastChapterAt(), "cadastrar nao conta como ler o capitulo do dia");
+
+        service.atualizarProgresso(lido.getId(), new BigDecimal("2"), null);
+        service.atualizarProgresso(soStatus.getId(), null, ReadingStatus.LENDO);
+        service.editarManga(voltei.getId(), new DadosManga("Voltei um capitulo", CAPA, null, LINK, null, BigDecimal.ZERO, ReadingStatus.LENDO, "", WeekDay.QUARTA));
+
+        // so quem avancou o capitulo sai; mexer no status ou voltar capitulo nao e ter lido o lancamento
+        assertEquals(List.of("Ainda nao li", "So mexi no status", "Voltei um capitulo"), titulos(service.listarLancamentos(WeekDay.QUARTA, inicioDoDia)));
+        // sem informar o inicio do dia, ninguem e escondido
+        assertEquals(4, service.listarLancamentos(WeekDay.QUARTA).size());
+        // na semana que vem (o dia comeca depois da leitura) ele volta a aparecer
+        assertEquals(4, service.listarLancamentos(WeekDay.QUARTA, Instant.now().plusSeconds(60)).size());
+
+        // a hora da leitura fica salva e sobrevive a outras mudancas que nao avancam o capitulo
+        Manga doArquivo = new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(lido.getId()).orElseThrow();
+        assertTrue(doArquivo.getLastChapterAt().isAfter(inicioDoDia));
+        Instant quando = doArquivo.getLastChapterAt();
+        service.atualizarProgresso(lido.getId(), null, ReadingStatus.LENDO);
+        service.editarManga(lido.getId(), new DadosManga("Ja li hoje", CAPA, List.of("Action"), LINK, null, new BigDecimal("2"), ReadingStatus.LENDO, "x", WeekDay.QUARTA));
+        assertEquals(quando, service.buscarPorId(lido.getId()).getLastChapterAt());
+        // marcar pelo botao (com o endereco do capitulo) e a edicao geral tambem contam quando o capitulo avanca
+        service.registrarLeitura(naoLido.getId(), new BigDecimal("2"), "https://site.com/x/2", null);
+        service.editarManga(soStatus.getId(), new DadosManga("So mexi no status", CAPA, null, LINK, null, new BigDecimal("5"), ReadingStatus.LENDO, "", WeekDay.QUARTA));
+        assertEquals(List.of("Voltei um capitulo"), titulos(service.listarLancamentos(WeekDay.QUARTA, inicioDoDia)));
+    }
+
+    @Test
     void mangaAntigoComDiaMasSemEstarLendoNaoApareceNosLancamentos() {
         // dado gravado direto no repositorio, como um arquivo editado a mao
         Manga manga = new Manga("Antigo", CAPA, new java.util.ArrayList<>(), LINK, null, BigDecimal.ONE, ReadingStatus.CONCLUIDO, "");
@@ -886,31 +920,27 @@ class MangaServiceTest {
     }
 
     @Test
-    void concluidosECanceladosNaoEntramNoSorteio() {
-        service.salvarManga(dados("Lendo", "1", ReadingStatus.LENDO));
-        service.salvarManga(dados("Concluído", "1", ReadingStatus.CONCLUIDO));
-        service.salvarManga(dados("Cancelado", "1", ReadingStatus.CANCELADO));
-        service.salvarManga(dados("Dropado", "1", ReadingStatus.DROPADO));
-        service.salvarManga(dados("Hiatus", "1", ReadingStatus.HIATUS));
-        service.salvarManga(dados("Para ler", "1", ReadingStatus.LER));
+    void sorteioPodeCairEmMangaDeQualquerStatus() {
+        for (ReadingStatus status : ReadingStatus.values()) {
+            service.salvarManga(dados(status.name(), "1", status));
+        }
 
         Set<String> sorteados = new HashSet<>();
-        for (int i = 0; i < 300; i++) {
+        for (int i = 0; i < 400; i++) {
             sorteados.add(service.sortearManga(null).getTitle());
         }
 
-        assertEquals(Set.of("Lendo", "Dropado", "Hiatus", "Para ler"), sorteados);
-        // nem pedindo o status diretamente
-        assertThrows(NotFoundException.class, () -> service.sortearManga(ReadingStatus.CONCLUIDO));
-        assertThrows(NotFoundException.class, () -> service.sortearManga(ReadingStatus.CANCELADO));
+        // lendo, dropado, cancelado, concluido, hiato e para ler: todos participam
+        assertEquals(Set.of("LENDO", "DROPADO", "CANCELADO", "CONCLUIDO", "HIATUS", "LER"), sorteados);
+        assertEquals("CONCLUIDO", service.sortearManga(ReadingStatus.CONCLUIDO).getTitle());
+        assertEquals("CANCELADO", service.sortearManga(ReadingStatus.CANCELADO).getTitle());
     }
 
     @Test
-    void sorteioSoComConcluidosNaoTemQuemSortear() {
+    void sorteioSoComConcluidosSorteiaEntreEles() {
         service.salvarManga(dados("Concluído", "1", ReadingStatus.CONCLUIDO));
-        service.salvarManga(dados("Cancelado", "1", ReadingStatus.CANCELADO));
 
-        assertThrows(NotFoundException.class, () -> service.sortearManga(null));
+        assertEquals("Concluído", service.sortearManga(null).getTitle());
     }
 
     @Test

@@ -8,6 +8,8 @@ import br.com.seuapp.mangatracker.domain.WeekDay;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -18,7 +20,7 @@ import java.util.UUID;
  */
 @JsonPropertyOrder({
         "id", "title", "imagePath", "tags", "chapterLinkModel", "decimalFormat",
-        "lastChapter", "readingStatus", "releaseDay", "description", "lastChapterUrl", "nextChapterUrl", "altTitles"
+        "lastChapter", "readingStatus", "releaseDay", "description", "lastChapterUrl", "nextChapterUrl", "altTitles", "lastChapterAt"
 })
 record MangaJson(
         UUID id,
@@ -33,7 +35,8 @@ record MangaJson(
         String description,
         String lastChapterUrl,
         String nextChapterUrl,
-        List<String> altTitles
+        List<String> altTitles,
+        String lastChapterAt
 ) {
 
     static MangaJson de(Manga manga) {
@@ -50,8 +53,18 @@ record MangaJson(
                 manga.getDescription(),
                 manga.getLastChapterUrl(),
                 manga.getNextChapterUrl(),
-                manga.getAltTitles() == null ? null : List.copyOf(manga.getAltTitles())
+                manga.getAltTitles() == null ? null : List.copyOf(manga.getAltTitles()),
+                manga.getLastChapterAt() == null ? null : manga.getLastChapterAt().toString()
         );
+    }
+
+    /** Uma data estragada no arquivo nao impede de abrir a lista: so fica sem data. */
+    private static Instant lerInstante(String texto) {
+        try {
+            return texto == null || texto.isBlank() ? null : Instant.parse(texto);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     Manga paraManga() {
@@ -74,6 +87,7 @@ record MangaJson(
         manga.setLastChapterUrl(lastChapterUrl);
         manga.setNextChapterUrl(nextChapterUrl);
         manga.setAltTitles(altTitles == null ? null : List.copyOf(altTitles));
+        manga.setLastChapterAt(lerInstante(lastChapterAt));
         return manga;
     }
 }

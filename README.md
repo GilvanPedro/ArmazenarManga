@@ -92,8 +92,8 @@ para acordar no próximo acesso.
 | `GET`    | `/api/mangas/{id}/recomendacoes` | Até 6 mangás de temas parecidos que ainda não estão na lista (fonte: AniList) |
 | `POST`   | `/api/mangas/{id}/capitulo-lido` | Registra o capítulo lido com o endereço exato da página dele (e do próximo, se conhecido) |
 | `POST`   | `/api/mangas/{id}/verificacao-link` | Confere no site o link do próximo capítulo e corrige se o endereço mudou |
-| `GET`    | `/api/mangas/lancamentos`     | Mangás com status Lendo que lançam capítulo no dia: `?dia=QUARTA`         |
-| `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá (concluídos e cancelados ficam de fora). Filtro opcional: `?status=LER` |
+| `GET`    | `/api/mangas/lancamentos`     | Mangás com status Lendo que lançam capítulo no dia: `?dia=QUARTA`. Com `&desde=<início do dia, ISO>` ficam de fora os que já tiveram o capítulo avançado desde então |
+| `GET`    | `/api/mangas/sorteio`         | Sorteia um mangá de qualquer status. Filtro opcional: `?status=LER`       |
 | `POST`   | `/api/imagens`                | Envia uma capa (`multipart/form-data`, campo `arquivo`, até 10 MB)        |
 | `GET`    | `/api/imagens/{nome}`         | Devolve a capa enviada                                                    |
 | `GET`    | `/api/status`                 | Status possíveis (`valor` e `descricao`)                                  |

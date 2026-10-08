@@ -39,6 +39,8 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.text.Normalizer;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -404,7 +406,17 @@ public class ApiServer {
         } catch (IllegalArgumentException e) {
             throw new RequisicaoInvalidaException("Dia inválido. Use um de: " + Arrays.toString(WeekDay.values()));
         }
-        json(ctx, HttpStatus.OK, mangaService.listarLancamentos(diaDaSemana).stream().map(MangaResponse::de).toList());
+        // ?desde=2026-10-08T03:00:00Z: a meia-noite de quem esta olhando. Quem ja leu capitulo hoje sai da lista
+        String desde = ctx.queryParam("desde");
+        Instant inicioDoDia = null;
+        if (desde != null && !desde.isBlank()) {
+            try {
+                inicioDoDia = Instant.parse(desde.trim());
+            } catch (DateTimeParseException e) {
+                throw new RequisicaoInvalidaException("O parâmetro 'desde' precisa ser uma data e hora como 2026-10-08T03:00:00Z");
+            }
+        }
+        json(ctx, HttpStatus.OK, mangaService.listarLancamentos(diaDaSemana, inicioDoDia).stream().map(MangaResponse::de).toList());
     }
 
     private void sortear(Context ctx) throws JsonProcessingException {

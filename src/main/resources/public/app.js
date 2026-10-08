@@ -123,17 +123,63 @@ function capituloDoLink(endereco) {
     return Number(achado[1] + (achado[2] ? '.' + achado[2] : ''));
 }
 
+const TOKEN_DE_CAPITULO = '(?:chapter|chap|ch|cap[ií]tulo|cap|episode|epis[oó]dio|ep)\\.?\\s*#?\\d+(?:[.,]\\d+)?';
+const TIPO_DE_OBRA = '(?:mang[aá]s?|manhwas?|manhuas?|webtoons?|comics?|novels?|hq)';
+
 /**
- * Nome do manga a partir do titulo da pagina do capitulo.
- * "The Novel's Extra Chapter 174 - Read Online | Asura Scans" -> "The Novel's Extra".
+ * Tira de um titulo de pagina tudo o que nao e o nome da obra: etiquetas entre colchetes ("[Manga]"), o numero do
+ * capitulo (no comeco ou no fim), palavras como "Read", "Ler", "Manga", "Online", "Free", e o nome do proprio site.
+ *   "[Manga] Manga Solo Leveling - Capítulo 12 | Site"                 -> "Solo Leveling"
+ *   "Chapter 222 | Pick Me Up, Infinite Gacha | Weeb Central"          -> "Pick Me Up, Infinite Gacha"
+ *   "Read The Beginning After the End Manhwa Online - All Chapters Free | Toonily" -> "The Beginning After the End"
+ */
+function limparTitulo(tituloDaPagina, endereco) {
+    let titulo = String(tituloDaPagina || '').replace(/\s+/g, ' ').trim();
+    const compacto = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    // nome do site, tirado do endereco: "www.asurascans.com" -> "asurascans"
+    let site = '';
+    try {
+        const partes = new URL(endereco).hostname.replace(/^www\./, '').split('.');
+        site = compacto(partes.length > 1 ? partes.slice(0, -1).join('') : partes[0]);
+    } catch (e) {
+        // sem endereco valido, so nao da para reconhecer o nome do site
+    }
+    const etiquetas = /^(?:\s*(?:\[[^\]]*\]|【[^】]*】|\([^)]*\))\s*)+/;
+    // (o fim da palavra e conferido sem \\b, que nao entende letra acentuada: "Mangá")
+    const palavrasDoComeco = new RegExp('^(?:(?:read|ler|leia|' + TIPO_DE_OBRA + ')(?![\\p{L}\\p{N}])\\s*[:\\-–—]?\\s*)+(?=\\S)', 'iu');
+
+    titulo = titulo.replace(etiquetas, '');
+    // capitulo no comeco: "Chapter 222 | Nome | Site", "Capítulo 5 - Nome"
+    titulo = titulo.replace(new RegExp('^' + TOKEN_DE_CAPITULO + '\\s*[|:\\-–—]\\s*', 'iu'), '');
+    // capitulo depois do nome: corta dali em diante ("Nome Chapter 7 - Read Online | Site", "Nome Ch.90 Page 1")
+    titulo = titulo.replace(new RegExp('[\\s\\-–—|:,(\\[]*(?:^|[^\\p{L}])' + TOKEN_DE_CAPITULO + '.*$', 'iu'), '');
+
+    // o que sobrou vem em pedacos separados por "|" ou " - ": sai o nome do site e os que sao so propaganda
+    const propaganda = new RegExp('^(?:read|ler|leia)?\\s*' + TIPO_DE_OBRA + '?\\s*(?:online|free|gr[aá]tis|english|all chapters|todos os cap[ií]tulos|page \\d+|p[aá]gina \\d+)\\b.*$', 'iu');
+    const ehOSite = pedaco => {
+        const junto = compacto(pedaco);
+        return site.length >= 4 && junto.length >= 4 && (junto === site || site.includes(junto) || junto.includes(site));
+    };
+    const pedacos = titulo.split(/\s*\|\s*|\s+[-–—]\s+/).map(pedaco => pedaco.trim())
+        .filter(pedaco => pedaco && !ehOSite(pedaco) && !propaganda.test(pedaco));
+    titulo = pedacos.join(' - ');
+
+    titulo = titulo.replace(etiquetas, '').replace(palavrasDoComeco, '');
+    // "... Manhwa Online", "... English Online Free", "... Raw", "... PT-BR" no fim
+    titulo = titulo.replace(new RegExp('\\s+(?:' + TIPO_DE_OBRA + '\\s+)?(?:online|free|gr[aá]tis|english|raw|pt[- ]?br)\\b.*$', 'iu'), '');
+    // "Nome Manga" (so quando sobra nome antes)
+    titulo = titulo.replace(new RegExp('(?<=\\S)\\s+' + TIPO_DE_OBRA + '$', 'iu'), '');
+    return titulo.replace(/[\s\-–—|:,]+$/, '').trim();
+}
+
+/**
+ * Nome do manga a partir dos titulos da pagina do capitulo (o da aba e o "og:title", que muitos sites preenchem
+ * de jeitos diferentes). Fica com o mais enxuto dos que sobram depois da limpeza.
  * Sem titulo aproveitavel, usa o endereco: ".../0vx0d-doomsday-wedding/..." -> "Doomsday Wedding".
  */
-function tituloDoManga(tituloDaPagina, endereco) {
-    let titulo = String(tituloDaPagina || '').replace(/\s+/g, ' ').trim();
-    // corta de "Chapter 7", "Capítulo 7", "Cap. 7", "Ch 7", "Ep 7" em diante
-    titulo = titulo.replace(/[\s\-–—|:,(\[]*(?:^|[^\p{L}])(chapter|chap|ch|cap[ií]tulo|cap|episode|epis[oó]dio|ep)\.?\s*#?\d.*$/iu, '');
-    titulo = titulo.replace(/^(read|ler|leia)\s+/i, '').replace(/\s*\|[^|]*$/, '').replace(/[\s\-–—|:,]+$/, '').trim();
-    if (titulo.length >= 2) return titulo;
+function tituloDoManga(titulosDaPagina, endereco) {
+    const limpos = [].concat(titulosDaPagina || []).map(titulo => limparTitulo(titulo, endereco)).filter(titulo => titulo.length >= 2);
+    if (limpos.length > 0) return limpos.sort((a, b) => a.length - b.length)[0];
     try {
         const pedacos = new URL(endereco).pathname.split('/').filter(Boolean).map(decodeURIComponent)
             .filter(pedaco => /[a-z]{3}/i.test(pedaco) && !/(chapter|capitulo|cap[-_]?\d|episode)/i.test(pedaco));
@@ -160,6 +206,18 @@ function modeloDoLink(endereco, capitulo) {
         }
     }
     return endereco;
+}
+
+/**
+ * Numero do capitulo dito no titulo da pagina ("Chapter 1121 | One Piece"), para os sites em que o endereco
+ * do capitulo e so um codigo. Devolve null se nenhum titulo diz.
+ */
+function capituloDoTitulo(titulos) {
+    for (const titulo of [].concat(titulos || [])) {
+        const achado = String(titulo || '').match(/(?:^|[^\p{L}])(?:chapter|chap|ch|cap[ií]tulo|cap|episode|epis[oó]dio|ep)\.?\s*#?(\d+)(?:[.,](\d{1,2}))?(?!\d)/iu);
+        if (achado) return Number(achado[1] + (achado[2] ? '.' + achado[2] : ''));
+    }
+    return null;
 }
 
 function ehLinkHttp(texto) {
@@ -380,7 +438,7 @@ function telaHoje() {
     document.title = 'Lançam hoje · Meus Mangás';
     app.replaceChildren(
         abas('hoje'),
-        h('p', {class: 'subtitulo'}, descricaoDia(hoje), ' · mangás que você está lendo e que lançam capítulo hoje'),
+        h('p', {class: 'subtitulo'}, descricaoDia(hoje), ' · mangás que você está lendo e que lançam capítulo hoje. Ao marcar o capítulo novo, ele sai daqui.'),
         lista);
     estado.recarregar = () => carregarHoje(lista, hoje);
     carregarHoje(lista, hoje);
@@ -390,7 +448,10 @@ async function carregarHoje(lista, hoje) {
     const vez = ++estado.render;
     let mangas;
     try {
-        mangas = await chamar('GET', '/api/mangas/lancamentos?dia=' + hoje);
+        // a meia-noite de hoje no relogio deste aparelho: quem ja teve capitulo marcado depois disso sai da lista
+        const meiaNoite = new Date();
+        meiaNoite.setHours(0, 0, 0, 0);
+        mangas = await chamar('GET', '/api/mangas/lancamentos?dia=' + hoje + '&desde=' + encodeURIComponent(meiaNoite.toISOString()));
     } catch (e) {
         if (vez === estado.render) lista.replaceChildren(vazio('Algo deu errado', e.message));
         return;
@@ -398,8 +459,9 @@ async function carregarHoje(lista, hoje) {
     if (vez !== estado.render) return;
     if (mangas.length === 0) {
         lista.className = '';
-        lista.replaceChildren(vazio('Nenhum lançamento hoje',
-            'Para um mangá aparecer aqui, deixe-o com o status Lendo e escolha o dia de lançamento na edição geral.'));
+        lista.replaceChildren(vazio('Nenhum lançamento para ler hoje',
+            'Aqui aparecem os mangás com status Lendo que lançam capítulo hoje e que você ainda não leu. '
+            + 'O dia de lançamento é escolhido na edição geral de cada um.'));
         return;
     }
     lista.className = 'grade';
@@ -1151,10 +1213,10 @@ async function telaFormulario(id, consulta) {
     const vez = ++estado.render;
     const capturado = new URLSearchParams(id ? '' : consulta || '');
     const paginaLida = ehLinkHttp(capturado.get('u') || '') ? capturado.get('u').trim() : null;
-    const capituloLido = paginaLida ? capituloDoLink(paginaLida) : null;
+    const capituloLido = paginaLida ? capituloDoTitulo([capturado.get('t'), capturado.get('o')]) ?? capituloDoLink(paginaLida) : null;
     const imagemInformada = ehLinkHttp(capturado.get('i') || '') ? capturado.get('i').trim() : '';
     let pronto = paginaLida && {
-        titulo: tituloDoManga(capturado.get('t'), paginaLida),
+        titulo: tituloDoManga([capturado.get('t'), capturado.get('o')], paginaLida),
         link: modeloDoLink(paginaLida, capituloLido),
         capitulo: capituloLido == null ? '' : mostrarCapitulo(capituloLido),
         imagem: imagemInformada,
@@ -1413,9 +1475,9 @@ function codigoDoAtalho() {
         };
         var imagem = meta('og:image') || meta('twitter:image');
         try { imagem = imagem ? new URL(imagem, location.href).href : ''; } catch (erro) { imagem = ''; }
-        var titulo = (meta('og:title') || document.title || '').slice(0, 200);
         window.open(origem + '/' + cerquilha + '/capturar?u=' + encodeURIComponent(atual) + '&p=' + encodeURIComponent(proximo)
-            + '&t=' + encodeURIComponent(titulo) + '&i=' + encodeURIComponent(imagem));
+            + '&t=' + encodeURIComponent((document.title || '').slice(0, 200)) + '&o=' + encodeURIComponent(meta('og:title').slice(0, 200))
+            + '&i=' + encodeURIComponent(imagem));
     };
     return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
 }
@@ -1493,11 +1555,15 @@ async function telaAtalho() {
 }
 
 /** Entre os mangas do mesmo site, o que tem o endereco mais parecido com o da pagina capturada. */
-function mangaDoLink(mangas, endereco, tituloDaPagina) {
-    const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-    // 1) pelo nome: o titulo da pagina e o de exatamente um manga da lista
-    const nome = semAcento(tituloDoManga(tituloDaPagina, endereco));
-    const comONome = nome ? mangas.filter(manga => semAcento(manga.title) === nome) : [];
+function mangaDoLink(mangas, endereco, titulosDaPagina) {
+    const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const titulos = [].concat(titulosDaPagina || []).filter(titulo => typeof titulo === 'string' && titulo.trim());
+    // todos os nomes de cada manga: o titulo e os outros nomes da obra que o site ja descobriu
+    const nomesDe = manga => [manga.title, ...(manga.altTitles || [])].map(semAcento).filter(Boolean);
+
+    // 1) pelo nome: o titulo da pagina, limpo, e o de exatamente um manga da lista
+    const limpos = new Set(titulos.map(titulo => semAcento(limparTitulo(titulo, endereco))).filter(Boolean));
+    const comONome = mangas.filter(manga => nomesDe(manga).some(nome => limpos.has(nome)));
     if (comONome.length === 1) return comONome[0];
 
     // 2) pelo endereco: mesmo site e mesma obra. Tudo antes do ultimo trecho (que e o capitulo) precisa bater.
@@ -1529,8 +1595,26 @@ function mangaDoLink(mangas, endereco, tituloDaPagina) {
         }
     }
     // endereco identico vale mais que parecido; na duvida entre dois, melhor nao sugerir nenhum do que sugerir o errado
-    if (iguais.size > 0) return iguais.size === 1 ? [...iguais][0] : null;
-    return parecidos.size === 1 ? [...parecidos][0] : null;
+    if (iguais.size === 1) return [...iguais][0];
+    if (iguais.size === 0 && parecidos.size === 1) return [...parecidos][0];
+
+    // 3) o nome de um manga da lista aparece inteiro dentro do titulo da pagina, por mais coisa que o site ponha em
+    // volta ("[Manga] Manga Solo Leveling - Capítulo 12 - Site"). Vale o nome mais comprido que aparecer, para
+    // "Solo Leveling: Ragnarok" ganhar de "Solo Leveling"; nomes curtos demais nao contam, para nao bater por acaso.
+    const paginas = titulos.map(titulo => ' ' + semAcento(titulo) + ' ');
+    let melhorTamanho = 0;
+    let melhores = new Set();
+    for (const manga of mangas) {
+        for (const nome of nomesDe(manga)) {
+            if ((nome.length < 6 && !nome.includes(' ')) || nome.length < 4) continue;
+            if (paginas.some(pagina => pagina.includes(' ' + nome + ' ')) && nome.length >= melhorTamanho) {
+                if (nome.length > melhorTamanho) melhores = new Set();
+                melhorTamanho = nome.length;
+                melhores.add(manga);
+            }
+        }
+    }
+    return melhores.size === 1 ? [...melhores][0] : null;
 }
 
 /**
@@ -1681,7 +1765,7 @@ async function telaCapturar(consulta) {
         return;
     }
     if (vez !== estado.render) return;
-    const achado = mangaDoLink(mangas, endereco, parametros.get('t'));
+    const achado = mangaDoLink(mangas, endereco, [parametros.get('t'), parametros.get('o')]);
     // manga que ainda nao esta na lista: abre o cadastro ja preenchido (a nao ser que tenham pedido para escolher)
     const paraOCadastro = new URLSearchParams(parametros);
     paraOCadastro.delete('escolher');
@@ -1697,7 +1781,9 @@ async function telaCapturar(consulta) {
         location.hash = '#/novo?' + dados;
     };
     const manga = buscaDeManga(mangas, achado, cadastrarNovo);
-    const numero = capituloDoLink(endereco);
+    // o numero do capitulo vem do titulo da pagina quando ele diz ("Ch.90"); o do endereco as vezes e um codigo
+    // interno do site (".../br_chapter-445716/"), entao so vale quando o titulo nao diz nada
+    const numero = capituloDoTitulo([parametros.get('t'), parametros.get('o')]) ?? capituloDoLink(endereco);
     const capitulo = h('input', {type: 'text', inputmode: 'decimal', autocomplete: 'off', value: numero == null ? '' : mostrarCapitulo(numero)});
     // so sugere guardar o "proximo" se ele parece mesmo ser um capitulo adiante
     const numeroDoProximo = ehLinkHttp(proximo) ? capituloDoLink(proximo) : null;

@@ -1,6 +1,7 @@
 package br.com.seuapp.mangatracker.domain;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +27,8 @@ public class Manga {
      * null = ainda nao foi buscado; lista vazia = buscado e nada encontrado.
      */
     private List<String> altTitles;
+    /** Quando o ultimo capitulo lido avancou pela ultima vez; null se nunca avancou desde que isso passou a ser guardado. */
+    private Instant lastChapterAt;
 
     public Manga(String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
         this(UUID.randomUUID(), title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description);
@@ -130,6 +133,14 @@ public class Manga {
 
     public void setLastChapterUrl(String lastChapterUrl) {
         this.lastChapterUrl = lastChapterUrl;
+    }
+
+    public Instant getLastChapterAt() {
+        return lastChapterAt;
+    }
+
+    public void setLastChapterAt(Instant lastChapterAt) {
+        this.lastChapterAt = lastChapterAt;
     }
 
     public List<String> getAltTitles() {

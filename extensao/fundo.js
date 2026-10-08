@@ -144,7 +144,8 @@ function capturarPagina() {
     } catch (erro) {
         imagem = '';
     }
-    return { atual, proximo, titulo: (meta('og:title') || document.title || '').slice(0, 200), imagem };
+    // os dois titulos: o da aba e o "og:title". Cada site capricha em um, e o Meus Mangas escolhe o que serve
+    return { atual, proximo, titulo: (document.title || '').slice(0, 200), tituloOg: meta('og:title').slice(0, 200), imagem };
 }
 
 /**
@@ -163,7 +164,8 @@ async function marcarComoLido(aba) {
         // sem acesso a pagina: segue so com o endereco da aba
     }
     const destino = origens[0] + '/#/capturar?u=' + encodeURIComponent(pagina.atual) + '&p=' + encodeURIComponent(pagina.proximo || '')
-        + '&t=' + encodeURIComponent(pagina.titulo || aba.title || '') + '&i=' + encodeURIComponent(pagina.imagem || '');
+        + '&t=' + encodeURIComponent(pagina.titulo || aba.title || '') + '&o=' + encodeURIComponent(pagina.tituloOg || '')
+        + '&i=' + encodeURIComponent(pagina.imagem || '');
     await ext.tabs.create({ url: destino, index: aba.index + 1, openerTabId: aba.id });
     return { ok: true };
 }
