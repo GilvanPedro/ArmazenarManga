@@ -15,7 +15,7 @@ confere e corrige esse link quando o site muda o endereço.
 - **Lançam hoje**: os mangás em leitura que lançam capítulo no dia e ainda não foram lidos.
 - **Cadastro pré-preenchido**, com nome, capa, tags e descrição em português buscados na internet.
 - **Recomendações** e uma aba para **descobrir** obras por nome, ordem, tags que você quer e tags que não
-  quer, sem repetir o que já está na lista.
+  quer (em quadros com pesquisa, que podem ser recolhidos), sem repetir o que já está na lista.
 
 Por enquanto o uso é individual: existe uma única conta, que dá acesso a todos os mangás cadastrados.
 
@@ -64,7 +64,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Interface](docs/07-interface.md) | [Extensão e atalho](docs/08-extensao-e-atalho.md) |
 | [Hospedagem e configuração](docs/09-hospedagem.md) | [Testes](docs/10-testes.md) |
 | [Histórico](docs/11-historico.md) | [Próximos passos](docs/12-proximos-passos.md) |
-| [Filtro de tags no Descobrir](docs/13-filtro-de-tags-no-descobrir.md) | |
+| [Filtro de tags no Descobrir](docs/13-filtro-de-tags-no-descobrir.md) | [Recolher as tags no Descobrir](docs/14-recolher-tags-no-descobrir.md) |
 
 ## Testes
 

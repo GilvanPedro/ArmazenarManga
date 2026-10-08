@@ -36,7 +36,8 @@ Os mangás em leitura que lançam capítulo no dia. Marcar o capítulo novo de u
 Busca geral de obras que não estão na lista: campo de nome, seletor de ordem e dois quadros de tags, "Quero com
 estas tags" e "Não quero com estas tags". Cada quadro tem um campo para pesquisar a tag pelo nome (Enter marca a
 primeira encontrada), a lista de todas as tags (as em uso primeiro) rolando para baixo, e as marcadas em cima,
-com × para tirar. Uma tag marcada em um quadro fica travada no outro. Cada obra mostra capa, nome, nota, ano e gêneros. A capa abre a página no AniList, e
+com × para tirar. Uma tag marcada em um quadro fica travada no outro. A lista de tags começa recolhida e
+abre ao pesquisar ou pelo botão "Mostrar tags"; os dois quadros abrem e recolhem juntos. Cada obra mostra capa, nome, nota, ano e gêneros. A capa abre a página no AniList, e
 "+ Adicionar" abre o cadastro preenchido. A página avisa quantas obras foram escondidas por já estarem na lista
 e quais tags a fonte não tem.
 

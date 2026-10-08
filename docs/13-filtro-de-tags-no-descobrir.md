@@ -32,6 +32,9 @@ só as em uso. A mudança existe por causa da exclusão: o que não se quer ler 
 
 O aviso acima dos resultados passou a dizer quando há tags excluídas valendo.
 
+Depois desta mudança a lista passou a poder ser recolhida; veja
+[Recolher as tags no Descobrir](14-recolher-tags-no-descobrir.md).
+
 ## O que mudou no servidor
 
 A rota `GET /api/recomendacoes` ganhou o parâmetro `sem`, com as tags excluídas separadas por vírgula (até 20):

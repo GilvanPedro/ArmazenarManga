@@ -79,6 +79,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Botões da paginação.** Aumentados.
 - **Tags na aba Descobrir.** A linha de tags que rolava para o lado virou dois quadros com pesquisa, um para as
   tags pedidas e outro para as excluídas. Detalhes em [Filtro de tags no Descobrir](13-filtro-de-tags-no-descobrir.md).
+  Depois os quadros ganharam um botão para recolher a lista, descrito em
+  [Recolher as tags no Descobrir](14-recolher-tags-no-descobrir.md).
 
 ## O que foi removido ou abandonado
 

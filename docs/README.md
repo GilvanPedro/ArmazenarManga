@@ -17,6 +17,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [11 · Histórico](11-historico.md) | Como o projeto foi feito: o que entrou, o que mudou e o que foi removido |
 | [12 · Próximos passos](12-proximos-passos.md) | Limitações conhecidas e o que pode ser adicionado |
 | [13 · Filtro de tags no Descobrir](13-filtro-de-tags-no-descobrir.md) | A mudança que trouxe a pesquisa de tags e as tags excluídas à aba Descobrir |
+| [14 · Recolher as tags no Descobrir](14-recolher-tags-no-descobrir.md) | A mudança que permite recolher a lista de tags dos dois quadros de uma vez |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

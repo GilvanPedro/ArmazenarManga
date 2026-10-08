@@ -199,6 +199,11 @@ select:disabled { opacity: .55; }
 .limpar-tags:hover { color: var(--texto); }
 .limpar-tags:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
 .limpar-tags[hidden] { display: none; }
+.quadro-de-tags h3 { margin-right: auto; }
+.recolher-tags { all: unset; cursor: pointer; color: var(--texto-fraco); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.recolher-tags:hover { color: var(--texto); }
+.recolher-tags:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.opcoes-de-tag[hidden] { display: none; }
 .tags-marcadas { display: flex; flex-wrap: wrap; gap: 6px; }
 .tags-marcadas:empty { display: none; }
 .opcoes-de-tag { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 6px; max-height: 132px; overflow-y: auto; padding: 2px; scrollbar-width: thin; }

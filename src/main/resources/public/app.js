@@ -28,7 +28,7 @@ const estado = {
     ordens: [],        // formas de ordenar a lista, vindas de /api/ordens-da-lista
     ordem: lembrado('ordem', 'CADASTRO'), // forma de ordenar escolhida na pagina principal
     ordensDeDescoberta: [], // formas de ordenar a aba Descobrir, vindas de /api/recomendacoes/ordens
-    descobrir: {busca: '', tags: [], sem: [], ordem: 'POPULARIDADE', pagina: 1}, // o que esta escolhido na aba Descobrir
+    descobrir: {busca: '', tags: [], sem: [], tagsAbertas: false, ordem: 'POPULARIDADE', pagina: 1}, // o que esta escolhido na aba Descobrir
     pagina: 1,         // pagina da grade que esta aberta
     esperaDaBusca: null, // temporizador que espera a pessoa parar de digitar na busca
     recarregar: null,  // recarrega so os cartoes da tela atual, sem pular para o topo
@@ -813,9 +813,18 @@ async function telaDescobrir() {
         escolhas.pagina = 1;
         carregar();
     };
+    // a lista de tags dos dois quadros abre e fecha junta, para os dois ficarem sempre da mesma altura
+    const abertura = {
+        aberta: () => escolhas.tagsAbertas,
+        mudar: aberta => {
+            if (escolhas.tagsAbertas === aberta) return;
+            escolhas.tagsAbertas = aberta;
+            quadros.forEach(quadro => quadro.desenhar());
+        },
+    };
     quadros.push(
-        quadroDeTags('Quero com estas tags', 'quero', todasAsTags, () => escolhas.tags, lista => escolhas.tags = lista, () => escolhas.sem, 'Já está em “Não quero”', mudou),
-        quadroDeTags('Não quero com estas tags', 'nao-quero', todasAsTags, () => escolhas.sem, lista => escolhas.sem = lista, () => escolhas.tags, 'Já está em “Quero”', mudou));
+        quadroDeTags('Quero com estas tags', 'quero', todasAsTags, () => escolhas.tags, lista => escolhas.tags = lista, () => escolhas.sem, 'Já está em “Não quero”', mudou, abertura),
+        quadroDeTags('Não quero com estas tags', 'nao-quero', todasAsTags, () => escolhas.sem, lista => escolhas.sem = lista, () => escolhas.tags, 'Já está em “Quero”', mudou, abertura));
 
     app.replaceChildren(
         abas('descobrir'),
@@ -830,11 +839,14 @@ async function telaDescobrir() {
 /**
  * Quadro para escolher tags: as marcadas ficam em cima (o × tira), um campo filtra pelo nome e a lista rola para
  * baixo. As tags marcadas no outro quadro aparecem travadas, porque uma tag nao pode ser pedida e excluida ao mesmo tempo.
+ * A lista pode ficar recolhida, sobrando so o campo de pesquisa; comecar a digitar abre de novo. "abertura" e
+ * dividida entre os quadros, entao abrir ou recolher um faz o mesmo com o outro.
  */
-function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrava, aoMudar) {
+function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrava, aoMudar, abertura) {
     const simples = texto => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     const marcadas = h('div', {class: 'tags-marcadas'});
-    const opcoes = h('div', {class: 'opcoes-de-tag', role: 'group', 'aria-label': titulo});
+    const opcoes = h('div', {class: 'opcoes-de-tag', id: 'opcoes-' + tipo, role: 'group', 'aria-label': titulo});
+    const recolher = h('button', {type: 'button', class: 'recolher-tags', 'aria-controls': 'opcoes-' + tipo, onclick: () => abertura.mudar(!abertura.aberta())});
     const campo = h('input', {type: 'search', placeholder: 'Pesquisar tag…', 'aria-label': 'Pesquisar tag em “' + titulo + '”'});
     const limpar = h('button', {type: 'button', class: 'limpar-tags', onclick: () => { gravar([]); aoMudar(); }}, 'Limpar');
     const alternar = nome => {
@@ -847,6 +859,9 @@ function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrav
         marcadas.replaceChildren(...ler().map(nome => h('span', {class: 'tag escolhida'}, nome,
             h('button', {type: 'button', 'aria-label': 'Tirar ' + nome, onclick: () => alternar(nome)}, '×'))));
         limpar.hidden = ler().length === 0;
+        opcoes.hidden = !abertura.aberta();
+        recolher.textContent = abertura.aberta() ? 'Esconder tags ▴' : 'Mostrar tags ▾';
+        recolher.setAttribute('aria-expanded', String(abertura.aberta()));
         const lista = visiveis();
         opcoes.replaceChildren(...(lista.length ? lista.map(nome => {
             const travada = lerDoOutro().includes(nome);
@@ -854,7 +869,10 @@ function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrav
                 title: travada ? motivoDaTrava : null, onclick: () => alternar(nome)}, nome);
         }) : [h('span', {class: 'sem-tag'}, 'Nenhuma tag com esse nome.')]));
     };
-    campo.addEventListener('input', desenhar);
+    campo.addEventListener('input', () => {
+        // pesquisar abre a lista (dos dois quadros); apagar o texto nao fecha, quem fecha e o botao
+        if (campo.value.trim() && !abertura.aberta()) abertura.mudar(true); else desenhar();
+    });
     // Enter marca a primeira tag que sobrou na pesquisa e deixa o campo pronto para a proxima
     campo.addEventListener('keydown', evento => {
         if (evento.key !== 'Enter') return;
@@ -867,7 +885,7 @@ function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrav
     desenhar();
     return {
         desenhar,
-        elemento: h('section', {class: 'quadro-de-tags ' + tipo}, h('header', null, h('h3', null, titulo), limpar), marcadas, campo, opcoes),
+        elemento: h('section', {class: 'quadro-de-tags ' + tipo}, h('header', null, h('h3', null, titulo), limpar, recolher), marcadas, campo, opcoes),
     };
 }
 
