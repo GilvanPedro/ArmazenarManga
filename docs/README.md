@@ -16,6 +16,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [10 · Testes](10-testes.md) | O que é testado, como rodar e o que não tem teste automático |
 | [11 · Histórico](11-historico.md) | Como o projeto foi feito: o que entrou, o que mudou e o que foi removido |
 | [12 · Próximos passos](12-proximos-passos.md) | Limitações conhecidas e o que pode ser adicionado |
+| [13 · Filtro de tags no Descobrir](13-filtro-de-tags-no-descobrir.md) | A mudança que trouxe a pesquisa de tags e as tags excluídas à aba Descobrir |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

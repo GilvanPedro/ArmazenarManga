@@ -77,6 +77,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Marcar como lido.** Passou a atualizar também o modelo do link, e a ler o número do capítulo do título da
   página quando o do endereço é um código interno.
 - **Botões da paginação.** Aumentados.
+- **Tags na aba Descobrir.** A linha de tags que rolava para o lado virou dois quadros com pesquisa, um para as
+  tags pedidas e outro para as excluídas. Detalhes em [Filtro de tags no Descobrir](13-filtro-de-tags-no-descobrir.md).
 
 ## O que foi removido ou abandonado
 
