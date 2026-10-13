@@ -12,6 +12,8 @@ Mudança feita em outubro de 2026, em duas partes: marcar um mangá como **favor
 - O favorito aparece destacado em toda capa dele: **borda dourada com brilho** e uma **estrela dourada** no
   canto superior direito. Vale para a lista principal, "Lançam hoje", as seções de tags em comum e a capa da
   página do mangá.
+- O visual mudou depois para uma borda roxa com reflexo: veja
+  [Destaque roxo do favorito](19-destaque-roxo-do-favorito.md).
 - A estrela existe para o destaque não depender só da cor da borda. Leitores de tela leem "(favorito)" junto do
   nome.
 - Não há limite de favoritos.

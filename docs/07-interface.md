@@ -19,7 +19,7 @@ biblioteca nem etapa de build: o que está no repositório é o que o navegador 
 
 A página principal. Em cima: busca por nome, seletor de ordem e botão Sortear. Abaixo, os filtros de status.
 
-Cada cartão tem a capa com o status (em cima, à esquerda) e a nota (embaixo, à direita, quando há), além da borda dourada e da estrela quando é favorito, o nome centralizado e dois botões da largura da capa: o do capítulo atual
+Cada cartão tem a capa com o status (em cima, à esquerda) e a nota (embaixo, à direita, quando há), além da borda roxa e da estrela quando é favorito, o nome centralizado e dois botões da largura da capa: o do capítulo atual
 (abre o diálogo de progresso) e o **Ler**. Para mangás concluídos, o Ler pergunta entre ler novamente e abrir o
 último capítulo.
 

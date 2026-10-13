@@ -86,6 +86,12 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Favoritos e ordem pela nota.** Um mangá pode ser marcado como favorito e aparece com borda dourada e
   estrela; a lista ganhou as ordens por melhores notas, piores notas e favoritos primeiro. Detalhes em
   [Favoritos e ordem pela nota](16-favoritos-e-ordem-pela-nota.md).
+- **Favorito de "marcar como lido".** Deixou de depender de um único `window.open`, que alguns sites de leitura
+  bloqueiam, e passou a avisar quando falha. Detalhes em [Favorito que não abria](17-favorito-que-nao-abria.md).
+- **Selo da nota.** O indicativo da faixa virou um ícone (um rosto para cada faixa) no lugar da bolinha e do
+  nome escrito, e o selo na capa ficou maior. Detalhes em [Selo da nota com ícone](18-selo-da-nota-com-icone.md).
+- **Destaque do favorito.** A borda dourada virou um degradê roxo com brilho, a capa ganhou um reflexo discreto
+  e as capas passaram a reagir ao mouse. Detalhes em [Destaque roxo do favorito](19-destaque-roxo-do-favorito.md).
 
 ## O que foi removido ou abandonado
 

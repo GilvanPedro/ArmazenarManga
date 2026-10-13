@@ -21,6 +21,9 @@ A lista guardava o que foi lido e em que ponto, mas não o que o dono achou de c
 
 ## O que mudou na tela
 
+O visual descrito aqui é o da primeira versão. O indicativo virou um ícone e o selo ficou maior em
+[Selo da nota com ícone](18-selo-da-nota-com-icone.md).
+
 - **Selo na capa.** A nota aparece sobre a capa, no canto inferior direito: fundo preto, número branco e, na
   esquerda, uma bolinha com a cor da faixa. Tem o mesmo formato do selo de status, que fica no canto superior
   esquerdo. Sem nota, não há selo. O selo aparece nos cartões da lista, em "Lançam hoje", nas seções de mangás

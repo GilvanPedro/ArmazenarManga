@@ -240,18 +240,23 @@ function faixaDaNota(nota) {
     return {classe: 'ruim', nome: 'Ruim'};
 }
 
-/** Selo da nota: fundo preto, numero branco e, na esquerda, a bolinha com a cor da faixa. Sem nota, nao ha selo. */
-function etiquetaNota(nota, comNome) {
+/**
+ * Selo da nota: fundo preto, numero branco e, na esquerda, o rostinho da faixa (triste, serio, sorrindo ou
+ * com estrelas nos olhos). O nome da faixa nao e escrito: fica so na dica do mouse e para leitores de tela.
+ * Sem nota, nao ha selo.
+ */
+function etiquetaNota(nota, grande) {
     if (nota == null) return null;
     const faixa = faixaDaNota(nota);
-    return h('span', {class: 'nota nota-' + faixa.classe, title: 'Nota ' + nota + ' de 10 · ' + faixa.nome},
-        h('span', {class: 'so-leitor'}, 'Nota '), String(nota), comNome ? ' · ' + faixa.nome : h('span', {class: 'so-leitor'}, ', ' + faixa.nome));
+    return h('span', {class: 'nota nota-' + faixa.classe + (grande ? ' grande' : ''), title: 'Nota ' + nota + ' de 10 · ' + faixa.nome},
+        h('img', {src: '/icones/nota-' + faixa.classe + '.svg', alt: '', width: '22', height: '22'}),
+        h('span', {class: 'so-leitor'}, 'Nota '), String(nota), h('span', {class: 'so-leitor'}, ', ' + faixa.nome));
 }
 
-/** Opcoes do seletor de nota: sem nota e de 10 a 0, cada uma com o nome da faixa. */
+/** Opcoes do seletor de nota: sem nota e de 10 a 0. */
 function seletorDeNota(nota) {
     const opcoes = [{valor: '', descricao: 'Sem nota'}];
-    for (let n = 10; n >= 0; n--) opcoes.push({valor: String(n), descricao: n + ' · ' + faixaDaNota(n).nome});
+    for (let n = 10; n >= 0; n--) opcoes.push({valor: String(n), descricao: String(n)});
     return seletor(opcoes, nota == null ? '' : String(nota));
 }
 
@@ -1592,10 +1597,16 @@ async function telaFormulario(id, consulta) {
  * Codigo do favorito ("bookmarklet"). Roda na pagina do capitulo, no site de leitura, dentro do navegador
  * de quem esta lendo: pega o endereco da pagina e o link de "proximo capitulo" e abre este site para confirmar.
  * E assim que sites que bloqueiam o servidor (protecao contra robos) continuam funcionando.
+ *
+ * Alguns sites de leitura trocam ou desligam o window.open (para segurar anuncios) e o favorito parecia "nao
+ * fazer nada". Por isso a abertura tenta tres caminhos: um window.open limpo, tirado de um quadro novo, que o
+ * site nao teve como alterar; o window.open da pagina; e, se nenhuma aba abrir, vai para este site na propria
+ * aba (o botao de voltar do navegador devolve ao capitulo). Qualquer erro aparece em um alerta.
  */
 function codigoDoAtalho() {
     // sem "#" e sem acentos no codigo: dentro de um endereco javascript: eles podem ser alterados pelo navegador
     const codigo = function (origem) {
+        try {
         var cerquilha = String.fromCharCode(35);
         var atual = location.href.split(cerquilha)[0], proximo = '';
         var dica = /(^|[^a-z])(next|pr[o\u00f3]xim[oa]|siguiente|seguinte)([^a-z]|$)/i;
@@ -1619,9 +1630,22 @@ function codigoDoAtalho() {
         };
         var imagem = meta('og:image') || meta('twitter:image');
         try { imagem = imagem ? new URL(imagem, location.href).href : ''; } catch (erro) { imagem = ''; }
-        window.open(origem + '/' + cerquilha + '/capturar?u=' + encodeURIComponent(atual) + '&p=' + encodeURIComponent(proximo)
+        var destino = origem + '/' + cerquilha + '/capturar?u=' + encodeURIComponent(atual) + '&p=' + encodeURIComponent(proximo)
             + '&t=' + encodeURIComponent((document.title || '').slice(0, 200)) + '&o=' + encodeURIComponent(meta('og:title').slice(0, 200))
-            + '&i=' + encodeURIComponent(imagem));
+            + '&i=' + encodeURIComponent(imagem);
+        var aba = null;
+        try {
+            var quadro = document.createElement('iframe');
+            quadro.style.display = 'none';
+            document.documentElement.appendChild(quadro);
+            aba = quadro.contentWindow.open(destino, '_blank');
+            setTimeout(function () { quadro.remove(); }, 2000);
+        } catch (erro) { aba = null; }
+        if (!aba) { try { aba = window.open(destino, '_blank'); } catch (erro) { aba = null; } }
+        if (!aba) location.href = destino;
+        } catch (falha) {
+            alert('Meus Mangas: nao consegui ler esta pagina. ' + falha);
+        }
     };
     return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
 }
@@ -1680,6 +1704,8 @@ async function telaAtalho() {
                 h('li', null, 'Arraste o botão acima para a barra de favoritos do navegador (Ctrl+Shift+B mostra a barra).'),
                 h('li', null, 'Quando terminar de ler um capítulo, ainda na página dele, clique no favorito.'),
                 h('li', null, 'Este site abre mostrando o mangá e o capítulo encontrados. Confira e clique em Salvar.')),
+            h('p', null, h('b', null, 'O favorito não faz nada em algum site?'), ' O código fica guardado dentro do próprio favorito, então uma correção feita aqui só vale depois de trocá-lo: '
+                + 'apague o favorito antigo e arraste o botão de novo. Se o site de leitura não deixar abrir uma aba nova, este site abre na mesma aba; o botão de voltar do navegador devolve ao capítulo.'),
             h('p', null, 'Se a página tiver um botão de próximo capítulo, o link dele também é guardado, e o botão “Ler” passa a abrir direto o capítulo certo.'),
             h('p', null, h('b', null, 'No celular'), ', onde não dá para arrastar: crie um favorito de qualquer página, edite-o e cole o código abaixo no lugar do endereço. '
                 + 'Ou então use o campo “Link do capítulo lido” ao alterar o capítulo aqui no site.'),

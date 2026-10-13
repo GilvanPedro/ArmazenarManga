@@ -56,6 +56,11 @@ Para quem não quer instalar a extensão. Na aba "Extensão e atalho" há um bot
 favoritos. Clicado na página de um capítulo, ele pega o endereço, os títulos da página, a capa e o link de
 "próximo", e abre a tela "Marcar capítulo lido".
 
+A tela abre em uma aba nova. Se o site de leitura não deixar abrir aba nova, ela abre na mesma aba, e o botão de
+voltar do navegador devolve ao capítulo. O código fica guardado dentro do favorito, então uma correção no site
+só vale depois de apagar o favorito e arrastar o botão de novo (veja
+[Favorito que não abria](17-favorito-que-nao-abria.md)).
+
 No celular, onde não dá para arrastar, o código pode ser copiado e colado como endereço de um favorito. Outra
 saída é colar o link do capítulo no diálogo de alterar capítulo.
 

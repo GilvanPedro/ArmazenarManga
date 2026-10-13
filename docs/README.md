@@ -20,6 +20,9 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [14 · Recolher as tags no Descobrir](14-recolher-tags-no-descobrir.md) | A mudança que permite recolher a lista de tags dos dois quadros de uma vez |
 | [15 · Nota dos mangás](15-nota-dos-mangas.md) | A mudança que trouxe a nota de 0 a 10, o selo na capa e a rota para dar nota |
 | [16 · Favoritos e ordem pela nota](16-favoritos-e-ordem-pela-nota.md) | A mudança que trouxe os favoritos destacados e a ordenação pela nota |
+| [17 · Favorito que não abria](17-favorito-que-nao-abria.md) | A correção do favorito de "marcar como lido" em sites que impedem abrir aba nova |
+| [18 · Selo da nota com ícone](18-selo-da-nota-com-icone.md) | O ajuste que trocou o indicativo da nota por um ícone e aumentou o selo na capa |
+| [19 · Destaque roxo do favorito](19-destaque-roxo-do-favorito.md) | O ajuste visual do favorito: borda roxa, reflexo na capa e efeito ao passar o mouse |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

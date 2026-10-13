@@ -262,33 +262,62 @@ a.capa:hover img { transform: scale(1.035); }
 }
 .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .capa .status { position: absolute; top: 8px; left: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
-/* nota do manga: selo preto com o numero em branco e a bolinha da faixa na esquerda, como o selo de status */
+/* nota do manga: selo preto com o numero em branco e o rostinho da faixa na esquerda */
 .nota {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 2px 9px;
+    padding: 3px 12px 3px 4px;
     border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
     font-variant-numeric: tabular-nums;
     color: #fff;
     background: #000;
     white-space: nowrap;
 }
-.nota::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faixa); }
-.capa .nota { position: absolute; right: 8px; bottom: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
-/* cores fixas: o fundo do selo e sempre preto, no tema claro e no escuro */
-.nota-ruim { --faixa: #ff5c5c; }
-.nota-medio { --faixa: #f5b942; }
-.nota-bom { --faixa: #3ecf8e; }
-.nota-muito-bom { --faixa: #4db8ff; }
-.nota-muito-bom::before { box-shadow: 0 0 0 2px color-mix(in srgb, var(--faixa) 40%, transparent); }
-/* favorito: borda dourada com brilho e uma estrela no canto superior direito da capa */
+.nota img { display: block; width: 24px; height: 24px; flex: none; }
+/* na capa: maior, com contorno branco e sombra, para aparecer em cima de qualquer imagem */
+.capa .nota {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    padding: 4px 13px 4px 5px;
+    font-size: 19px;
+    border: 2px solid rgba(255, 255, 255, .92);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, .6);
+}
+.capa .nota img { width: 28px; height: 28px; }
+.nota.grande { font-size: 20px; padding: 4px 14px 4px 5px; }
+.nota.grande img { width: 30px; height: 30px; }
+@media (max-width: 560px) {
+    .capa .nota { right: 6px; bottom: 6px; font-size: 16px; padding: 3px 10px 3px 4px; }
+    .capa .nota img { width: 22px; height: 22px; }
+}
+/* favorito: borda roxa em degrade com um brilho suave em volta, e uma estrela no canto superior direito da capa */
 .capa.favorita {
-    --ouro: #e8b923;
-    border: 3px solid var(--ouro);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ouro) 55%, transparent), 0 0 18px color-mix(in srgb, var(--ouro) 50%, transparent);
+    --roxo: #8b5cf6;
+    border: 3px solid transparent;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(140deg, #d8b4fe, #8b5cf6 38%, #6d28d9 62%, #e879f9) border-box;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--roxo) 35%, transparent), 0 6px 22px color-mix(in srgb, var(--roxo) 38%, transparent);
+}
+/* reflexo que atravessa a capa de tempos em tempos; de proposito quase nao se ve */
+.capa.favorita::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .13) 48%, rgba(233, 213, 255, .2) 50%, rgba(255, 255, 255, .13) 52%, transparent 62%);
+    background-size: 280% 100%;
+    background-position: 130% 0;
+    animation: reflexo-de-favorito 7s ease-in-out infinite;
+}
+@keyframes reflexo-de-favorito {
+    0%, 62% { background-position: 130% 0; }
+    100% { background-position: -40% 0; }
 }
 .estrela-de-favorito {
     position: absolute;
@@ -301,12 +330,30 @@ a.capa:hover img { transform: scale(1.035); }
     border-radius: 50%;
     font-size: 15px;
     line-height: 1;
-    color: #2a1d00;
-    background: linear-gradient(145deg, #ffe27a, #e8b923 55%, #b8860b);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+    color: #fff;
+    background: linear-gradient(145deg, #c084fc, #7c3aed 60%, #5b21b6);
+    border: 1.5px solid rgba(255, 255, 255, .85);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
 }
-.botao.favoritar[aria-pressed=true] { border-color: #e8b923; color: #ffd65a; }
-@media (prefers-color-scheme: light) { .botao.favoritar[aria-pressed=true] { color: #8a6500; } }
+.botao.favoritar[aria-pressed=true] { border-color: #8b5cf6; color: #c4a5ff; }
+@media (prefers-color-scheme: light) { .botao.favoritar[aria-pressed=true] { color: #6d28d9; } }
+
+/* passar o mouse na capa: ela sobe um pouco; a do favorito tambem acende o brilho e passa o reflexo */
+a.capa { transition: transform .2s ease, box-shadow .2s ease; }
+a.capa:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0, 0, 0, .28); }
+a.capa.favorita:hover {
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--roxo) 60%, transparent), 0 10px 30px color-mix(in srgb, var(--roxo) 60%, transparent);
+}
+a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-out 1; }
+@keyframes reflexo-de-favorito-rapido {
+    from { background-position: 130% 0; }
+    to { background-position: -40% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    a.capa, .capa img { transition: none; }
+    a.capa:hover { transform: none; }
+    .capa.favorita::after { animation: none; }
+}
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 select.seletor-de-nota { width: auto; }
 .faixa-da-nota:empty { display: none; }
