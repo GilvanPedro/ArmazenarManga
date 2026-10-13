@@ -1,0 +1,7 @@
+package br.com.seuapp.mangatracker.domain.exceptions;
+
+public class InvalidRatingException extends RuntimeException {
+    public InvalidRatingException(String message) {
+        super(message);
+    }
+}

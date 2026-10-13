@@ -15,6 +15,8 @@ Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) 
 | `GET` | `/api/mangas/{id}` | Um mangá |
 | `PUT` | `/api/mangas/{id}` | Edição geral (substitui todos os campos do formulário) |
 | `PATCH` | `/api/mangas/{id}/progresso` | Altera só o último capítulo e/ou o status |
+| `PUT` | `/api/mangas/{id}/nota` | Dá, troca ou tira a nota: `{"rating": 8}` ou `{"rating": null}` |
+| `PUT` | `/api/mangas/{id}/favorito` | Marca ou desmarca como favorito: `{"favorite": true}` ou `{"favorite": false}` |
 | `DELETE` | `/api/mangas/{id}` | Exclui o mangá e a capa enviada, se nenhum outro a usa |
 
 ### Listar: `GET /api/mangas`
@@ -24,7 +26,7 @@ Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) 
 | `titulo` | Parte do nome, sem diferenciar maiúsculas nem acentos |
 | `status` | Um dos status |
 | `tag` | Nome exato de uma tag |
-| `ordem` | `CADASTRO` (padrão), `RECENTES`, `TITULO`, `TITULO_DESC`, `MAIS_CAPITULOS`, `MENOS_CAPITULOS` |
+| `ordem` | `CADASTRO` (padrão), `RECENTES`, `TITULO`, `TITULO_DESC`, `MAIS_CAPITULOS`, `MENOS_CAPITULOS`, `MELHORES_NOTAS`, `PIORES_NOTAS` (sem nota fica no fim nas duas), `FAVORITOS` |
 | `pagina` | Com ele, a resposta vira uma página; sem ele, a lista inteira |
 | `tamanho` | Itens por página (padrão 24, máximo 100) |
 
@@ -48,6 +50,7 @@ Uma página além do fim devolve a última.
   "lastChapter": 48.5,
   "readingStatus": "LENDO",
   "releaseDay": "QUARTA",
+  "rating": 8,
   "description": "Texto livre"
 }
 ```

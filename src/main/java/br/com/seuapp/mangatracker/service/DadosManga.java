@@ -17,10 +17,17 @@ public record DadosManga(
         BigDecimal lastChapter,
         ReadingStatus readingStatus,
         String description,
-        WeekDay releaseDay
+        WeekDay releaseDay,
+        /** Nota de 0 a 10; null = sem nota. */
+        Integer rating
 ) {
-    /** Sem dia de lancamento. */
+    /** Sem nota. */
+    public DadosManga(String title, String imagePath, List<String> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description, WeekDay releaseDay) {
+        this(title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description, releaseDay, null);
+    }
+
+    /** Sem dia de lancamento e sem nota. */
     public DadosManga(String title, String imagePath, List<String> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
-        this(title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description, null);
+        this(title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description, null, null);
     }
 }

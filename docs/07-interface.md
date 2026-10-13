@@ -19,7 +19,7 @@ biblioteca nem etapa de build: o que está no repositório é o que o navegador 
 
 A página principal. Em cima: busca por nome, seletor de ordem e botão Sortear. Abaixo, os filtros de status.
 
-Cada cartão tem a capa com o status, o nome centralizado e dois botões da largura da capa: o do capítulo atual
+Cada cartão tem a capa com o status (em cima, à esquerda) e a nota (embaixo, à direita, quando há), além da borda dourada e da estrela quando é favorito, o nome centralizado e dois botões da largura da capa: o do capítulo atual
 (abre o diálogo de progresso) e o **Ler**. Para mangás concluídos, o Ler pergunta entre ler novamente e abrir o
 último capítulo.
 
@@ -43,7 +43,8 @@ e quais tags a fonte não tem.
 
 ### Página do mangá (`#/manga/{id}`)
 
-Capa, título, status, último capítulo, dia de lançamento, tags clicáveis e descrição. Botões: Ler, Alterar
+Capa, título, status, último capítulo, dia de lançamento, nota (um seletor que salva na hora), tags clicáveis e
+descrição. O botão "☆ Favoritar" marca e desmarca o favorito. Botões: Ler, Alterar
 capítulo, Edição geral, Verificar link e Excluir.
 
 Abaixo vêm duas seções, carregadas depois do resto para não atrasar a página:
@@ -56,7 +57,7 @@ Clicar em uma tag leva à lista filtrada por ela.
 ### Cadastro e edição geral (`#/novo`, `#/editar/{id}`)
 
 O formulário completo: capa (arquivo ou link, com prévia), título, link do capítulo, último capítulo, formato de
-",5", status, dia de lançamento, tags e descrição.
+",5", status, dia de lançamento, nota, tags e descrição.
 
 - Embaixo do link aparece um exemplo de como ficam o link do último capítulo e o do próximo.
 - O dia de lançamento só fica habilitado com o status Lendo.

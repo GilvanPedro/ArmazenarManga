@@ -232,17 +232,42 @@ function mostrarCapitulo(numero) {
     return String(numero).replace('.', ',');
 }
 
+/** Em que faixa a nota cai: 0 a 4 ruim, 5 a 7 medio, 8 e 9 bom, 10 muito bom. */
+function faixaDaNota(nota) {
+    if (nota >= 10) return {classe: 'muito-bom', nome: 'Muito bom'};
+    if (nota >= 8) return {classe: 'bom', nome: 'Bom'};
+    if (nota >= 5) return {classe: 'medio', nome: 'Médio'};
+    return {classe: 'ruim', nome: 'Ruim'};
+}
+
+/** Selo da nota: fundo preto, numero branco e, na esquerda, a bolinha com a cor da faixa. Sem nota, nao ha selo. */
+function etiquetaNota(nota, comNome) {
+    if (nota == null) return null;
+    const faixa = faixaDaNota(nota);
+    return h('span', {class: 'nota nota-' + faixa.classe, title: 'Nota ' + nota + ' de 10 · ' + faixa.nome},
+        h('span', {class: 'so-leitor'}, 'Nota '), String(nota), comNome ? ' · ' + faixa.nome : h('span', {class: 'so-leitor'}, ', ' + faixa.nome));
+}
+
+/** Opcoes do seletor de nota: sem nota e de 10 a 0, cada uma com o nome da faixa. */
+function seletorDeNota(nota) {
+    const opcoes = [{valor: '', descricao: 'Sem nota'}];
+    for (let n = 10; n >= 0; n--) opcoes.push({valor: String(n), descricao: n + ' · ' + faixaDaNota(n).nome});
+    return seletor(opcoes, nota == null ? '' : String(nota));
+}
+
 function capa(manga, comoLink) {
-    const atributos = {class: 'capa'};
+    // favorito: borda dourada e estrela no canto, em toda capa do manga
+    const atributos = {class: 'capa' + (manga.favorite ? ' favorita' : '')};
     if (comoLink) {
         atributos.href = '#/manga/' + manga.id;
-        atributos['aria-label'] = manga.title;
+        atributos['aria-label'] = manga.title + (manga.favorite ? ' (favorito)' : '');
     }
     const img = h('img', {src: manga.imageUrl, alt: comoLink ? '' : 'Capa de ' + manga.title, loading: 'lazy'});
     img.addEventListener('error', () => {
         img.replaceWith(h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (manga.title || '?').trim().charAt(0).toUpperCase()));
     });
-    return h(comoLink ? 'a' : 'div', atributos, img, comoLink ? etiquetaStatus(manga.readingStatus) : null);
+    return h(comoLink ? 'a' : 'div', atributos, img, comoLink ? etiquetaStatus(manga.readingStatus) : null, etiquetaNota(manga.rating),
+        manga.favorite ? h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★') : null);
 }
 
 function linkExterno(classe, endereco, titulo, texto) {
@@ -693,6 +718,56 @@ async function telaDetalhes(id, aviso) {
     const semelhantes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
     const recomendacoes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
 
+    // a nota muda aqui mesmo, sem abrir a edicao
+    const nota = seletorDeNota(manga.rating);
+    nota.className = 'seletor-de-nota';
+    nota.setAttribute('aria-label', 'Minha nota');
+    const faixa = h('span', {class: 'faixa-da-nota'}, etiquetaNota(manga.rating, true));
+    nota.addEventListener('change', async () => {
+        nota.disabled = true;
+        try {
+            const salvo = await chamar('PUT', '/api/mangas/' + manga.id + '/nota', {rating: nota.value === '' ? null : Number(nota.value)});
+            manga.rating = salvo.rating;
+            faixa.replaceChildren(...[etiquetaNota(manga.rating, true)].filter(Boolean));
+            const naCapa = app.querySelector('.detalhes > .capa');
+            if (naCapa) {
+                naCapa.querySelectorAll('.nota').forEach(selo => selo.remove());
+                const selo = etiquetaNota(manga.rating);
+                if (selo) naCapa.append(selo);
+            }
+            avisar(manga.rating == null ? 'Nota removida' : 'Nota salva');
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        nota.value = manga.rating == null ? '' : String(manga.rating);
+        nota.disabled = false;
+    });
+
+    // favoritar tambem acontece aqui mesmo, sem abrir a edicao
+    const favoritar = h('button', {type: 'button', class: 'botao favoritar'});
+    const mostrarFavorito = () => {
+        favoritar.setAttribute('aria-pressed', String(manga.favorite));
+        favoritar.textContent = manga.favorite ? '★ Favorito' : '☆ Favoritar';
+        favoritar.title = manga.favorite ? 'Tirar dos favoritos' : 'Marcar como favorito: ele aparece destacado na lista';
+        const naCapa = app.querySelector('.detalhes > .capa');
+        if (!naCapa) return;
+        naCapa.classList.toggle('favorita', manga.favorite);
+        naCapa.querySelectorAll('.estrela-de-favorito').forEach(estrela => estrela.remove());
+        if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'));
+    };
+    favoritar.addEventListener('click', async () => {
+        favoritar.disabled = true;
+        try {
+            manga.favorite = (await chamar('PUT', '/api/mangas/' + manga.id + '/favorito', {favorite: !manga.favorite})).favorite;
+            avisar(manga.favorite ? 'Marcado como favorito' : 'Tirado dos favoritos');
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        mostrarFavorito();
+        favoritar.disabled = false;
+    });
+    mostrarFavorito();
+
     app.replaceChildren(h('div', null,
         h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
         avisoDeLeitura(manga, aviso),
@@ -711,6 +786,7 @@ async function telaDetalhes(id, aviso) {
                     manga.releaseDay
                         ? h('span', {class: 'capitulo-atual'}, '· Capítulo novo: ', h('b', null, descricaoDia(manga.releaseDay)))
                         : null),
+                h('div', {class: 'linha'}, h('span', {class: 'capitulo-atual'}, 'Minha nota:'), nota, faixa),
                 manga.tags.length
                     ? h('div', {class: 'linha'}, manga.tags.map(tag => h('a', {
                         class: 'tag',
@@ -720,7 +796,8 @@ async function telaDetalhes(id, aviso) {
                     : null,
                 h('div', {class: 'linha'},
                     botaoLer(manga),
-                    h('button', {type: 'button', class: 'botao', onclick: () => abrirDialogoProgresso(manga)}, 'Alterar capítulo')),
+                    h('button', {type: 'button', class: 'botao', onclick: () => abrirDialogoProgresso(manga)}, 'Alterar capítulo'),
+                    favoritar),
                 manga.description
                     ? h('p', {class: 'descricao'}, manga.description)
                     : h('p', {class: 'descricao sem'}, 'Sem descrição.'),
@@ -1325,6 +1402,7 @@ async function telaFormulario(id, consulta) {
     const capitulo = h('input', {type: 'text', inputmode: 'decimal', required: true, autocomplete: 'off', value: manga ? mostrarCapitulo(manga.lastChapter) : pronto && pronto.capitulo ? pronto.capitulo : '0'});
     const status = seletor(estado.status, manga ? manga.readingStatus : recomendado ? 'LER' : 'LENDO');
     const dia = seletor([{valor: '', descricao: 'Sem dia definido'}, ...estado.dias], manga && manga.releaseDay ? manga.releaseDay : '');
+    const nota = seletorDeNota(manga ? manga.rating : null);
     const avisoDia = h('small');
     // o dia de lancamento so existe para o que estou lendo
     const ajustarDia = () => {
@@ -1413,6 +1491,8 @@ async function telaFormulario(id, consulta) {
             h('div', {class: 'dupla'},
                 h('label', {class: 'campo'}, h('span', null, 'Status'), status),
                 h('label', {class: 'campo'}, h('span', null, 'Dia de lançamento'), dia, avisoDia)),
+            h('label', {class: 'campo'}, h('span', null, 'Minha nota'), nota,
+                h('small', null, 'De 0 a 10. Aparece na capa do mangá; pode ficar sem nota.')),
             h('div', {class: 'campo'}, h('label', {for: 'campo-tags'}, 'Tags'), tags.elemento,
                 h('small', null, 'Escolha das que já existem ou digite uma nova e aperte Enter. Em inglês, para combinar com as sugeridas.')),
             h('div', {class: 'campo'},
@@ -1458,6 +1538,7 @@ async function telaFormulario(id, consulta) {
                 lastChapter: numero,
                 readingStatus: status.value,
                 releaseDay: dia.value || null,
+                rating: nota.value === '' ? null : Number(nota.value),
                 description: descricao.value,
             };
             const salvo = manga

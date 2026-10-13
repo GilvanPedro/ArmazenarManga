@@ -471,7 +471,7 @@ class ApiServerTest {
         assertEquals(400, enviar("GET", "/api/mangas?ordem=ALEATORIA", null).statusCode());
 
         JsonNode ordens = json(enviar("GET", "/api/ordens-da-lista", null));
-        assertEquals(6, ordens.size());
+        assertEquals(9, ordens.size());
         assertEquals("CADASTRO", ordens.get(0).get("valor").asText());
         assertEquals("Título (A–Z)", ordens.get(2).get("descricao").asText());
     }
@@ -727,6 +727,75 @@ class ApiServerTest {
         }
         assertEquals(404, enviar("POST", "/api/mangas/" + UUID.randomUUID() + "/capitulo-lido", "{\"lastChapter\": 8, \"lastChapterUrl\": \"" + comix + "x\"}").statusCode());
         assertEquals("9", json(enviar("GET", "/api/mangas/" + id, null)).get("lastChapter").asText());
+    }
+
+    // ------------------------------------------------------------------ nota
+
+    @Test
+    void daTrocaETiraANota() throws Exception {
+        HttpResponse<String> criado = enviar("POST", "/api/mangas", manga("Com nota", "1", "LENDO").replace("\"description\"", "\"rating\": 8, \"description\""));
+        assertEquals(201, criado.statusCode(), criado.body());
+        assertEquals(8, json(criado).get("rating").asInt());
+        String id = json(criado).get("id").asText();
+        assertTrue(json(enviar("POST", "/api/mangas", manga("Sem nota", "1", "LENDO"))).get("rating").isNull());
+
+        HttpResponse<String> dez = enviar("PUT", "/api/mangas/" + id + "/nota", "{\"rating\": 10}");
+        assertEquals(200, dez.statusCode(), dez.body());
+        assertEquals(10, json(dez).get("rating").asInt());
+        assertEquals(0, json(enviar("PUT", "/api/mangas/" + id + "/nota", "{\"rating\": 0}")).get("rating").asInt());
+        // avancar o capitulo nao mexe na nota
+        assertEquals(0, json(enviar("PATCH", "/api/mangas/" + id + "/progresso", "{\"lastChapter\": 2}")).get("rating").asInt());
+
+        for (String invalida : List.of("11", "-1", "7.5", "\"oito\"")) {
+            HttpResponse<String> recusa = enviar("PUT", "/api/mangas/" + id + "/nota", "{\"rating\": " + invalida + "}");
+            assertEquals(400, recusa.statusCode(), invalida + " -> " + recusa.body());
+        }
+        assertEquals("A nota precisa ser um número inteiro de 0 a 10", json(enviar("PUT", "/api/mangas/" + id + "/nota", "{\"rating\": 11}")).get("mensagem").asText());
+        assertEquals(400, enviar("POST", "/api/mangas", manga("Nota demais", "1", "LENDO").replace("\"description\"", "\"rating\": 42, \"description\"")).statusCode());
+        assertEquals(0, json(enviar("GET", "/api/mangas/" + id, null)).get("rating").asInt());
+
+        assertTrue(json(enviar("PUT", "/api/mangas/" + id + "/nota", "{\"rating\": null}")).get("rating").isNull());
+        assertEquals(404, enviar("PUT", "/api/mangas/" + java.util.UUID.randomUUID() + "/nota", "{\"rating\": 5}").statusCode());
+    }
+
+    // ------------------------------------------------------------------ favorito e ordem pela nota
+
+    private String cadastrarComNota(String titulo, String nota) throws Exception {
+        HttpResponse<String> criado = enviar("POST", "/api/mangas", manga(titulo, "1", "LENDO").replace("\"description\"", "\"rating\": " + nota + ", \"description\""));
+        assertEquals(201, criado.statusCode(), criado.body());
+        assertFalse(json(criado).get("favorite").asBoolean());
+        return json(criado).get("id").asText();
+    }
+
+    @Test
+    void ordenaPelasNotasEPelosFavoritos() throws Exception {
+        cadastrarComNota("Médio", "6");
+        String semNota = cadastrarComNota("Sem nota", "null");
+        cadastrarComNota("Zero", "0");
+        String dez = cadastrarComNota("Dez", "10");
+        cadastrarComNota("Também seis", "6");
+
+        // quem nao tem nota fica no fim nas duas ordens; empate em ordem alfabetica
+        assertEquals(List.of("Dez", "Médio", "Também seis", "Zero", "Sem nota"), titulos("/api/mangas?ordem=MELHORES_NOTAS"));
+        assertEquals(List.of("Zero", "Médio", "Também seis", "Dez", "Sem nota"), titulos("/api/mangas?ordem=PIORES_NOTAS"));
+
+        HttpResponse<String> marcado = enviar("PUT", "/api/mangas/" + dez + "/favorito", "{\"favorite\": true}");
+        assertEquals(200, marcado.statusCode(), marcado.body());
+        assertTrue(json(marcado).get("favorite").asBoolean());
+        assertEquals(10, json(marcado).get("rating").asInt());
+        enviar("PUT", "/api/mangas/" + semNota + "/favorito", "{\"favorite\": true}");
+        // favoritos primeiro, o resto na ordem de cadastro
+        assertEquals(List.of("Sem nota", "Dez", "Médio", "Zero", "Também seis"), titulos("/api/mangas?ordem=FAVORITOS"));
+
+        // a edicao geral nao desmarca
+        HttpResponse<String> editado = enviar("PUT", "/api/mangas/" + dez, manga("Dez", "3", "LENDO"));
+        assertEquals(200, editado.statusCode(), editado.body());
+        assertTrue(json(editado).get("favorite").asBoolean());
+
+        assertFalse(json(enviar("PUT", "/api/mangas/" + dez + "/favorito", "{\"favorite\": false}")).get("favorite").asBoolean());
+        assertEquals(400, enviar("PUT", "/api/mangas/" + dez + "/favorito", "{}").statusCode());
+        assertEquals(400, enviar("PUT", "/api/mangas/" + dez + "/favorito", "{\"favorite\": \"sim\"}").statusCode());
+        assertEquals(404, enviar("PUT", "/api/mangas/" + java.util.UUID.randomUUID() + "/favorito", "{\"favorite\": true}").statusCode());
     }
 
     // ------------------------------------------------------------------ dia de lancamento

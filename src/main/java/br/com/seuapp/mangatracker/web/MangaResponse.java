@@ -31,7 +31,11 @@ record MangaResponse(
         /** Outros nomes da mesma obra ja descobertos (original, em outras linguas, apelidos); vazio se ainda nao foram buscados. */
         List<String> altTitles,
         /** true quando o link do proximo capitulo e um endereco exato ja encontrado no site, e nao so o modelo preenchido. */
-        boolean nextChapterLinkExact
+        boolean nextChapterLinkExact,
+        /** Nota de 0 a 10 dada pelo dono da lista; null = sem nota. */
+        Integer rating,
+        /** true quando o manga esta marcado como favorito. */
+        boolean favorite
 ) {
 
     static MangaResponse de(Manga manga) {
@@ -54,7 +58,9 @@ record MangaResponse(
                 manga.linkProximoCapitulo(),
                 // as marcas internas ("anilist:123") nao sao nomes
                 manga.getAltTitles() == null ? List.of() : manga.getAltTitles().stream().filter(nome -> !nome.startsWith("anilist:")).toList(),
-                manga.getNextChapterUrl() != null
+                manga.getNextChapterUrl() != null,
+                manga.getRating(),
+                manga.isFavorite()
         );
     }
 }

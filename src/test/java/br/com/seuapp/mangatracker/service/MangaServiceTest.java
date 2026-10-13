@@ -8,6 +8,7 @@ import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidImageException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidRatingException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
@@ -952,5 +953,88 @@ class MangaServiceTest {
         for (int i = 0; i < 50; i++) {
             assertEquals("C", service.sortearManga(ReadingStatus.LER).getTitle());
         }
+    }
+
+    // ------------------------------------------------------------------ nota
+
+    private static DadosManga comNota(String titulo, Integer nota) {
+        return new DadosManga(titulo, CAPA, null, LINK, null, BigDecimal.ONE, ReadingStatus.LENDO, "", WeekDay.QUARTA, nota);
+    }
+
+    @Test
+    void guardaANotaETiraQuandoPedido() {
+        Manga salvo = service.salvarManga(comNota("Solo Leveling", 8));
+        assertEquals(8, salvo.getRating());
+        assertEquals(8, new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(salvo.getId()).orElseThrow().getRating());
+
+        assertEquals(10, service.editarManga(salvo.getId(), comNota("Solo Leveling", 10)).getRating());
+        assertEquals(0, service.definirNota(salvo.getId(), 0).getRating(), "zero e uma nota, nao e falta de nota");
+        assertEquals(null, service.definirNota(salvo.getId(), null).getRating());
+        assertEquals(null, service.buscarPorId(salvo.getId()).getRating());
+        assertEquals(null, service.salvarManga(comNota("Sem nota", null)).getRating());
+    }
+
+    @Test
+    void recusaNotaForaDeZeroADez() {
+        Manga salvo = service.salvarManga(comNota("Solo Leveling", 7));
+
+        for (int nota : new int[]{-1, 11, 100}) {
+            assertThrows(InvalidRatingException.class, () -> service.salvarManga(comNota("Outro", nota)));
+            assertThrows(InvalidRatingException.class, () -> service.editarManga(salvo.getId(), comNota("Solo Leveling", nota)));
+            assertThrows(InvalidRatingException.class, () -> service.definirNota(salvo.getId(), nota));
+        }
+        assertEquals(7, service.buscarPorId(salvo.getId()).getRating());
+        assertEquals(1, service.listarMangas(null, null, null).size());
+    }
+
+    @Test
+    void aNotaContinuaQuandoOutrasCoisasMudam() {
+        Manga salvo = service.salvarManga(comNota("Solo Leveling", 9));
+        UUID id = salvo.getId();
+
+        assertEquals(9, service.atualizarProgresso(id, new BigDecimal("5"), null).getRating());
+        assertEquals(9, service.atualizarProgresso(id, null, ReadingStatus.CONCLUIDO).getRating());
+        assertEquals(9, service.registrarLeitura(id, new BigDecimal("6"), "https://site.com/manga/solo/capitulo-6", null).getRating());
+        service.definirNomesAlternativos(id, "Solo Leveling", List.of("Na Honjaman Level Up"));
+        Manga depois = service.buscarPorId(id);
+        assertEquals(9, depois.getRating());
+        assertEquals(List.of("Na Honjaman Level Up"), depois.getAltTitles());
+
+        // dar nota tambem nao mexe no resto
+        Manga comNota = service.definirNota(id, 4);
+        assertEquals(new BigDecimal("6"), comNota.getLastChapter());
+        assertEquals(ReadingStatus.CONCLUIDO, comNota.getReadingStatus());
+        assertEquals(depois.getLastChapterUrl(), comNota.getLastChapterUrl());
+        assertEquals(depois.getLastChapterAt(), comNota.getLastChapterAt());
+        assertEquals(List.of("Na Honjaman Level Up"), comNota.getAltTitles());
+
+        assertThrows(NotFoundException.class, () -> service.definirNota(UUID.randomUUID(), 5));
+    }
+
+    // ------------------------------------------------------------------ favorito
+
+    @Test
+    void marcaEDesmarcaComoFavoritoSemMexerNoResto() {
+        Manga salvo = service.salvarManga(comNota("Solo Leveling", 9));
+        UUID id = salvo.getId();
+        assertFalse(salvo.isFavorite());
+
+        Manga favorito = service.definirFavorito(id, true);
+        assertTrue(favorito.isFavorite());
+        assertEquals(9, favorito.getRating());
+        assertEquals(WeekDay.QUARTA, favorito.getReleaseDay());
+        assertTrue(new JsonMangaRepository(pasta.resolve("mangas.json")).buscarPorId(id).orElseThrow().isFavorite());
+
+        // continua favorito quando outras coisas mudam, inclusive na edicao geral
+        assertTrue(service.atualizarProgresso(id, new BigDecimal("5"), null).isFavorite());
+        assertTrue(service.definirNota(id, 10).isFavorite());
+        assertTrue(service.registrarLeitura(id, new BigDecimal("6"), "https://site.com/manga/solo/capitulo-6", null).isFavorite());
+        assertTrue(service.editarManga(id, comNota("Solo Leveling 2", 10)).isFavorite());
+        service.definirNomesAlternativos(id, "Solo Leveling 2", List.of("Outro nome"));
+        assertTrue(service.buscarPorId(id).isFavorite());
+
+        assertFalse(service.definirFavorito(id, false).isFavorite());
+        assertFalse(service.buscarPorId(id).isFavorite());
+        assertThrows(NotFoundException.class, () -> service.definirFavorito(UUID.randomUUID(), true));
     }
 }

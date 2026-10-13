@@ -164,6 +164,14 @@ function lerOpcao(valor, opcoes, campo) {
     return valor;
 }
 
+/** Nota de 0 a 10; null, ausente ou vazio = sem nota. */
+function lerNota(valor) {
+    if (valor === null || valor === undefined) return null;
+    if (typeof valor !== 'number' || !Number.isInteger(valor)) throw new Recusa(400, "Valor inválido no campo 'rating'");
+    if (valor < 0 || valor > 10) throw new Recusa(400, 'A nota precisa ser um número inteiro de 0 a 10');
+    return valor;
+}
+
 function lerTexto(valor, campo) {
     if (valor === null || valor === undefined) return null;
     if (typeof valor === 'number') return String(valor);
@@ -207,6 +215,7 @@ async function montarManga(id, dados) {
     const readingStatus = lerOpcao(dados.readingStatus, STATUS, 'readingStatus');
     const decimalFormat = lerOpcao(dados.decimalFormat, FORMATOS, 'decimalFormat') || 'HIFEN';
     const releaseDay = lerOpcao(dados.releaseDay, DIAS, 'releaseDay');
+    const rating = lerNota(dados.rating);
     const tags = montarTags(dados.tags, await listarTags());
 
     if (!title || title.trim() === '') throw new Recusa(400, 'O título é obrigatório');
@@ -243,6 +252,7 @@ async function montarManga(id, dados) {
         readingStatus,
         releaseDay,
         description: description === null ? '' : description.trim(),
+        rating,
     };
 }
 
@@ -283,6 +293,9 @@ function resposta(manga) {
         // outros nomes da mesma obra ja descobertos; as marcas internas ("anilist:123") nao sao nomes
         altTitles: (Array.isArray(manga.altTitles) ? manga.altTitles : []).filter(nome => typeof nome === 'string' && !nome.startsWith('anilist:')),
         nextChapterLinkExact: Boolean(manga.nextChapterUrl),
+        // nota de 0 a 10 dada pelo dono da lista; null = sem nota
+        rating: notaDe(manga),
+        favorite: manga.favorite === true,
     };
 }
 
@@ -356,7 +369,19 @@ const ORDENS_DA_LISTA = {
     // empate fica em ordem alfabetica
     MAIS_CAPITULOS: { descricao: 'Mais capítulos lidos', aplicar: mangas => [...mangas].sort((a, b) => b.lastChapter - a.lastChapter || porTitulo(a, b)) },
     MENOS_CAPITULOS: { descricao: 'Menos capítulos lidos', aplicar: mangas => [...mangas].sort((a, b) => a.lastChapter - b.lastChapter || porTitulo(a, b)) },
+    // quem nao tem nota fica sempre no fim, nas duas ordens
+    MELHORES_NOTAS: { descricao: 'Melhores notas', aplicar: mangas => [...mangas].sort((a, b) => semNota(a) - semNota(b) || notaDe(b) - notaDe(a) || porTitulo(a, b)) },
+    PIORES_NOTAS: { descricao: 'Piores notas', aplicar: mangas => [...mangas].sort((a, b) => semNota(a) - semNota(b) || notaDe(a) - notaDe(b) || porTitulo(a, b)) },
+    // os favoritos sobem e o resto continua na ordem de cadastro (a ordenacao e estavel)
+    FAVORITOS: { descricao: 'Favoritos primeiro', aplicar: mangas => [...mangas].sort((a, b) => (b.favorite === true) - (a.favorite === true)) },
 };
+
+/** Nota valida do manga guardado, ou null. */
+function notaDe(manga) {
+    return Number.isInteger(manga.rating) && manga.rating >= 0 && manga.rating <= 10 ? manga.rating : null;
+}
+
+const semNota = manga => (notaDe(manga) === null ? 1 : 0);
 
 function lerOrdem(url, ordens, padrao) {
     const ordem = (url.searchParams.get('ordem') || '').trim().toUpperCase();
@@ -625,6 +650,8 @@ async function rotear(request) {
             const editado = await montarManga(atual.id, await lerCorpo(request));
             // os outros nomes da obra continuam valendo enquanto o titulo for o mesmo; titulo novo, busca nova
             if (Array.isArray(atual.altTitles) && normalizar(atual.title) === normalizar(editado.title)) editado.altTitles = atual.altTitles;
+            // o favorito nao faz parte do formulario: editar o manga nao desmarca
+            editado.favorite = atual.favorite === true;
             anotarLeitura(atual, editado);
             await salvar(editado);
             if (atual.imagePath !== editado.imagePath) await excluirImagemSemUso(atual.imagePath);
@@ -635,6 +662,22 @@ async function rotear(request) {
             await (await banco()).query('DELETE FROM mangas WHERE id = $1', [manga.id]);
             await excluirImagemSemUso(manga.imagePath);
             return new Response(null, { status: 204 });
+        }
+        // da, troca ou tira (null) a nota, sem mexer no resto
+        if (partes.length === 3 && acao === 'nota' && metodo === 'PUT') {
+            const atual = await buscarPorId(id);
+            const atualizado = { ...atual, rating: lerNota((await lerCorpo(request)).rating) };
+            await salvar(atualizado);
+            return json(200, resposta(atualizado));
+        }
+        // marca ou desmarca como favorito, sem mexer no resto
+        if (partes.length === 3 && acao === 'favorito' && metodo === 'PUT') {
+            const atual = await buscarPorId(id);
+            const { favorite } = await lerCorpo(request);
+            if (typeof favorite !== 'boolean') throw new Recusa(400, "Informe 'favorite' como true ou false");
+            const atualizado = { ...atual, favorite };
+            await salvar(atualizado);
+            return json(200, resposta(atualizado));
         }
         if (partes.length === 3 && acao === 'progresso' && metodo === 'PATCH') {
             let atual = await buscarPorId(id);

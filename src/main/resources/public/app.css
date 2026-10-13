@@ -262,6 +262,54 @@ a.capa:hover img { transform: scale(1.035); }
 }
 .status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .capa .status { position: absolute; top: 8px; left: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
+/* nota do manga: selo preto com o numero em branco e a bolinha da faixa na esquerda, como o selo de status */
+.nota {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+    background: #000;
+    white-space: nowrap;
+}
+.nota::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faixa); }
+.capa .nota { position: absolute; right: 8px; bottom: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, .3); }
+/* cores fixas: o fundo do selo e sempre preto, no tema claro e no escuro */
+.nota-ruim { --faixa: #ff5c5c; }
+.nota-medio { --faixa: #f5b942; }
+.nota-bom { --faixa: #3ecf8e; }
+.nota-muito-bom { --faixa: #4db8ff; }
+.nota-muito-bom::before { box-shadow: 0 0 0 2px color-mix(in srgb, var(--faixa) 40%, transparent); }
+/* favorito: borda dourada com brilho e uma estrela no canto superior direito da capa */
+.capa.favorita {
+    --ouro: #e8b923;
+    border: 3px solid var(--ouro);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ouro) 55%, transparent), 0 0 18px color-mix(in srgb, var(--ouro) 50%, transparent);
+}
+.estrela-de-favorito {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    font-size: 15px;
+    line-height: 1;
+    color: #2a1d00;
+    background: linear-gradient(145deg, #ffe27a, #e8b923 55%, #b8860b);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+}
+.botao.favoritar[aria-pressed=true] { border-color: #e8b923; color: #ffd65a; }
+@media (prefers-color-scheme: light) { .botao.favoritar[aria-pressed=true] { color: #8a6500; } }
+.so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+select.seletor-de-nota { width: auto; }
+.faixa-da-nota:empty { display: none; }
 .status-LENDO { --cor: var(--lendo); }
 .status-LER { --cor: var(--ler); }
 .status-CONCLUIDO { --cor: var(--concluido); }

@@ -7,6 +7,7 @@ import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidImageException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidRatingException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
@@ -65,6 +66,8 @@ public class ApiServer {
     private final ObjectMapper mapper = JsonMapper.builder()
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+            // a nota e um numero inteiro: 7.5 e recusado em vez de virar 7 em silencio
+            .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .build();
 
     /**
@@ -111,6 +114,13 @@ public class ApiServer {
     private record ProgressoRequest(BigDecimal lastChapter, ReadingStatus readingStatus) {
     }
 
+    private record FavoritoRequest(Boolean favorite) {
+    }
+
+    /** rating null (ou ausente) tira a nota. */
+    private record NotaRequest(Integer rating) {
+    }
+
     public Javalin criar() {
         return Javalin.create(config -> {
             config.startup.showJavalinBanner = false;
@@ -130,6 +140,8 @@ public class ApiServer {
             config.routes.get("/api/mangas/{id}", this::buscar);
             config.routes.put("/api/mangas/{id}", this::editar);
             config.routes.patch("/api/mangas/{id}/progresso", this::atualizarProgresso);
+            config.routes.put("/api/mangas/{id}/nota", this::definirNota);
+            config.routes.put("/api/mangas/{id}/favorito", this::definirFavorito);
             config.routes.delete("/api/mangas/{id}", this::excluir);
             config.routes.get("/api/mangas/{id}/ler", this::ler);
             config.routes.post("/api/mangas/{id}/verificacao-link", this::verificarLink);
@@ -156,6 +168,7 @@ public class ApiServer {
             config.routes.exception(InvalidLinkException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidChapterException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidReleaseDayException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
+            config.routes.exception(InvalidRatingException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidImageException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(RequisicaoInvalidaException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(NotFoundException.class, (e, ctx) -> erro(ctx, HttpStatus.NOT_FOUND, e.getMessage()));
@@ -229,7 +242,10 @@ public class ApiServer {
         TITULO("Título (A–Z)"),
         TITULO_DESC("Título (Z–A)"),
         MAIS_CAPITULOS("Mais capítulos lidos"),
-        MENOS_CAPITULOS("Menos capítulos lidos");
+        MENOS_CAPITULOS("Menos capítulos lidos"),
+        MELHORES_NOTAS("Melhores notas"),
+        PIORES_NOTAS("Piores notas"),
+        FAVORITOS("Favoritos primeiro");
 
         private final String descricao;
 
@@ -248,6 +264,11 @@ public class ApiServer {
                 // empate fica em ordem alfabetica
                 case MAIS_CAPITULOS -> mangas.sort(Comparator.comparing(Manga::getLastChapter).reversed().thenComparing(porTitulo));
                 case MENOS_CAPITULOS -> mangas.sort(Comparator.comparing(Manga::getLastChapter).thenComparing(porTitulo));
+                // quem nao tem nota fica sempre no fim, nas duas ordens
+                case MELHORES_NOTAS -> mangas.sort(Comparator.comparing(Manga::getRating, Comparator.nullsLast(Comparator.<Integer>reverseOrder())).thenComparing(porTitulo));
+                case PIORES_NOTAS -> mangas.sort(Comparator.comparing(Manga::getRating, Comparator.nullsLast(Comparator.<Integer>naturalOrder())).thenComparing(porTitulo));
+                // os favoritos sobem e o resto continua na ordem de cadastro (a ordenacao e estavel)
+                case FAVORITOS -> mangas.sort(Comparator.comparing(manga -> !manga.isFavorite()));
             }
         }
 
@@ -441,6 +462,20 @@ public class ApiServer {
         ProgressoRequest progresso = lerCorpo(ctx, ProgressoRequest.class);
         json(ctx, HttpStatus.OK, MangaResponse.de(
                 mangaService.atualizarProgresso(id, progresso.lastChapter(), progresso.readingStatus())));
+    }
+
+    private void definirNota(Context ctx) throws JsonProcessingException {
+        UUID id = lerId(ctx);
+        json(ctx, HttpStatus.OK, MangaResponse.de(mangaService.definirNota(id, lerCorpo(ctx, NotaRequest.class).rating())));
+    }
+
+    private void definirFavorito(Context ctx) throws JsonProcessingException {
+        UUID id = lerId(ctx);
+        Boolean favorite = lerCorpo(ctx, FavoritoRequest.class).favorite();
+        if (favorite == null) {
+            throw new RequisicaoInvalidaException("Informe 'favorite' como true ou false");
+        }
+        json(ctx, HttpStatus.OK, MangaResponse.de(mangaService.definirFavorito(id, favorite)));
     }
 
     private void excluir(Context ctx) {

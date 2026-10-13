@@ -18,6 +18,8 @@
 | `nextChapterUrl` | Endereço exato do próximo capítulo, quando já foi encontrado no site |
 | `altTitles` | Outros nomes da mesma obra, buscados na internet (ver abaixo) |
 | `lastChapterAt` | Data e hora em que o capítulo avançou pela última vez |
+| `rating` | Nota de 0 a 10 dada pelo dono; ausente ou `null` = sem nota (veja [Nota dos mangás](15-nota-dos-mangas.md)) |
+| `favorite` | `true` quando o mangá é favorito; ausente = não é (veja [Favoritos e ordem pela nota](16-favoritos-e-ordem-pela-nota.md)) |
 
 Os quatro últimos campos são preenchidos pelo próprio sistema e não aparecem no formulário.
 

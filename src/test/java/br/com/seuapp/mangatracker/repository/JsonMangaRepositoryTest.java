@@ -146,6 +146,22 @@ class JsonMangaRepositoryTest {
     }
 
     @Test
+    void guardaANota() throws IOException {
+        Manga manga = novoManga("Solo Leveling", "1");
+        new JsonMangaRepository(arquivo).salvar(manga);
+        assertEquals(null, new JsonMangaRepository(arquivo).buscarPorId(manga.getId()).orElseThrow().getRating());
+
+        manga.setRating(0);
+        new JsonMangaRepository(arquivo).salvar(manga);
+        assertEquals(0, new JsonMangaRepository(arquivo).buscarPorId(manga.getId()).orElseThrow().getRating());
+        assertTrue(Files.readString(arquivo).contains("\"rating\": 0"));
+
+        // nota estragada no arquivo: o manga abre, sem nota
+        Files.writeString(arquivo, Files.readString(arquivo).replace("\"rating\": 0", "\"rating\": 99"));
+        assertEquals(null, new JsonMangaRepository(arquivo).buscarPorId(manga.getId()).orElseThrow().getRating());
+    }
+
+    @Test
     void guardaODiaDeLancamento() throws IOException {
         Manga manga = novoManga("Solo Leveling", "1");
         manga.setReleaseDay(WeekDay.SABADO);

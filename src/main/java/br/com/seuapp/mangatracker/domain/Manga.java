@@ -29,6 +29,10 @@ public class Manga {
     private List<String> altTitles;
     /** Quando o ultimo capitulo lido avancou pela ultima vez; null se nunca avancou desde que isso passou a ser guardado. */
     private Instant lastChapterAt;
+    /** Nota que eu dei para a obra, de 0 a 10; null = ainda sem nota. */
+    private Integer rating;
+    /** Marcado como favorito: aparece destacado na lista. */
+    private boolean favorite;
 
     public Manga(String title, String imagePath, List<Tag> tags, String chapterLinkModel, ChapterDecimalFormat decimalFormat, BigDecimal lastChapter, ReadingStatus readingStatus, String description) {
         this(UUID.randomUUID(), title, imagePath, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, description);
@@ -141,6 +145,22 @@ public class Manga {
 
     public void setLastChapterAt(Instant lastChapterAt) {
         this.lastChapterAt = lastChapterAt;
+    }
+
+    public Integer getRating() {
+        return rating;
+    }
+
+    public void setRating(Integer rating) {
+        this.rating = rating;
+    }
+
+    public boolean isFavorite() {
+        return favorite;
+    }
+
+    public void setFavorite(boolean favorite) {
+        this.favorite = favorite;
     }
 
     public List<String> getAltTitles() {

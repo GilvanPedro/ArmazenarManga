@@ -20,7 +20,7 @@ import java.util.UUID;
  */
 @JsonPropertyOrder({
         "id", "title", "imagePath", "tags", "chapterLinkModel", "decimalFormat",
-        "lastChapter", "readingStatus", "releaseDay", "description", "lastChapterUrl", "nextChapterUrl", "altTitles", "lastChapterAt"
+        "lastChapter", "readingStatus", "releaseDay", "description", "lastChapterUrl", "nextChapterUrl", "altTitles", "lastChapterAt", "rating", "favorite"
 })
 record MangaJson(
         UUID id,
@@ -36,7 +36,9 @@ record MangaJson(
         String lastChapterUrl,
         String nextChapterUrl,
         List<String> altTitles,
-        String lastChapterAt
+        String lastChapterAt,
+        Integer rating,
+        Boolean favorite
 ) {
 
     static MangaJson de(Manga manga) {
@@ -54,7 +56,9 @@ record MangaJson(
                 manga.getLastChapterUrl(),
                 manga.getNextChapterUrl(),
                 manga.getAltTitles() == null ? null : List.copyOf(manga.getAltTitles()),
-                manga.getLastChapterAt() == null ? null : manga.getLastChapterAt().toString()
+                manga.getLastChapterAt() == null ? null : manga.getLastChapterAt().toString(),
+                manga.getRating(),
+                manga.isFavorite()
         );
     }
 
@@ -88,6 +92,9 @@ record MangaJson(
         manga.setNextChapterUrl(nextChapterUrl);
         manga.setAltTitles(altTitles == null ? null : List.copyOf(altTitles));
         manga.setLastChapterAt(lerInstante(lastChapterAt));
+        // uma nota estragada no arquivo nao impede de abrir a lista: so fica sem nota
+        manga.setRating(rating != null && rating >= 0 && rating <= 10 ? rating : null);
+        manga.setFavorite(Boolean.TRUE.equals(favorite)); // arquivo de antes de existir o favorito: nao e favorito
         return manga;
     }
 }

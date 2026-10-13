@@ -13,6 +13,9 @@ confere e corrige esse link quando o site muda o endereço.
 - **Botão Ler**, que abre o próximo capítulo no site salvo e confere o link antes.
 - **Marcar como lido** direto da página do capítulo, por uma extensão de navegador ou um favorito.
 - **Lançam hoje**: os mangás em leitura que lançam capítulo no dia e ainda não foram lidos.
+- **Nota** de 0 a 10 para cada mangá, mostrada na capa com um indicativo de ruim, médio, bom ou muito bom, e
+  ordenação pelas melhores ou piores notas.
+- **Favoritos**, destacados na lista com borda dourada e estrela.
 - **Cadastro pré-preenchido**, com nome, capa, tags e descrição em português buscados na internet.
 - **Recomendações** e uma aba para **descobrir** obras por nome, ordem, tags que você quer e tags que não
   quer (em quadros com pesquisa, que podem ser recolhidos), sem repetir o que já está na lista.
@@ -65,6 +68,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Hospedagem e configuração](docs/09-hospedagem.md) | [Testes](docs/10-testes.md) |
 | [Histórico](docs/11-historico.md) | [Próximos passos](docs/12-proximos-passos.md) |
 | [Filtro de tags no Descobrir](docs/13-filtro-de-tags-no-descobrir.md) | [Recolher as tags no Descobrir](docs/14-recolher-tags-no-descobrir.md) |
+| [Nota dos mangás](docs/15-nota-dos-mangas.md) | [Favoritos e ordem pela nota](docs/16-favoritos-e-ordem-pela-nota.md) |
 
 ## Testes
 

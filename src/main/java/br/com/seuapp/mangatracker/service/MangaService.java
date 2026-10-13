@@ -7,6 +7,7 @@ import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.Tag;
 import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidLinkException;
+import br.com.seuapp.mangatracker.domain.exceptions.InvalidRatingException;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidReleaseDayException;
 import br.com.seuapp.mangatracker.domain.exceptions.NotFoundException;
 import br.com.seuapp.mangatracker.domain.exceptions.NullInformationsException;
@@ -167,6 +168,8 @@ public class MangaService implements MangaServiceInterface{
         if (normalizar(atual.getTitle()).equals(normalizar(editado.getTitle()))) {
             editado.setAltTitles(atual.getAltTitles());
         }
+        // o favorito nao faz parte do formulario: editar o manga nao desmarca
+        editado.setFavorite(atual.isFavorite());
         anotarLeitura(atual, editado);
         repository.salvar(editado);
         if (!atual.getImagePath().equals(editado.getImagePath())) {
@@ -209,6 +212,8 @@ public class MangaService implements MangaServiceInterface{
         );
         // o dia de lancamento so vale enquanto o manga esta sendo lido
         atualizado.setReleaseDay(novoStatus == ReadingStatus.LENDO ? atual.getReleaseDay() : null);
+        atualizado.setRating(atual.getRating());
+        atualizado.setFavorite(atual.isFavorite());
         atualizado.setAltTitles(atual.getAltTitles());
         anotarLeitura(atual, atualizado);
         if (atualizado.getLastChapter().compareTo(atual.getLastChapter()) == 0) {
@@ -242,11 +247,46 @@ public class MangaService implements MangaServiceInterface{
                 modeloDoEndereco != null ? modeloDoEndereco : atual.getChapterLinkModel(),
                 atual.getDecimalFormat(), lastChapter, atual.getReadingStatus(), atual.getDescription());
         atualizado.setReleaseDay(atual.getReleaseDay());
+        atualizado.setRating(atual.getRating());
+        atualizado.setFavorite(atual.isFavorite());
         atualizado.setAltTitles(atual.getAltTitles());
         anotarLeitura(atual, atualizado);
         atualizado.setLastChapterUrl(lastChapterUrl.trim());
         // um "proximo" igual a pagina atual nao serve para nada
         atualizado.setNextChapterUrl(temProximo && !ChapterLink.mesmoEndereco(nextChapterUrl, lastChapterUrl) ? nextChapterUrl.trim() : null);
+        repository.salvar(atualizado);
+        return atualizado;
+    }
+
+    @Override
+    public synchronized Manga definirNota(UUID id, Integer rating) {
+        Manga atual = buscarPorId(id);
+        verificarNota(rating);
+        Manga atualizado = new Manga(atual.getId(), atual.getTitle(), atual.getImagePath(), atual.getTags(), atual.getChapterLinkModel(),
+                atual.getDecimalFormat(), atual.getLastChapter(), atual.getReadingStatus(), atual.getDescription());
+        atualizado.setReleaseDay(atual.getReleaseDay());
+        atualizado.setLastChapterUrl(atual.getLastChapterUrl());
+        atualizado.setNextChapterUrl(atual.getNextChapterUrl());
+        atualizado.setAltTitles(atual.getAltTitles());
+        atualizado.setLastChapterAt(atual.getLastChapterAt());
+        atualizado.setRating(rating);
+        atualizado.setFavorite(atual.isFavorite());
+        repository.salvar(atualizado);
+        return atualizado;
+    }
+
+    @Override
+    public synchronized Manga definirFavorito(UUID id, boolean favorite) {
+        Manga atual = buscarPorId(id);
+        Manga atualizado = new Manga(atual.getId(), atual.getTitle(), atual.getImagePath(), atual.getTags(), atual.getChapterLinkModel(),
+                atual.getDecimalFormat(), atual.getLastChapter(), atual.getReadingStatus(), atual.getDescription());
+        atualizado.setReleaseDay(atual.getReleaseDay());
+        atualizado.setLastChapterUrl(atual.getLastChapterUrl());
+        atualizado.setNextChapterUrl(atual.getNextChapterUrl());
+        atualizado.setAltTitles(atual.getAltTitles());
+        atualizado.setLastChapterAt(atual.getLastChapterAt());
+        atualizado.setRating(atual.getRating());
+        atualizado.setFavorite(favorite);
         repository.salvar(atualizado);
         return atualizado;
     }
@@ -266,6 +306,8 @@ public class MangaService implements MangaServiceInterface{
         Manga atualizado = new Manga(manga.getId(), manga.getTitle(), manga.getImagePath(), manga.getTags(), manga.getChapterLinkModel(),
                 manga.getDecimalFormat(), manga.getLastChapter(), manga.getReadingStatus(), manga.getDescription());
         atualizado.setReleaseDay(manga.getReleaseDay());
+        atualizado.setRating(manga.getRating());
+        atualizado.setFavorite(manga.isFavorite());
         atualizado.setLastChapterUrl(manga.getLastChapterUrl());
         atualizado.setNextChapterUrl(manga.getNextChapterUrl());
         atualizado.setAltTitles(nomes == null ? List.of() : List.copyOf(nomes));
@@ -293,6 +335,8 @@ public class MangaService implements MangaServiceInterface{
                         verificacao.chapterLinkModel(), manga.getDecimalFormat(), manga.getLastChapter(),
                         manga.getReadingStatus(), manga.getDescription());
                 corrigido.setReleaseDay(manga.getReleaseDay());
+                corrigido.setRating(manga.getRating());
+                corrigido.setFavorite(manga.isFavorite());
                 corrigido.setAltTitles(manga.getAltTitles());
                 corrigido.setLastChapterAt(manga.getLastChapterAt());
                 corrigido.setLastChapterUrl(manga.getLastChapterUrl());
@@ -368,7 +412,15 @@ public class MangaService implements MangaServiceInterface{
                 dados.description() == null ? "" : dados.description().trim()
         );
         manga.setReleaseDay(dados.releaseDay());
+        manga.setRating(verificarNota(dados.rating()));
         return manga;
+    }
+
+    private static Integer verificarNota(Integer rating) {
+        if (rating != null && (rating < 0 || rating > 10)) {
+            throw new InvalidRatingException("A nota precisa ser um número inteiro de 0 a 10");
+        }
+        return rating;
     }
 
     /** Tira espacos, vazios e repetidos (sem diferenciar maiusculas). */

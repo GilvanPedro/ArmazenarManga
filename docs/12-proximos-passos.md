@@ -43,7 +43,8 @@ se perde em sites com id por capítulo.
 - Ver os lançamentos de outros dias da semana, e não só de hoje.
 
 ### Lista
-- Nota e comentário pessoal por mangá.
+- Comentário pessoal por mangá.
+- Filtrar a lista por faixa de nota ou só pelos favoritos, e favoritar direto do cartão.
 - Ordenar por data da última leitura.
 - Filtrar por várias tags ao mesmo tempo na página principal.
 - Importar e exportar a lista, e importar de MyAnimeList ou AniList.

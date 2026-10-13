@@ -24,6 +24,10 @@ public interface MangaServiceInterface {
     List<Manga> listarSemelhantes(UUID id);
     void excluirManga(UUID id);
     Manga editarManga(UUID id, DadosManga dados);
+    /** Da, troca ou tira (null) a nota do manga, de 0 a 10, sem mexer no resto. */
+    Manga definirNota(UUID id, Integer rating);
+    /** Marca ou desmarca o manga como favorito, sem mexer no resto. */
+    Manga definirFavorito(UUID id, boolean favorite);
     /** Altera so o ultimo capitulo lido e/ou o status (null = mantem o atual). Sair de LENDO apaga o dia de lancamento. */
     Manga atualizarProgresso(UUID id, BigDecimal lastChapter, ReadingStatus readingStatus);
     /**

@@ -81,6 +81,11 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   tags pedidas e outro para as excluídas. Detalhes em [Filtro de tags no Descobrir](13-filtro-de-tags-no-descobrir.md).
   Depois os quadros ganharam um botão para recolher a lista, descrito em
   [Recolher as tags no Descobrir](14-recolher-tags-no-descobrir.md).
+- **Nota dos mangás.** Cada mangá passou a poder ter uma nota de 0 a 10, mostrada em um selo na capa. Detalhes
+  em [Nota dos mangás](15-nota-dos-mangas.md).
+- **Favoritos e ordem pela nota.** Um mangá pode ser marcado como favorito e aparece com borda dourada e
+  estrela; a lista ganhou as ordens por melhores notas, piores notas e favoritos primeiro. Detalhes em
+  [Favoritos e ordem pela nota](16-favoritos-e-ordem-pela-nota.md).
 
 ## O que foi removido ou abandonado
 
