@@ -175,10 +175,10 @@ public class PostgresMangaRepository implements MangaRepository {
             condicoes.add("strpos(titulo_busca, ?) > 0");
             valores.add(busca);
         }
-        String tag = ConsultaDeMangas.normalizar(consulta.tag());
-        if (!tag.isEmpty()) {
-            condicoes.add("tags_busca @> ARRAY[?]::text[]");
-            valores.add(tag);
+        if (!consulta.tags().isEmpty()) {
+            // o manga precisa ter todas as tags pedidas
+            condicoes.add("tags_busca @> ?::text[]");
+            valores.add(consulta.tags().toArray(new String[0]));
         }
         return new Filtros(String.join(" AND ", condicoes), valores);
     }

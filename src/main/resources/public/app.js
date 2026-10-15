@@ -35,7 +35,8 @@ const estado = {
     extensao: false,   // a extensao de navegador esta instalada e liberada para este site
     busca: '',
     filtroStatus: '',
-    filtroTag: '',     // tag escolhida na pagina de um manga, para ver so quem tem ela
+    filtroTags: [],    // tags escolhidas na Biblioteca: so aparecem os mangas que tem todas
+    tagsDaBibliotecaAbertas: false, // a lista de tags do quadro da Biblioteca esta aberta
     sorteado: null,    // id do manga que acabou de sair no sorteio
     render: 0,         // descarta respostas de telas que ja foram trocadas
     sessao: null,      // {exigeLogin, logado, usuario, expiraEm} vindo de /api/sessao
@@ -571,31 +572,26 @@ function telaGrade() {
         carregarGrade(lista, paginacao);
     });
 
-    // filtro de tag, ao lado da ordem: as tags que estao em algum manga da Biblioteca, com quantos mangas tem cada uma.
-    // Clicar numa tag na pagina de um manga chega aqui com ela ja escolhida
-    const tag = h('select', {class: 'ordenar filtro-de-tag', 'aria-label': 'Filtrar por tag'},
-        h('option', {value: ''}, 'Todas as tags'));
-    if (estado.filtroTag) tag.append(h('option', {value: estado.filtroTag}, estado.filtroTag));
-    tag.value = estado.filtroTag;
-    tag.classList.toggle('ativo', Boolean(estado.filtroTag));
-    tag.addEventListener('change', () => {
-        estado.filtroTag = tag.value;
+    // quadro de tags, como o do Descobrir: so as tags que quero ver (o manga precisa ter todas). As tags sao as que
+    // estao em algum manga da Biblioteca. Clicar numa tag na pagina de um manga chega aqui com ela ja escolhida
+    const lugarDasTags = h('div', {class: 'tags-da-biblioteca'});
+    const quandoMudarTags = () => {
         estado.pagina = 1;
-        tag.classList.toggle('ativo', Boolean(tag.value));
-        // o endereco acompanha (#/tag/{nome}), sem recarregar a tela
-        history.replaceState(null, '', tag.value ? '#/tag/' + encodeURIComponent(tag.value) : '#/');
+        // o endereco acompanha (#/tag/{nome}/{nome}), sem recarregar a tela
+        history.replaceState(null, '', estado.filtroTags.length ? '#/tag/' + estado.filtroTags.map(encodeURIComponent).join('/') : '#/');
         carregarGrade(lista, paginacao);
-    });
+    };
     chamar('GET', '/api/tags').then(tags => {
-        const emUso = tags.filter(item => item.quantidade > 0);
-        tag.replaceChildren(h('option', {value: ''}, 'Todas as tags'),
-            ...emUso.map(item => h('option', {value: item.nome}, item.nome + ' (' + item.quantidade + ')')));
-        // uma tag escolhida que nao esta mais em uso continua aparecendo, para nao sumir do seletor
-        if (estado.filtroTag && !emUso.some(item => item.nome.toLowerCase() === estado.filtroTag.toLowerCase())) {
-            tag.append(h('option', {value: estado.filtroTag}, estado.filtroTag + ' (0)'));
-        }
-        const igual = emUso.find(item => item.nome.toLowerCase() === estado.filtroTag.toLowerCase());
-        tag.value = igual ? igual.nome : estado.filtroTag;
+        const emUso = tags.filter(item => item.quantidade > 0).map(item => item.nome);
+        // a mesma tag escrita de outro jeito (no endereco) vira o nome da lista
+        estado.filtroTags = estado.filtroTags.map(tag => emUso.find(nome => nome.toLowerCase() === tag.toLowerCase()) || tag);
+        const todas = [...emUso, ...estado.filtroTags.filter(tag => !emUso.includes(tag))];
+        if (todas.length === 0) return;
+        let quadro;
+        quadro = quadroDeTags('Tags que quero ver', 'biblioteca', todas, () => estado.filtroTags, lista => { estado.filtroTags = lista; }, () => [], '',
+            () => { quadro.desenhar(); quandoMudarTags(); },
+            {aberta: () => estado.tagsDaBibliotecaAbertas, mudar: aberta => { estado.tagsDaBibliotecaAbertas = aberta; quadro.desenhar(); }});
+        lugarDasTags.replaceChildren(quadro.elemento);
     }).catch(() => {});
 
     const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
@@ -624,9 +620,9 @@ function telaGrade() {
         h('div', {class: 'ferramentas'},
             busca,
             h('span', {class: 'espaco'}),
-            tag,
             ordenar,
             h('button', {type: 'button', class: 'botao', onclick: sortear}, '🎲 Sortear')),
+        lugarDasTags,
         filtros,
         lista,
         paginacao);
@@ -698,13 +694,14 @@ function pedirLista(ordem) {
 
 const semAcentos = texto => String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
 
-/** Os mesmos filtros que o servidor aplica: nome (sem diferenciar acentos), status e tag. */
+/** Os mesmos filtros que o servidor aplica: nome (sem diferenciar acentos), status e tags. */
 function filtrarLista(itens) {
     const busca = semAcentos(estado.busca);
-    const tag = semAcentos(estado.filtroTag);
+    const tags = estado.filtroTags.map(semAcentos);
     return itens.filter(manga => (!estado.filtroStatus || manga.readingStatus === estado.filtroStatus)
         && semAcentos(manga.title).includes(busca)
-        && (!tag || (manga.tags || []).some(outra => semAcentos(outra) === tag)));
+        // com varias tags escolhidas, o manga precisa ter todas
+        && tags.every(tag => (manga.tags || []).some(outra => semAcentos(outra) === tag)));
 }
 
 /**
@@ -750,11 +747,11 @@ async function carregarGrade(lista, paginacao) {
 // paginas ja vistas de contas grandes, pelo endereco: voltar a uma delas e instantaneo. Qualquer alteracao esvazia
 const paginasDoServidor = new Map();
 
-function enderecoDaPagina(pagina, ordem, {busca = '', status = '', tag = ''} = {}) {
+function enderecoDaPagina(pagina, ordem, {busca = '', status = '', tags = []} = {}) {
     const parametros = new URLSearchParams({resumo: '1', pagina: String(pagina), tamanho: String(TAMANHO_DA_PAGINA)});
     if (busca.trim()) parametros.set('titulo', busca.trim());
     if (status) parametros.set('status', status);
-    if (tag) parametros.set('tag', tag);
+    for (const tag of tags) parametros.append('tag', tag);
     if (ordem && ordem !== 'CADASTRO') parametros.set('ordem', ordem);
     return '/api/mangas?' + parametros;
 }
@@ -772,7 +769,7 @@ async function pedirPagina(endereco) {
  * (e e conferida por tras se tiver mais de 20 segundos); a proxima pagina e pedida antes, com o navegador parado.
  */
 async function carregarPaginaDoServidor(lista, paginacao, vez) {
-    const filtros = {busca: estado.busca, status: estado.filtroStatus, tag: estado.filtroTag};
+    const filtros = {busca: estado.busca, status: estado.filtroStatus, tags: estado.filtroTags};
     const endereco = enderecoDaPagina(estado.pagina, estado.ordem, filtros);
     const desenhar = resposta => {
         estado.pagina = resposta.pagina;
@@ -802,7 +799,7 @@ function adiantarPagina(endereco) {
  */
 function desenharGrade(lista, paginacao, todos, doServidor) {
     lista.classList.remove('recarregando');
-    const filtrando = Boolean(estado.busca.trim() || estado.filtroStatus || estado.filtroTag);
+    const filtrando = Boolean(estado.busca.trim() || estado.filtroStatus || estado.filtroTags.length);
     const encontrados = doServidor ? todos : filtrarLista(todos);
     const total = doServidor ? doServidor.total : encontrados.length;
     const paginas = doServidor ? doServidor.paginas : Math.max(1, Math.ceil(encontrados.length / TAMANHO_DA_PAGINA));
@@ -2329,6 +2326,7 @@ function rota() {
     const partes = caminho.split('/');
     document.title = 'Meus Mangás';
     marcarSecao(partes[0] === 'comunidade' ? 'comunidade' : partes[0] === 'conta' ? null : 'biblioteca');
+    clearInterval(estado.vigiaDoFeed);
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     estado.recarregar = null;
     // uma busca digitada logo antes de trocar de tela nao pode disparar depois e atrapalhar a tela nova
@@ -2337,7 +2335,7 @@ function rota() {
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;
     if (partes[0] === 'tag' && partes[1]) {
-        estado.filtroTag = decodeURIComponent(partes[1]);
+        estado.filtroTags = partes.slice(1).filter(Boolean).map(decodeURIComponent);
         estado.pagina = 1;
         return telaGrade();
     }
@@ -2447,7 +2445,7 @@ function esquecerDadosDaConta() {
     estado.ultimaPagina = null;
     estado.busca = '';
     estado.filtroStatus = '';
-    estado.filtroTag = '';
+    estado.filtroTags = [];
     estado.pagina = 1;
     estado.sorteado = null;
 }
@@ -2555,47 +2553,112 @@ async function telaComunidade(partes) {
     const aba = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': feed === nome ? 'page' : null,
         onclick: feed === nome ? evento => { evento.preventDefault(); recarregarAba(); } : null}, texto);
     const lista = h('div', {class: 'feed'});
+    // aparece quando chegam posts novos suficientes; quem decide atualizar e a pessoa
+    const avisoDeNovos = h('button', {type: 'button', class: 'posts-novos', hidden: true, onclick: () => {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        // abre de novo com os posts novos primeiro
+        estado.novosDesde = avisoDeNovos.dataset.desde;
+        telaComunidade(partes);
+    }});
     principal.append(
         h('h1', {class: 'so-leitor'}, 'Comunidade'),
         editorDePost(post => porNoFeed(lista, post)),
         h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
+        avisoDeNovos,
         lista);
     estado.recarregar = () => telaComunidade(partes);
-    await carregarFeed(lista, '/api/comunidade/posts?feed=' + feed, vez, feed === 'seguindo'
+    const novosDesde = estado.novosDesde;
+    estado.novosDesde = null;
+    const aberto = await carregarFeed(lista, 'feed=' + feed + (novosDesde ? '&novosDesde=' + encodeURIComponent(novosDesde) : ''), vez, feed === 'seguindo'
         ? vazio('Nada por aqui ainda', 'Os posts de quem você segue aparecem aqui. Siga leitores pela aba "Para você" ou pelas sugestões.')
         : vazio('A Comunidade está começando', 'Seja o primeiro a postar: conte o que está lendo ou compartilhe uma lista.'));
+    if (aberto) {
+        avisoDeNovos.dataset.desde = aberto.geradoEm;
+        vigiarPostsNovos(feed, aberto.geradoEm, avisoDeNovos, vez);
+    }
 }
 
-/** Uma pagina de posts por vez; a proxima vem ao chegar perto do fim (ou pelo botao). */
-async function carregarFeed(lista, endereco, vez, seVazio, pagina = 1) {
+const POSTS_NOVOS_PARA_AVISAR = 10;
+const INTERVALO_DOS_POSTS_NOVOS_MS = 45000;
+
+/**
+ * Enquanto o feed esta aberto (e a aba do navegador visivel), pergunta de tempos em tempos quantos posts novos
+ * entraram nele. Com 10 ou mais, mostra o aviso "N posts novos": a pessoa atualiza quando quiser, sem o feed pular
+ * enquanto ela le.
+ */
+function vigiarPostsNovos(feed, desde, aviso, vez) {
+    clearInterval(estado.vigiaDoFeed);
+    const perguntar = async () => {
+        if (vez !== estado.render) {
+            clearInterval(estado.vigiaDoFeed);
+            return;
+        }
+        if (document.hidden) return;
+        try {
+            const {novos} = await chamar('GET', '/api/comunidade/novidades?feed=' + feed + '&desde=' + encodeURIComponent(desde));
+            if (vez !== estado.render || novos < POSTS_NOVOS_PARA_AVISAR) return;
+            aviso.replaceChildren(h('span', {'aria-hidden': 'true'}, '↑ '), (novos >= 99 ? '99+' : String(novos)) + ' posts novos', h('b', null, ' · Atualizar'));
+            aviso.hidden = false;
+        } catch (e) {
+            // sem aviso desta vez
+        }
+    };
+    estado.vigiaDoFeed = setInterval(perguntar, INTERVALO_DOS_POSTS_NOVOS_MS);
+}
+
+/**
+ * Abre um feed: o servidor devolve a ordem dos posts (so os ids, ate 300) e os 20 primeiros. Os seguintes sao pedidos
+ * pelos ids, 20 por vez, ao chegar perto do fim: a ordem nao muda enquanto a pessoa rola, e nada se repete.
+ * Devolve {geradoEm} quando abriu.
+ */
+async function carregarFeed(lista, consulta, vez, seVazio) {
     let resposta;
     try {
-        resposta = await chamar('GET', endereco + (endereco.includes('?') ? '&' : '?') + 'pagina=' + pagina);
+        resposta = await chamar('GET', '/api/comunidade/feed?' + consulta);
     } catch (e) {
-        if (vez !== estado.render) return;
+        if (vez !== estado.render) return null;
         // a versao Java do servidor nao tem a Comunidade
         lista.append(/404|não encontrado/i.test(e.message)
             ? vazio('Comunidade indisponível', 'A Comunidade só existe na versão do site publicada no Vercel.')
             : vazio('Algo deu errado', e.message));
-        return;
+        return null;
     }
-    if (vez !== estado.render) return;
-    if (pagina === 1 && resposta.itens.length === 0) {
+    if (vez !== estado.render) return null;
+    if (resposta.itens.length === 0) {
         lista.append(seVazio);
-        return;
+        return resposta;
     }
     lista.append(...resposta.itens.map(post => cartaoDePost(post)));
-    if (!resposta.temMais) return;
+    let proximo = resposta.itens.length;
     const mais = h('button', {type: 'button', class: 'botao carregar-mais'}, 'Carregar mais');
-    const carregar = () => {
-        observador.disconnect();
-        mais.remove();
-        carregarFeed(lista, endereco, vez, seVazio, pagina + 1);
+    let carregando = false;
+    const carregar = async () => {
+        if (carregando || proximo >= resposta.ids.length) return;
+        carregando = true;
+        mais.textContent = 'Carregando…';
+        const ids = resposta.ids.slice(proximo, proximo + 20);
+        try {
+            const posts = await chamar('GET', '/api/comunidade/posts?ids=' + ids.join(','));
+            if (vez !== estado.render) return;
+            proximo += ids.length;
+            mais.before(...posts.map(post => cartaoDePost(post)));
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        carregando = false;
+        mais.textContent = 'Carregar mais';
+        if (proximo >= resposta.ids.length) {
+            observador.disconnect();
+            mais.replaceWith(h('p', {class: 'fim-do-feed'}, resposta.ids.length >= 300 ? 'Você viu os 300 posts mais relevantes agora. Atualize para ver outros.' : 'Você chegou ao fim.'));
+        }
     };
     mais.addEventListener('click', carregar);
-    const observador = new IntersectionObserver(entradas => { if (entradas.some(entrada => entrada.isIntersecting)) carregar(); }, {rootMargin: '600px'});
-    lista.append(mais);
-    observador.observe(mais);
+    const observador = new IntersectionObserver(entradas => { if (entradas.some(entrada => entrada.isIntersecting)) carregar(); }, {rootMargin: '800px'});
+    if (proximo < resposta.ids.length) {
+        lista.append(mais);
+        observador.observe(mais);
+    }
+    return resposta;
 }
 
 async function carregarSugestoes(lateral, vez) {
@@ -2668,7 +2731,7 @@ async function telaPerfil(principal, id, vez) {
         perfil.euMesmo ? editorDePost(post => porNoFeed(lista, post)) : null,
         lista);
     estado.recarregar = () => telaComunidade(['perfil', id]);
-    await carregarFeed(lista, '/api/comunidade/contas/' + perfil.id + '/posts', vez,
+    await carregarFeed(lista, 'feed=perfil&conta=' + perfil.id, vez,
         vazio(perfil.euMesmo ? 'Você ainda não postou' : perfil.nick + ' ainda não postou', perfil.euMesmo ? 'Escreva o primeiro post aqui em cima.' : ''));
 }
 

@@ -84,6 +84,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Biblioteca e Comunidade](docs/27-biblioteca-e-comunidade.md) | [Comunidade](docs/28-comunidade.md) |
 | [Comunidade centralizada](docs/29-comunidade-centralizada.md) | [Lista publicada em janela](docs/30-lista-publicada-em-janela.md) |
 | [Montar a lista pela Biblioteca](docs/31-montar-lista-pela-biblioteca.md) | [Filtro de tag na Biblioteca](docs/32-filtro-de-tag-na-biblioteca.md) |
+| [Escala da Comunidade e aviso de posts novos](docs/33-escala-da-comunidade.md) | [Tags da Biblioteca como no Descobrir](docs/34-tags-da-biblioteca-como-no-descobrir.md) |
 
 ## Testes
 

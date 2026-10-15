@@ -433,7 +433,8 @@ const ORDEM_SQL = {
  * Mangas da conta, filtrados, ordenados e paginados pelo proprio banco: so a pagina pedida sai de la. Devolve
  * { mangas, total }. limite null = todos.
  */
-function filtrosEmSql({ titulo, status, tag }) {
+/** tag: uma tag; tags: varias (o manga precisa ter todas). */
+function filtrosEmSql({ titulo, status, tag, tags }) {
     const valores = [contaAtual()];
     const condicoes = ['conta = $1'];
     if (status) {
@@ -445,9 +446,9 @@ function filtrosEmSql({ titulo, status, tag }) {
         valores.push(busca);
         condicoes.push(`strpos(titulo_busca, $${valores.length}) > 0`);
     }
-    const tagBuscada = normalizar(tag);
-    if (tagBuscada) {
-        valores.push([tagBuscada]);
+    const tagsBuscadas = [...new Set([tag, ...(tags || [])].map(normalizar).filter(Boolean))];
+    if (tagsBuscadas.length) {
+        valores.push(tagsBuscadas);
         condicoes.push(`tags_busca @> $${valores.length}::text[]`);
     }
     return { valores, onde: condicoes.join(' AND ') };
@@ -460,8 +461,8 @@ async function contar(filtros) {
     return Number(rows[0].total);
 }
 
-async function consultar({ titulo, status, tag, ordem = 'CADASTRO', limite = null, deslocamento = 0, resumida = false } = {}) {
-    const { valores, onde } = filtrosEmSql({ titulo, status, tag });
+async function consultar({ titulo, status, tag, tags, ordem = 'CADASTRO', limite = null, deslocamento = 0, resumida = false } = {}) {
+    const { valores, onde } = filtrosEmSql({ titulo, status, tag, tags });
     let pagina = '';
     if (limite !== null) {
         valores.push(limite, deslocamento);
@@ -471,7 +472,7 @@ async function consultar({ titulo, status, tag, ordem = 'CADASTRO', limite = nul
         `SELECT ${resumida ? SEM_DESCRICAO : 'dados'} AS dados, count(*) OVER () AS total FROM mangas
          WHERE ${onde} ORDER BY ${ORDEM_SQL[ordem] || ORDEM_SQL.CADASTRO} ${pagina}`, valores);
     // pagina alem do fim: so conta, para quem pediu saber quantas paginas existem
-    const total = rows.length ? Number(rows[0].total) : deslocamento > 0 ? await contar({ titulo, status, tag }) : 0;
+    const total = rows.length ? Number(rows[0].total) : deslocamento > 0 ? await contar({ titulo, status, tag, tags }) : 0;
     return { mangas: rows.map(linha => linha.dados), total };
 }
 
@@ -1042,7 +1043,8 @@ async function rotear(request) {
             const ordem = lerOrdem(url, ORDENS_DA_LISTA, 'CADASTRO');
             // ?resumo=1: sem a descricao, que os cartoes nao usam (a lista fica bem menor)
             const resumida = url.searchParams.get('resumo') === '1';
-            const filtros = { titulo: url.searchParams.get('titulo'), status: lerStatusDaBusca(url), tag: url.searchParams.get('tag'), ordem, resumida };
+            // ?tag=Action&tag=Fantasy: o manga precisa ter todas (ate 10)
+            const filtros = { titulo: url.searchParams.get('titulo'), status: lerStatusDaBusca(url), tags: url.searchParams.getAll('tag').slice(0, 10), ordem, resumida };
             const comMiniaturas = async mangas => {
                 const guardadas = await miniaturas(mangas);
                 return mangas.map(manga => resposta(manga, guardadas)).map(manga => (resumida ? resumo(manga) : manga));

@@ -190,9 +190,10 @@ select:disabled { opacity: .55; }
 .ferramentas input[type=search] { flex: 1 1 240px; max-width: 420px; }
 .ferramentas .espaco { flex: 1 1 0; }
 .ferramentas select.ordenar { width: auto; flex: 0 1 auto; max-width: 100%; }
-/* tag escolhida: o seletor fica destacado, para lembrar que a lista esta filtrada */
-.ferramentas select.filtro-de-tag { max-width: 220px; }
-.ferramentas select.filtro-de-tag.ativo { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque); font-weight: 650; }
+/* quadro de tags da Biblioteca (o mesmo do Descobrir, so com as tags que quero ver) */
+.tags-da-biblioteca { margin-bottom: 14px; }
+.tags-da-biblioteca:empty { display: none; }
+.quadro-de-tags.biblioteca h3::before { content: "🏷 "; }
 .recomendacoes .generos, .cartao > .generos { text-align: center; color: var(--texto-fraco); font-size: 12px; min-height: 1.5em; margin-top: -4px; }
 .paginacao span.total:not(:last-child) { flex-basis: auto; margin-top: 0; }
 
@@ -968,6 +969,29 @@ a.quando:hover { text-decoration: underline; }
 .acao-do-post.curtir[aria-pressed=true] { color: #f43f5e; }
 .acao-do-post.apagar { margin-left: auto; }
 .carregar-mais { align-self: center; }
+.fim-do-feed { text-align: center; color: var(--texto-fraco); margin: 8px 0 24px; }
+/* aviso de posts novos: fica preso no alto, por cima do feed, ate a pessoa clicar */
+.posts-novos {
+    position: sticky;
+    top: 72px;
+    z-index: 3;
+    align-self: center;
+    padding: 9px 18px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--destaque);
+    color: var(--sobre-destaque);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 650;
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--destaque) 40%, transparent), 0 3px 8px rgba(0, 0, 0, .25);
+    cursor: pointer;
+    animation: chegar-aviso .25s ease-out;
+}
+.posts-novos[hidden] { display: none; }
+.posts-novos:hover { filter: brightness(1.08); }
+@keyframes chegar-aviso { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .posts-novos { animation: none; } }
 .seguir.seguindo { background: transparent; }
 .seguir:not(.seguindo) { background: var(--texto); border-color: var(--texto); color: var(--fundo); }
 

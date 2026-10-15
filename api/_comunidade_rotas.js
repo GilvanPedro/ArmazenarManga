@@ -1,7 +1,7 @@
 // Rotas da Comunidade: feed, posts (com imagens e listas anexadas), curtidas, comentarios, seguir e perfis.
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
-import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, validarComentario, validarPost } from './_comunidade.js';
+import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, validarComentario, validarPost } from './_comunidade.js';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOME = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
@@ -28,6 +28,27 @@ export const ESTRUTURA_DA_COMUNIDADE = `
         conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, post UUID REFERENCES posts(id) ON DELETE CASCADE,
         criada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE INDEX IF NOT EXISTS imagens_da_comunidade_soltas ON imagens_da_comunidade (conta, criada_em) WHERE post IS NULL;
+    -- contadores no proprio post, mantidos pelo banco: o feed ordena sem recontar curtidas e comentarios
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS curtidas_total INT;
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS comentarios_total INT;
+    UPDATE posts p SET curtidas_total = (SELECT count(*) FROM curtidas WHERE post = p.id) WHERE curtidas_total IS NULL;
+    UPDATE posts p SET comentarios_total = (SELECT count(*) FROM comentarios WHERE post = p.id) WHERE comentarios_total IS NULL;
+    ALTER TABLE posts ALTER COLUMN curtidas_total SET DEFAULT 0, ALTER COLUMN curtidas_total SET NOT NULL;
+    ALTER TABLE posts ALTER COLUMN comentarios_total SET DEFAULT 0, ALTER COLUMN comentarios_total SET NOT NULL;
+    CREATE OR REPLACE FUNCTION contar_curtida() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+        IF TG_OP = 'INSERT' THEN UPDATE posts SET curtidas_total = curtidas_total + 1 WHERE id = NEW.post;
+        ELSE UPDATE posts SET curtidas_total = curtidas_total - 1 WHERE id = OLD.post; END IF;
+        RETURN NULL;
+    END $$;
+    CREATE OR REPLACE FUNCTION contar_comentario() RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN
+        IF TG_OP = 'INSERT' THEN UPDATE posts SET comentarios_total = comentarios_total + 1 WHERE id = NEW.post;
+        ELSE UPDATE posts SET comentarios_total = comentarios_total - 1 WHERE id = OLD.post; END IF;
+        RETURN NULL;
+    END $$;
+    CREATE OR REPLACE TRIGGER contar_curtidas AFTER INSERT OR DELETE ON curtidas FOR EACH ROW EXECUTE FUNCTION contar_curtida();
+    CREATE OR REPLACE TRIGGER contar_comentarios AFTER INSERT OR DELETE ON comentarios FOR EACH ROW EXECUTE FUNCTION contar_comentario();
 `;
 
 // limites por conta: posts, comentarios e imagens enviadas por hora
@@ -47,11 +68,10 @@ export function criarComunidade(f) {
     const urlDaFoto = (id, foto) => (foto ? `/api/comunidade/contas/${id}/foto?v=${encodeURIComponent(foto)}` : null);
     const autor = linha => ({ id: linha.autor_id, nick: linha.nick, foto: urlDaFoto(linha.autor_id, linha.foto) });
 
-    // os campos que todo post devolvido leva; $1 e sempre quem esta usando
+    // os campos que todo post devolvido leva; $1 e sempre quem esta usando. Os totais ja estao no post (gatilhos)
     const CAMPOS_DO_POST = `
         p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto,
-        (SELECT count(*) FROM curtidas WHERE post = p.id)::int AS curtidas,
-        (SELECT count(*) FROM comentarios WHERE post = p.id)::int AS comentarios,
+        p.curtidas_total AS curtidas, p.comentarios_total AS comentarios,
         EXISTS (SELECT 1 FROM curtidas WHERE post = p.id AND conta = $1) AS curti,
         EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = p.autor) AS sigo`;
 
@@ -72,24 +92,22 @@ export function criarComunidade(f) {
         };
     }
 
-    function pagina(url) {
-        const numero = Number(url.searchParams.get('pagina') || 1);
-        return Number.isInteger(numero) && numero >= 1 && numero <= 500 ? numero : 1;
-    }
-
-    /** Busca uma pagina de posts (uma a mais, para saber se ha proxima). */
-    async function paginaDePosts(sql, valores, url, eu) {
-        const numero = pagina(url);
-        const { rows } = await (await banco()).query(`${sql} LIMIT ${POSTS_POR_PAGINA + 1} OFFSET ${(numero - 1) * POSTS_POR_PAGINA}`, valores);
-        return { itens: rows.slice(0, POSTS_POR_PAGINA).map(linha => post(linha, eu)), pagina: numero, temMais: rows.length > POSTS_POR_PAGINA };
+    /** Os posts destes ids, na mesma ordem (os que foram apagados nesse meio tempo ficam de fora). */
+    async function postsPorIds(ids, eu) {
+        if (ids.length === 0) return [];
+        const { rows } = await (await banco()).query(
+            `SELECT ${CAMPOS_DO_POST} FROM posts p JOIN contas c ON c.id = p.autor WHERE p.id = ANY($2::uuid[])`, [eu.id, ids]);
+        const porId = new Map(rows.map(linha => [linha.id, linha]));
+        return ids.map(id => porId.get(id)).filter(Boolean).map(linha => post(linha, eu));
     }
 
     /**
-     * Feed "Para voce": os 1000 posts mais novos, ordenados pela conta de PESOS (veja api/_comunidade.js): proximidade
-     * com o autor (seguir, curtidas e comentarios dados a ele) + interesse do post, divididos pelo tempo.
+     * Ordem do feed "Para voce": entre os 1000 posts mais novos, os pontos de PESOS (veja api/_comunidade.js), com a
+     * proximidade de quem le com cada autor (seguir, curtidas e comentarios dados a ele) e o interesse do post (os
+     * totais guardados no proprio post), divididos pelo tempo. So os ids saem: a ordem e calculada uma vez por abertura.
      */
-    function feedParaVoce(url, eu) {
-        return paginaDePosts(`
+    async function rankingParaVoce(eu) {
+        const { rows } = await (await banco()).query(`
             WITH proximidade AS (
                 SELECT autor, least(sum(peso), ${PESOS.maximo}) AS peso FROM (
                     SELECT seguido AS autor, ${PESOS.seguir}::float AS peso FROM seguindo WHERE seguidor = $1
@@ -100,21 +118,68 @@ export function criarComunidade(f) {
                     SELECT p.autor, ${PESOS.comentario} FROM comentarios k JOIN posts p ON p.id = k.post
                         WHERE k.autor = $1 AND k.criado_em > now() - interval '${PESOS.dias} days'
                 ) AS pesos WHERE autor <> $1 GROUP BY autor
-            ), recentes AS (SELECT * FROM posts ORDER BY criado_em DESC LIMIT 1000)
-            SELECT ${CAMPOS_DO_POST},
-                (1 + CASE WHEN p.autor = $1 THEN ${PESOS.proprio} ELSE coalesce(x.peso, 0) END
-                   + 2 * ln(1 + (SELECT count(*) FROM curtidas WHERE post = p.id) + 2 * (SELECT count(*) FROM comentarios WHERE post = p.id)))
-                / power(extract(epoch FROM now() - p.criado_em) / 3600 + 2, ${PESOS.expoente}) AS pontos
-            FROM recentes p JOIN contas c ON c.id = p.autor LEFT JOIN proximidade x ON x.autor = p.autor
-            ORDER BY pontos DESC, p.criado_em DESC, p.id`, [eu.id], url, eu);
+            ), recentes AS (SELECT id, autor, criado_em, curtidas_total, comentarios_total FROM posts ORDER BY criado_em DESC LIMIT 1000)
+            SELECT p.id, p.autor, p.criado_em FROM recentes p LEFT JOIN proximidade x ON x.autor = p.autor
+            ORDER BY (1 + CASE WHEN p.autor = $1 THEN ${PESOS.proprio} ELSE coalesce(x.peso, 0) END
+                        + 2 * ln(1 + p.curtidas_total + 2 * p.comentarios_total))
+                     -- em ponto flutuante: com numeros decimais exatos, a potencia de 1000 posts custava ~20 ms
+                     / power(extract(epoch FROM now() - p.criado_em)::float8 / 3600 + 2, ${PESOS.expoente}::float8) DESC,
+                     p.criado_em DESC, p.id
+            LIMIT ${POSTS_DO_FEED}`, [eu.id]);
+        return rows;
     }
 
-    /** Feed "Seguindo": os posts de quem voce segue (e os seus), do mais novo para o mais antigo. */
-    function feedSeguindo(url, eu) {
-        return paginaDePosts(`
-            SELECT ${CAMPOS_DO_POST} FROM posts p JOIN contas c ON c.id = p.autor
-            WHERE p.autor = $1 OR p.autor IN (SELECT seguido FROM seguindo WHERE seguidor = $1)
-            ORDER BY p.criado_em DESC, p.id`, [eu.id], url, eu);
+    /** Ordem do feed "Seguindo": os posts de quem voce segue (e os seus), do mais novo para o mais antigo. */
+    async function idsSeguindo(eu) {
+        const { rows } = await (await banco()).query(`
+            SELECT id FROM posts WHERE autor = $1 OR autor IN (SELECT seguido FROM seguindo WHERE seguidor = $1)
+            ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [eu.id]);
+        return rows.map(linha => linha.id);
+    }
+
+    async function idsDoPerfil(contaId) {
+        const { rows } = await (await banco()).query(`SELECT id FROM posts WHERE autor = $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [contaId]);
+        return rows.map(linha => linha.id);
+    }
+
+    /**
+     * Abre um feed: a ordem dos primeiros 300 posts (so os ids) e os 20 primeiros ja prontos. O site busca os seguintes
+     * pelos ids (POST_POR_PAGINA de cada vez): rolar nao recalcula a ordem, e posts novos nao empurram nem repetem os ja
+     * vistos. geradoEm serve para perguntar depois quantos posts novos apareceram.
+     */
+    async function abrirFeed(url, eu) {
+        const qual = url.searchParams.get('feed');
+        const geradoEm = new Date().toISOString();
+        let ids;
+        if (qual === 'seguindo') ids = await idsSeguindo(eu);
+        else if (qual === 'perfil') ids = await idsDoPerfil((await exigirConta(url.searchParams.get('conta'))).id);
+        else {
+            const ranking = await rankingParaVoce(eu);
+            // ?novosDesde=: a pessoa clicou em "N posts novos": os novos vem primeiro (na ordem de relevancia), depois o resto
+            const desde = Date.parse(url.searchParams.get('novosDesde') || '');
+            const novo = linha => !Number.isNaN(desde) && new Date(linha.criado_em).getTime() > desde && linha.autor !== eu.id;
+            ids = [...ranking.filter(novo), ...ranking.filter(linha => !novo(linha))].map(linha => linha.id);
+        }
+        return { ids, itens: await postsPorIds(ids.slice(0, POSTS_POR_PAGINA), eu), geradoEm };
+    }
+
+    /**
+     * Quantos posts novos (de outras pessoas) entraram no feed desde que ele foi aberto, ate 99. No "Para voce", so
+     * contam os que entram no feed da pessoa (entre os 300 mais relevantes para ela); no "Seguindo", os de quem ela
+     * segue. Consulta feita de tempos em tempos pelo site enquanto a pessoa rola o feed.
+     */
+    async function novidades(url, eu) {
+        const desde = Date.parse(url.searchParams.get('desde') || '');
+        if (Number.isNaN(desde)) throw new Recusa(400, "Informe 'desde' (a data em que o feed foi aberto)");
+        if (url.searchParams.get('feed') !== 'seguindo') {
+            const novos = (await rankingParaVoce(eu)).filter(linha => new Date(linha.criado_em).getTime() > desde && linha.autor !== eu.id).length;
+            return { novos: Math.min(novos, 99) };
+        }
+        const { rows } = await (await banco()).query(`
+            SELECT count(*)::int AS novos FROM (
+                SELECT 1 FROM posts WHERE criado_em > $2 AND autor <> $1 AND autor IN (SELECT seguido FROM seguindo WHERE seguidor = $1)
+                LIMIT 99) AS novos`, [eu.id, new Date(desde).toISOString()]);
+        return { novos: rows[0].novos };
     }
 
     async function exigirConta(id) {
@@ -132,9 +197,9 @@ export function criarComunidade(f) {
     }
 
     async function umPost(id, eu) {
-        const { rows } = await (await banco()).query(`SELECT ${CAMPOS_DO_POST} FROM posts p JOIN contas c ON c.id = p.autor WHERE p.id = $2`, [eu.id, id]);
-        if (rows.length === 0) throw new Recusa(404, 'Post não encontrado');
-        return post(rows[0], eu);
+        const [achado] = await postsPorIds([id], eu);
+        if (!achado) throw new Recusa(404, 'Post não encontrado');
+        return achado;
     }
 
     /** Envia uma imagem para um post: fica solta ate o post ser publicado (as soltas de mais de um dia sao apagadas). */
@@ -241,13 +306,26 @@ export function criarComunidade(f) {
         return { id: conta.id, nick: conta.nick, foto: urlDaFoto(conta.id, conta.foto), criadaEm: conta.criada_em, ...rows[0], euMesmo: conta.id === eu.id };
     }
 
+    // quem mais postou no ultimo mes vale para todo mundo: e guardado por um minuto em cada instancia da funcao
+    let maisAtivos = { quando: 0, contas: [] };
+
     /** Ate 5 contas para seguir: as que mais postaram nos ultimos 30 dias, que voce ainda nao segue. */
     async function sugestoes(eu) {
-        const { rows } = await (await banco()).query(`
-            SELECT c.id, c.nick, c.foto, count(p.id)::int AS posts FROM contas c
-            LEFT JOIN posts p ON p.autor = c.id AND p.criado_em > now() - interval '30 days'
+        const db = await banco();
+        if (Date.now() - maisAtivos.quando > 60_000) {
+            const { rows } = await db.query(`
+                SELECT autor AS id, count(*)::int AS posts FROM posts WHERE criado_em > now() - interval '30 days'
+                GROUP BY autor ORDER BY count(*) DESC LIMIT 50`);
+            maisAtivos = { quando: Date.now(), contas: rows };
+        }
+        const candidatos = maisAtivos.contas.filter(conta => conta.id !== eu.id);
+        // poucos ativos (a Comunidade comecando): completa com as contas mais novas
+        const { rows } = await db.query(`
+            SELECT c.id, c.nick, c.foto, coalesce(a.posts, 0) AS posts FROM contas c
+            LEFT JOIN jsonb_to_recordset($2::jsonb) AS a (id uuid, posts int) ON a.id = c.id
             WHERE c.id <> $1 AND NOT EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = c.id)
-            GROUP BY c.id ORDER BY count(p.id) DESC, c.criada_em DESC LIMIT 5`, [eu.id]);
+              AND (a.id IS NOT NULL OR c.id IN (SELECT id FROM contas ORDER BY criada_em DESC LIMIT 20))
+            ORDER BY coalesce(a.posts, 0) DESC, c.criada_em DESC LIMIT 5`, [eu.id, JSON.stringify(candidatos)]);
         return rows.map(linha => ({ id: linha.id, nick: linha.nick, foto: urlDaFoto(linha.id, linha.foto), posts: linha.posts }));
     }
 
@@ -269,9 +347,13 @@ export function criarComunidade(f) {
         const [recurso, id, acao] = partes;
         const db = await banco();
 
+        if (recurso === 'feed' && !id && metodo === 'GET') return f.semCache(json(200, await abrirFeed(url, eu)));
+        if (recurso === 'novidades' && !id && metodo === 'GET') return f.semCache(json(200, await novidades(url, eu)));
+        // as proximas paginas do feed: ?ids=a,b,c (ate 50), na ordem pedida
         if (recurso === 'posts' && !id && metodo === 'GET') {
-            const feed = url.searchParams.get('feed');
-            return f.semCache(json(200, await (feed === 'seguindo' ? feedSeguindo(url, eu) : feedParaVoce(url, eu))));
+            const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean);
+            if (ids.length > 50 || ids.some(outro => !ID.test(outro))) throw new Recusa(400, 'Lista de posts inválida');
+            return f.semCache(json(200, await postsPorIds(ids, eu)));
         }
         if (recurso === 'posts' && !id && metodo === 'POST') return publicar(request, eu);
         if (recurso === 'posts' && id && !acao && metodo === 'GET') return f.semCache(json(200, await umPost((await exigirPost(id)).id, eu)));
@@ -285,7 +367,7 @@ export function criarComunidade(f) {
             const alvo = await exigirPost(id);
             if (metodo === 'POST') await db.query('INSERT INTO curtidas (post, conta) VALUES ($1, $2) ON CONFLICT DO NOTHING', [alvo.id, eu.id]);
             else await db.query('DELETE FROM curtidas WHERE post = $1 AND conta = $2', [alvo.id, eu.id]);
-            const { rows } = await db.query('SELECT count(*)::int AS curtidas FROM curtidas WHERE post = $1', [alvo.id]);
+            const { rows } = await db.query('SELECT curtidas_total AS curtidas FROM posts WHERE id = $1', [alvo.id]);
             return json(200, { curti: metodo === 'POST', curtidas: rows[0].curtidas });
         }
         if (recurso === 'posts' && id && acao === 'comentarios' && metodo === 'GET') return f.semCache(json(200, await comentarios(id, eu)));
@@ -310,17 +392,12 @@ export function criarComunidade(f) {
             if (!NOME.test(id)) throw new Recusa(404, 'Imagem não encontrada');
             const { rows } = await db.query('SELECT conteudo FROM imagens_da_comunidade WHERE nome = $1', [id]);
             if (rows.length === 0) throw new Recusa(404, 'Imagem não encontrada');
-            // o nome muda a cada envio: o navegador pode guardar para sempre
-            return servirImagem(rows[0].conteudo, id, 'private, max-age=31536000, immutable');
+            // o nome muda a cada envio: o navegador e a CDN do Vercel podem guardar para sempre, sem chamar a funcao de novo.
+            // As imagens da Comunidade sao feitas para serem vistas pelos outros leitores, e o nome nao da para adivinhar
+            return servirImagem(rows[0].conteudo, id, 'public, max-age=31536000, s-maxage=31536000, immutable');
         }
         if (recurso === 'sugestoes' && !id && metodo === 'GET') return f.semCache(json(200, await sugestoes(eu)));
         if (recurso === 'contas' && id && !acao && metodo === 'GET') return f.semCache(json(200, await perfil(id, eu)));
-        if (recurso === 'contas' && id && acao === 'posts' && metodo === 'GET') {
-            const conta = await exigirConta(id);
-            return f.semCache(json(200, await paginaDePosts(`
-                SELECT ${CAMPOS_DO_POST} FROM posts p JOIN contas c ON c.id = p.autor WHERE p.autor = $2 ORDER BY p.criado_em DESC, p.id`,
-            [eu.id, conta.id], url, eu)));
-        }
         if (recurso === 'contas' && id && acao === 'seguir' && (metodo === 'POST' || metodo === 'DELETE')) {
             const conta = await exigirConta(id);
             if (conta.id === eu.id) throw new Recusa(400, 'Você não pode seguir a si mesmo');
@@ -334,8 +411,8 @@ export function criarComunidade(f) {
             const { rows } = await db.query(
                 'SELECT c.foto, i.conteudo FROM contas c JOIN imagens i ON i.nome = c.foto AND i.conta = c.id::text WHERE c.id = $1', [id]);
             if (rows.length === 0) throw new Recusa(404, 'Foto não encontrada');
-            // o endereco leva o nome da foto (?v=): trocar a foto muda o endereco
-            return servirImagem(rows[0].conteudo, rows[0].foto, 'private, max-age=31536000, immutable');
+            // o endereco leva o nome da foto (?v=): trocar a foto muda o endereco, entao pode ser guardada para sempre
+            return servirImagem(rows[0].conteudo, rows[0].foto, 'public, max-age=31536000, s-maxage=31536000, immutable');
         }
         throw new Recusa(404, 'Endereço não encontrado');
     };

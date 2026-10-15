@@ -169,10 +169,10 @@ public class ContaService {
 
     public Dados dados(UUID id) {
         Conta conta = exigir(id);
-        int meus = ContaAtual.com(id.toString(), () -> mangas.contar(ConsultaDeMangas.todos(null, null, null, null)));
+        int meus = ContaAtual.com(id.toString(), () -> mangas.contar(ConsultaDeMangas.todos(null, null, java.util.List.of(), null)));
         // os mangas de antes das contas: so os admins veem e podem trazer
         int antigos = !ehAdmin(conta) ? 0
-                : ContaAtual.com(EstruturaDoBanco.CONTA_PRINCIPAL, () -> mangas.contar(ConsultaDeMangas.todos(null, null, null, null)));
+                : ContaAtual.com(EstruturaDoBanco.CONTA_PRINCIPAL, () -> mangas.contar(ConsultaDeMangas.todos(null, null, java.util.List.of(), null)));
         return new Dados(conta, meus, antigos);
     }
 

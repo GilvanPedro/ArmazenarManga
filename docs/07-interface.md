@@ -37,7 +37,8 @@ traz os mangás de antes das contas e exclui a conta, com uma janela de confirma
 
 ### Todos os mangás (`#/`)
 
-A página principal. Em cima: busca por nome, seletor de tag, seletor de ordem e botão Sortear. Abaixo, os filtros de status.
+A página principal. Em cima: busca por nome, seletor de ordem e botão Sortear, e embaixo deles o quadro "Tags que
+quero ver" (pesquisa, várias tags, recolhível). Abaixo, os filtros de status.
 
 Cada cartão tem a capa com o status (em cima, à esquerda) e a nota (embaixo, à direita, quando há), além da borda roxa e da estrela quando é favorito, o nome centralizado e dois botões da largura da capa: o do capítulo atual
 (abre o diálogo de progresso) e o **Ler**. Para mangás concluídos, o Ler pergunta entre ler novamente e abrir o

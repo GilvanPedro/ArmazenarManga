@@ -41,7 +41,7 @@ trabalham só com os mangás e as capas da conta de quem está usando. Veja [Con
 |-----------|--------|
 | `titulo` | Parte do nome, sem diferenciar maiúsculas nem acentos |
 | `status` | Um dos status |
-| `tag` | Nome exato de uma tag |
+| `tag` | Nome exato de uma tag. Pode repetir (`?tag=Action&tag=Fantasy`, até 10): o mangá precisa ter todas |
 | `ordem` | `CADASTRO` (padrão), `RECENTES`, `TITULO`, `TITULO_DESC`, `MAIS_CAPITULOS`, `MENOS_CAPITULOS`, `MELHORES_NOTAS`, `PIORES_NOTAS` (sem nota fica no fim nas duas), `FAVORITOS` |
 | `resumo` | `1` deixa de fora `description`, para listas grandes. Com ele, `tamanho` vai até 2000 |
 | `inteiraAte` | Se o total couber nesse número (até 2000), devolve a lista inteira com `inteira: true`; senão, a página pedida |

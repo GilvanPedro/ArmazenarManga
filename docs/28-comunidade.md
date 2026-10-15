@@ -83,7 +83,7 @@ junto com ela.
 
 | Método | Rota | O que faz |
 |--------|------|-----------|
-| `GET` | `/api/comunidade/posts?feed=para-voce\|seguindo&pagina=N` | Uma página do feed: `{itens, pagina, temMais}` |
+| `GET` | `/api/comunidade/feed?feed=para-voce\|seguindo\|perfil` | Abre um feed (ids e os 20 primeiros); as páginas seguintes vêm por `posts?ids=`. Veja [Escala da Comunidade](33-escala-da-comunidade.md) |
 | `POST` | `/api/comunidade/posts` | Publica `{texto, imagens: [nomes], lista: {titulo, mangas: [ids]}}` |
 | `GET`, `DELETE` | `/api/comunidade/posts/{id}` | Um post; apagar (autor ou admin) |
 | `POST`, `DELETE` | `/api/comunidade/posts/{id}/curtida` | Curtir e descurtir |
@@ -92,7 +92,6 @@ junto com ela.
 | `POST` | `/api/comunidade/imagens` | Envia uma imagem para um post (`multipart/form-data`, campo `arquivo`) |
 | `GET` | `/api/comunidade/imagens/{nome}` | Uma imagem de post ou de lista |
 | `GET` | `/api/comunidade/contas/{id}` | Perfil: nick, foto, posts, seguidores, seguindo e se você segue |
-| `GET` | `/api/comunidade/contas/{id}/posts?pagina=N` | Posts do leitor |
 | `POST`, `DELETE` | `/api/comunidade/contas/{id}/seguir` | Seguir e deixar de seguir |
 | `GET` | `/api/comunidade/contas/{id}/foto` | Foto de perfil do leitor |
 | `GET` | `/api/comunidade/sugestoes` | Até 5 leitores para seguir: os que mais postaram no último mês e que você ainda não segue |

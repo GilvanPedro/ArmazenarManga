@@ -4,6 +4,8 @@
 export const TEXTO_MAXIMO = 500;
 export const IMAGENS_POR_POST = 4;
 export const POSTS_POR_PAGINA = 20;
+/** Quantos posts a ordem de um feed guarda; as paginas seguintes vem desta lista, sem recalcular. */
+export const POSTS_DO_FEED = 300;
 export const TAMANHO_MAXIMO_DA_IMAGEM = 2 * 1024 * 1024;
 export const MANGAS_POR_LISTA = 20;
 export const TITULO_DA_LISTA_MAXIMO = 80;

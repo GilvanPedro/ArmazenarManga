@@ -1393,6 +1393,19 @@ class ApiServerTest {
     }
 
     @Test
+    void filtraPorVariasTagsAoMesmoTempo() throws Exception {
+        cadastrarComTags("Só ação", "[\"Action\"]");
+        cadastrarComTags("Ação e fantasia", "[\"Action\", \"Fantasy\"]");
+        cadastrarComTags("Só fantasia", "[\"Fantasy\"]");
+
+        assertEquals(List.of("Só ação", "Ação e fantasia"), titulos("/api/mangas?tag=action"));
+        // varias tags: o manga precisa ter todas
+        assertEquals(List.of("Ação e fantasia"), titulos("/api/mangas?tag=Action&tag=FANTASY"));
+        assertEquals(1, json(enviar("GET", "/api/mangas?tag=Action&tag=Fantasy&pagina=1&resumo=1", null)).get("total").asInt());
+        assertEquals(List.of(), titulos("/api/mangas?tag=Action&tag=Romance"));
+    }
+
+    @Test
     void sitesDosMangasSemRepetir() throws Exception {
         cadastrar("A", "1", "LENDO");
         cadastrar("B", "1", "LENDO");

@@ -447,7 +447,9 @@ public class ApiServer {
     private void listar(Context ctx) throws JsonProcessingException {
         // ?resumo=1: sem a descricao, que os cartoes nao usam (a lista fica bem menor)
         boolean resumida = "1".equals(ctx.queryParam("resumo"));
-        ConsultaDeMangas consulta = ConsultaDeMangas.todos(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag"), lerOrdemDaLista(ctx));
+        // ?tag=Action&tag=Fantasy: o manga precisa ter todas (ate 10)
+        List<String> tags = ctx.queryParams("tag").stream().limit(10).toList();
+        ConsultaDeMangas consulta = ConsultaDeMangas.todos(ctx.queryParam("titulo"), lerStatus(ctx), tags, lerOrdemDaLista(ctx));
         if (ctx.queryParam("pagina") == null) {
             json(ctx, HttpStatus.OK, respostas(mangaService.consultar(consulta).mangas(), resumida));
             return;

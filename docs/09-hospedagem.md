@@ -52,6 +52,9 @@ O banco usado é um Postgres gratuito do Neon. As tabelas são criadas sozinhas 
 
 O Vercel, o Render e o computador local podem apontar para o mesmo banco e ver os mesmos mangás.
 
+Com muitos leitores ao mesmo tempo, use o endereço **com pooler** do Neon (*Pooled connection*, com `-pooler` no nome
+do servidor): ele aguenta milhares de conexões. Veja [Escala da Comunidade](33-escala-da-comunidade.md).
+
 ## Vercel
 
 É onde o site está publicado. O Vercel não roda Java, então lá a API é a versão JavaScript (`api/`).

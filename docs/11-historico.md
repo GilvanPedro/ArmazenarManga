@@ -125,6 +125,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Montar a lista pela Biblioteca](31-montar-lista-pela-biblioteca.md).
 - **Filtro de tag na Biblioteca.** A lista ganhou um seletor de tags ao lado da ordenação. Detalhes em
   [Filtro de tag na Biblioteca](32-filtro-de-tag-na-biblioteca.md).
+- **Escala da Comunidade.** Contadores no próprio post, ordem do feed calculada uma vez e páginas pelos ids, e o aviso
+  de 10 ou mais posts novos no algoritmo de cada pessoa. Detalhes em [Escala da Comunidade](33-escala-da-comunidade.md).
+- **Tags da Biblioteca como no Descobrir.** O seletor virou o quadro de tags do Descobrir, com várias tags ao mesmo
+  tempo. Detalhes em [Tags da Biblioteca como no Descobrir](34-tags-da-biblioteca-como-no-descobrir.md).
 
 ## O que foi removido ou abandonado
 

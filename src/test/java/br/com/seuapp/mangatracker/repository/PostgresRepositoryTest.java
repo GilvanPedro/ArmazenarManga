@@ -270,7 +270,7 @@ class PostgresRepositoryTest {
 
         assertEquals(List.of("Meu"), minha.listarTodos().stream().map(Manga::getTitle).toList());
         assertTrue(minha.buscarPorId(dela.getId()).isEmpty());
-        assertEquals(1, minha.contar(ConsultaDeMangas.todos(null, null, null, null)));
+        assertEquals(1, minha.contar(ConsultaDeMangas.todos(null, null, (String) null, null)));
         minha.excluir(dela.getId());
         assertTrue(outra.buscarPorId(dela.getId()).isPresent());
         // gravar com o mesmo id nao sobrescreve o manga da outra conta
@@ -301,13 +301,15 @@ class PostgresRepositoryTest {
         };
         for (br.com.seuapp.mangatracker.domain.OrdemDaLista ordem : br.com.seuapp.mangatracker.domain.OrdemDaLista.values()) {
             for (ConsultaDeMangas consulta : List.of(
-                    ConsultaDeMangas.todos(null, null, null, ordem),
-                    ConsultaDeMangas.todos("ACAO", null, null, ordem),
-                    ConsultaDeMangas.todos(null, ReadingStatus.LENDO, null, ordem),
+                    ConsultaDeMangas.todos(null, null, (String) null, ordem),
+                    ConsultaDeMangas.todos("ACAO", null, (String) null, ordem),
+                    ConsultaDeMangas.todos(null, ReadingStatus.LENDO, (String) null, ordem),
                     ConsultaDeMangas.todos(null, null, "murim", ordem),
+                    ConsultaDeMangas.todos(null, null, List.of("MURIM", "ação"), ordem),
+                    ConsultaDeMangas.todos(null, null, List.of("murim", "romance"), ordem),
                     ConsultaDeMangas.todos("s", ReadingStatus.LER, "romance", ordem),
-                    ConsultaDeMangas.todos(null, null, null, ordem).pedaco(7, 14),
-                    ConsultaDeMangas.todos(null, null, null, ordem).pedaco(7, 400))) {
+                    ConsultaDeMangas.todos(null, null, (String) null, ordem).pedaco(7, 14),
+                    ConsultaDeMangas.todos(null, null, (String) null, ordem).pedaco(7, 400))) {
                 PaginaDeMangas doBanco = repository.consultar(consulta);
                 PaginaDeMangas daMemoria = emMemoria.consultar(consulta);
                 assertEquals(daMemoria.mangas().stream().map(Manga::getId).toList(), doBanco.mangas().stream().map(Manga::getId).toList(), ordem + " " + consulta);

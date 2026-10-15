@@ -9,6 +9,9 @@ lado da ordenação.
 
 ## Como ficou
 
+O seletor depois virou um quadro de tags, como o do Descobrir: veja
+[Tags da Biblioteca como no Descobrir](34-tags-da-biblioteca-como-no-descobrir.md).
+
 - Ao lado do seletor de ordem há o seletor **"Todas as tags"**, com as tags que estão em algum mangá da Biblioteca e
   quantos mangás têm cada uma, das mais usadas para as menos: "Action (9)", "Fantasy (6)"…
 - Escolher uma tag mostra só os mangás dela. O seletor fica com a borda destacada, para lembrar que a lista está
