@@ -87,7 +87,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Escala da Comunidade e aviso de posts novos](docs/33-escala-da-comunidade.md) | [Tags da Biblioteca como no Descobrir](docs/34-tags-da-biblioteca-como-no-descobrir.md) |
 | [Detalhe da lista sem status](docs/35-detalhe-da-lista-sem-status.md) | [Post aberto em tela própria](docs/36-post-aberto.md) |
 | [Botão de Tags na Biblioteca](docs/37-botao-de-tags-na-biblioteca.md) | [Clicar fora fecha a janela](docs/38-clicar-fora-fecha-a-janela.md) |
-| [Lista publicada sem status nas capas](docs/39-lista-sem-status-nas-capas.md) | |
+| [Lista publicada sem status nas capas](docs/39-lista-sem-status-nas-capas.md) | [Campo de tags como barra de pesquisa](docs/40-campo-de-tags-como-barra-de-pesquisa.md) |
 
 ## Testes
 

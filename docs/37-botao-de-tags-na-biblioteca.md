@@ -24,3 +24,6 @@ Mudança feita em outubro de 2026 no filtro de tags da lista **Todos os mangás*
 
 Conferido em um navegador: o botão sem tags ("🏷 Tags"), escolher uma tag no painel (o botão passa a mostrar 1),
 fechar clicando fora e com Esc. Não há teste automático.
+
+> Depois, o campo de pesquisa do painel ganhou a altura de uma barra comum, e o painel parou de sair da tela no
+> celular: veja [Campo de tags como barra de pesquisa](40-campo-de-tags-como-barra-de-pesquisa.md).

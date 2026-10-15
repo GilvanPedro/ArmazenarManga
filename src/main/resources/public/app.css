@@ -208,11 +208,16 @@ select:disabled { opacity: .55; }
 .painel-de-tags[hidden] { display: none; }
 .painel-de-tags > .subtitulo { margin: 0; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
 .painel-de-tags .quadro-de-tags { padding: 12px; }
+/* a regra da busca da Biblioteca (flex: 1 1 240px) viraria altura aqui, que empilha na vertical */
+.painel-de-tags input[type="search"] { flex: none; max-width: none; }
 .painel-de-tags .recolher-tags { display: none; }
 .painel-de-tags .opcoes-de-tag { max-height: 220px; }
 .quadro-de-tags.biblioteca h3::before { content: "🏷 "; }
 @media (max-width: 560px) {
-    .painel-de-tags { right: auto; left: 0; }
+    /* no celular o painel ocupa a largura da barra de ferramentas, sem passar da borda da tela */
+    .ferramentas { position: relative; }
+    .filtro-de-tags { position: static; }
+    .painel-de-tags { left: 0; right: 0; width: auto; }
 }
 .recomendacoes .generos, .cartao > .generos { text-align: center; color: var(--texto-fraco); font-size: 12px; min-height: 1.5em; margin-top: -4px; }
 .paginacao span.total:not(:last-child) { flex-basis: auto; margin-top: 0; }

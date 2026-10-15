@@ -43,6 +43,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [37 · Botão de Tags na Biblioteca](37-botao-de-tags-na-biblioteca.md) | O quadro de tags virou um botão ao lado da ordenação, com painel flutuante |
 | [38 · Clicar fora fecha a janela](38-clicar-fora-fecha-a-janela.md) | Clicar no fundo de qualquer janela flutuante faz o mesmo que fechá-la |
 | [39 · Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md) | As capas da lista mostram só a nota, sem o status |
+| [40 · Campo de tags como barra de pesquisa](40-campo-de-tags-como-barra-de-pesquisa.md) | O campo de pesquisar tag do painel com altura normal, e o painel dentro da tela no celular |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

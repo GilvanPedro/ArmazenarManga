@@ -139,6 +139,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Clicar fora fecha a janela](38-clicar-fora-fecha-a-janela.md).
 - **Lista sem status nas capas.** A grade da lista publicada deixou de mostrar o status. Detalhes em
   [Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md).
+- **Campo de tags.** O campo de pesquisar tag do painel deixou de ser um bloco gigante, e o painel parou de sair da
+  tela no celular. Detalhes em [Campo de tags como barra de pesquisa](40-campo-de-tags-como-barra-de-pesquisa.md).
 
 ## O que foi removido ou abandonado
 
