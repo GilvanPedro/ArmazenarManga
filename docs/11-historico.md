@@ -104,6 +104,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Contas de usuário.** Cadastro com e-mail único, nick e senha; login por e-mail; página da conta para editar e
   excluir; e a transferência dos mangás antigos para a conta de quem sabe a senha antiga do site, que vira admin.
   Detalhes em [Contas de usuário](23-contas.md).
+- **Foto de perfil.** Cada conta pode ter uma foto, cortada em quadrado no navegador, que aparece no topo. Veio junto
+  uma ferramenta para passar os mangás antigos para uma conta pelo e-mail. Detalhes em [Foto de perfil](24-foto-de-perfil.md).
 
 ## O que foi removido ou abandonado
 

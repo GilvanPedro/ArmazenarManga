@@ -778,3 +778,10 @@ dialog.confirmacao { max-width: 420px; }
 dialog.confirmacao h2 { margin: 0 0 8px; color: var(--perigo); }
 dialog.confirmacao p { margin: 0 0 18px; line-height: 1.5; }
 dialog.confirmacao .acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* foto de perfil: o mesmo circulo da inicial */
+img.inicial.foto { object-fit: cover; background: var(--superficie-2); }
+.previa-da-foto { display: inline-flex; }
+.secao-da-conta label.botao { position: relative; overflow: hidden; }
+.secao-da-conta label.botao input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.secao-da-conta label.botao:focus-within { outline: 2px solid var(--destaque); outline-offset: 2px; }

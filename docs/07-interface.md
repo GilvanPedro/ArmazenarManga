@@ -23,8 +23,8 @@ botão "Mostrar" e "Entrar", e o link para criar uma conta (nick, e-mail, senha 
 
 ### Minha conta (`#/conta`)
 
-Aberta pelo nick, no topo (ao lado do botão "Sair"). Edita o nick, o e-mail e a senha, traz os mangás de antes das
-contas e exclui a conta, com uma janela de confirmação.
+Aberta pelo nick, no topo (ao lado do botão "Sair"). Escolhe a foto de perfil, edita o nick, o e-mail e a senha,
+traz os mangás de antes das contas e exclui a conta, com uma janela de confirmação.
 
 ### Todos os mangás (`#/`)
 

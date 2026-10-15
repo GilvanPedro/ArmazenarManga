@@ -132,10 +132,10 @@ public class ApiServer {
     private record SenhaRequest(String senha) {
     }
 
-    /** A conta como o site ve: nunca leva a senha guardada. */
-    private record ContaResponse(UUID id, String email, String nick, boolean admin) {
+    /** A conta como o site ve: nunca leva a senha guardada. foto: o endereco da imagem, so a propria conta abre. */
+    private record ContaResponse(UUID id, String email, String nick, boolean admin, String foto) {
         static ContaResponse de(Conta conta) {
-            return new ContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin());
+            return new ContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin(), conta.foto() == null ? null : "/api/imagens/" + conta.foto());
         }
     }
 
@@ -143,7 +143,7 @@ public class ApiServer {
     private record SessaoResponse(boolean exigeLogin, boolean logado, ContaResponse conta, String expiraEm) {
     }
 
-    private record DadosDaContaResponse(UUID id, String email, String nick, boolean admin, String criadaEm, int mangas, int mangasAntigos) {
+    private record DadosDaContaResponse(UUID id, String email, String nick, boolean admin, String foto, String criadaEm, int mangas, int mangasAntigos) {
     }
 
     /** Cliente que nunca encontra nada: usado quando a API e criada sem acesso a outros sites (testes). */
@@ -349,7 +349,8 @@ public class ApiServer {
         ctx.header("Cache-Control", "no-store");
         ContaService.Dados dados = contas.dados(sessaoExigida(ctx).conta().id());
         Conta conta = dados.conta();
-        json(ctx, HttpStatus.OK, new DadosDaContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin(), conta.criadaEm().toString(),
+        json(ctx, HttpStatus.OK, new DadosDaContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin(),
+                conta.foto() == null ? null : "/api/imagens/" + conta.foto(), conta.criadaEm().toString(),
                 dados.mangas(), dados.mangasAntigos()));
     }
 
@@ -357,6 +358,15 @@ public class ApiServer {
         Sessao sessao = sessaoExigida(ctx);
         EdicaoDaContaRequest edicao = lerCorpo(ctx, EdicaoDaContaRequest.class);
         Conta editada = contas.atualizar(sessao.conta().id(), edicao.nick(), edicao.email(), edicao.senhaNova(), edicao.senhaAtual());
+        // "foto" presente no corpo (mesmo null) troca a foto; ausente, mantem
+        com.fasterxml.jackson.databind.JsonNode corpo = mapper.readTree(ctx.body());
+        if (corpo.has("foto")) {
+            com.fasterxml.jackson.databind.JsonNode foto = corpo.get("foto");
+            if (!foto.isNull() && !foto.isTextual()) {
+                throw new RequisicaoInvalidaException("Valor inválido no campo 'foto'");
+            }
+            editada = contas.trocarFoto(editada.id(), foto.isNull() ? null : foto.asText());
+        }
         boolean trocouSenha = !editada.senhaHash().equals(sessao.conta().senhaHash());
         if (trocouSenha) {
             // senha nova desfaz os logins dos outros aparelhos; este ganha um cookie novo

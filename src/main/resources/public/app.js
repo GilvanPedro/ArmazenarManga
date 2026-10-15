@@ -2432,15 +2432,37 @@ async function comecarSessao(sessao) {
     await abrirSite();
 }
 
-/** Nick no topo (leva a "Minha conta") e o botao Sair. */
+/** A foto de perfil, ou a inicial do nick em um circulo quando nao ha foto. */
+function avatar(conta, grande) {
+    const classe = 'inicial' + (grande ? ' grande' : '');
+    if (conta.foto) return h('img', {class: classe + ' foto', src: conta.foto, alt: '', width: grande ? '64' : '26', height: grande ? '64' : '26'});
+    return h('span', {class: classe, 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase());
+}
+
+/** Nick e foto no topo (levam a "Minha conta") e o botao Sair. */
 function mostrarConta(conta) {
     const link = document.getElementById('minha-conta');
     const sair = document.getElementById('sair');
     link.hidden = sair.hidden = !conta;
     if (conta) {
-        link.replaceChildren(h('span', {class: 'inicial', 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase()), h('span', {class: 'nick'}, conta.nick));
+        link.replaceChildren(avatar(conta), h('span', {class: 'nick'}, conta.nick));
         link.title = 'Minha conta (' + conta.email + ')';
     }
+}
+
+/** Recorta o meio da imagem em um quadrado de lado x lado, em WebP (ou JPEG). */
+async function recortarQuadrado(arquivo, lado) {
+    const imagem = await createImageBitmap(arquivo);
+    const menor = Math.min(imagem.width, imagem.height);
+    const tela = document.createElement('canvas');
+    tela.width = tela.height = Math.min(lado, menor);
+    const pincel = tela.getContext('2d');
+    pincel.imageSmoothingQuality = 'high';
+    pincel.drawImage(imagem, (imagem.width - menor) / 2, (imagem.height - menor) / 2, menor, menor, 0, 0, tela.width, tela.height);
+    imagem.close();
+    const gerar = tipo => new Promise(ok => tela.toBlob(ok, tipo, 0.88));
+    const recortada = await gerar('image/webp');
+    return recortada && recortada.type === 'image/webp' ? recortada : gerar('image/jpeg');
 }
 
 async function sair() {
@@ -2514,6 +2536,51 @@ async function telaConta() {
         mostrarConta(sessao.conta);
     };
 
+    // foto de perfil: recortada em quadrado e diminuida aqui mesmo, antes de enviar
+    const previa = h('span', {class: 'previa-da-foto'}, avatar(conta, true));
+    const arquivoDaFoto = h('input', {type: 'file', id: 'conta-foto', accept: 'image/png,image/jpeg,image/webp,image/gif'});
+    const removerFoto = h('button', {type: 'button', class: 'botao', hidden: !conta.foto}, 'Remover foto');
+    const textoDoEscolher = h('span', null, conta.foto ? 'Trocar foto' : 'Escolher foto');
+    const erroDaFoto = h('p', {class: 'erro-de-login', role: 'alert'});
+    const trocarFoto = async foto => {
+        atualizar(await chamar('PUT', '/api/conta', {foto}));
+        previa.replaceChildren(avatar(conta, true));
+        cabecalho.querySelector('.inicial').replaceWith(avatar(conta, true));
+        removerFoto.hidden = !conta.foto;
+        textoDoEscolher.textContent = conta.foto ? 'Trocar foto' : 'Escolher foto';
+    };
+    arquivoDaFoto.addEventListener('change', async () => {
+        const escolhido = arquivoDaFoto.files[0];
+        arquivoDaFoto.value = '';
+        if (!escolhido) return;
+        erroDaFoto.textContent = '';
+        try {
+            const recortada = await recortarQuadrado(escolhido, 256);
+            const envio = new FormData();
+            envio.append('arquivo', recortada, 'foto.' + (recortada.type === 'image/webp' ? 'webp' : 'jpg'));
+            await trocarFoto((await chamar('POST', '/api/imagens', envio)).imagePath);
+            avisar('Foto salva');
+        } catch (e) {
+            erroDaFoto.textContent = e.message && !/decode|bitmap/i.test(e.message) ? e.message : 'Não foi possível ler essa imagem. Escolha outra.';
+        }
+    });
+    removerFoto.addEventListener('click', async () => {
+        erroDaFoto.textContent = '';
+        try {
+            await trocarFoto(null);
+            avisar('Foto removida');
+        } catch (e) {
+            erroDaFoto.textContent = e.message;
+        }
+    });
+    const secaoFoto = h('section', {class: 'secao-da-conta'},
+        h('h2', null, 'Foto de perfil'),
+        h('p', {class: 'subtitulo'}, 'Aparece no topo do site. A imagem é cortada em quadrado, pelo meio.'),
+        h('div', {class: 'linha'}, previa,
+            h('label', {class: 'botao primario', for: 'conta-foto'}, textoDoEscolher, arquivoDaFoto),
+            removerFoto),
+        erroDaFoto);
+
     const nick = h('input', {type: 'text', id: 'conta-nick', value: conta.nick, maxlength: '40', required: true});
     const secaoNick = secaoDaConta('Nick', 'Como você aparece no site.', [h('div', {class: 'campo'}, h('label', {for: 'conta-nick'}, 'Nick'), nick)],
         'Salvar nick', async () => {
@@ -2571,15 +2638,17 @@ async function telaConta() {
             telaLogin('Sua conta foi excluída.');
         }, true);
 
-    app.replaceChildren(h('div', {class: 'pagina-da-conta'},
-        h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
-        h('div', {class: 'cabecalho-da-conta'},
-            h('span', {class: 'inicial grande', 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase()),
+    const cabecalho = h('div', {class: 'cabecalho-da-conta'},
+            avatar(conta, true),
             h('div', null,
                 h('h1', null, conta.nick, conta.admin ? h('span', {class: 'selo-admin'}, 'Admin') : null),
                 h('p', {class: 'subtitulo'}, conta.email, ' · ', conta.mangas === 1 ? '1 mangá' : conta.mangas + ' mangás', ' · conta criada em ',
-                    new Date(conta.criadaEm).toLocaleDateString('pt-BR')))),
+                    new Date(conta.criadaEm).toLocaleDateString('pt-BR'))));
+    app.replaceChildren(h('div', {class: 'pagina-da-conta'},
+        h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
+        cabecalho,
         secaoAntigos,
+        secaoFoto,
         secaoNick,
         secaoEmail,
         secaoSenha,

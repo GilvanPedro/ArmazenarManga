@@ -104,6 +104,7 @@ const ESTRUTURA = `
     CREATE TABLE IF NOT EXISTS contas (id UUID PRIMARY KEY, email TEXT NOT NULL, nick TEXT NOT NULL, senha_hash TEXT NOT NULL,
         admin BOOLEAN NOT NULL DEFAULT false, criada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE UNIQUE INDEX IF NOT EXISTS contas_email ON contas (email);
+    ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
 `;
@@ -175,7 +176,10 @@ async function imagemExiste(nome) {
 async function excluirImagemSemUso(imagePath) {
     if (typeof imagePath !== 'string' || !NOME_VALIDO.test(imagePath)) return;
     const db = await banco();
-    const { rows } = await db.query(`SELECT 1 FROM mangas WHERE conta = $1 AND dados->>'imagePath' = $2 LIMIT 1`, [contaAtual(), imagePath]);
+    // em uso por um manga da conta, ou como foto de perfil dela
+    const { rows } = await db.query(
+        `SELECT 1 FROM mangas WHERE conta = $1 AND dados->>'imagePath' = $2
+         UNION ALL SELECT 1 FROM contas WHERE id::text = $1 AND foto = $2 LIMIT 1`, [contaAtual(), imagePath]);
     if (rows.length === 0) {
         const base = imagePath.slice(0, imagePath.lastIndexOf('.'));
         // a capa e a miniatura dela
@@ -673,7 +677,7 @@ async function sessaoValida(request) {
     const cookie = lerCookie(request.headers.get('cookie'), COOKIE);
     const id = contaDoCookie(cookie);
     if (!id) return null;
-    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em FROM contas WHERE id = $1', [id]);
+    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto FROM contas WHERE id = $1', [id]);
     if (rows.length === 0) return null; // conta excluida
     const expira = validarSessao(cookie, await segredoDaSessao(), rows[0].id, rows[0].senha_hash);
     return expira ? { conta: rows[0], expira } : null;
@@ -689,7 +693,11 @@ function semCache(resposta) {
 }
 
 /** A conta como o site ve: nunca leva a senha guardada. */
-const contaPublica = conta => ({ id: conta.id, email: conta.email, nick: conta.nick, admin: conta.admin === true });
+const contaPublica = conta => ({
+    id: conta.id, email: conta.email, nick: conta.nick, admin: conta.admin === true,
+    // a foto e uma imagem da propria conta: so quem esta nela consegue abrir
+    foto: conta.foto ? '/api/imagens/' + conta.foto : null,
+});
 
 const respostaDaSessao = sessao => ({
     exigeLogin: true,
@@ -826,13 +834,24 @@ async function tratarConta(request, sessao, acao) {
         // trocar o e-mail ou a senha pede a senha atual; o nick, nao
         if (email !== conta.email || senhaNova) await exigirSenhaAtual(conta, dados.senhaAtual);
         const senhaHash = senhaNova ? await gerarHash(senhaNova) : conta.senha_hash;
+        // foto: o nome de uma imagem ja enviada por esta conta (POST /api/imagens), ou null para tirar
+        let foto = conta.foto ?? null;
+        if (dados.foto !== undefined) {
+            if (dados.foto !== null && (typeof dados.foto !== 'string' || !NOME_DE_CAPA.test(dados.foto) || !(await imagemExiste(dados.foto)))) {
+                throw new Recusa(400, 'A foto informada não existe. Envie a imagem antes');
+            }
+            foto = dados.foto;
+        }
         let rows;
         try {
-            ({ rows } = await db.query('UPDATE contas SET nick = $2, email = $3, senha_hash = $4 WHERE id = $1 RETURNING *', [conta.id, nick, email, senhaHash]));
+            ({ rows } = await db.query('UPDATE contas SET nick = $2, email = $3, senha_hash = $4, foto = $5 WHERE id = $1 RETURNING *',
+                [conta.id, nick, email, senhaHash, foto]));
         } catch (erro) {
             if (erro.code === '23505') throw new Recusa(409, 'Já existe uma conta com esse e-mail');
             throw erro;
         }
+        // a foto antiga deixa de ser usada: sai do banco (a nao ser que algum manga use a mesma imagem)
+        if (conta.foto && conta.foto !== foto) await excluirImagemSemUso(conta.foto);
         // senha nova desfaz os logins dos outros aparelhos; este ganha um cookie novo
         return senhaNova ? entrarNaConta(request, rows[0]) : semCache(json(200, respostaDaSessao({ conta: rows[0], expira: sessao.expira })));
     }

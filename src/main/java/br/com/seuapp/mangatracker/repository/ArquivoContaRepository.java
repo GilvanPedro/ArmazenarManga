@@ -23,13 +23,13 @@ import java.util.UUID;
 public class ArquivoContaRepository implements ContaRepository {
 
     /** Formato da conta no arquivo. */
-    private record ContaJson(UUID id, String email, String nick, String senhaHash, boolean admin, String criadaEm) {
+    private record ContaJson(UUID id, String email, String nick, String senhaHash, boolean admin, String criadaEm, String foto) {
         static ContaJson de(Conta conta) {
-            return new ContaJson(conta.id(), conta.email(), conta.nick(), conta.senhaHash(), conta.admin(), conta.criadaEm().toString());
+            return new ContaJson(conta.id(), conta.email(), conta.nick(), conta.senhaHash(), conta.admin(), conta.criadaEm().toString(), conta.foto());
         }
 
         Conta paraConta() {
-            return new Conta(id, email, nick, senhaHash, admin, Instant.parse(criadaEm));
+            return new Conta(id, email, nick, senhaHash, admin, Instant.parse(criadaEm), foto);
         }
     }
 

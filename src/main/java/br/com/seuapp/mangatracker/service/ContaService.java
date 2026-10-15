@@ -198,6 +198,32 @@ public class ContaService {
         return editada;
     }
 
+    /**
+     * Troca (ou tira, com null) a foto de perfil. A foto e uma imagem ja enviada pela propria conta. A foto antiga
+     * sai do armazenamento, a nao ser que algum manga da conta use a mesma imagem.
+     */
+    public Conta trocarFoto(UUID id, String foto) {
+        Conta conta = exigir(id);
+        String antiga = conta.foto();
+        Conta editada = ContaAtual.com(id.toString(), () -> {
+            if (foto != null && !imagens.existe(foto)) {
+                throw new ContaException(400, "A foto informada não existe. Envie a imagem antes");
+            }
+            return conta.comFoto(foto);
+        });
+        contas.atualizar(editada);
+        if (antiga != null && !antiga.equals(foto)) {
+            ContaAtual.com(id.toString(), () -> {
+                boolean usadaPorManga = mangas.listarMangas(null, null).stream().anyMatch(manga -> antiga.equals(manga.getImagePath()));
+                if (!usadaPorManga) {
+                    imagens.excluir(antiga);
+                }
+                return null;
+            });
+        }
+        return editada;
+    }
+
     /** Exclui a conta, todos os mangas e as capas dela. Pede a senha. */
     public void excluir(UUID id, String senha) {
         Conta conta = exigir(id);

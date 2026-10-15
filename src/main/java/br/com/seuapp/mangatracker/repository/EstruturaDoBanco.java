@@ -41,6 +41,7 @@ public final class EstruturaDoBanco {
             "CREATE TABLE IF NOT EXISTS contas (id UUID PRIMARY KEY, email TEXT NOT NULL, nick TEXT NOT NULL, senha_hash TEXT NOT NULL, "
                     + "admin BOOLEAN NOT NULL DEFAULT false, criada_em TIMESTAMPTZ NOT NULL DEFAULT now())",
             "CREATE UNIQUE INDEX IF NOT EXISTS contas_email ON contas (email)",
+            "ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT",
             "CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL)",
             "CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now())",
             "ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT ''",

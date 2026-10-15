@@ -1260,6 +1260,51 @@ class ApiServerTest {
         assertEquals(404, comCookie("POST", "/api/conta/mangas-antigos", semAntiga, "{\"senha\": \"senha antiga do site\"}").statusCode());
     }
 
+    /** Envia uma imagem com o cookie escolhido e devolve o nome dela. */
+    private String enviarImagemComo(String cookie, byte[] conteudo) throws Exception {
+        String limite = "----limite";
+        java.io.ByteArrayOutputStream corpo = new java.io.ByteArrayOutputStream();
+        corpo.write(("--" + limite + "\r\nContent-Disposition: form-data; name=\"arquivo\"; filename=\"f.png\"\r\nContent-Type: image/png\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+        corpo.write(conteudo);
+        corpo.write(("\r\n--" + limite + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        HttpResponse<String> resposta = semLogin.send(HttpRequest.newBuilder(URI.create(base + "/api/imagens"))
+                .header("Content-Type", "multipart/form-data; boundary=" + limite).header("Cookie", "mangas_sessao=" + cookie)
+                .POST(BodyPublishers.ofByteArray(corpo.toByteArray())).build(), BodyHandlers.ofString());
+        assertEquals(201, resposta.statusCode(), resposta.body());
+        return json(resposta).get("imagePath").asText();
+    }
+
+    @Test
+    void fotoDePerfilSoDaPropriaContaETrocarApagaAAntiga() throws Exception {
+        subirComContas(new byte[32], null);
+        String cookie = cookieDe(comCookie("POST", "/api/contas", null, conta("foto@exemplo.com", "Com Foto", "123456")));
+        String outra = cookieDe(comCookie("POST", "/api/contas", null, conta("outra@exemplo.com", "Outra", "123456")));
+        assertTrue(json(comCookie("GET", "/api/sessao", cookie, null)).get("conta").get("foto").isNull());
+
+        String primeira = enviarImagemComo(cookie, ImagemServiceTest.PNG);
+        HttpResponse<String> comFoto = comCookie("PUT", "/api/conta", cookie, "{\"foto\": \"" + primeira + "\"}");
+        assertEquals(200, comFoto.statusCode(), comFoto.body());
+        assertEquals("/api/imagens/" + primeira, json(comFoto).get("conta").get("foto").asText());
+        assertEquals("/api/imagens/" + primeira, json(comCookie("GET", "/api/conta", cookie, null)).get("foto").asText());
+        assertEquals("/api/imagens/" + primeira, json(comCookie("GET", "/api/sessao", cookie, null)).get("conta").get("foto").asText());
+        assertEquals(200, comCookie("GET", "/api/imagens/" + primeira, cookie, null).statusCode());
+        // a foto e da conta: outra conta nao abre, nem consegue usar como foto dela
+        assertEquals(404, comCookie("GET", "/api/imagens/" + primeira, outra, null).statusCode());
+        assertEquals(400, comCookie("PUT", "/api/conta", outra, "{\"foto\": \"" + primeira + "\"}").statusCode());
+        assertEquals(400, comCookie("PUT", "/api/conta", cookie, "{\"foto\": \"../segredo.png\"}").statusCode());
+        assertEquals(400, comCookie("PUT", "/api/conta", cookie, "{\"foto\": 42}").statusCode());
+        // editar so o nick nao mexe na foto
+        assertEquals("/api/imagens/" + primeira, json(comCookie("PUT", "/api/conta", cookie, "{\"nick\": \"Novo\"}")).get("conta").get("foto").asText());
+
+        // trocar: a foto antiga sai do armazenamento
+        String segunda = enviarImagemComo(cookie, ImagemServiceTest.PNG);
+        assertEquals("/api/imagens/" + segunda, json(comCookie("PUT", "/api/conta", cookie, "{\"foto\": \"" + segunda + "\"}")).get("conta").get("foto").asText());
+        assertEquals(404, comCookie("GET", "/api/imagens/" + primeira, cookie, null).statusCode());
+        // tirar
+        assertTrue(json(comCookie("PUT", "/api/conta", cookie, "{\"foto\": null}")).get("conta").get("foto").isNull());
+        assertEquals(404, comCookie("GET", "/api/imagens/" + segunda, cookie, null).statusCode());
+    }
+
     @Test
     void oLoginContinuaDepoisDeReiniciarComOMesmoSegredo() throws Exception {
         byte[] segredo = new byte[32];
