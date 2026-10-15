@@ -143,6 +143,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   tela no celular. Detalhes em [Campo de tags como barra de pesquisa](40-campo-de-tags-como-barra-de-pesquisa.md).
 - **Comunidade mais larga.** O feed passou de 620 para 860 px, junto do "Quem seguir"; as abas perderam a barra de
   rolagem; e o rótulo "Lista" perdeu o emoji. Detalhes em [Comunidade mais larga](41-comunidade-mais-larga.md).
+- **Responsividade.** O site foi analisado em 14 tamanhos de tela, do celular de 320 px ao monitor de 2560 px. Foram
+  corrigidos o topo e o painel de Tags no tablet, a barra e as abas da Biblioteca no celular, as janelas no celular e
+  em telas baixas, o zoom do iPhone nos campos, os botões pequenos para o dedo e o uso da largura em monitores grandes.
+  Detalhes em [Responsividade](42-responsividade.md).
 
 ## O que foi removido ou abandonado
 

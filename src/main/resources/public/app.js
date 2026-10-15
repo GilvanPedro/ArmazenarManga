@@ -483,11 +483,34 @@ function abas(atual) {
             recarregarAba();
         } : null,
     }, texto);
-    return h('nav', {class: 'abas', 'aria-label': 'Listas'},
+    return rolagemDasAbas(h('nav', {class: 'abas', 'aria-label': 'Listas'},
         aba('todos', '#/', 'Todos os mangás'),
         aba('hoje', '#/hoje', 'Lançam hoje'),
         aba('descobrir', '#/descobrir', 'Descobrir'),
-        aba('atalho', '#/atalho', 'Extensão e atalho'));
+        aba('atalho', '#/atalho', 'Extensão e atalho')));
+}
+
+/**
+ * Abas que nao cabem na largura (no celular) rolam para o lado. Um esmaecido na borda mostra que tem mais aba daquele
+ * lado, e a aba aberta aparece na tela (centralizada, se a linha for rolada).
+ */
+function rolagemDasAbas(nav) {
+    let primeiraVez = true;
+    const marcar = () => {
+        nav.classList.toggle('mais-a-direita', nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1);
+        nav.classList.toggle('mais-a-esquerda', nav.scrollLeft > 1);
+    };
+    nav.addEventListener('scroll', marcar, {passive: true});
+    new ResizeObserver(() => {
+        const aberta = nav.querySelector('[aria-current=page]');
+        if (primeiraVez && aberta && nav.scrollWidth > nav.clientWidth) {
+            const inicio = aberta.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
+            nav.scrollLeft = inicio - (nav.clientWidth - aberta.offsetWidth) / 2;
+        }
+        if (nav.clientWidth > 0) primeiraVez = false;
+        marcar();
+    }).observe(nav);
+    return nav;
 }
 
 /** Busca de novo o que a aba aberta mostra. A grade mantem a busca, os filtros e a pagina. */
@@ -3268,6 +3291,8 @@ function escolherLista(atual, aoConfirmar) {
         grade.append(...resposta.itens.map(cartaoParaEscolher));
         fim.textContent = resposta.total === 0 ? 'Nenhum mangá encontrado na sua Biblioteca.' : '';
         marcar();
+        // se a pagina nao encheu a tela, ja vem a proxima
+        requestAnimationFrame(talvezCarregar);
     };
     const recomecar = () => {
         pedido++;
@@ -3301,20 +3326,19 @@ function escolherLista(atual, aoConfirmar) {
         filtros,
         rolagem,
         h('div', {class: 'rodape-da-escolha'}, contagem, h('span', {class: 'espaco'}), limpar, anexar));
-    // a proxima pagina vem quando a grade chega perto do fim
-    const observador = new IntersectionObserver(entradas => {
-        if (entradas.some(entrada => entrada.isIntersecting) && fim.textContent !== 'Carregando…') carregar();
-    }, {root: rolagem, rootMargin: '400px'});
-    observador.observe(fim);
+    // a proxima pagina vem quando a grade chega perto do fim. Quem rola e a grade (telas altas) ou a janela inteira
+    // (telas baixas, como o celular deitado): o fim e medido ate a borda de baixo do que estiver aparecendo
+    const pertoDoFim = () => fim.getBoundingClientRect().top < Math.min(rolagem.getBoundingClientRect().bottom, dialogo.getBoundingClientRect().bottom) + 400;
+    const talvezCarregar = () => {
+        if (dialogo.open && temMais && fim.textContent !== 'Carregando…' && pertoDoFim()) carregar();
+    };
+    dialogo.addEventListener('scroll', talvezCarregar, {capture: true, passive: true});
     fechar.addEventListener('click', () => dialogo.close());
     anexar.addEventListener('click', () => {
         aoConfirmar({titulo: titulo.value.trim(), mangas: escolhidos});
         dialogo.close();
     });
-    dialogo.addEventListener('close', () => {
-        observador.disconnect();
-        dialogo.remove();
-    });
+    dialogo.addEventListener('close', () => dialogo.remove());
     document.body.append(dialogo);
     dialogo.showModal();
     marcar();

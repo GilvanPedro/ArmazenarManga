@@ -103,8 +103,8 @@ h1, h2 { line-height: 1.2; margin: 0; text-wrap: balance; }
 .secao:hover { color: var(--texto); background: color-mix(in srgb, var(--texto) 7%, transparent); }
 .secao[aria-current=page] { color: var(--texto); background: color-mix(in srgb, var(--destaque) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--destaque) 45%, transparent); }
 .secao:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
-/* telas estreitas: as partes descem para uma linha propria, embaixo do logo e dos botoes */
-@media (max-width: 720px) {
+/* telas estreitas (celular e tablet em pe): as partes descem para uma linha propria, embaixo do logo e dos botoes */
+@media (max-width: 900px) {
     .topo { flex-wrap: wrap; row-gap: 8px; }
     .secoes { order: 3; flex-basis: 100%; margin-left: 0; }
     .secao { flex: 1; text-align: center; }
@@ -215,8 +215,8 @@ select:disabled { opacity: .55; }
 .painel-de-tags .recolher-tags { display: none; }
 .painel-de-tags .opcoes-de-tag { max-height: 220px; }
 .quadro-de-tags.biblioteca h3::before { content: "🏷 "; }
-@media (max-width: 560px) {
-    /* no celular o painel ocupa a largura da barra de ferramentas, sem passar da borda da tela */
+@media (max-width: 900px) {
+    /* no celular e no tablet o painel ocupa a largura da barra de ferramentas, sem passar da borda da tela */
     .ferramentas { position: relative; }
     .filtro-de-tags { position: static; }
     .painel-de-tags { left: 0; right: 0; width: auto; }
@@ -1128,3 +1128,61 @@ dialog.imagem-grande { width: auto; max-width: 96vw; padding: 0; background: tra
 dialog.imagem-grande img { display: block; max-width: 96vw; max-height: 90vh; border-radius: 10px; }
 dialog.imagem-grande form { position: fixed; top: 12px; right: 16px; }
 dialog.imagem-grande .fechar { color: #fff; font-size: 36px; }
+
+/* ------------------------------------------------------------ responsividade */
+
+/* monitores grandes: o conteudo usa mais da largura, com ate 8 colunas de capas */
+@media (min-width: 1800px) {
+    main { max-width: 1680px; }
+    .topo { padding-left: max(16px, calc((100vw - 1680px) / 2)); padding-right: max(16px, calc((100vw - 1680px) / 2)); }
+    .grade { --colunas: 8; }
+}
+
+/* abas que nao cabem: um esmaecido na borda mostra que da para rolar para aquele lado */
+.abas.mais-a-direita { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent); }
+.abas.mais-a-esquerda { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent); }
+.abas.mais-a-direita.mais-a-esquerda { -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent); }
+
+/* celular: a busca ocupa a linha toda e a ordem divide a de baixo com Tags e Sortear; janelas mais largas e com menos
+   margem, para sobrar espaco para o conteudo */
+@media (max-width: 560px) {
+    .ferramentas input[type=search] { flex-basis: 100%; max-width: none; }
+    .ferramentas .espaco { display: none; }
+    .ferramentas select.ordenar { flex: 1 1 120px; min-width: 0; }
+    .aba { padding: 9px 11px; }
+    dialog { width: calc(100vw - 16px); padding: 16px; }
+    dialog.janela-de-escrever, dialog.janela-da-lista, dialog.janela-da-lista-publicada { width: calc(100vw - 16px); }
+    dialog.janela-da-lista, dialog.janela-da-lista-publicada { max-height: calc(100dvh - 16px); }
+    dialog.janela-da-lista { height: calc(100dvh - 16px); }
+    dialog.confirmacao { max-width: none; }
+    .grade-da-lista { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 12px 10px; }
+    .rodape-da-escolha { flex-wrap: wrap; }
+    .rodape-da-escolha .contagem-da-lista { flex: 1 1 100%; }
+}
+
+/* telas baixas (celular deitado): a janela de montar a lista rola inteira, em vez de espremer as capas numa faixa;
+   o rodape com o botao fica preso embaixo */
+@media (max-height: 560px) {
+    dialog.janela-da-lista { height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; }
+    dialog.janela-da-lista .rolagem-da-escolha { flex: none; overflow: visible; }
+    dialog.janela-da-lista .rodape-da-escolha { position: sticky; bottom: -22px; margin: 0 -22px -22px; padding: 12px 22px 22px; background: var(--superficie); z-index: 2; }
+    dialog.janela-da-lista-publicada { max-height: calc(100dvh - 16px); }
+    dialog.janela-de-escrever { max-height: calc(100dvh - 16px); }
+}
+@media (max-height: 560px) and (max-width: 560px) {
+    dialog.janela-da-lista .rodape-da-escolha { bottom: -16px; margin: 0 -16px -16px; padding: 12px 16px 16px; }
+}
+
+/* toque (celular e tablet): campos com letra de 16px, para o iPhone nao dar zoom ao tocar neles, e botoes pequenos com
+   area maior para o dedo */
+@media (pointer: coarse) {
+    input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
+    .acao-do-post { min-height: 38px; padding: 6px 10px; }
+    .fechar { min-width: 40px; min-height: 40px; }
+    .apagar-comentario { min-width: 36px; min-height: 36px; }
+    .voltar, .voltar-para-a-lista { padding: 8px 0; }
+    .recolher-tags { padding: 8px 0; }
+    a.tag { min-height: 32px; display: inline-flex; align-items: center; }
+    .trocar-de-modo { padding: 8px 4px; }
+    .tag.escolhida button { display: inline-grid; place-items: center; min-width: 30px; min-height: 30px; }
+}

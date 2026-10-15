@@ -11,7 +11,8 @@ biblioteca nem etapa de build: o que está no repositório é o que o navegador 
 - **Texto sempre como texto.** Uma função auxiliar cria os elementos, e todo conteúdo vindo de fora entra como
   texto, nunca como HTML.
 - **Tema claro e escuro**, seguindo o sistema. As cores são variáveis no topo do `app.css`.
-- **Responsiva.** A grade tem no máximo 6 colunas e chega a 2 no celular.
+- **Responsiva.** A grade tem no máximo 6 colunas (8 em monitores de 1800 px ou mais) e chega a 2 no celular. O site
+  foi conferido em 14 tamanhos de tela, do celular ao monitor grande: veja [Responsividade](42-responsividade.md).
 
 ## Telas
 

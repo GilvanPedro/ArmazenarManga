@@ -45,6 +45,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [39 · Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md) | As capas da lista mostram só a nota, sem o status |
 | [40 · Campo de tags como barra de pesquisa](40-campo-de-tags-como-barra-de-pesquisa.md) | O campo de pesquisar tag do painel com altura normal, e o painel dentro da tela no celular |
 | [41 · Comunidade mais larga](41-comunidade-mais-larga.md) | O feed com até 860 px, as abas sem barra de rolagem e "Lista" sem emoji |
+| [42 · Responsividade](42-responsividade.md) | Análise em 14 tamanhos de tela e as correções para celular, tablet, telas baixas, toque e monitores grandes |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
