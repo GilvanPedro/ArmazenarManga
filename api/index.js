@@ -3,6 +3,7 @@
 // Uma mudanca de regra precisa ser feita nos dois lugares.
 import pg from 'pg';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, criarSessao, lerCookie, mesmoTexto, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
@@ -12,6 +13,7 @@ const buscarSinopse = criarBuscadorDeSinopse();
 const buscarRecomendacoes = criarBuscadorDeRecomendacoes();
 const TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
 const TAMANHO_MAXIMO_DA_PAGINA = 100;
+const TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA = 2000;
 
 const verificar = criarVerificador(criarBuscador());
 
@@ -61,10 +63,40 @@ class Recusa extends Error {
     }
 }
 
-// ------------------------------------------------------------------ banco
+// ------------------------------------------------------------------ banco e conta
+
+/**
+ * Cada manga e cada capa pertencem a uma conta, e toda consulta filtra pela conta de quem esta usando. Hoje existe
+ * uma conta so ("principal"). Quando houver cadastro de contas, contaAtual() passa a vir da sessao, e o resto do
+ * codigo nao precisa mudar.
+ */
+const CONTA_PRINCIPAL = 'principal';
+const contexto = new AsyncLocalStorage();
+const contaAtual = () => contexto.getStore()?.conta ?? CONTA_PRINCIPAL;
 
 let conexoes;
 let tabelasProntas;
+
+/**
+ * Cria e atualiza as tabelas. So acrescenta (colunas, indices), nunca apaga: roda igual em um banco novo e em um
+ * que ja tem dados. A trava garante que duas instancias da funcao nao facam isso ao mesmo tempo.
+ */
+const ESTRUTURA = `
+    SELECT pg_advisory_xact_lock(7316250);
+    CREATE TABLE IF NOT EXISTS mangas (id UUID PRIMARY KEY, ordem BIGSERIAL, dados JSONB NOT NULL);
+    CREATE TABLE IF NOT EXISTS imagens (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL);
+    CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now());
+    ALTER TABLE mangas ADD COLUMN IF NOT EXISTS conta TEXT NOT NULL DEFAULT 'principal';
+    ALTER TABLE mangas ADD COLUMN IF NOT EXISTS titulo_busca TEXT;
+    ALTER TABLE mangas ADD COLUMN IF NOT EXISTS tags_busca TEXT[];
+    ALTER TABLE imagens ADD COLUMN IF NOT EXISTS conta TEXT NOT NULL DEFAULT 'principal';
+    CREATE INDEX IF NOT EXISTS mangas_conta_ordem ON mangas (conta, ordem);
+    CREATE INDEX IF NOT EXISTS mangas_conta_titulo ON mangas (conta, titulo_busca COLLATE "C");
+    CREATE INDEX IF NOT EXISTS mangas_conta_status ON mangas (conta, (dados->>'readingStatus'));
+    CREATE INDEX IF NOT EXISTS mangas_conta_imagem ON mangas (conta, (dados->>'imagePath'));
+    CREATE INDEX IF NOT EXISTS mangas_tags_busca ON mangas USING GIN (tags_busca);
+`;
 
 async function banco() {
     if (!conexoes) {
@@ -72,12 +104,7 @@ async function banco() {
         conexoes = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 2, idleTimeoutMillis: 10_000 });
     }
     if (!tabelasProntas) {
-        tabelasProntas = conexoes.query(`
-            CREATE TABLE IF NOT EXISTS mangas (id UUID PRIMARY KEY, ordem BIGSERIAL, dados JSONB NOT NULL);
-            CREATE TABLE IF NOT EXISTS imagens (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL);
-            CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now());
-        `).catch(erro => {
+        tabelasProntas = conexoes.query(ESTRUTURA).then(() => preencherColunasDeBusca(conexoes)).catch(erro => {
             tabelasProntas = null;
             throw erro;
         });
@@ -86,28 +113,51 @@ async function banco() {
     return conexoes;
 }
 
-async function listarTodos() {
-    const { rows } = await (await banco()).query('SELECT dados FROM mangas ORDER BY ordem');
-    return rows.map(linha => linha.dados);
+/** Colunas que o banco usa para buscar e ordenar sem abrir o JSON de cada manga. Atualizadas a cada gravacao. */
+function colunasDeBusca(manga) {
+    return {
+        titulo: semAcentos(manga.title),
+        tags: [...new Set((manga.tags || []).map(normalizar).filter(Boolean))],
+    };
 }
+
+/** Mangas gravados antes das colunas de busca existirem ganham as colunas preenchidas (uma vez, aos poucos). */
+async function preencherColunasDeBusca(db) {
+    for (;;) {
+        const { rows } = await db.query('SELECT id, dados FROM mangas WHERE titulo_busca IS NULL LIMIT 500');
+        if (rows.length === 0) return;
+        // uma gravacao para cada 500 mangas, e nao uma por manga
+        const colunas = rows.map(({ id, dados }) => ({ id, ...colunasDeBusca(dados) }));
+        await db.query(
+            `UPDATE mangas SET titulo_busca = v.titulo, tags_busca = ARRAY(SELECT jsonb_array_elements_text(v.tags))
+             FROM jsonb_to_recordset($1::jsonb) AS v (id uuid, titulo text, tags jsonb) WHERE mangas.id = v.id`,
+            [JSON.stringify(colunas)]);
+    }
+}
+
+/** O manga sem os campos que so a pagina dele usa: para listas grandes. */
+const SEM_DESCRICAO = "dados - 'description'";
 
 async function buscarPorId(id) {
     if (!ID_VALIDO.test(id)) throw new Recusa(404, 'Mangá não encontrado');
-    const { rows } = await (await banco()).query('SELECT dados FROM mangas WHERE id = $1', [id]);
+    const { rows } = await (await banco()).query('SELECT dados FROM mangas WHERE id = $1 AND conta = $2', [id, contaAtual()]);
     if (rows.length === 0) throw new Recusa(404, 'Mangá não encontrado');
     return rows[0].dados;
 }
 
 async function salvar(manga) {
+    const { titulo, tags } = colunasDeBusca(manga);
+    // o WHERE impede gravar por cima do manga de outra conta que tenha o mesmo id
     await (await banco()).query(
-        `INSERT INTO mangas (id, dados) VALUES ($1, $2::jsonb)
-         ON CONFLICT (id) DO UPDATE SET dados = EXCLUDED.dados`,
-        [manga.id, JSON.stringify(manga)]);
+        `INSERT INTO mangas (id, dados, conta, titulo_busca, tags_busca) VALUES ($1, $2::jsonb, $3, $4, $5)
+         ON CONFLICT (id) DO UPDATE SET dados = EXCLUDED.dados, titulo_busca = EXCLUDED.titulo_busca, tags_busca = EXCLUDED.tags_busca
+         WHERE mangas.conta = EXCLUDED.conta`,
+        [manga.id, JSON.stringify(manga), contaAtual(), titulo, tags]);
 }
 
 async function imagemExiste(nome) {
     if (typeof nome !== 'string' || !NOME_VALIDO.test(nome)) return false;
-    const { rows } = await (await banco()).query('SELECT 1 FROM imagens WHERE nome = $1', [nome]);
+    const { rows } = await (await banco()).query('SELECT 1 FROM imagens WHERE nome = $1 AND conta = $2', [nome, contaAtual()]);
     return rows.length > 0;
 }
 
@@ -115,17 +165,23 @@ async function imagemExiste(nome) {
 async function excluirImagemSemUso(imagePath) {
     if (typeof imagePath !== 'string' || !NOME_VALIDO.test(imagePath)) return;
     const db = await banco();
-    const { rows } = await db.query(`SELECT 1 FROM mangas WHERE dados->>'imagePath' = $1 LIMIT 1`, [imagePath]);
+    const { rows } = await db.query(`SELECT 1 FROM mangas WHERE conta = $1 AND dados->>'imagePath' = $2 LIMIT 1`, [contaAtual(), imagePath]);
     if (rows.length === 0) {
         const base = imagePath.slice(0, imagePath.lastIndexOf('.'));
         // a capa e a miniatura dela
-        await db.query('DELETE FROM imagens WHERE nome = ANY($1)', [[imagePath, base + '-mini.webp', base + '-mini.jpg']]);
+        await db.query('DELETE FROM imagens WHERE conta = $1 AND nome = ANY($2)', [contaAtual(), [imagePath, base + '-mini.webp', base + '-mini.jpg']]);
     }
 }
 
-/** Capa de cada miniatura guardada: nome da capa (sem extensao) -> nome da miniatura. So os nomes saem do banco. */
-async function miniaturas() {
-    const { rows } = await (await banco()).query("SELECT nome FROM imagens WHERE nome LIKE '%-mini.%'");
+/**
+ * Miniaturas que existem para as capas destes mangas: nome da capa (sem extensao) -> nome da miniatura. Procura so
+ * pelos nomes possiveis (pela chave da tabela), entao o custo depende dos mangas pedidos, e nao do total guardado.
+ */
+async function miniaturas(mangas) {
+    const nomes = mangas.map(manga => manga.imagePath).filter(nome => typeof nome === 'string' && NOME_DE_CAPA.test(nome))
+        .flatMap(nome => { const base = nome.slice(0, nome.lastIndexOf('.')); return [base + '-mini.webp', base + '-mini.jpg']; });
+    if (nomes.length === 0) return new Map();
+    const { rows } = await (await banco()).query('SELECT nome FROM imagens WHERE nome = ANY($1) AND conta = $2', [nomes, contaAtual()]);
     return new Map(rows.map(({ nome }) => [nome.slice(0, nome.lastIndexOf('-mini.')), nome]));
 }
 
@@ -144,8 +200,9 @@ async function guardarMiniatura(nomeDaCapa, request) {
     const nome = base + '-mini.' + extensao;
     const db = await banco();
     // uma miniatura so por capa
-    await db.query('DELETE FROM imagens WHERE nome = $1', [base + (extensao === 'webp' ? '-mini.jpg' : '-mini.webp')]);
-    await db.query('INSERT INTO imagens (nome, conteudo) VALUES ($1, $2) ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo', [nome, bytes]);
+    await db.query('DELETE FROM imagens WHERE nome = $1 AND conta = $2', [base + (extensao === 'webp' ? '-mini.jpg' : '-mini.webp'), contaAtual()]);
+    await db.query(`INSERT INTO imagens (nome, conteudo, conta) VALUES ($1, $2, $3)
+                    ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo WHERE imagens.conta = EXCLUDED.conta`, [nome, bytes, contaAtual()]);
     return json(200, { thumbUrl: '/api/imagens/' + nome });
 }
 
@@ -340,13 +397,67 @@ function resposta(manga, miniaturasGuardadas) {
 
 const tagsNormalizadas = manga => new Set((manga.tags || []).map(normalizar).filter(Boolean));
 
-async function listar(titulo, status, tag) {
+/** Ordem de cada forma de ordenar, feita pelo banco. Empates ficam pelo titulo e, depois, pela ordem de cadastro. */
+const TITULO_SQL = 'titulo_busca COLLATE "C"';
+const NOTA_SQL = "CASE WHEN dados->>'rating' ~ '^(10|[0-9])$' THEN (dados->>'rating')::int END";
+const ORDEM_SQL = {
+    CADASTRO: 'ordem',
+    RECENTES: 'ordem DESC',
+    TITULO: `${TITULO_SQL}, ordem`,
+    TITULO_DESC: `${TITULO_SQL} DESC, ordem`,
+    MAIS_CAPITULOS: `(dados->>'lastChapter')::numeric DESC, ${TITULO_SQL}, ordem`,
+    MENOS_CAPITULOS: `(dados->>'lastChapter')::numeric, ${TITULO_SQL}, ordem`,
+    // quem nao tem nota fica sempre no fim, nas duas ordens
+    MELHORES_NOTAS: `${NOTA_SQL} DESC NULLS LAST, ${TITULO_SQL}, ordem`,
+    PIORES_NOTAS: `${NOTA_SQL} NULLS LAST, ${TITULO_SQL}, ordem`,
+    // os favoritos sobem e o resto continua na ordem de cadastro
+    FAVORITOS: `(dados->>'favorite' = 'true') IS NOT TRUE, ordem`,
+};
+
+/**
+ * Mangas da conta, filtrados, ordenados e paginados pelo proprio banco: so a pagina pedida sai de la. Devolve
+ * { mangas, total }. limite null = todos.
+ */
+function filtrosEmSql({ titulo, status, tag }) {
+    const valores = [contaAtual()];
+    const condicoes = ['conta = $1'];
+    if (status) {
+        valores.push(status);
+        condicoes.push(`dados->>'readingStatus' = $${valores.length}`);
+    }
     const busca = normalizar(titulo);
+    if (busca) {
+        valores.push(busca);
+        condicoes.push(`strpos(titulo_busca, $${valores.length}) > 0`);
+    }
     const tagBuscada = normalizar(tag);
-    return (await listarTodos())
-        .filter(manga => !status || manga.readingStatus === status)
-        .filter(manga => normalizar(manga.title).includes(busca))
-        .filter(manga => !tagBuscada || tagsNormalizadas(manga).has(tagBuscada));
+    if (tagBuscada) {
+        valores.push([tagBuscada]);
+        condicoes.push(`tags_busca @> $${valores.length}::text[]`);
+    }
+    return { valores, onde: condicoes.join(' AND ') };
+}
+
+/** Quantos mangas da conta passam nos filtros. */
+async function contar(filtros) {
+    const { valores, onde } = filtrosEmSql(filtros);
+    const { rows } = await (await banco()).query(`SELECT count(*) AS total FROM mangas WHERE ${onde}`, valores);
+    return Number(rows[0].total);
+}
+
+async function consultar({ titulo, status, tag, ordem = 'CADASTRO', limite = null, deslocamento = 0, resumida = false } = {}) {
+    const { valores, onde } = filtrosEmSql({ titulo, status, tag });
+    let pagina = '';
+    if (limite !== null) {
+        valores.push(limite, deslocamento);
+        pagina = `LIMIT $${valores.length - 1} OFFSET $${valores.length}`;
+    }
+    const { rows } = await (await banco()).query(
+        `SELECT ${resumida ? SEM_DESCRICAO : 'dados'} AS dados, count(*) OVER () AS total FROM mangas
+         WHERE ${onde} ORDER BY ${ORDEM_SQL[ordem] || ORDEM_SQL.CADASTRO} ${pagina}`, valores);
+    // pagina alem do fim: so conta, para quem pediu saber quantas paginas existem
+    const total = rows.length ? Number(rows[0].total) : deslocamento > 0 ? await contar({ titulo, status, tag }) : 0;
+    return { mangas: rows.map(linha => linha.dados), total };
 }
 
 /** Lista geral de tags: as que estao em uso (as mais usadas primeiro) e depois as sugeridas ainda sem uso. */
@@ -354,7 +465,9 @@ async function listarTags() {
     // conta por nome sem diferenciar maiusculas nem acentos; o nome mostrado e o primeiro que apareceu
     const nomes = new Map();
     const quantidades = new Map();
-    for (const manga of await listarTodos()) {
+    // so as tags, e nao o manga inteiro, saem do banco
+    const { rows } = await (await banco()).query("SELECT dados->'tags' AS tags FROM mangas WHERE conta = $1", [contaAtual()]);
+    for (const manga of rows) {
         const doManga = new Set();
         for (const tag of manga.tags || []) {
             const chave = normalizar(tag);
@@ -380,7 +493,12 @@ async function listarTags() {
  */
 async function nomesDosCadastrados() {
     // antes, descobre os outros nomes dos mangas da lista que ainda nao foram consultados (alguns por vez)
-    let lista = await listarTodos();
+    // so os campos com nomes saem do banco
+    const nomesDaConta = async () => (await (await banco()).query(
+        `SELECT jsonb_build_object('id', dados->'id', 'title', dados->'title', 'altTitles', dados->'altTitles',
+                'chapterLinkModel', dados->'chapterLinkModel', 'lastChapterUrl', dados->'lastChapterUrl') AS dados
+         FROM mangas WHERE conta = $1 ORDER BY ordem`, [contaAtual()])).rows.map(linha => linha.dados);
+    let lista = await nomesDaConta();
     const semNomes = lista.filter(cadastrado => !Array.isArray(cadastrado.altTitles)).slice(0, TITULOS_POR_PEDIDO);
     if (semNomes.length > 0) {
         const nomes = await buscarRecomendacoes.nomesAlternativos(semNomes.map(cadastrado => cadastrado.title));
@@ -388,10 +506,10 @@ async function nomesDosCadastrados() {
         for (const cadastrado of semNomes) {
             if (!nomes.has(cadastrado.title)) continue;
             // so esse campo e so se o titulo continua o mesmo: nao desfaz uma mudanca feita enquanto a busca corria
-            await db.query(`UPDATE mangas SET dados = jsonb_set(dados, '{altTitles}', $2::jsonb) WHERE id = $1 AND dados->>'title' = $3`,
-                [cadastrado.id, JSON.stringify(nomes.get(cadastrado.title)), cadastrado.title]);
+            await db.query(`UPDATE mangas SET dados = jsonb_set(dados, '{altTitles}', $2::jsonb) WHERE id = $1 AND conta = $4 AND dados->>'title' = $3`,
+                [cadastrado.id, JSON.stringify(nomes.get(cadastrado.title)), cadastrado.title, contaAtual()]);
         }
-        lista = await listarTodos();
+        lista = await nomesDaConta();
     }
     return lista.flatMap(cadastrado => [cadastrado.title, ...(Array.isArray(cadastrado.altTitles) ? cadastrado.altTitles : []),
         ...nomesDoLink(cadastrado.chapterLinkModel), ...nomesDoLink(cadastrado.lastChapterUrl)]);
@@ -399,20 +517,17 @@ async function nomesDosCadastrados() {
 
 /** Formas de ordenar a lista de mangas cadastrados (?ordem=). A lista chega na ordem de cadastro. */
 const semAcentos = texto => String(texto ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
-const porTitulo = (a, b) => (semAcentos(a.title) < semAcentos(b.title) ? -1 : semAcentos(a.title) > semAcentos(b.title) ? 1 : 0);
+// a ordem em si e feita pelo banco (ORDEM_SQL)
 const ORDENS_DA_LISTA = {
-    CADASTRO: { descricao: 'Ordem de cadastro', aplicar: mangas => mangas },
-    RECENTES: { descricao: 'Adicionados por último', aplicar: mangas => [...mangas].reverse() },
-    TITULO: { descricao: 'Título (A–Z)', aplicar: mangas => [...mangas].sort(porTitulo) },
-    TITULO_DESC: { descricao: 'Título (Z–A)', aplicar: mangas => [...mangas].sort((a, b) => porTitulo(b, a)) },
-    // empate fica em ordem alfabetica
-    MAIS_CAPITULOS: { descricao: 'Mais capítulos lidos', aplicar: mangas => [...mangas].sort((a, b) => b.lastChapter - a.lastChapter || porTitulo(a, b)) },
-    MENOS_CAPITULOS: { descricao: 'Menos capítulos lidos', aplicar: mangas => [...mangas].sort((a, b) => a.lastChapter - b.lastChapter || porTitulo(a, b)) },
-    // quem nao tem nota fica sempre no fim, nas duas ordens
-    MELHORES_NOTAS: { descricao: 'Melhores notas', aplicar: mangas => [...mangas].sort((a, b) => semNota(a) - semNota(b) || notaDe(b) - notaDe(a) || porTitulo(a, b)) },
-    PIORES_NOTAS: { descricao: 'Piores notas', aplicar: mangas => [...mangas].sort((a, b) => semNota(a) - semNota(b) || notaDe(a) - notaDe(b) || porTitulo(a, b)) },
-    // os favoritos sobem e o resto continua na ordem de cadastro (a ordenacao e estavel)
-    FAVORITOS: { descricao: 'Favoritos primeiro', aplicar: mangas => [...mangas].sort((a, b) => (b.favorite === true) - (a.favorite === true)) },
+    CADASTRO: { descricao: 'Ordem de cadastro' },
+    RECENTES: { descricao: 'Adicionados por último' },
+    TITULO: { descricao: 'Título (A–Z)' },
+    TITULO_DESC: { descricao: 'Título (Z–A)' },
+    MAIS_CAPITULOS: { descricao: 'Mais capítulos lidos' },
+    MENOS_CAPITULOS: { descricao: 'Menos capítulos lidos' },
+    MELHORES_NOTAS: { descricao: 'Melhores notas' },
+    PIORES_NOTAS: { descricao: 'Piores notas' },
+    FAVORITOS: { descricao: 'Favoritos primeiro' },
 };
 
 /** Nota valida do manga guardado, ou null. */
@@ -420,7 +535,6 @@ function notaDe(manga) {
     return Number.isInteger(manga.rating) && manga.rating >= 0 && manga.rating <= 10 ? manga.rating : null;
 }
 
-const semNota = manga => (notaDe(manga) === null ? 1 : 0);
 
 function lerOrdem(url, ordens, padrao) {
     const ordem = (url.searchParams.get('ordem') || '').trim().toUpperCase();
@@ -492,13 +606,13 @@ async function enviarImagem(request) {
     if (arquivo.size > TAMANHO_MAXIMO) throw new Recusa(400, 'A imagem pode ter no máximo 4 MB');
     const bytes = Buffer.from(await arquivo.arrayBuffer());
     const nome = randomUUID() + '.' + descobrirExtensao(bytes);
-    await (await banco()).query('INSERT INTO imagens (nome, conteudo) VALUES ($1, $2)', [nome, bytes]);
+    await (await banco()).query('INSERT INTO imagens (nome, conteudo, conta) VALUES ($1, $2, $3)', [nome, bytes, contaAtual()]);
     return json(201, { imagePath: nome, imageUrl: '/api/imagens/' + nome });
 }
 
 async function baixarImagem(nome) {
     if (!NOME_VALIDO.test(nome)) throw new Recusa(404, 'Imagem não encontrada');
-    const { rows } = await (await banco()).query('SELECT conteudo FROM imagens WHERE nome = $1', [nome]);
+    const { rows } = await (await banco()).query('SELECT conteudo FROM imagens WHERE nome = $1 AND conta = $2', [nome, contaAtual()]);
     if (rows.length === 0) throw new Recusa(404, 'Imagem não encontrada');
     return new Response(rows[0].conteudo, {
         status: 200,
@@ -666,9 +780,9 @@ const listaDeFormatos = () => Object.entries(FORMATOS).map(([valor, formato]) =>
 const listaDeDias = () => Object.entries(DIAS).map(([valor, descricao]) => ({ valor, descricao }));
 const listaDeOrdens = ordens => Object.entries(ordens).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao }));
 
-/** O mesmo manga sem a descricao e os outros nomes, para listas grandes (?resumo=1). */
+/** O mesmo manga sem a descricao, para listas grandes (?resumo=1). */
 function resumo(manga) {
-    return { ...manga, description: null, altTitles: [] };
+    return { ...manga, description: null };
 }
 
 async function rotear(request) {
@@ -729,6 +843,14 @@ async function rotear(request) {
     if (recurso === 'ordens-da-lista' && partes.length === 1 && metodo === 'GET') {
         return json(200, listaDeOrdens(ORDENS_DA_LISTA));
     }
+    // sites de leitura dos mangas da conta, sem repetir: a extensao mostra o botao "Lido" neles
+    if (recurso === 'sites' && partes.length === 1 && metodo === 'GET') {
+        const { rows } = await (await banco()).query(
+            `SELECT DISTINCT lower(substring(endereco FROM '^https?://(?:[^@/]*@)?([^/?#]+)')) AS site
+             FROM mangas, LATERAL (VALUES (dados->>'chapterLinkModel'), (dados->>'lastChapterUrl'), (dados->>'nextChapterUrl')) AS links (endereco)
+             WHERE conta = $1 AND endereco IS NOT NULL ORDER BY 1`, [contaAtual()]);
+        return json(200, rows.map(linha => linha.site).filter(Boolean));
+    }
     // lista geral de tags, para escolher no cadastro em vez de digitar de novo
     if (recurso === 'tags' && partes.length === 1 && metodo === 'GET') {
         return json(200, await listarTags());
@@ -746,20 +868,34 @@ async function rotear(request) {
     if (recurso === 'mangas') {
         if (partes.length === 1 && metodo === 'GET') {
             const ordem = lerOrdem(url, ORDENS_DA_LISTA, 'CADASTRO');
-            const encontrados = await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url), url.searchParams.get('tag'));
-            // ?resumo=1: sem descricao e outros nomes, que os cartoes nao usam (a lista inteira fica bem menor)
+            // ?resumo=1: sem a descricao, que os cartoes nao usam (a lista fica bem menor)
             const resumida = url.searchParams.get('resumo') === '1';
-            const guardadas = await miniaturas();
-            const mangas = ORDENS_DA_LISTA[ordem].aplicar(encontrados).map(manga => resposta(manga, guardadas)).map(manga => (resumida ? resumo(manga) : manga));
+            const filtros = { titulo: url.searchParams.get('titulo'), status: lerStatusDaBusca(url), tag: url.searchParams.get('tag'), ordem, resumida };
+            const comMiniaturas = async mangas => {
+                const guardadas = await miniaturas(mangas);
+                return mangas.map(manga => resposta(manga, guardadas)).map(manga => (resumida ? resumo(manga) : manga));
+            };
             // sem ?pagina devolve a lista inteira (usada por quem precisa de todos, como a busca de mangas);
-            // com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos
-            if (!url.searchParams.has('pagina')) return json(200, mangas);
-            const tamanho = Math.min(TAMANHO_MAXIMO_DA_PAGINA, lerInteiroPositivo(url, 'tamanho', TAMANHO_DA_PAGINA));
-            const paginas = Math.max(1, Math.ceil(mangas.length / tamanho));
+            // com ?pagina=N devolve so aquela pagina, junto com o total. A lista resumida aceita paginas de ate
+            // 2000, para o site guardar a lista inteira de quem tem ate esse tanto e buscar sem esperar o servidor
+            if (!url.searchParams.has('pagina')) return json(200, await comMiniaturas((await consultar(filtros)).mangas));
+            // ?inteiraAte=N: se o total couber em N, devolve a lista inteira (inteira: true) em vez da pagina. Assim o
+            // site descobre numa chamada so se pode guardar a lista toda ou se a conta e grande demais para isso
+            if (url.searchParams.has('inteiraAte')) {
+                const limite = Math.min(TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA, lerInteiroPositivo(url, 'inteiraAte', TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA));
+                if (await contar(filtros) <= limite) {
+                    const { mangas, total } = await consultar(filtros);
+                    return json(200, { itens: await comMiniaturas(mangas), pagina: 1, tamanho: Math.max(1, total), total, paginas: 1, inteira: true });
+                }
+            }
+            const tamanho = Math.min(resumida ? TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA : TAMANHO_MAXIMO_DA_PAGINA, lerInteiroPositivo(url, 'tamanho', TAMANHO_DA_PAGINA));
+            const pedida = lerInteiroPositivo(url, 'pagina', 1);
+            let { mangas, total } = await consultar({ ...filtros, limite: tamanho, deslocamento: (pedida - 1) * tamanho });
+            const paginas = Math.max(1, Math.ceil(total / tamanho));
             // pagina alem do fim (um manga foi excluido, por exemplo) vira a ultima
-            const pagina = Math.min(paginas, lerInteiroPositivo(url, 'pagina', 1));
-            const inicio = (pagina - 1) * tamanho;
-            return json(200, { itens: mangas.slice(inicio, inicio + tamanho), pagina, tamanho, total: mangas.length, paginas });
+            const pagina = Math.min(paginas, pedida);
+            if (pagina !== pedida) ({ mangas } = await consultar({ ...filtros, limite: tamanho, deslocamento: (pagina - 1) * tamanho }));
+            return json(200, { itens: await comMiniaturas(mangas), pagina, tamanho, total, paginas, inteira: paginas === 1 });
         }
         if (partes.length === 1 && metodo === 'POST') {
             const manga = await montarManga(randomUUID(), await lerCorpo(request));
@@ -780,16 +916,21 @@ async function rotear(request) {
                 throw new Recusa(400, "O parâmetro 'desde' precisa ser uma data e hora como 2026-10-08T03:00:00Z");
             }
             const lidoDesde = manga => inicioDoDia !== null && manga.lastChapterAt && Date.parse(manga.lastChapterAt) >= inicioDoDia;
-            const mangas = (await listarTodos())
-                .filter(manga => manga.readingStatus === 'LENDO' && manga.releaseDay === dia && !lidoDesde(manga));
-            const guardadas = await miniaturas();
+            const { rows } = await (await banco()).query(
+                `SELECT ${SEM_DESCRICAO} AS dados FROM mangas WHERE conta = $1 AND dados->>'readingStatus' = 'LENDO' AND dados->>'releaseDay' = $2 ORDER BY ordem`,
+                [contaAtual(), dia]);
+            const mangas = rows.map(linha => linha.dados).filter(manga => !lidoDesde(manga));
+            const guardadas = await miniaturas(mangas);
             return json(200, mangas.map(manga => resposta(manga, guardadas)));
         }
         if (partes.length === 2 && id === 'sorteio' && metodo === 'GET') {
             // qualquer manga pode ser sorteado, de qualquer status (ou so do status pedido)
-            const candidatos = await listar(null, lerStatusDaBusca(url));
-            if (candidatos.length === 0) throw new Recusa(404, 'Nenhum mangá para sortear');
-            return json(200, resposta(candidatos[Math.floor(Math.random() * candidatos.length)]));
+            const status = lerStatusDaBusca(url);
+            const { rows } = await (await banco()).query(
+                `SELECT dados FROM mangas WHERE conta = $1 ${status ? "AND dados->>'readingStatus' = $2" : ''} ORDER BY random() LIMIT 1`,
+                status ? [contaAtual(), status] : [contaAtual()]);
+            if (rows.length === 0) throw new Recusa(404, 'Nenhum mangá para sortear');
+            return json(200, resposta(rows[0].dados));
         }
         if (partes.length === 2 && metodo === 'GET') {
             return json(200, resposta(await buscarPorId(id)));
@@ -808,7 +949,7 @@ async function rotear(request) {
         }
         if (partes.length === 2 && metodo === 'DELETE') {
             const manga = await buscarPorId(id);
-            await (await banco()).query('DELETE FROM mangas WHERE id = $1', [manga.id]);
+            await (await banco()).query('DELETE FROM mangas WHERE id = $1 AND conta = $2', [manga.id, contaAtual()]);
             await excluirImagemSemUso(manga.imagePath);
             return new Response(null, { status: 204 });
         }
@@ -874,15 +1015,17 @@ async function rotear(request) {
         // mangas da lista que dividem tags com este, comecando pelos que dividem mais
         if (partes.length === 3 && acao === 'semelhantes' && metodo === 'GET') {
             const manga = await buscarPorId(id);
-            const tagsDoManga = tagsNormalizadas(manga);
-            const semelhantes = (await listarTodos())
-                .filter(outro => outro.id !== manga.id)
-                .map(outro => ({ outro, emComum: [...tagsNormalizadas(outro)].filter(tag => tagsDoManga.has(tag)).length }))
-                .filter(item => item.emComum > 0)
-                .sort((a, b) => b.emComum - a.emComum || a.outro.title.localeCompare(b.outro.title, 'en', { sensitivity: 'base' }))
-                .slice(0, 6);
-            const guardadas = await miniaturas();
-            return json(200, semelhantes.map(item => resposta(item.outro, guardadas)));
+            const tagsDoManga = [...tagsNormalizadas(manga)];
+            if (tagsDoManga.length === 0) return json(200, []);
+            // o banco acha os que dividem alguma tag (pelo indice das tags) e conta quantas em comum
+            const { rows } = await (await banco()).query(
+                `SELECT ${SEM_DESCRICAO} AS dados,
+                        (SELECT count(*) FROM unnest(tags_busca) AS tag WHERE tag = ANY($3::text[])) AS em_comum
+                 FROM mangas WHERE conta = $1 AND id <> $2 AND tags_busca && $3::text[]
+                 ORDER BY em_comum DESC, ${TITULO_SQL} LIMIT 6`, [contaAtual(), manga.id, tagsDoManga]);
+            const semelhantes = rows.map(linha => linha.dados);
+            const guardadas = await miniaturas(semelhantes);
+            return json(200, semelhantes.map(outro => resposta(outro, guardadas)));
         }
         // mangas parecidos com este que ainda nao estao na lista, buscados na internet
         if (partes.length === 3 && acao === 'recomendacoes' && metodo === 'GET') {
@@ -926,7 +1069,8 @@ async function rotear(request) {
 
 async function tratar(request) {
     try {
-        return await rotear(request);
+        // a conta de quem esta usando vale para todas as consultas desta requisicao (hoje, sempre a principal)
+        return await contexto.run({ conta: CONTA_PRINCIPAL }, () => rotear(request));
     } catch (erro) {
         if (erro instanceof Recusa) return json(erro.status, { mensagem: erro.message });
         console.error('Erro inesperado em', request.method, request.url, erro);

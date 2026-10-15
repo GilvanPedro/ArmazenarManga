@@ -30,7 +30,8 @@ se perde em sites com id por capítulo.
 ## O que pode ser adicionado
 
 ### Contas e compartilhamento
-- Cadastro de usuários, com uma lista por pessoa.
+- Cadastro de usuários, com uma lista por pessoa. O banco já está preparado: cada registro tem dono e toda
+  consulta filtra por ele. O que falta está em [Escala e preparação para contas](22-escala-e-contas.md).
 - Uma página pública só de leitura, para mostrar a lista a outras pessoas.
 - Botão para sair de todos os aparelhos (hoje, troca-se a senha) e lista de aparelhos conectados.
 

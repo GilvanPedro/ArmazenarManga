@@ -90,6 +90,16 @@ public class MangaService implements MangaServiceInterface{
     }
 
     @Override
+    public br.com.seuapp.mangatracker.repository.PaginaDeMangas consultar(br.com.seuapp.mangatracker.repository.ConsultaDeMangas consulta) {
+        return repository.consultar(consulta);
+    }
+
+    @Override
+    public int contar(br.com.seuapp.mangatracker.repository.ConsultaDeMangas consulta) {
+        return repository.contar(consulta);
+    }
+
+    @Override
     public List<TagEmUso> listarTags() {
         // conta por nome sem diferenciar maiusculas nem acentos; o nome mostrado e o primeiro que apareceu
         Map<String, String> nomes = new LinkedHashMap<>();

@@ -21,7 +21,8 @@ confere e corrige esse link quando o site muda o endereço.
 - **Recomendações** e uma aba para **descobrir** obras por nome, ordem, tags que você quer e tags que não
   quer (em quadros com pesquisa, que podem ser recolhidos), sem repetir o que já está na lista.
 
-Por enquanto o uso é individual: existe uma única conta, que dá acesso a todos os mangás cadastrados. O login
+Por enquanto o uso é individual: existe uma única conta, que dá acesso a todos os mangás cadastrados. O banco já
+está preparado para várias contas, cada uma com os próprios mangás, e para milhares de mangás por conta. O login
 é feito em uma tela própria e dura 30 dias no navegador, mesmo desligando o computador.
 
 ## Como rodar
@@ -73,7 +74,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Nota dos mangás](docs/15-nota-dos-mangas.md) | [Favoritos e ordem pela nota](docs/16-favoritos-e-ordem-pela-nota.md) |
 | [Favorito de "marcar como lido" que não abria](docs/17-favorito-que-nao-abria.md) | [Selo da nota com ícone](docs/18-selo-da-nota-com-icone.md) |
 | [Destaque roxo do favorito](docs/19-destaque-roxo-do-favorito.md) | [Tela de login de 30 dias](docs/20-tela-de-login.md) |
-| [Desempenho da lista, da busca e das capas](docs/21-desempenho.md) | |
+| [Desempenho da lista, da busca e das capas](docs/21-desempenho.md) | [Escala e preparação para contas](docs/22-escala-e-contas.md) |
 
 ## Testes
 

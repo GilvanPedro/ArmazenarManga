@@ -71,18 +71,24 @@ avisa do erro, porque abrir vazio levaria a sobrescrever tudo no próximo salvam
 
 ### Postgres (hospedagem)
 
-Com `DATABASE_URL` definida, os mesmos dados vão para duas tabelas, criadas sozinhas no primeiro acesso:
+Com `DATABASE_URL` definida, os mesmos dados vão para o banco, em tabelas criadas e atualizadas sozinhas no
+primeiro acesso (veja [Escala e preparação para contas](22-escala-e-contas.md)):
 
 ```sql
 CREATE TABLE mangas (
     id UUID PRIMARY KEY,
     ordem BIGSERIAL,          -- mantém a ordem de cadastro
-    dados JSONB NOT NULL      -- o mesmo JSON de um item do mangas.json
+    dados JSONB NOT NULL,     -- o mesmo JSON de um item do mangas.json
+    conta TEXT NOT NULL DEFAULT 'principal',  -- de quem é o mangá
+    titulo_busca TEXT,        -- título em minúsculas e sem acentos, para buscar e ordenar
+    tags_busca TEXT[]         -- as tags do mesmo jeito, para filtrar
 );
+-- índices: (conta, ordem), (conta, titulo_busca), (conta, status), (conta, imagePath) e GIN em tags_busca
 
 CREATE TABLE imagens (
     nome TEXT PRIMARY KEY,
-    conteudo BYTEA NOT NULL   -- a capa enviada
+    conteudo BYTEA NOT NULL,  -- a capa enviada
+    conta TEXT NOT NULL DEFAULT 'principal'
 );
 
 CREATE TABLE configuracoes (

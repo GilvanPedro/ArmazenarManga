@@ -98,6 +98,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Desempenho.** O site passou a abrir com uma chamada só, a lista passou a ser guardada no navegador (busca,
   filtros e páginas sem esperar o servidor), as capas ganharam miniaturas e as novas vão reduzidas. Clicar na aba
   aberta recarrega. Detalhes em [Desempenho](21-desempenho.md).
+- **Escala e contas.** A lista passou a ser feita pelo banco, com índices, e cada registro ganhou um dono (a conta
+  `principal`, por enquanto), filtrado em toda consulta. Acima de 2 mil mangás, o site passa a buscar pelo
+  servidor. Detalhes em [Escala e preparação para contas](22-escala-e-contas.md).
 
 ## O que foi removido ou abandonado
 

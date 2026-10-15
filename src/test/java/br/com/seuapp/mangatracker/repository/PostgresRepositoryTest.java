@@ -59,7 +59,7 @@ class PostgresRepositoryTest {
     void setUp() throws Exception {
         banco = BancoPostgres.conectar(endereco);
         try (Connection conexao = banco.getConnection(); Statement comando = conexao.createStatement()) {
-            comando.execute("DROP TABLE IF EXISTS mangas, imagens, configuracoes");
+            comando.execute("DROP TABLE IF EXISTS mangas, imagens, configuracoes, tentativas_de_login");
         }
     }
 
@@ -245,14 +245,103 @@ class PostgresRepositoryTest {
     }
 
     @Test
-    void listaSoOsNomesComOFinalPedido() {
+    void imagensExistentesSaoProcuradasSoPelosNomesPedidosENaConta() {
         PostgresImagemRepository imagens = new PostgresImagemRepository(banco);
         imagens.salvar("a.png", new byte[]{1});
         imagens.salvar("a-mini.webp", new byte[]{2});
-        imagens.salvar("b-mini.jpg", new byte[]{3});
+        new PostgresImagemRepository(banco, "outra").salvar("b-mini.webp", new byte[]{3});
 
-        assertEquals(java.util.Set.of("a-mini.webp"), imagens.listarTerminadosEm("-mini.webp"));
-        assertEquals(java.util.Set.of("b-mini.jpg"), imagens.listarTerminadosEm("-mini.jpg"));
-        assertEquals(java.util.Set.of(), imagens.listarTerminadosEm("-nada.png"));
+        assertEquals(java.util.Set.of("a-mini.webp"), imagens.existentes(List.of("a-mini.webp", "a-mini.jpg", "b-mini.webp")));
+        assertEquals(java.util.Set.of(), imagens.existentes(List.of()));
+        // a capa de outra conta nao existe para esta, nem para ler nem para apagar
+        assertTrue(imagens.buscar("b-mini.webp").isEmpty());
+        imagens.excluir("b-mini.webp");
+        assertTrue(new PostgresImagemRepository(banco, "outra").existe("b-mini.webp"));
+    }
+
+    @Test
+    void cadaContaSoVeEMexeNosPropriosMangas() {
+        PostgresMangaRepository minha = new PostgresMangaRepository(banco);
+        PostgresMangaRepository outra = new PostgresMangaRepository(banco, "outra");
+        Manga meu = novoManga("Meu", "1");
+        Manga dela = novoManga("Dela", "1");
+        minha.salvar(meu);
+        outra.salvar(dela);
+
+        assertEquals(List.of("Meu"), minha.listarTodos().stream().map(Manga::getTitle).toList());
+        assertTrue(minha.buscarPorId(dela.getId()).isEmpty());
+        assertEquals(1, minha.contar(ConsultaDeMangas.todos(null, null, null, null)));
+        minha.excluir(dela.getId());
+        assertTrue(outra.buscarPorId(dela.getId()).isPresent());
+        // gravar com o mesmo id nao sobrescreve o manga da outra conta
+        minha.salvar(new Manga(dela.getId(), "Tomado", "capa.png", new ArrayList<>(), "https://site.com/{cap}", ChapterDecimalFormat.HIFEN,
+                BigDecimal.ONE, ReadingStatus.LENDO, ""));
+        assertEquals("Dela", outra.buscarPorId(dela.getId()).orElseThrow().getTitle());
+    }
+
+    @Test
+    void aListaFeitaPeloBancoEIgualAFeitaEmMemoria() {
+        PostgresMangaRepository repository = new PostgresMangaRepository(banco);
+        String[] titulos = {"Ação Total", "abara", "Berserk", "Zetman", "Ação total", "Solo Leveling", "solo", "Água", "Ébano", "Murim Lord"};
+        ReadingStatus[] status = ReadingStatus.values();
+        for (int i = 0; i < 40; i++) {
+            Manga manga = new Manga(titulos[i % titulos.length] + (i < 10 ? "" : " " + i), "capa.png",
+                    new ArrayList<>(i % 3 == 0 ? List.of(new Tag("Murim"), new Tag("Ação")) : List.of(new Tag("Romance"))),
+                    "https://site.com/{cap}", ChapterDecimalFormat.HIFEN, new BigDecimal((i * 7) % 13), status[i % status.length], "");
+            manga.setRating(i % 4 == 0 ? null : i % 11);
+            manga.setFavorite(i % 5 == 0);
+            repository.salvar(manga);
+        }
+        // a versao em memoria (a do arquivo JSON) e a referencia
+        MangaRepository emMemoria = new MangaRepository() {
+            public void salvar(Manga manga) { }
+            public java.util.Optional<Manga> buscarPorId(UUID id) { return java.util.Optional.empty(); }
+            public List<Manga> listarTodos() { return repository.listarTodos(); }
+            public void excluir(UUID id) { }
+        };
+        for (br.com.seuapp.mangatracker.domain.OrdemDaLista ordem : br.com.seuapp.mangatracker.domain.OrdemDaLista.values()) {
+            for (ConsultaDeMangas consulta : List.of(
+                    ConsultaDeMangas.todos(null, null, null, ordem),
+                    ConsultaDeMangas.todos("ACAO", null, null, ordem),
+                    ConsultaDeMangas.todos(null, ReadingStatus.LENDO, null, ordem),
+                    ConsultaDeMangas.todos(null, null, "murim", ordem),
+                    ConsultaDeMangas.todos("s", ReadingStatus.LER, "romance", ordem),
+                    ConsultaDeMangas.todos(null, null, null, ordem).pedaco(7, 14),
+                    ConsultaDeMangas.todos(null, null, null, ordem).pedaco(7, 400))) {
+                PaginaDeMangas doBanco = repository.consultar(consulta);
+                PaginaDeMangas daMemoria = emMemoria.consultar(consulta);
+                assertEquals(daMemoria.mangas().stream().map(Manga::getId).toList(), doBanco.mangas().stream().map(Manga::getId).toList(), ordem + " " + consulta);
+                assertEquals(daMemoria.total(), doBanco.total(), ordem + " " + consulta);
+                assertEquals(emMemoria.contar(consulta), repository.contar(consulta), ordem + " " + consulta);
+            }
+        }
+    }
+
+    @Test
+    void bancoAntigoGanhaAsColunasNovasSemPerderNada() throws Exception {
+        // como o banco estava antes: sem conta e sem colunas de busca
+        try (Connection conexao = banco.getConnection(); Statement comando = conexao.createStatement()) {
+            comando.execute("CREATE TABLE mangas (id UUID PRIMARY KEY, ordem BIGSERIAL, dados JSONB NOT NULL)");
+            comando.execute("CREATE TABLE imagens (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL)");
+            comando.execute("INSERT INTO mangas (id, dados) VALUES ('" + UUID.randomUUID() + "', '{\"title\": \"Ação Antiga\", \"tags\": [\"Murim\", \"murim \", \"Ação\"], "
+                    + "\"imagePath\": \"capa.png\", \"chapterLinkModel\": \"https://site.com/{cap}\", \"lastChapter\": 3, \"readingStatus\": \"LENDO\"}')");
+            comando.execute("INSERT INTO imagens (nome, conteudo) VALUES ('velha.png', '\\x01')");
+        }
+
+        PostgresMangaRepository repository = new PostgresMangaRepository(banco);
+
+        assertEquals(List.of("Ação Antiga"), repository.listarTodos().stream().map(Manga::getTitle).toList());
+        assertEquals(1, repository.consultar(ConsultaDeMangas.todos("acao", null, "MURIM", null)).total());
+        assertTrue(new PostgresImagemRepository(banco).existe("velha.png"), "as capas antigas ficam na conta principal");
+        try (Connection conexao = banco.getConnection(); Statement comando = conexao.createStatement();
+             java.sql.ResultSet linha = comando.executeQuery("SELECT conta, titulo_busca, tags_busca FROM mangas")) {
+            linha.next();
+            assertEquals("principal", linha.getString(1));
+            assertEquals("acao antiga", linha.getString(2));
+            assertEquals(List.of("murim", "acao"), List.of((String[]) linha.getArray(3).getArray()));
+        }
+        // preparar de novo nao muda nada
+        new PostgresMangaRepository(banco);
+        assertEquals(1, repository.listarTodos().size());
     }
 }

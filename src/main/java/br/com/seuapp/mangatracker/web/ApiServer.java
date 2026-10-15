@@ -2,6 +2,9 @@ package br.com.seuapp.mangatracker.web;
 
 import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
 import br.com.seuapp.mangatracker.domain.Manga;
+import br.com.seuapp.mangatracker.domain.OrdemDaLista;
+import br.com.seuapp.mangatracker.repository.ConsultaDeMangas;
+import br.com.seuapp.mangatracker.repository.PaginaDeMangas;
 import br.com.seuapp.mangatracker.domain.ReadingStatus;
 import br.com.seuapp.mangatracker.domain.WeekDay;
 import br.com.seuapp.mangatracker.domain.exceptions.InvalidChapterException;
@@ -41,12 +44,9 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
-import java.text.Normalizer;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Locale;
 import java.util.Arrays;
 import java.util.List;
@@ -181,6 +181,7 @@ public class ApiServer {
             config.routes.get("/api/mangas/{id}/recomendacoes", this::recomendar);
             config.routes.get("/api/mangas/{id}/semelhantes", this::listarSemelhantes);
             config.routes.get("/api/tags", this::listarTags);
+            config.routes.get("/api/sites", this::listarSites);
             config.routes.get("/api/recomendacoes", this::explorarRecomendacoes);
             config.routes.get("/api/recomendacoes/ordens", this::listarOrdensDeRecomendacao);
             config.routes.get("/api/ordens-da-lista", this::listarOrdensDaLista);
@@ -326,48 +327,6 @@ public class ApiServer {
 
     // ------------------------------------------------------------------ mangas
 
-    /** Formas de ordenar a lista de mangas cadastrados (?ordem=). */
-    enum OrdemDaLista {
-        CADASTRO("Ordem de cadastro"),
-        RECENTES("Adicionados por último"),
-        TITULO("Título (A–Z)"),
-        TITULO_DESC("Título (Z–A)"),
-        MAIS_CAPITULOS("Mais capítulos lidos"),
-        MENOS_CAPITULOS("Menos capítulos lidos"),
-        MELHORES_NOTAS("Melhores notas"),
-        PIORES_NOTAS("Piores notas"),
-        FAVORITOS("Favoritos primeiro");
-
-        private final String descricao;
-
-        OrdemDaLista(String descricao) {
-            this.descricao = descricao;
-        }
-
-        /** A lista chega na ordem de cadastro. */
-        void aplicar(List<Manga> mangas) {
-            Comparator<Manga> porTitulo = Comparator.comparing(manga -> semAcentos(manga.getTitle()));
-            switch (this) {
-                case CADASTRO -> { }
-                case RECENTES -> Collections.reverse(mangas);
-                case TITULO -> mangas.sort(porTitulo);
-                case TITULO_DESC -> mangas.sort(porTitulo.reversed());
-                // empate fica em ordem alfabetica
-                case MAIS_CAPITULOS -> mangas.sort(Comparator.comparing(Manga::getLastChapter).reversed().thenComparing(porTitulo));
-                case MENOS_CAPITULOS -> mangas.sort(Comparator.comparing(Manga::getLastChapter).thenComparing(porTitulo));
-                // quem nao tem nota fica sempre no fim, nas duas ordens
-                case MELHORES_NOTAS -> mangas.sort(Comparator.comparing(Manga::getRating, Comparator.nullsLast(Comparator.<Integer>reverseOrder())).thenComparing(porTitulo));
-                case PIORES_NOTAS -> mangas.sort(Comparator.comparing(Manga::getRating, Comparator.nullsLast(Comparator.<Integer>naturalOrder())).thenComparing(porTitulo));
-                // os favoritos sobem e o resto continua na ordem de cadastro (a ordenacao e estavel)
-                case FAVORITOS -> mangas.sort(Comparator.comparing(manga -> !manga.isFavorite()));
-            }
-        }
-
-        private static String semAcentos(String texto) {
-            return Normalizer.normalize(texto == null ? "" : texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).trim();
-        }
-    }
-
     private OrdemDaLista lerOrdemDaLista(Context ctx) {
         String ordem = ctx.queryParam("ordem");
         if (ordem == null || ordem.isBlank()) {
@@ -385,13 +344,16 @@ public class ApiServer {
     }
 
     private static List<OrdemResponse> ordensDaLista() {
-        return Arrays.stream(OrdemDaLista.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.descricao)).toList();
+        return Arrays.stream(OrdemDaLista.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.getDescricao())).toList();
     }
 
     static final int TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
     private static final int TAMANHO_MAXIMO_DA_PAGINA = 100;
+    /** A lista resumida aceita paginas maiores: o site guarda a lista inteira de quem tem ate esse tanto. */
+    private static final int TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA = 2000;
 
-    private record PaginaResponse(List<MangaResponse> itens, int pagina, int tamanho, int total, int paginas) {
+    /** inteira = a resposta traz todos os mangas que passam nos filtros. */
+    private record PaginaResponse(List<MangaResponse> itens, int pagina, int tamanho, int total, int paginas, boolean inteira) {
     }
 
     /**
@@ -399,26 +361,60 @@ public class ApiServer {
      * Com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos.
      */
     private void listar(Context ctx) throws JsonProcessingException {
-        List<Manga> encontrados = new ArrayList<>(mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag")));
-        Map<String, String> miniaturas = imagemService.miniaturas();
-        lerOrdemDaLista(ctx).aplicar(encontrados);
-        List<MangaResponse> mangas = encontrados.stream()
-                .map(manga -> MangaResponse.de(manga, miniaturas))
-                // ?resumo=1: sem descricao e outros nomes, que os cartoes nao usam (a lista inteira fica bem menor)
-                .map(manga -> "1".equals(ctx.queryParam("resumo")) ? manga.resumo() : manga)
-                .toList();
+        // ?resumo=1: sem a descricao, que os cartoes nao usam (a lista fica bem menor)
+        boolean resumida = "1".equals(ctx.queryParam("resumo"));
+        ConsultaDeMangas consulta = ConsultaDeMangas.todos(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag"), lerOrdemDaLista(ctx));
         if (ctx.queryParam("pagina") == null) {
-            json(ctx, HttpStatus.OK, mangas);
+            json(ctx, HttpStatus.OK, respostas(mangaService.consultar(consulta).mangas(), resumida));
             return;
         }
-        int tamanho = Math.min(TAMANHO_MAXIMO_DA_PAGINA, lerInteiroPositivo(ctx, "tamanho", TAMANHO_DA_PAGINA));
-        int paginas = Math.max(1, (mangas.size() + tamanho - 1) / tamanho);
+        // ?inteiraAte=N: se o total couber em N, devolve a lista inteira (inteira: true) em vez da pagina. Assim o site
+        // descobre numa chamada so se pode guardar a lista toda ou se a conta e grande demais para isso
+        if (ctx.queryParam("inteiraAte") != null) {
+            int limite = Math.min(TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA, lerInteiroPositivo(ctx, "inteiraAte", TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA));
+            if (mangaService.contar(consulta) <= limite) {
+                List<Manga> todos = mangaService.consultar(consulta).mangas();
+                json(ctx, HttpStatus.OK, new PaginaResponse(respostas(todos, resumida), 1, Math.max(1, todos.size()), todos.size(), 1, true));
+                return;
+            }
+        }
+        int tamanho = Math.min(resumida ? TAMANHO_MAXIMO_DA_PAGINA_RESUMIDA : TAMANHO_MAXIMO_DA_PAGINA, lerInteiroPositivo(ctx, "tamanho", TAMANHO_DA_PAGINA));
+        int pedida = lerInteiroPositivo(ctx, "pagina", 1);
+        PaginaDeMangas resultado = mangaService.consultar(consulta.pedaco(tamanho, (pedida - 1) * tamanho));
+        int paginas = Math.max(1, (resultado.total() + tamanho - 1) / tamanho);
         // pagina alem do fim (um manga foi excluido, por exemplo) vira a ultima
-        int pagina = Math.min(paginas, lerInteiroPositivo(ctx, "pagina", 1));
-        int inicio = (pagina - 1) * tamanho;
-        json(ctx, HttpStatus.OK, new PaginaResponse(
-                mangas.subList(Math.min(inicio, mangas.size()), Math.min(inicio + tamanho, mangas.size())),
-                pagina, tamanho, mangas.size(), paginas));
+        int pagina = Math.min(paginas, pedida);
+        if (pagina != pedida) {
+            resultado = mangaService.consultar(consulta.pedaco(tamanho, (pagina - 1) * tamanho));
+        }
+        json(ctx, HttpStatus.OK, new PaginaResponse(respostas(resultado.mangas(), resumida), pagina, tamanho, resultado.total(), paginas, paginas == 1));
+    }
+
+    /** Os mangas com as miniaturas deles (procuradas so para estes). */
+    private List<MangaResponse> respostas(List<Manga> mangas, boolean resumida) {
+        Map<String, String> miniaturas = imagemService.miniaturas(mangas.stream().map(Manga::getImagePath).toList());
+        return mangas.stream().map(manga -> MangaResponse.de(manga, miniaturas)).map(manga -> resumida ? manga.resumo() : manga).toList();
+    }
+
+    /** Sites de leitura dos mangas, sem repetir: a extensao mostra o botao "Lido" neles. */
+    private void listarSites(Context ctx) throws JsonProcessingException {
+        java.util.Set<String> sites = new java.util.TreeSet<>();
+        for (Manga manga : mangaService.listarMangas(null, null)) {
+            for (String endereco : java.util.Arrays.asList(manga.getChapterLinkModel(), manga.getLastChapterUrl(), manga.getNextChapterUrl())) {
+                if (endereco == null) {
+                    continue;
+                }
+                try {
+                    String host = java.net.URI.create(endereco.replace("{cap}", "1")).getRawAuthority();
+                    if (host != null) {
+                        sites.add(host.substring(host.indexOf('@') + 1).toLowerCase(Locale.ROOT));
+                    }
+                } catch (IllegalArgumentException e) {
+                    // link fora do padrao: so nao entra na lista
+                }
+            }
+        }
+        json(ctx, HttpStatus.OK, sites);
     }
 
     private int lerInteiroPositivo(Context ctx, String nome, int padrao) {
@@ -439,8 +435,7 @@ public class ApiServer {
 
     /** Mangas da lista que dividem tags com este. */
     private void listarSemelhantes(Context ctx) throws JsonProcessingException {
-        Map<String, String> miniaturas = imagemService.miniaturas();
-        json(ctx, HttpStatus.OK, mangaService.listarSemelhantes(lerId(ctx)).stream().map(manga -> MangaResponse.de(manga, miniaturas)).toList());
+        json(ctx, HttpStatus.OK, respostas(mangaService.listarSemelhantes(lerId(ctx)), false));
     }
 
     /** Lista geral de tags, para escolher no cadastro em vez de digitar de novo. */
@@ -543,8 +538,7 @@ public class ApiServer {
                 throw new RequisicaoInvalidaException("O parâmetro 'desde' precisa ser uma data e hora como 2026-10-08T03:00:00Z");
             }
         }
-        Map<String, String> miniaturas = imagemService.miniaturas();
-        json(ctx, HttpStatus.OK, mangaService.listarLancamentos(diaDaSemana, inicioDoDia).stream().map(manga -> MangaResponse.de(manga, miniaturas)).toList());
+        json(ctx, HttpStatus.OK, respostas(mangaService.listarLancamentos(diaDaSemana, inicioDoDia), false));
     }
 
     private void sortear(Context ctx) throws JsonProcessingException {

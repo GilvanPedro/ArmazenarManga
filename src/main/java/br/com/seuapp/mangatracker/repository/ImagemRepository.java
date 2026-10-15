@@ -9,6 +9,8 @@ public interface ImagemRepository {
     boolean existe(String nome);
     void excluir(String nome);
 
-    /** Nomes guardados que terminam com o final informado (por exemplo, as miniaturas). */
-    java.util.Set<String> listarTerminadosEm(String finalDoNome);
+    /** Quais destes nomes estao guardados. */
+    default java.util.Set<String> existentes(java.util.Collection<String> nomes) {
+        return nomes.stream().filter(this::existe).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
 }

@@ -29,8 +29,9 @@ Cada cartão tem a capa com o status (em cima, à esquerda) e a nota (embaixo, �
 (abre o diálogo de progresso) e o **Ler**. Para mangás concluídos, o Ler pergunta entre ler novamente e abrir o
 último capítulo.
 
-A lista é paginada de 24 em 24. Ela é pedida inteira uma vez e guardada no navegador, então buscar, filtrar e
-trocar de página não esperam o servidor (veja [Desempenho](21-desempenho.md)). Os cartões usam a miniatura da
+A lista é paginada de 24 em 24. Até 2 mil mangás, ela é pedida inteira uma vez e guardada no navegador, então
+buscar, filtrar e trocar de página não esperam o servidor (veja [Desempenho](21-desempenho.md)). Acima disso, as
+páginas vêm do servidor, já filtradas (veja [Escala e preparação para contas](22-escala-e-contas.md)). Os cartões usam a miniatura da
 capa quando ela existe. Clicar na aba já aberta recarrega a lista. Buscar ou filtrar volta para a
 página 1; alterar um capítulo ou abrir um mangá e voltar mantém a página. A ordem escolhida fica lembrada no
 navegador.

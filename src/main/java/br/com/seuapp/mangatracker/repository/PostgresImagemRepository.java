@@ -15,28 +15,29 @@ import java.util.Optional;
 public class PostgresImagemRepository implements ImagemRepository {
 
     private final DataSource banco;
+    private final String conta;
 
     public PostgresImagemRepository(DataSource banco) {
+        this(banco, EstruturaDoBanco.CONTA_PRINCIPAL);
+    }
+
+    /** @param conta de quem sao as capas: so as dela sao lidas, gravadas e apagadas */
+    public PostgresImagemRepository(DataSource banco, String conta) {
         this.banco = Objects.requireNonNull(banco);
-        try (Connection conexao = banco.getConnection(); Statement comando = conexao.createStatement()) {
-            comando.execute("""
-                    CREATE TABLE IF NOT EXISTS imagens (
-                        nome TEXT PRIMARY KEY,
-                        conteudo BYTEA NOT NULL
-                    )""");
-        } catch (SQLException e) {
-            throw new PersistenciaException("Nao foi possivel preparar a tabela de imagens", e);
-        }
+        this.conta = Objects.requireNonNull(conta);
+        EstruturaDoBanco.preparar(banco);
     }
 
     @Override
     public void salvar(String nome, byte[] conteudo) {
         String sql = """
-                INSERT INTO imagens (nome, conteudo) VALUES (?, ?)
-                ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo""";
+                INSERT INTO imagens (nome, conteudo, conta) VALUES (?, ?, ?)
+                ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo WHERE imagens.conta = EXCLUDED.conta""";
         try (Connection conexao = banco.getConnection(); PreparedStatement comando = conexao.prepareStatement(sql)) {
             comando.setString(1, nome);
+            comando.setString(2, conta);
             comando.setBytes(2, conteudo);
+            comando.setString(3, conta);
             comando.executeUpdate();
         } catch (SQLException e) {
             throw new PersistenciaException("Nao foi possivel salvar a imagem no banco", e);
@@ -46,8 +47,9 @@ public class PostgresImagemRepository implements ImagemRepository {
     @Override
     public Optional<byte[]> buscar(String nome) {
         try (Connection conexao = banco.getConnection();
-             PreparedStatement comando = conexao.prepareStatement("SELECT conteudo FROM imagens WHERE nome = ?")) {
+             PreparedStatement comando = conexao.prepareStatement("SELECT conteudo FROM imagens WHERE nome = ? AND conta = ?")) {
             comando.setString(1, nome);
+            comando.setString(2, conta);
             try (ResultSet linhas = comando.executeQuery()) {
                 return linhas.next() ? Optional.of(linhas.getBytes("conteudo")) : Optional.empty();
             }
@@ -59,8 +61,9 @@ public class PostgresImagemRepository implements ImagemRepository {
     @Override
     public boolean existe(String nome) {
         try (Connection conexao = banco.getConnection();
-             PreparedStatement comando = conexao.prepareStatement("SELECT 1 FROM imagens WHERE nome = ?")) {
+             PreparedStatement comando = conexao.prepareStatement("SELECT 1 FROM imagens WHERE nome = ? AND conta = ?")) {
             comando.setString(1, nome);
+            comando.setString(2, conta);
             try (ResultSet linhas = comando.executeQuery()) {
                 return linhas.next();
             }
@@ -70,29 +73,33 @@ public class PostgresImagemRepository implements ImagemRepository {
     }
 
     @Override
-    public java.util.Set<String> listarTerminadosEm(String finalDoNome) {
-        // so os nomes: o conteudo nao sai do banco
+    public java.util.Set<String> existentes(java.util.Collection<String> nomes) {
+        if (nomes.isEmpty()) {
+            return java.util.Set.of();
+        }
+        // so os nomes, pela chave da tabela: o custo depende de quantos foram pedidos, e nao do total guardado
         try (Connection conexao = banco.getConnection();
-             PreparedStatement comando = conexao.prepareStatement("SELECT nome FROM imagens WHERE right(nome, ?) = ?")) {
-            comando.setInt(1, finalDoNome.length());
-            comando.setString(2, finalDoNome);
-            java.util.Set<String> nomes = new java.util.HashSet<>();
+             PreparedStatement comando = conexao.prepareStatement("SELECT nome FROM imagens WHERE nome = ANY(?) AND conta = ?")) {
+            comando.setArray(1, conexao.createArrayOf("text", nomes.toArray()));
+            comando.setString(2, conta);
+            java.util.Set<String> encontrados = new java.util.HashSet<>();
             try (ResultSet linhas = comando.executeQuery()) {
                 while (linhas.next()) {
-                    nomes.add(linhas.getString(1));
+                    encontrados.add(linhas.getString(1));
                 }
             }
-            return nomes;
+            return encontrados;
         } catch (SQLException e) {
-            throw new PersistenciaException("Nao foi possivel listar as imagens do banco", e);
+            throw new PersistenciaException("Nao foi possivel consultar as imagens no banco", e);
         }
     }
 
     @Override
     public void excluir(String nome) {
         try (Connection conexao = banco.getConnection();
-             PreparedStatement comando = conexao.prepareStatement("DELETE FROM imagens WHERE nome = ?")) {
+             PreparedStatement comando = conexao.prepareStatement("DELETE FROM imagens WHERE nome = ? AND conta = ?")) {
             comando.setString(1, nome);
+            comando.setString(2, conta);
             comando.executeUpdate();
         } catch (SQLException e) {
             throw new PersistenciaException("Nao foi possivel excluir a imagem do banco", e);

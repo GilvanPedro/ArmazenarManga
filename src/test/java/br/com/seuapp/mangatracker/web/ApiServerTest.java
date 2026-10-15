@@ -1168,6 +1168,39 @@ class ApiServerTest {
     }
 
     @Test
+    void listaInteiraSoQuandoCabeNoLimite() throws Exception {
+        for (int i = 1; i <= 5; i++) {
+            cadastrar("Manga " + i, String.valueOf(i), i % 2 == 0 ? "LER" : "LENDO");
+        }
+
+        JsonNode cabe = json(enviar("GET", "/api/mangas?resumo=1&pagina=1&tamanho=2&inteiraAte=5", null));
+        assertTrue(cabe.get("inteira").asBoolean());
+        assertEquals(5, cabe.get("itens").size());
+        assertEquals(5, cabe.get("total").asInt());
+
+        JsonNode grande = json(enviar("GET", "/api/mangas?resumo=1&pagina=1&tamanho=2&inteiraAte=4", null));
+        assertFalse(grande.get("inteira").asBoolean());
+        assertEquals(2, grande.get("itens").size());
+        assertEquals(5, grande.get("total").asInt());
+        assertEquals(3, grande.get("paginas").asInt());
+
+        // os filtros contam: so 3 estao lendo, entao cabem em 4
+        JsonNode filtrada = json(enviar("GET", "/api/mangas?resumo=1&pagina=1&tamanho=2&inteiraAte=4&status=LENDO&ordem=TITULO_DESC", null));
+        assertTrue(filtrada.get("inteira").asBoolean());
+        assertEquals(List.of("Manga 5", "Manga 3", "Manga 1"), filtrada.get("itens").findValuesAsText("title"));
+        // a lista resumida aceita paginas grandes; a completa, nao
+        assertEquals(5, json(enviar("GET", "/api/mangas?resumo=1&pagina=1&tamanho=1500", null)).get("itens").size());
+        assertEquals(100, json(enviar("GET", "/api/mangas?pagina=1&tamanho=1500", null)).get("tamanho").asInt());
+    }
+
+    @Test
+    void sitesDosMangasSemRepetir() throws Exception {
+        cadastrar("A", "1", "LENDO");
+        cadastrar("B", "1", "LENDO");
+        assertEquals("[\"site-a.com\"]", enviar("GET", "/api/sites", null).body());
+    }
+
+    @Test
     void miniaturaDaCapaApareceNaListaEVaiEmboraComACapa() throws Exception {
         String capa = json(enviarImagem("arquivo", ImagemServiceTest.PNG)).get("imagePath").asText();
         String semExtensao = capa.substring(0, capa.indexOf('.'));

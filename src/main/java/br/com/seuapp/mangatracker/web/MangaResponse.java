@@ -43,17 +43,17 @@ record MangaResponse(
         String thumbUrl
 ) {
 
-    /** O mesmo manga sem a descricao e os outros nomes, para listas grandes. */
+    /** O mesmo manga sem a descricao, para listas grandes. Os outros nomes ficam: servem para reconhecer o manga. */
     MangaResponse resumo() {
         return new MangaResponse(id, title, imagePath, imageUrl, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, releaseDay,
-                null, firstChapterLink, lastChapterLink, nextChapter, nextChapterLink, List.of(), nextChapterLinkExact, rating, favorite, thumbUrl);
+                null, firstChapterLink, lastChapterLink, nextChapter, nextChapterLink, altTitles, nextChapterLinkExact, rating, favorite, thumbUrl);
     }
 
     static MangaResponse de(Manga manga) {
         return de(manga, Map.of());
     }
 
-    /** @param miniaturas as miniaturas guardadas, de {@link ImagemService#miniaturas()} */
+    /** @param miniaturas as miniaturas destas capas, de {@link ImagemService#miniaturas(java.util.Collection)} */
     static MangaResponse de(Manga manga, Map<String, String> miniaturas) {
         String imagePath = manga.getImagePath();
         return new MangaResponse(

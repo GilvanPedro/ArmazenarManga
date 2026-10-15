@@ -40,7 +40,7 @@ const estado = {
     render: 0,         // descarta respostas de telas que ja foram trocadas
     sessao: null,      // {exigeLogin, logado, usuario, expiraEm} vindo de /api/sessao
     siteAberto: false, // as listas fixas ja foram carregadas e a navegacao ja esta ligada
-    listaCompleta: null, // {ordem, itens, quando, pedido}: a lista inteira (resumida) guardada para buscar e paginar sem esperar o servidor
+    listaCompleta: null, // {ordem, itens, quando, pedido, grande}: a lista inteira (resumida) guardada para buscar e paginar sem esperar o servidor
 };
 
 // ------------------------------------------------------------------ ajudantes
@@ -64,7 +64,10 @@ function h(tag, atributos, ...filhos) {
 
 async function chamar(metodo, caminho, corpo) {
     // depois de qualquer alteracao, a lista guardada pode estar velha: a proxima vez busca de novo
-    if (metodo !== 'GET') estado.listaCompleta = null;
+    if (metodo !== 'GET') {
+        estado.listaCompleta = null;
+        paginasDoServidor.clear();
+    }
     const opcoes = {method: metodo, headers: {}};
     if (corpo instanceof FormData) {
         opcoes.body = corpo;
@@ -299,8 +302,8 @@ function capa(manga, comoLink) {
 
 /** Miniatura de um manga que veio na lista guardada (a pagina do manga nao traz a miniatura). */
 function miniaturaGuardada(id) {
-    const itens = estado.listaCompleta && estado.listaCompleta.itens;
-    const manga = itens ? itens.find(outro => outro.id === id) : null;
+    const itens = (estado.listaCompleta && estado.listaCompleta.itens) || estado.ultimaPagina || [];
+    const manga = itens.find(outro => outro.id === id);
     return manga ? manga.thumbUrl : null;
 }
 
@@ -382,17 +385,8 @@ async function conferirExtensao() {
 async function informarSitesAExtensao() {
     if (!estado.extensao) return;
     try {
-        const sites = new Set();
-        for (const manga of await chamar('GET', '/api/mangas')) {
-            for (const endereco of [manga.lastChapterLink, manga.nextChapterLink]) {
-                try {
-                    sites.add(new URL(endereco).host);
-                } catch (e) {
-                    // link fora do padrao: so nao entra na lista
-                }
-            }
-        }
-        await pedirExtensao('sites', {sites: [...sites]}, 5000);
+        // o servidor devolve so os sites (sem repetir), e nao a lista inteira
+        await pedirExtensao('sites', {sites: await chamar('GET', '/api/sites')}, 5000);
     } catch (e) {
         // sem a lista o botao so nao aparece; o resto do site nao depende disso
     }
@@ -498,6 +492,7 @@ function abas(atual) {
 /** Busca de novo o que a aba aberta mostra. A grade mantem a busca, os filtros e a pagina. */
 function recarregarAba() {
     estado.listaCompleta = null;
+    paginasDoServidor.clear();
     window.scrollTo(0, 0);
     if (estado.recarregar) {
         estado.recarregar(true);
@@ -561,7 +556,8 @@ function telaGrade() {
         estado.pagina = 1;
         // a busca e feita aqui mesmo, na lista guardada: so espera um instante para nao redesenhar a cada tecla
         clearTimeout(estado.esperaDaBusca);
-        estado.esperaDaBusca = setTimeout(() => carregarGrade(lista, paginacao), 60);
+        const grande = estado.listaCompleta && estado.listaCompleta.grande;
+        estado.esperaDaBusca = setTimeout(() => carregarGrade(lista, paginacao), grande ? 250 : 60);
     });
 
     const ordenar = seletor(estado.ordens, estado.ordem);
@@ -646,6 +642,25 @@ function paginador(pagina, paginas, irPara) {
 
 const TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
 const LISTA_FRESCA_MS = 20000;
+// ate este tanto de mangas, a lista inteira fica guardada no navegador e a busca nao espera o servidor; acima
+// disso (contas muito grandes), a busca, os filtros e as paginas sao feitos pelo servidor
+const LIMITE_DA_LISTA_GUARDADA = 2000;
+
+/** Lista inteira se couber no limite; senao, a primeira pagina (o servidor decide, numa chamada so). */
+function enderecoDaLista(ordem) {
+    const parametros = new URLSearchParams({resumo: '1', pagina: '1', tamanho: String(TAMANHO_DA_PAGINA), inteiraAte: String(LIMITE_DA_LISTA_GUARDADA)});
+    if (ordem && ordem !== 'CADASTRO') parametros.set('ordem', ordem);
+    return '/api/mangas?' + parametros;
+}
+
+/** Se a resposta trouxe a lista inteira, ela fica guardada; senao, e uma conta grande, e a primeira pagina ja serve. */
+function guardarLista(entrada, resposta) {
+    entrada.grande = !resposta.inteira;
+    entrada.itens = entrada.grande ? null : resposta.itens;
+    entrada.quando = Date.now();
+    entrada.pedido = null;
+    if (entrada.grande) paginasDoServidor.set(enderecoDaPagina(1, entrada.ordem, {}), {resposta, quando: Date.now()});
+}
 
 /**
  * A lista inteira, ja ordenada pelo servidor e sem as descricoes (?resumo=1). Fica guardada enquanto o site esta
@@ -655,16 +670,10 @@ const LISTA_FRESCA_MS = 20000;
 function pedirLista(ordem) {
     const guardada = estado.listaCompleta;
     if (guardada && guardada.ordem === ordem && guardada.pedido) return guardada.pedido;
-    const parametros = new URLSearchParams({resumo: '1'});
-    if (ordem && ordem !== 'CADASTRO') parametros.set('ordem', ordem);
-    const entrada = {ordem, itens: guardada && guardada.ordem === ordem ? guardada.itens : null, quando: 0, pedido: null};
-    entrada.pedido = chamar('GET', '/api/mangas?' + parametros).then(itens => {
-        if (estado.listaCompleta === entrada) {
-            entrada.itens = itens;
-            entrada.quando = Date.now();
-            entrada.pedido = null;
-        }
-        return itens;
+    const entrada = {ordem, itens: guardada && guardada.ordem === ordem ? guardada.itens : null, quando: 0, pedido: null, grande: false};
+    entrada.pedido = chamar('GET', enderecoDaLista(ordem)).then(resposta => {
+        if (estado.listaCompleta === entrada) guardarLista(entrada, resposta);
+        return entrada;
     }, erro => {
         if (estado.listaCompleta === entrada) estado.listaCompleta = null;
         throw erro;
@@ -686,7 +695,8 @@ function filtrarLista(itens) {
 
 /**
  * Mostra a pagina atual da grade. Se a lista ja estiver guardada, aparece na hora; se estiver guardada ha mais de
- * 20 segundos, aparece na hora e e conferida no servidor por tras, sendo redesenhada so se algo mudou.
+ * 20 segundos, aparece na hora e e conferida no servidor por tras, sendo redesenhada so se algo mudou. Em contas
+ * grandes, pede ao servidor so a pagina, ja filtrada.
  */
 async function carregarGrade(lista, paginacao) {
     const vez = ++estado.render;
@@ -697,16 +707,21 @@ async function carregarGrade(lista, paginacao) {
         if (guardada.pedido || Date.now() - guardada.quando < LISTA_FRESCA_MS) return;
         const antes = JSON.stringify(guardada.itens);
         try {
-            const novos = await pedirLista(ordem);
-            if (vez === estado.render && JSON.stringify(novos) !== antes) desenharGrade(lista, paginacao, novos);
+            const nova = await pedirLista(ordem);
+            if (vez === estado.render && nova.itens && JSON.stringify(nova.itens) !== antes) desenharGrade(lista, paginacao, nova.itens);
+            else if (vez === estado.render && nova.grande) carregarGrade(lista, paginacao);
         } catch (e) {
             // continua mostrando a lista guardada
         }
         return;
     }
-    let itens;
+    let entrada;
     try {
-        itens = await pedirLista(ordem);
+        entrada = guardada && guardada.grande && !guardada.pedido && Date.now() - guardada.quando < LISTA_FRESCA_MS ? guardada : await pedirLista(ordem);
+        if (entrada.grande) {
+            await carregarPaginaDoServidor(lista, paginacao, vez);
+            return;
+        }
     } catch (e) {
         if (vez === estado.render) {
             lista.className = '';
@@ -715,20 +730,74 @@ async function carregarGrade(lista, paginacao) {
         }
         return;
     }
-    if (vez === estado.render) desenharGrade(lista, paginacao, itens);
+    if (vez === estado.render) desenharGrade(lista, paginacao, entrada.itens);
 }
 
-function desenharGrade(lista, paginacao, todos) {
+// paginas ja vistas de contas grandes, pelo endereco: voltar a uma delas e instantaneo. Qualquer alteracao esvazia
+const paginasDoServidor = new Map();
+
+function enderecoDaPagina(pagina, ordem, {busca = '', status = '', tag = ''} = {}) {
+    const parametros = new URLSearchParams({resumo: '1', pagina: String(pagina), tamanho: String(TAMANHO_DA_PAGINA)});
+    if (busca.trim()) parametros.set('titulo', busca.trim());
+    if (status) parametros.set('status', status);
+    if (tag) parametros.set('tag', tag);
+    if (ordem && ordem !== 'CADASTRO') parametros.set('ordem', ordem);
+    return '/api/mangas?' + parametros;
+}
+
+async function pedirPagina(endereco) {
+    const resposta = await chamar('GET', endereco);
+    paginasDoServidor.set(endereco, {resposta, quando: Date.now()});
+    // so as mais recentes
+    if (paginasDoServidor.size > 40) paginasDoServidor.delete(paginasDoServidor.keys().next().value);
+    return resposta;
+}
+
+/**
+ * Conta grande: o servidor busca, filtra, ordena e devolve so a pagina aberta. Uma pagina ja vista aparece na hora
+ * (e e conferida por tras se tiver mais de 20 segundos); a proxima pagina e pedida antes, com o navegador parado.
+ */
+async function carregarPaginaDoServidor(lista, paginacao, vez) {
+    const filtros = {busca: estado.busca, status: estado.filtroStatus, tag: estado.filtroTag};
+    const endereco = enderecoDaPagina(estado.pagina, estado.ordem, filtros);
+    const desenhar = resposta => {
+        estado.pagina = resposta.pagina;
+        desenharGrade(lista, paginacao, resposta.itens, {total: resposta.total, paginas: resposta.paginas});
+        if (resposta.pagina < resposta.paginas) adiantarPagina(enderecoDaPagina(resposta.pagina + 1, estado.ordem, filtros));
+    };
+    const guardada = paginasDoServidor.get(endereco);
+    if (guardada) {
+        desenhar(guardada.resposta);
+        if (Date.now() - guardada.quando < LISTA_FRESCA_MS) return;
+    }
+    const resposta = await pedirPagina(endereco);
+    if (vez !== estado.render) return;
+    if (!guardada || JSON.stringify(guardada.resposta) !== JSON.stringify(resposta)) desenhar(resposta);
+}
+
+function adiantarPagina(endereco) {
+    if (paginasDoServidor.has(endereco)) return;
+    const pedir = () => pedirPagina(endereco).then(resposta => adiantarCapas(resposta.itens)).catch(() => {});
+    if ('requestIdleCallback' in window) requestIdleCallback(pedir, {timeout: 3000});
+    else setTimeout(pedir, 800);
+}
+
+/**
+ * @param todos     a lista inteira guardada, ou so a pagina, quando ela veio do servidor
+ * @param doServidor {total, paginas} quando a pagina ja veio filtrada e cortada pelo servidor
+ */
+function desenharGrade(lista, paginacao, todos, doServidor) {
     lista.classList.remove('recarregando');
     const filtrando = Boolean(estado.busca.trim() || estado.filtroStatus || estado.filtroTag);
-    const encontrados = filtrarLista(todos);
-    const paginas = Math.max(1, Math.ceil(encontrados.length / TAMANHO_DA_PAGINA));
+    const encontrados = doServidor ? todos : filtrarLista(todos);
+    const total = doServidor ? doServidor.total : encontrados.length;
+    const paginas = doServidor ? doServidor.paginas : Math.max(1, Math.ceil(encontrados.length / TAMANHO_DA_PAGINA));
     // pagina alem do fim (um manga foi excluido, ou a busca encolheu a lista) vira a ultima
     estado.pagina = Math.min(Math.max(1, estado.pagina), paginas);
-    const inicio = (estado.pagina - 1) * TAMANHO_DA_PAGINA;
+    const inicio = doServidor ? 0 : (estado.pagina - 1) * TAMANHO_DA_PAGINA;
     const itens = encontrados.slice(inicio, inicio + TAMANHO_DA_PAGINA);
 
-    if (encontrados.length === 0) {
+    if (total === 0) {
         lista.className = '';
         lista.replaceChildren(filtrando
             ? vazio('Nada encontrado', 'Nenhum mangá combina com a busca ou o filtro.')
@@ -738,6 +807,7 @@ function desenharGrade(lista, paginacao, todos) {
         return;
     }
     lista.className = 'grade';
+    estado.ultimaPagina = itens;
     const cartoes = itens.map(cartao);
     // as capas das duas primeiras fileiras vem primeiro e sem esperar a rolagem; o resto, quando chegar perto
     cartoes.forEach((elemento, i) => {
@@ -750,13 +820,16 @@ function desenharGrade(lista, paginacao, todos) {
     lista.replaceChildren(...cartoes);
     const irPara = pagina => {
         estado.pagina = pagina;
-        desenharGrade(lista, paginacao, todos);
-        window.scrollTo(0, 0);
+        if (doServidor) carregarGrade(lista, paginacao).then(() => window.scrollTo(0, 0));
+        else {
+            desenharGrade(lista, paginacao, todos);
+            window.scrollTo(0, 0);
+        }
     };
     paginacao.replaceChildren(
         ...(paginas > 1 ? paginador(estado.pagina, paginas, irPara) : []),
-        h('span', {class: 'total'}, encontrados.length === 1 ? '1 mangá' : encontrados.length + ' mangás'));
-    adiantarCapas(encontrados.slice(inicio + TAMANHO_DA_PAGINA, inicio + 2 * TAMANHO_DA_PAGINA));
+        h('span', {class: 'total'}, total === 1 ? '1 mangá' : total + ' mangás'));
+    if (!doServidor) adiantarCapas(encontrados.slice(inicio + TAMANHO_DA_PAGINA, inicio + 2 * TAMANHO_DA_PAGINA));
     criarMiniaturas(todos);
 }
 
@@ -2142,7 +2215,8 @@ async function telaCapturar(consulta) {
     }
     let mangas;
     try {
-        mangas = await chamar('GET', '/api/mangas');
+        // sem as descricoes: so os nomes e os links importam para reconhecer o manga
+        mangas = await chamar('GET', '/api/mangas?resumo=1');
     } catch (e) {
         if (vez === estado.render) app.replaceChildren(vazio('Algo deu errado', e.message));
         return;
@@ -2350,12 +2424,12 @@ async function iniciar() {
  */
 async function adiantarLista() {
     const ordem = estado.ordem || 'CADASTRO';
-    const parametros = new URLSearchParams({resumo: '1'});
-    if (ordem !== 'CADASTRO') parametros.set('ordem', ordem);
     try {
-        const resposta = await fetch('/api/mangas?' + parametros);
+        const resposta = await fetch(enderecoDaLista(ordem));
         if (!resposta.ok) return;
-        estado.listaCompleta = {ordem, itens: await resposta.json(), quando: Date.now(), pedido: null};
+        const entrada = {ordem};
+        guardarLista(entrada, await resposta.json());
+        estado.listaCompleta = entrada;
     } catch (e) {
         // sem problema: a grade pede de novo
     }

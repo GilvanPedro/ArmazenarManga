@@ -18,6 +18,10 @@ public interface MangaServiceInterface {
     }
     /** Titulo, status e tag sao filtros opcionais (null = sem filtro). */
     List<Manga> listarMangas(String titulo, ReadingStatus readingStatus, String tag);
+    /** Filtra, ordena e corta a lista; no Postgres, tudo pelo banco, saindo de la so o pedaco pedido. */
+    br.com.seuapp.mangatracker.repository.PaginaDeMangas consultar(br.com.seuapp.mangatracker.repository.ConsultaDeMangas consulta);
+    /** Quantos mangas passam nos filtros da consulta. */
+    int contar(br.com.seuapp.mangatracker.repository.ConsultaDeMangas consulta);
     /** Lista geral de tags: as que estao em uso (as mais usadas primeiro) e depois as sugeridas ainda sem uso. */
     List<TagEmUso> listarTags();
     /** Mangas da lista que dividem tags com este, comecando pelos que dividem mais. */

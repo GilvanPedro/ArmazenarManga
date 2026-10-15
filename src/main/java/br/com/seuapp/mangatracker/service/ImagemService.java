@@ -97,13 +97,22 @@ public class ImagemService {
         return nome;
     }
 
-    /** Capa de cada miniatura guardada: nome da capa (sem extensao) -> nome da miniatura. */
-    public Map<String, String> miniaturas() {
-        Map<String, String> porCapa = new java.util.HashMap<>();
-        for (String finalDoNome : List.of(FINAL_DA_MINIATURA, FINAL_DA_MINIATURA_JPG)) {
-            for (String nome : repository.listarTerminadosEm(finalDoNome)) {
-                porCapa.put(nome.substring(0, nome.length() - finalDoNome.length()), nome);
+    /**
+     * Miniaturas que existem para estas capas: nome da capa (sem extensao) -> nome da miniatura. Procura so pelos
+     * nomes possiveis, entao o custo depende de quantas capas foram pedidas, e nao do total guardado.
+     */
+    public Map<String, String> miniaturas(java.util.Collection<String> imagePaths) {
+        List<String> candidatas = new java.util.ArrayList<>();
+        for (String capa : imagePaths) {
+            if (capa != null && NOME_DE_CAPA.matcher(capa).matches()) {
+                String base = capa.substring(0, capa.lastIndexOf('.'));
+                candidatas.add(base + FINAL_DA_MINIATURA);
+                candidatas.add(base + FINAL_DA_MINIATURA_JPG);
             }
+        }
+        Map<String, String> porCapa = new java.util.HashMap<>();
+        for (String nome : repository.existentes(candidatas)) {
+            porCapa.put(nome.substring(0, nome.lastIndexOf("-mini.")), nome);
         }
         return porCapa;
     }

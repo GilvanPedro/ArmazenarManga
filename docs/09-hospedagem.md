@@ -46,7 +46,8 @@ GitHub; o `.env.exemplo` é o modelo.
 
 ## Banco de dados: Neon
 
-O banco usado é um Postgres gratuito do Neon. As tabelas são criadas sozinhas no primeiro acesso.
+O banco usado é um Postgres gratuito do Neon. As tabelas são criadas sozinhas no primeiro acesso, e as colunas e
+índices novos de cada atualização também, sem apagar nada.
 
 1. Criar um projeto no Neon e copiar a *connection string* (`postgresql://usuario:senha@servidor/banco?sslmode=require`).
 2. Colocá-la em `DATABASE_URL`, no `.env` local ou nas variáveis da hospedagem.

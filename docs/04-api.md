@@ -1,6 +1,7 @@
 # 04 · API
 
-Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) têm as mesmas rotas.
+Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) têm as mesmas rotas. Todas
+trabalham só com os mangás e as capas da conta de quem está usando; hoje há uma conta só.
 
 - **Login:** quando há senha configurada, as rotas em `/api/` pedem o cookie de login, obtido em
   `POST /api/sessao`. As exceções são `/api/sessao` e `/healthz`. Veja [Tela de login de 30 dias](20-tela-de-login.md).
@@ -37,7 +38,8 @@ Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) 
 | `status` | Um dos status |
 | `tag` | Nome exato de uma tag |
 | `ordem` | `CADASTRO` (padrão), `RECENTES`, `TITULO`, `TITULO_DESC`, `MAIS_CAPITULOS`, `MENOS_CAPITULOS`, `MELHORES_NOTAS`, `PIORES_NOTAS` (sem nota fica no fim nas duas), `FAVORITOS` |
-| `resumo` | `1` deixa de fora `description` e `altTitles`, para listas grandes |
+| `resumo` | `1` deixa de fora `description`, para listas grandes. Com ele, `tamanho` vai até 2000 |
+| `inteiraAte` | Se o total couber nesse número (até 2000), devolve a lista inteira com `inteira: true`; senão, a página pedida |
 | `pagina` | Com ele, a resposta vira uma página; sem ele, a lista inteira |
 | `tamanho` | Itens por página (padrão 24, máximo 100) |
 
@@ -163,6 +165,7 @@ que a fonte não tem.
 |--------|------|-----------|
 | `POST` | `/api/imagens` | Envia uma capa (`multipart/form-data`, campo `arquivo`). PNG, JPG, GIF ou WEBP |
 | `GET` | `/api/imagens/{nome}` | Devolve a capa (ou a miniatura, `{nome}-mini.webp`) |
+| `GET` | `/api/sites` | Os sites de leitura dos mangás, sem repetir (usado pela extensão) |
 | `PUT` | `/api/imagens/{nome}/miniatura` | Guarda a miniatura da capa: corpo com a imagem, WebP ou JPEG, até 300 KB |
 
 O limite é 10 MB na versão Java e 4 MB na do Vercel.
