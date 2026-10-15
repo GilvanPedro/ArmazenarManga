@@ -571,21 +571,34 @@ function telaGrade() {
         carregarGrade(lista, paginacao);
     });
 
+    // filtro de tag, ao lado da ordem: as tags que estao em algum manga da Biblioteca, com quantos mangas tem cada uma.
+    // Clicar numa tag na pagina de um manga chega aqui com ela ja escolhida
+    const tag = h('select', {class: 'ordenar filtro-de-tag', 'aria-label': 'Filtrar por tag'},
+        h('option', {value: ''}, 'Todas as tags'));
+    if (estado.filtroTag) tag.append(h('option', {value: estado.filtroTag}, estado.filtroTag));
+    tag.value = estado.filtroTag;
+    tag.classList.toggle('ativo', Boolean(estado.filtroTag));
+    tag.addEventListener('change', () => {
+        estado.filtroTag = tag.value;
+        estado.pagina = 1;
+        tag.classList.toggle('ativo', Boolean(tag.value));
+        // o endereco acompanha (#/tag/{nome}), sem recarregar a tela
+        history.replaceState(null, '', tag.value ? '#/tag/' + encodeURIComponent(tag.value) : '#/');
+        carregarGrade(lista, paginacao);
+    });
+    chamar('GET', '/api/tags').then(tags => {
+        const emUso = tags.filter(item => item.quantidade > 0);
+        tag.replaceChildren(h('option', {value: ''}, 'Todas as tags'),
+            ...emUso.map(item => h('option', {value: item.nome}, item.nome + ' (' + item.quantidade + ')')));
+        // uma tag escolhida que nao esta mais em uso continua aparecendo, para nao sumir do seletor
+        if (estado.filtroTag && !emUso.some(item => item.nome.toLowerCase() === estado.filtroTag.toLowerCase())) {
+            tag.append(h('option', {value: estado.filtroTag}, estado.filtroTag + ' (0)'));
+        }
+        const igual = emUso.find(item => item.nome.toLowerCase() === estado.filtroTag.toLowerCase());
+        tag.value = igual ? igual.nome : estado.filtroTag;
+    }).catch(() => {});
+
     const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
-    if (estado.filtroTag) {
-        // veio de um clique em uma tag: mostra qual e, com o X para voltar a ver todos
-        filtros.append(h('button', {
-            type: 'button',
-            class: 'filtro da-tag',
-            title: 'Parar de filtrar por esta tag',
-            onclick: () => {
-                estado.filtroTag = '';
-                estado.pagina = 1;
-                if (location.hash === '#/') rota();
-                else location.hash = '#/';
-            },
-        }, 'Tag: ' + estado.filtroTag + '  ×'));
-    }
     const opcoes = [{valor: '', descricao: 'Todos'}, ...estado.status];
     for (const opcao of opcoes) {
         filtros.append(h('button', {
@@ -611,6 +624,7 @@ function telaGrade() {
         h('div', {class: 'ferramentas'},
             busca,
             h('span', {class: 'espaco'}),
+            tag,
             ordenar,
             h('button', {type: 'button', class: 'botao', onclick: sortear}, '🎲 Sortear')),
         filtros,
@@ -2979,63 +2993,143 @@ function editorDePost(aoPublicar, naJanela) {
     return formulario;
 }
 
-/** Janela para montar a lista: titulo e ate 20 mangas da Biblioteca, buscados pelo nome. */
+/**
+ * Janela para montar a lista: uma Biblioteca simplificada (capas, nomes, notas e borda de favorito), com busca, filtro
+ * de status e ordem. Clicar numa capa poe o manga na lista: ela escurece e mostra a posicao dele; clicar de novo tira.
+ * Ate 20 mangas, na ordem em que foram escolhidos.
+ */
 function escolherLista(atual, aoConfirmar) {
+    const POR_PAGINA = 48;
     const escolhidos = atual ? [...atual.mangas] : [];
-    const titulo = h('input', {type: 'text', maxlength: '80', placeholder: 'Ex.: Os que mais recomendo', value: atual ? atual.titulo : '', 'aria-label': 'Título da lista'});
-    const busca = h('input', {type: 'search', placeholder: 'Buscar na sua Biblioteca…', 'aria-label': 'Buscar mangá'});
-    const resultados = h('div', {class: 'resultados-da-lista'});
-    const selecionados = h('div', {class: 'escolhidos-da-lista'});
+    const filtro = {busca: '', status: '', ordem: estado.ordem || 'CADASTRO'};
+    const titulo = h('input', {type: 'text', maxlength: '80', placeholder: 'Título da lista (opcional): ex. Os que mais recomendo', value: atual ? atual.titulo : '', 'aria-label': 'Título da lista'});
+    const busca = h('input', {type: 'search', placeholder: 'Buscar pelo nome…', 'aria-label': 'Buscar mangá'});
+    const ordenar = seletor(estado.ordens, filtro.ordem);
+    ordenar.setAttribute('aria-label', 'Ordenar por');
+    ordenar.className = 'ordenar';
+    const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
+    for (const opcao of [{valor: '', descricao: 'Todos'}, ...estado.status]) {
+        filtros.append(h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(filtro.status === opcao.valor), onclick: evento => {
+            filtro.status = opcao.valor;
+            for (const botao of filtros.children) botao.setAttribute('aria-pressed', 'false');
+            evento.currentTarget.setAttribute('aria-pressed', 'true');
+            recomecar();
+        }}, opcao.descricao));
+    }
+    const grade = h('div', {class: 'grade-para-escolher'});
+    const fim = h('div', {class: 'fim-da-grade'});
+    const contagem = h('span', {class: 'contagem-da-lista'});
+    const limpar = h('button', {type: 'button', class: 'botao'}, 'Limpar');
     const anexar = h('button', {type: 'button', class: 'botao primario'});
-    const linha = manga => {
-        const marcado = escolhidos.some(outro => outro.id === manga.id);
-        return h('button', {type: 'button', class: 'manga-da-busca', 'aria-pressed': String(marcado),
-            disabled: !marcado && escolhidos.length >= MANGAS_DA_LISTA_MAXIMO,
-            onclick: () => {
-                const posicao = escolhidos.findIndex(outro => outro.id === manga.id);
-                if (posicao >= 0) escolhidos.splice(posicao, 1); else escolhidos.push(manga);
-                desenhar();
-            }},
-        h('img', {src: manga.thumbUrl || manga.imageUrl, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'}),
-        h('span', null, h('b', null, manga.title), h('small', null, descricaoStatus(manga.readingStatus))),
-        h('span', {class: 'marca-da-busca', 'aria-hidden': 'true'}, marcado ? '✓' : '+'));
-    };
-    let encontrados = [];
-    const desenhar = () => {
-        resultados.replaceChildren(...(encontrados.length ? encontrados.map(linha) : [h('p', {class: 'subtitulo'}, 'Nenhum mangá encontrado na sua Biblioteca.')]));
-        selecionados.replaceChildren(...escolhidos.map(manga => h('span', {class: 'tag escolhida'}, manga.title,
-            h('button', {type: 'button', 'aria-label': 'Tirar ' + manga.title, onclick: () => { escolhidos.splice(escolhidos.indexOf(manga), 1); desenhar(); }}, '×'))));
-        anexar.textContent = escolhidos.length ? `Anexar ${escolhidos.length} de ${MANGAS_DA_LISTA_MAXIMO}` : 'Escolha os mangás';
-        anexar.disabled = escolhidos.length === 0;
-    };
-    const buscar = async () => {
-        const parametros = new URLSearchParams({resumo: '1', pagina: '1', tamanho: '30'});
-        if (busca.value.trim()) parametros.set('titulo', busca.value.trim());
-        try {
-            encontrados = (await chamar('GET', '/api/mangas?' + parametros)).itens;
-        } catch (e) {
-            encontrados = [];
+
+    // cada capa sabe redesenhar a propria marca (a posicao na lista)
+    const cartoes = new Map();
+    const marcar = () => {
+        for (const [id, cartao] of cartoes) {
+            const posicao = escolhidos.findIndex(manga => manga.id === id);
+            cartao.classList.toggle('escolhido', posicao >= 0);
+            cartao.setAttribute('aria-pressed', String(posicao >= 0));
+            cartao.querySelector('.posicao-na-lista').textContent = posicao >= 0 ? String(posicao + 1) : '';
+            cartao.disabled = posicao < 0 && escolhidos.length >= MANGAS_DA_LISTA_MAXIMO;
         }
-        desenhar();
+        contagem.textContent = escolhidos.length ? `${escolhidos.length} de ${MANGAS_DA_LISTA_MAXIMO} na lista` : 'Clique nas capas para montar a lista';
+        anexar.textContent = escolhidos.length ? 'Anexar lista' : 'Escolha os mangás';
+        anexar.disabled = escolhidos.length === 0;
+        limpar.hidden = escolhidos.length === 0;
+    };
+    const cartaoParaEscolher = manga => {
+        const cartao = h('button', {type: 'button', class: 'para-escolher', title: manga.title},
+            h('div', {class: 'capa' + (manga.favorite ? ' favorita' : '')},
+                h('img', {src: manga.thumbUrl || manga.imageUrl, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'}),
+                etiquetaNota(manga.rating),
+                h('span', {class: 'posicao-na-lista', 'aria-hidden': 'true'})),
+            h('span', {class: 'nome-do-item'}, manga.title));
+        cartao.addEventListener('click', () => {
+            const posicao = escolhidos.findIndex(outro => outro.id === manga.id);
+            if (posicao >= 0) escolhidos.splice(posicao, 1);
+            else if (escolhidos.length < MANGAS_DA_LISTA_MAXIMO) escolhidos.push(manga);
+            marcar();
+        });
+        cartoes.set(manga.id, cartao);
+        return cartao;
+    };
+
+    // os mangas vem do servidor aos poucos (48 por vez), ja buscados, filtrados e ordenados
+    let pagina = 0;
+    let temMais = true;
+    let pedido = 0;
+    const carregar = async () => {
+        if (!temMais) return;
+        const vez = pedido;
+        const parametros = new URLSearchParams({resumo: '1', pagina: String(pagina + 1), tamanho: String(POR_PAGINA)});
+        if (filtro.busca.trim()) parametros.set('titulo', filtro.busca.trim());
+        if (filtro.status) parametros.set('status', filtro.status);
+        if (filtro.ordem && filtro.ordem !== 'CADASTRO') parametros.set('ordem', filtro.ordem);
+        fim.textContent = 'Carregando…';
+        let resposta;
+        try {
+            resposta = await chamar('GET', '/api/mangas?' + parametros);
+        } catch (e) {
+            if (vez === pedido) fim.textContent = e.message;
+            return;
+        }
+        if (vez !== pedido) return;
+        pagina = resposta.pagina;
+        temMais = resposta.pagina < resposta.paginas && resposta.total > 0;
+        grade.append(...resposta.itens.map(cartaoParaEscolher));
+        fim.textContent = resposta.total === 0 ? 'Nenhum mangá encontrado na sua Biblioteca.' : '';
+        marcar();
+    };
+    const recomecar = () => {
+        pedido++;
+        pagina = 0;
+        temMais = true;
+        cartoes.clear();
+        grade.replaceChildren();
+        carregar();
     };
     let espera;
-    busca.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(buscar, 200); });
+    busca.addEventListener('input', () => {
+        filtro.busca = busca.value;
+        clearTimeout(espera);
+        espera = setTimeout(recomecar, 220);
+    });
+    ordenar.addEventListener('change', () => {
+        filtro.ordem = ordenar.value;
+        recomecar();
+    });
+    limpar.addEventListener('click', () => {
+        escolhidos.length = 0;
+        marcar();
+    });
+
     const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const rolagem = h('div', {class: 'rolagem-da-escolha'}, grade, fim);
     const dialogo = h('dialog', {class: 'janela-da-lista'},
-        h('div', {class: 'topo-da-janela'}, h('h2', null, 'Anexar lista'), fechar),
-        h('label', {class: 'campo'}, h('span', null, 'Título (opcional)'), titulo),
-        busca, selecionados, resultados,
-        h('div', {class: 'acoes'}, anexar));
+        h('div', {class: 'topo-da-janela'}, h('h2', null, 'Montar lista'), fechar),
+        titulo,
+        h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar),
+        filtros,
+        rolagem,
+        h('div', {class: 'rodape-da-escolha'}, contagem, h('span', {class: 'espaco'}), limpar, anexar));
+    // a proxima pagina vem quando a grade chega perto do fim
+    const observador = new IntersectionObserver(entradas => {
+        if (entradas.some(entrada => entrada.isIntersecting) && fim.textContent !== 'Carregando…') carregar();
+    }, {root: rolagem, rootMargin: '400px'});
+    observador.observe(fim);
     fechar.addEventListener('click', () => dialogo.close());
     anexar.addEventListener('click', () => {
         aoConfirmar({titulo: titulo.value.trim(), mangas: escolhidos});
         dialogo.close();
     });
-    dialogo.addEventListener('close', () => dialogo.remove());
+    dialogo.addEventListener('close', () => {
+        observador.disconnect();
+        dialogo.remove();
+    });
     document.body.append(dialogo);
     dialogo.showModal();
-    desenhar();
-    buscar();
+    marcar();
+    recomecar();
     busca.focus();
 }
 

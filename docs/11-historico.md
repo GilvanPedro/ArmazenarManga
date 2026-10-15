@@ -120,6 +120,11 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Lista publicada em janela.** No post, a lista virou um cartão com uma capa só; clicar abre a lista inteira, e
   clicar num mangá mostra nota, capítulo, tags e descrição de quando ela foi publicada. Detalhes em
   [Lista publicada em janela](30-lista-publicada-em-janela.md).
+- **Montar a lista pela Biblioteca.** A janela de escolher os mangás da lista virou uma Biblioteca simplificada, com
+  busca, filtro, ordem e a posição de cada escolhido na capa. Detalhes em
+  [Montar a lista pela Biblioteca](31-montar-lista-pela-biblioteca.md).
+- **Filtro de tag na Biblioteca.** A lista ganhou um seletor de tags ao lado da ordenação. Detalhes em
+  [Filtro de tag na Biblioteca](32-filtro-de-tag-na-biblioteca.md).
 
 ## O que foi removido ou abandonado
 
