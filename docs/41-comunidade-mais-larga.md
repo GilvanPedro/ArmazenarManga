@@ -27,3 +27,6 @@ Ajustes feitos em outubro de 2026 na aba Comunidade (veja [Comunidade centraliza
 
 Conferido em um navegador, em 1920, 1366 e 390 px: o feed com 860 px (358 px no celular), as abas sem rolagem e a
 página sem rolagem para o lado. Não há teste automático.
+
+> Depois, o feed voltou a ficar exatamente no meio da tela, com o "Quem seguir" no espaço da direita: veja
+> [Feed da Comunidade no meio da tela](43-feed-no-meio-da-tela.md).

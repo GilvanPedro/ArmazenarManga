@@ -89,6 +89,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Botão de Tags na Biblioteca](docs/37-botao-de-tags-na-biblioteca.md) | [Clicar fora fecha a janela](docs/38-clicar-fora-fecha-a-janela.md) |
 | [Lista publicada sem status nas capas](docs/39-lista-sem-status-nas-capas.md) | [Campo de tags como barra de pesquisa](docs/40-campo-de-tags-como-barra-de-pesquisa.md) |
 | [Comunidade mais larga](docs/41-comunidade-mais-larga.md) | [Responsividade em celulares, tablets e monitores](docs/42-responsividade.md) |
+| [Feed da Comunidade no meio da tela](docs/43-feed-no-meio-da-tela.md) | |
 
 ## Testes
 

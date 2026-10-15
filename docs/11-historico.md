@@ -147,6 +147,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   corrigidos o topo e o painel de Tags no tablet, a barra e as abas da Biblioteca no celular, as janelas no celular e
   em telas baixas, o zoom do iPhone nos campos, os botões pequenos para o dedo e o uso da largura em monitores grandes.
   Detalhes em [Responsividade](42-responsividade.md).
+- **Feed no meio da tela.** O feed da Comunidade voltou a ficar exatamente no meio da tela, com o "Quem seguir" no
+  espaço da direita e a Comunidade usando a largura toda. Detalhes em
+  [Feed da Comunidade no meio da tela](43-feed-no-meio-da-tela.md).
 
 ## O que foi removido ou abandonado
 
