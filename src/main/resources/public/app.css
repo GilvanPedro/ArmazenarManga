@@ -87,6 +87,9 @@ h1, h2 { line-height: 1.2; margin: 0; text-wrap: balance; }
     text-decoration: none;
 }
 
+.acoes-do-topo { display: flex; align-items: center; gap: 8px; }
+.acoes-do-topo [hidden] { display: none; }
+
 main {
     max-width: 1320px;
     margin: 0 auto;
@@ -210,6 +213,10 @@ select:disabled { opacity: .55; }
 .opcoes-de-tag .filtro:disabled { opacity: .4; cursor: not-allowed; text-decoration: line-through; }
 .quadro-de-tags.nao-quero .filtro[aria-pressed=true] { background: var(--perigo); border-color: var(--perigo); color: #fff; }
 .sem-tag { color: var(--texto-fraco); font-size: 13.5px; }
+
+/* recarregando a aba: o que esta na tela fica apagado ate chegar o novo */
+.recarregando { opacity: .45; transition: opacity .15s; pointer-events: none; }
+.capa img[width] { width: 100%; height: 100%; }
 
 .grade {
     --colunas: 6;
@@ -594,4 +601,106 @@ dialog form { display: flex; flex-direction: column; gap: 16px; }
 
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
+}
+
+/* ------------------------------------------------------------ login */
+
+body.entrando .topo, body.entrando .avisos:empty { display: none; }
+body.entrando main { max-width: none; padding: 0; }
+.fundo-de-login {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 32px 16px;
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        radial-gradient(60vmax 60vmax at 12% 8%, color-mix(in srgb, var(--destaque) 26%, transparent), transparent 60%),
+        radial-gradient(55vmax 55vmax at 92% 96%, color-mix(in srgb, #8b5cf6 30%, transparent), transparent 60%),
+        var(--fundo);
+}
+/* linhas de velocidade, como nos quadrinhos, bem apagadas */
+.fundo-de-login::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    background: repeating-conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--texto) 5%, transparent) 0deg 1.2deg, transparent 1.2deg 7deg);
+    mask-image: radial-gradient(closest-side, transparent 35%, #000 100%);
+    -webkit-mask-image: radial-gradient(closest-side, transparent 35%, #000 100%);
+}
+.cartao-de-login {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: min(100%, 400px);
+    padding: 36px 32px 28px;
+    border: 1px solid color-mix(in srgb, var(--borda) 80%, transparent);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--superficie) 88%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .35), 0 0 0 1px rgba(255, 255, 255, .03) inset;
+    animation: surgir-login .45s ease-out both;
+}
+@keyframes surgir-login {
+    from { opacity: 0; transform: translateY(12px) scale(.98); }
+    to { opacity: 1; transform: none; }
+}
+.logo-de-login {
+    align-self: center;
+    width: 56px;
+    height: 56px;
+    filter: drop-shadow(0 6px 18px color-mix(in srgb, var(--destaque) 55%, transparent));
+}
+.cartao-de-login h1 { margin: -4px 0 0; text-align: center; font-size: 28px; letter-spacing: -.02em; }
+.chamada-de-login { margin: -8px 0 6px; text-align: center; color: var(--texto-fraco); font-size: 14.5px; line-height: 1.45; }
+.cartao-de-login input[type=text], .cartao-de-login input[type=password] {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid var(--borda);
+    border-radius: 11px;
+    background: var(--superficie-2);
+    color: var(--texto);
+    font: inherit;
+    font-size: 16px;
+    transition: border-color .15s, box-shadow .15s;
+}
+.cartao-de-login input:focus {
+    outline: none;
+    border-color: var(--destaque);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--destaque) 22%, transparent);
+}
+.senha-com-botao { position: relative; }
+.senha-com-botao input { padding-right: 88px !important; }
+.mostrar-senha {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    min-height: 34px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--texto-fraco);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 650;
+    cursor: pointer;
+}
+.mostrar-senha:hover { color: var(--texto); background: color-mix(in srgb, var(--texto) 8%, transparent); }
+.mostrar-senha:focus-visible { outline: 2px solid var(--destaque); outline-offset: 1px; }
+.erro-de-login { margin: -4px 0 -6px; min-height: 1.4em; color: var(--perigo); font-size: 14px; font-weight: 600; }
+.erro-de-login:empty { min-height: 0; margin: 0; }
+.botao.entrar { min-height: 48px; font-size: 16px; border-radius: 11px; box-shadow: 0 8px 22px color-mix(in srgb, var(--destaque) 35%, transparent); }
+.nota-de-login { margin: 2px 0 0; text-align: center; color: var(--texto-fraco); font-size: 12.5px; line-height: 1.4; }
+@media (max-width: 420px) {
+    .cartao-de-login { padding: 28px 20px 22px; border-radius: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cartao-de-login { animation: none; }
 }

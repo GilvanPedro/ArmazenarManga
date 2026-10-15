@@ -8,7 +8,10 @@ import br.com.seuapp.mangatracker.domain.Tag;
 import br.com.seuapp.mangatracker.domain.WeekDay;
 
 import java.math.BigDecimal;
+import br.com.seuapp.mangatracker.service.ImagemService;
+
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** Manga do jeito que a API devolve: os dados salvos + os links ja montados. */
@@ -35,10 +38,23 @@ record MangaResponse(
         /** Nota de 0 a 10 dada pelo dono da lista; null = sem nota. */
         Integer rating,
         /** true quando o manga esta marcado como favorito. */
-        boolean favorite
+        boolean favorite,
+        /** Versao pequena da capa, para a lista; null quando ainda nao existe (use imageUrl). */
+        String thumbUrl
 ) {
 
+    /** O mesmo manga sem a descricao e os outros nomes, para listas grandes. */
+    MangaResponse resumo() {
+        return new MangaResponse(id, title, imagePath, imageUrl, tags, chapterLinkModel, decimalFormat, lastChapter, readingStatus, releaseDay,
+                null, firstChapterLink, lastChapterLink, nextChapter, nextChapterLink, List.of(), nextChapterLinkExact, rating, favorite, thumbUrl);
+    }
+
     static MangaResponse de(Manga manga) {
+        return de(manga, Map.of());
+    }
+
+    /** @param miniaturas as miniaturas guardadas, de {@link ImagemService#miniaturas()} */
+    static MangaResponse de(Manga manga, Map<String, String> miniaturas) {
         String imagePath = manga.getImagePath();
         return new MangaResponse(
                 manga.getId(),
@@ -60,7 +76,8 @@ record MangaResponse(
                 manga.getAltTitles() == null ? List.of() : manga.getAltTitles().stream().filter(nome -> !nome.startsWith("anilist:")).toList(),
                 manga.getNextChapterUrl() != null,
                 manga.getRating(),
-                manga.isFavorite()
+                manga.isFavorite(),
+                ImagemService.enderecoDaMiniatura(imagePath, miniaturas)
         );
     }
 }

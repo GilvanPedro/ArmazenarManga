@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -125,5 +126,50 @@ public class ImagemServiceTest {
         assertThrows(InvalidImageException.class, () -> service.verificarReferencia("capa.png"));
         assertThrows(InvalidImageException.class, () -> service.verificarReferencia("javascript:alert(1)"));
         assertThrows(InvalidImageException.class, () -> service.verificarReferencia("../mangas.json"));
+    }
+
+    // ------------------------------------------------------------------ miniaturas
+
+
+    @Test
+    void guardaAMiniaturaDaCapaSemMexerNaOriginal() {
+        String capa = service.salvar(new ByteArrayInputStream(PNG));
+        String base = capa.substring(0, capa.indexOf('.'));
+        assertEquals(java.util.Map.of(), service.miniaturas());
+        assertNull(ImagemService.enderecoDaMiniatura(capa, service.miniaturas()));
+
+        assertEquals(base + "-mini.webp", service.salvarMiniatura(capa, WEBP));
+        assertArrayEquals(PNG, service.carregar(capa));
+        assertArrayEquals(WEBP, service.carregar(base + "-mini.webp"));
+        assertEquals("image/webp", service.tipoDeConteudo(base + "-mini.webp"));
+        assertEquals(java.util.Map.of(base, base + "-mini.webp"), service.miniaturas());
+        assertEquals("/api/imagens/" + base + "-mini.webp", ImagemService.enderecoDaMiniatura(capa, service.miniaturas()));
+        assertNull(ImagemService.enderecoDaMiniatura("https://site.com/" + capa, service.miniaturas()));
+
+        // uma so por capa: uma JPEG nova substitui a WebP
+        assertEquals(base + "-mini.jpg", service.salvarMiniatura(capa, JPG));
+        assertFalse(service.existe(base + "-mini.webp"));
+        assertEquals(java.util.Map.of(base, base + "-mini.jpg"), service.miniaturas());
+
+        // apagar a capa apaga a miniatura junto
+        service.excluir(capa);
+        assertFalse(service.existe(base + "-mini.jpg"));
+        assertEquals(java.util.Map.of(), service.miniaturas());
+    }
+
+    @Test
+    void recusaMiniaturaInvalida() {
+        String capa = service.salvar(new ByteArrayInputStream(PNG));
+        String base = capa.substring(0, capa.indexOf('.'));
+
+        assertThrows(NotFoundException.class, () -> service.salvarMiniatura(java.util.UUID.randomUUID() + ".png", WEBP), "capa que nao existe");
+        assertThrows(NotFoundException.class, () -> service.salvarMiniatura("../segredo.png", WEBP));
+        assertThrows(NotFoundException.class, () -> service.salvarMiniatura(base + "-mini.webp", WEBP), "miniatura de miniatura");
+        assertThrows(InvalidImageException.class, () -> service.salvarMiniatura(capa, new byte[0]));
+        assertThrows(InvalidImageException.class, () -> service.salvarMiniatura(capa, PNG), "so WebP ou JPEG");
+        assertThrows(InvalidImageException.class, () -> service.salvarMiniatura(capa, "<svg/>".getBytes(StandardCharsets.UTF_8)));
+        byte[] grande = java.util.Arrays.copyOf(WEBP, ImagemService.TAMANHO_MAXIMO_DA_MINIATURA + 1);
+        assertThrows(InvalidImageException.class, () -> service.salvarMiniatura(capa, grande));
+        assertEquals(java.util.Map.of(), service.miniaturas());
     }
 }

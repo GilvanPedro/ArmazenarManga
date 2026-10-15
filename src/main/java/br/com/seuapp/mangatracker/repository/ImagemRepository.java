@@ -8,4 +8,7 @@ public interface ImagemRepository {
     Optional<byte[]> buscar(String nome);
     boolean existe(String nome);
     void excluir(String nome);
+
+    /** Nomes guardados que terminam com o final informado (por exemplo, as miniaturas). */
+    java.util.Set<String> listarTerminadosEm(String finalDoNome);
 }

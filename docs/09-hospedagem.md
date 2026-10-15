@@ -37,7 +37,8 @@ se recusa a abrir para a rede.
 | `DATABASE_URL` | vazio | Endereço de um Postgres. Com ele, os dados vão para o banco |
 | `MANGATRACKER_HOST` | `127.0.0.1` | `0.0.0.0` aceita conexões de outros computadores |
 | `MANGATRACKER_USUARIO` | `manga` | Usuário do login |
-| `MANGATRACKER_SENHA` | vazio | Senha do login |
+| `MANGATRACKER_SENHA` | vazio | Senha do login. Trocar a senha desconecta todos os aparelhos |
+| `MANGATRACKER_SEGREDO` | criado sozinho | Opcional (32+ caracteres): assina os cookies de login. Sem ele, um segredo é criado e guardado no banco ou na pasta de dados |
 | `MANGATRACKER_CORS` | vazio | Outros sites que podem chamar a API (só na versão Java) |
 
 O arquivo `.env`, na raiz, guarda essas variáveis para uso local. Ele contém a senha do banco e não vai para o

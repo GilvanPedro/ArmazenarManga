@@ -2,9 +2,10 @@
 // (src/main/java/.../web/ApiServer.java) e usa o mesmo banco Postgres, com as mesmas tabelas.
 // Uma mudanca de regra precisa ser feita nos dois lugares.
 import pg from 'pg';
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
+import { COOKIE, DURACAO_SEGUNDOS, criarSessao, lerCookie, mesmoTexto, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
@@ -46,7 +47,10 @@ const SENHA_MINIMA = 12;
 // o Vercel recusa requisicoes maiores que 4,5 MB
 const TAMANHO_MAXIMO = 4 * 1024 * 1024;
 const TIPOS = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
-const NOME_VALIDO = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
+// "-mini" e a miniatura de uma capa enviada
+const NOME_VALIDO = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}(-mini)?\.(png|jpg|gif|webp)$/;
+const NOME_DE_CAPA = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
+const TAMANHO_MAXIMO_DA_MINIATURA = 300 * 1024;
 const ID_VALIDO = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 /** Erro que vira uma resposta {"mensagem": ...} com o status informado. */
@@ -71,6 +75,8 @@ async function banco() {
         tabelasProntas = conexoes.query(`
             CREATE TABLE IF NOT EXISTS mangas (id UUID PRIMARY KEY, ordem BIGSERIAL, dados JSONB NOT NULL);
             CREATE TABLE IF NOT EXISTS imagens (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL);
+            CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now());
         `).catch(erro => {
             tabelasProntas = null;
             throw erro;
@@ -111,8 +117,36 @@ async function excluirImagemSemUso(imagePath) {
     const db = await banco();
     const { rows } = await db.query(`SELECT 1 FROM mangas WHERE dados->>'imagePath' = $1 LIMIT 1`, [imagePath]);
     if (rows.length === 0) {
-        await db.query('DELETE FROM imagens WHERE nome = $1', [imagePath]);
+        const base = imagePath.slice(0, imagePath.lastIndexOf('.'));
+        // a capa e a miniatura dela
+        await db.query('DELETE FROM imagens WHERE nome = ANY($1)', [[imagePath, base + '-mini.webp', base + '-mini.jpg']]);
     }
+}
+
+/** Capa de cada miniatura guardada: nome da capa (sem extensao) -> nome da miniatura. So os nomes saem do banco. */
+async function miniaturas() {
+    const { rows } = await (await banco()).query("SELECT nome FROM imagens WHERE nome LIKE '%-mini.%'");
+    return new Map(rows.map(({ nome }) => [nome.slice(0, nome.lastIndexOf('-mini.')), nome]));
+}
+
+/**
+ * Guarda uma versao pequena da capa enviada, feita pelo navegador, para a lista mostrar no lugar da original.
+ * A capa original nao muda. Corpo: a imagem (WebP ou JPEG, ate 300 KB).
+ */
+async function guardarMiniatura(nomeDaCapa, request) {
+    if (!NOME_DE_CAPA.test(nomeDaCapa) || !(await imagemExiste(nomeDaCapa))) throw new Recusa(404, 'Imagem não encontrada');
+    const bytes = Buffer.from(await request.arrayBuffer());
+    if (bytes.length === 0) throw new Recusa(400, 'A miniatura está vazia');
+    if (bytes.length > TAMANHO_MAXIMO_DA_MINIATURA) throw new Recusa(400, 'A miniatura pode ter no máximo 300 KB');
+    const extensao = descobrirExtensao(bytes);
+    if (extensao !== 'webp' && extensao !== 'jpg') throw new Recusa(400, 'A miniatura precisa ser WEBP ou JPG');
+    const base = nomeDaCapa.slice(0, nomeDaCapa.lastIndexOf('.'));
+    const nome = base + '-mini.' + extensao;
+    const db = await banco();
+    // uma miniatura so por capa
+    await db.query('DELETE FROM imagens WHERE nome = $1', [base + (extensao === 'webp' ? '-mini.jpg' : '-mini.webp')]);
+    await db.query('INSERT INTO imagens (nome, conteudo) VALUES ($1, $2) ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo', [nome, bytes]);
+    return json(200, { thumbUrl: '/api/imagens/' + nome });
 }
 
 // ------------------------------------------------------------------ regras do manga
@@ -272,7 +306,10 @@ function anotarLeitura(antes, depois) {
 }
 
 /** Manga do jeito que a API devolve: os dados salvos + os links ja montados. */
-function resposta(manga) {
+/** @param miniaturas as miniaturas guardadas (de miniaturas()); sem elas, thumbUrl fica null */
+function resposta(manga, miniaturasGuardadas) {
+    const miniatura = miniaturasGuardadas instanceof Map && NOME_DE_CAPA.test(manga.imagePath || '')
+        ? miniaturasGuardadas.get(manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'))) : null;
     return {
         id: manga.id,
         title: manga.title,
@@ -296,6 +333,8 @@ function resposta(manga) {
         // nota de 0 a 10 dada pelo dono da lista; null = sem nota
         rating: notaDe(manga),
         favorite: manga.favorite === true,
+        // versao pequena da capa, para a lista; null quando ainda nao existe (use imageUrl)
+        thumbUrl: miniatura ? '/api/imagens/' + miniatura : null,
     };
 }
 
@@ -481,14 +520,103 @@ function json(status, corpo) {
     });
 }
 
-function loginCorreto(cabecalho) {
-    if (!cabecalho || !/^basic /i.test(cabecalho)) return false;
-    const usuario = process.env.MANGATRACKER_USUARIO || 'manga';
-    const esperado = Buffer.from(usuario + ':' + process.env.MANGATRACKER_SENHA, 'utf8');
-    const informado = Buffer.from(cabecalho.slice(6).trim(), 'base64');
-    // compara os resumos para o tempo nao depender de onde os textos diferem
-    const resumo = bytes => createHash('sha256').update(bytes).digest();
-    return timingSafeEqual(resumo(esperado), resumo(informado));
+// ------------------------------------------------------------------ login
+
+let segredoGuardado;
+
+/**
+ * Segredo que assina os cookies de login. Vem de MANGATRACKER_SEGREDO, se definida; senao e criado sozinho na
+ * primeira vez e guardado no banco (a versao Java le o mesmo, para um login valer nas duas). Apagar desfaz os logins.
+ */
+async function segredoDaSessao() {
+    const daVariavel = segredoDoTexto(process.env.MANGATRACKER_SEGREDO);
+    if (daVariavel) return daVariavel;
+    if (!segredoGuardado) {
+        const conexao = await banco();
+        // se dois servidores criarem ao mesmo tempo, fica o primeiro
+        await conexao.query('INSERT INTO configuracoes (chave, valor) VALUES ($1, $2) ON CONFLICT (chave) DO NOTHING',
+            ['segredo-da-sessao', randomBytes(32).toString('base64')]);
+        const { rows } = await conexao.query('SELECT valor FROM configuracoes WHERE chave = $1', ['segredo-da-sessao']);
+        const segredo = rows.length ? Buffer.from(rows[0].valor, 'base64') : Buffer.alloc(0);
+        if (segredo.length < 32) throw new Error('O segredo do login guardado no banco está estragado');
+        segredoGuardado = segredo;
+    }
+    return segredoGuardado;
+}
+
+const usuarioDoSite = () => process.env.MANGATRACKER_USUARIO || 'manga';
+
+async function sessaoValida(request) {
+    const cookie = lerCookie(request.headers.get('cookie'), COOKIE);
+    if (!cookie) return null;
+    return validarSessao(cookie, await segredoDaSessao(), usuarioDoSite(), process.env.MANGATRACKER_SENHA);
+}
+
+function usaHttps(request) {
+    return new URL(request.url).protocol === 'https:' || (request.headers.get('x-forwarded-proto') || '').toLowerCase() === 'https';
+}
+
+function semCache(resposta) {
+    resposta.headers.set('Cache-Control', 'no-store');
+    return resposta;
+}
+
+const respostaDaSessao = (expira) => ({
+    exigeLogin: true,
+    logado: Boolean(expira),
+    usuario: expira ? usuarioDoSite() : null,
+    expiraEm: expira ? expira.toISOString() : null,
+});
+
+const MAXIMO_DE_ERROS = 10;
+const JANELA_DE_ERROS_MINUTOS = 15;
+
+/**
+ * Freia quem tenta adivinhar a senha: depois de 10 erros em 15 minutos, novos logins esperam. O limite vale para o
+ * site inteiro (o endereco de quem tenta pode ser falsificado) e fica no banco, porque cada chamada pode cair em
+ * uma instancia diferente da funcao. Quem ja entrou continua dentro.
+ */
+async function minutosDeEspera() {
+    const { rows } = await (await banco()).query(
+        `SELECT count(*)::int AS erros, extract(epoch FROM min(quando) + interval '${JANELA_DE_ERROS_MINUTOS} minutes' - now()) AS faltam
+         FROM tentativas_de_login WHERE quando > now() - interval '${JANELA_DE_ERROS_MINUTOS} minutes'`);
+    return rows[0].erros < MAXIMO_DE_ERROS ? 0 : Math.max(1, Math.ceil(Number(rows[0].faltam) / 60));
+}
+
+async function registrarErroDeLogin() {
+    const conexao = await banco();
+    await conexao.query('INSERT INTO tentativas_de_login DEFAULT VALUES');
+    await conexao.query("DELETE FROM tentativas_de_login WHERE quando < now() - interval '1 day'");
+}
+
+/** GET ve se entrou, POST entra, DELETE sai (so neste navegador; para sair de todos, troque a senha). */
+async function tratarSessao(request) {
+    if (request.method === 'GET') {
+        return semCache(json(200, respostaDaSessao(await sessaoValida(request))));
+    }
+    if (request.method === 'DELETE') {
+        const resposta = semCache(new Response(null, { status: 204 }));
+        resposta.headers.set('Set-Cookie', textoDoCookie('', 0, usaHttps(request)));
+        return resposta;
+    }
+    if (request.method !== 'POST') throw new Recusa(404, 'Endereço não encontrado');
+    const espera = await minutosDeEspera();
+    if (espera > 0) throw new Recusa(429, `Muitas tentativas erradas. Tente de novo em ${espera} ${espera === 1 ? 'minuto' : 'minutos'}`);
+    const { usuario, senha } = await lerCorpo(request);
+    if (typeof usuario !== 'string' || !usuario.trim() || typeof senha !== 'string' || senha === '') {
+        throw new Recusa(400, 'Informe o usuário e a senha');
+    }
+    // as duas comparacoes sempre acontecem, para o tempo nao dizer qual das duas errou
+    const certo = [mesmoTexto(usuario.trim(), usuarioDoSite()), mesmoTexto(senha, process.env.MANGATRACKER_SENHA)].every(Boolean);
+    if (!certo) {
+        await registrarErroDeLogin();
+        throw new Recusa(401, 'Usuário ou senha incorretos');
+    }
+    const segredo = await segredoDaSessao();
+    const cookie = criarSessao(segredo, usuarioDoSite(), process.env.MANGATRACKER_SENHA);
+    const resposta = semCache(json(200, respostaDaSessao(validarSessao(cookie, segredo, usuarioDoSite(), process.env.MANGATRACKER_SENHA))));
+    resposta.headers.set('Set-Cookie', textoDoCookie(cookie, DURACAO_SEGUNDOS, usaHttps(request)));
+    return resposta;
 }
 
 /** Impede que outro site aberto no navegador altere os dados usando o login de quem esta visitando. */
@@ -533,6 +661,16 @@ function lerStatusDaBusca(url) {
 
 // ------------------------------------------------------------------ rotas
 
+const listaDeStatus = () => Object.entries(STATUS).map(([valor, descricao]) => ({ valor, descricao }));
+const listaDeFormatos = () => Object.entries(FORMATOS).map(([valor, formato]) => ({ valor, descricao: formato.descricao }));
+const listaDeDias = () => Object.entries(DIAS).map(([valor, descricao]) => ({ valor, descricao }));
+const listaDeOrdens = ordens => Object.entries(ordens).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao }));
+
+/** O mesmo manga sem a descricao e os outros nomes, para listas grandes (?resumo=1). */
+function resumo(manga) {
+    return { ...manga, description: null, altTitles: [] };
+}
+
 async function rotear(request) {
     const url = new URL(request.url);
     // o vercel.json manda /api/qualquer/coisa para esta funcao com o caminho em ?__rota=
@@ -549,18 +687,24 @@ async function rotear(request) {
     if ((process.env.MANGATRACKER_SENHA || '').length < SENHA_MINIMA) {
         throw new Recusa(503, `Falta configurar a senha do site: defina MANGATRACKER_SENHA (mínimo de ${SENHA_MINIMA} caracteres) nas variáveis de ambiente do Vercel e publique de novo`);
     }
-    if (!loginCorreto(request.headers.get('authorization'))) {
-        const recusa = json(401, { mensagem: 'Informe o usuário e a senha' });
-        recusa.headers.set('WWW-Authenticate', 'Basic realm="Meus Mangas", charset="UTF-8"');
-        return recusa;
-    }
     if (vemDeOutroSite(request)) throw new Recusa(403, 'Requisição vinda de outro site');
+    if (recurso === 'sessao' && partes.length === 1) return tratarSessao(request);
+    // tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista)
+    if (recurso === 'inicio' && partes.length === 1 && metodo === 'GET') {
+        return semCache(json(200, {
+            sessao: respostaDaSessao(await sessaoValida(request)),
+            status: listaDeStatus(), formatos: listaDeFormatos(), dias: listaDeDias(),
+            ordensDaLista: listaDeOrdens(ORDENS_DA_LISTA), ordensDeRecomendacao: listaDeOrdens(ORDENS),
+        }));
+    }
+    // sem a janela de senha do navegador: quem pede o login e a tela do site
+    if (!(await sessaoValida(request))) throw new Recusa(401, 'Entre com seu usuário e senha');
 
     if (recurso === 'status' && partes.length === 1 && metodo === 'GET') {
-        return json(200, Object.entries(STATUS).map(([valor, descricao]) => ({ valor, descricao })));
+        return json(200, listaDeStatus());
     }
     if (recurso === 'formatos-decimais' && partes.length === 1 && metodo === 'GET') {
-        return json(200, Object.entries(FORMATOS).map(([valor, formato]) => ({ valor, descricao: formato.descricao })));
+        return json(200, listaDeFormatos());
     }
 
     // descricao do manga buscada na internet pelo titulo, para preencher o cadastro
@@ -580,29 +724,33 @@ async function rotear(request) {
         return json(200, await buscarRecomendacoes.explorar(url.searchParams.get('busca'), tags, ordem, lerInteiroPositivo(url, 'pagina', 1), await nomesDosCadastrados(), sem));
     }
     if (recurso === 'recomendacoes' && partes.length === 2 && id === 'ordens' && metodo === 'GET') {
-        return json(200, Object.entries(ORDENS).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao })));
+        return json(200, listaDeOrdens(ORDENS));
     }
     if (recurso === 'ordens-da-lista' && partes.length === 1 && metodo === 'GET') {
-        return json(200, Object.entries(ORDENS_DA_LISTA).map(([valor, ordem]) => ({ valor, descricao: ordem.descricao })));
+        return json(200, listaDeOrdens(ORDENS_DA_LISTA));
     }
     // lista geral de tags, para escolher no cadastro em vez de digitar de novo
     if (recurso === 'tags' && partes.length === 1 && metodo === 'GET') {
         return json(200, await listarTags());
     }
     if (recurso === 'dias-da-semana' && partes.length === 1 && metodo === 'GET') {
-        return json(200, Object.entries(DIAS).map(([valor, descricao]) => ({ valor, descricao })));
+        return json(200, listaDeDias());
     }
 
     if (recurso === 'imagens') {
         if (partes.length === 1 && metodo === 'POST') return enviarImagem(request);
         if (partes.length === 2 && metodo === 'GET') return baixarImagem(id);
+        if (partes.length === 3 && acao === 'miniatura' && metodo === 'PUT') return guardarMiniatura(id, request);
     }
 
     if (recurso === 'mangas') {
         if (partes.length === 1 && metodo === 'GET') {
             const ordem = lerOrdem(url, ORDENS_DA_LISTA, 'CADASTRO');
             const encontrados = await listar(url.searchParams.get('titulo'), lerStatusDaBusca(url), url.searchParams.get('tag'));
-            const mangas = ORDENS_DA_LISTA[ordem].aplicar(encontrados).map(resposta);
+            // ?resumo=1: sem descricao e outros nomes, que os cartoes nao usam (a lista inteira fica bem menor)
+            const resumida = url.searchParams.get('resumo') === '1';
+            const guardadas = await miniaturas();
+            const mangas = ORDENS_DA_LISTA[ordem].aplicar(encontrados).map(manga => resposta(manga, guardadas)).map(manga => (resumida ? resumo(manga) : manga));
             // sem ?pagina devolve a lista inteira (usada por quem precisa de todos, como a busca de mangas);
             // com ?pagina=N devolve so aquela pagina, junto com o total, para a grade carregar aos poucos
             if (!url.searchParams.has('pagina')) return json(200, mangas);
@@ -634,7 +782,8 @@ async function rotear(request) {
             const lidoDesde = manga => inicioDoDia !== null && manga.lastChapterAt && Date.parse(manga.lastChapterAt) >= inicioDoDia;
             const mangas = (await listarTodos())
                 .filter(manga => manga.readingStatus === 'LENDO' && manga.releaseDay === dia && !lidoDesde(manga));
-            return json(200, mangas.map(resposta));
+            const guardadas = await miniaturas();
+            return json(200, mangas.map(manga => resposta(manga, guardadas)));
         }
         if (partes.length === 2 && id === 'sorteio' && metodo === 'GET') {
             // qualquer manga pode ser sorteado, de qualquer status (ou so do status pedido)
@@ -731,9 +880,9 @@ async function rotear(request) {
                 .map(outro => ({ outro, emComum: [...tagsNormalizadas(outro)].filter(tag => tagsDoManga.has(tag)).length }))
                 .filter(item => item.emComum > 0)
                 .sort((a, b) => b.emComum - a.emComum || a.outro.title.localeCompare(b.outro.title, 'en', { sensitivity: 'base' }))
-                .slice(0, 6)
-                .map(item => resposta(item.outro));
-            return json(200, semelhantes);
+                .slice(0, 6);
+            const guardadas = await miniaturas();
+            return json(200, semelhantes.map(item => resposta(item.outro, guardadas)));
         }
         // mangas parecidos com este que ainda nao estao na lista, buscados na internet
         if (partes.length === 3 && acao === 'recomendacoes' && metodo === 'GET') {

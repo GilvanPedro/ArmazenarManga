@@ -62,7 +62,8 @@ O processo está descrito em [06 · Recomendações](06-recomendacoes.md).
 Sem banco configurado, tudo fica em `~/.mangatracker/`:
 
 - `mangas.json`: a lista de mangás, legível e indentada.
-- `imagens/`: as capas enviadas.
+- `imagens/`: as capas enviadas e as miniaturas delas (`{nome}-mini.webp`), usadas na lista.
+- `segredo-da-sessao`: o segredo que assina os cookies de login, criado sozinho quando há senha.
 
 A gravação é feita em um arquivo temporário que depois substitui o original, para não corromper a lista se o
 programa for interrompido no meio. Se o arquivo não puder ser lido, o programa não abre com a lista vazia: ele
@@ -82,6 +83,15 @@ CREATE TABLE mangas (
 CREATE TABLE imagens (
     nome TEXT PRIMARY KEY,
     conteudo BYTEA NOT NULL   -- a capa enviada
+);
+
+CREATE TABLE configuracoes (
+    chave TEXT PRIMARY KEY,   -- hoje só 'segredo-da-sessao', que assina os cookies de login
+    valor TEXT NOT NULL
+);
+
+CREATE TABLE tentativas_de_login (
+    quando TIMESTAMPTZ NOT NULL DEFAULT now()  -- só na versão do Vercel; apagadas depois de um dia
 );
 ```
 

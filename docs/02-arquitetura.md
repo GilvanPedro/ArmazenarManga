@@ -26,7 +26,7 @@ foi reescrita em JavaScript como uma função do Vercel. As duas versões:
 | Código | `src/main/java/...` | `api/` |
 | Armazenamento | Arquivo JSON ou Postgres | Só Postgres |
 | Limite de capa enviada | 10 MB | 4 MB (limite da plataforma) |
-| Testes | 260, em todas as camadas do servidor | 47, cobrindo verificação, sinopse e recomendações |
+| Testes | 278, em todas as camadas do servidor | 52, cobrindo verificação, sinopse, recomendações e login |
 
 ## Versão Java: camadas
 
@@ -90,9 +90,11 @@ Detalhes em [07 · Interface](07-interface.md).
 
 ## Segurança
 
-- **Login.** HTTP Basic, com usuário e senha vindos da configuração. A versão Java se recusa a aceitar conexões
-  de fora do computador sem uma senha de pelo menos 12 caracteres; a versão do Vercel responde com erro até a
-  senha ser configurada.
+- **Login.** Tela de entrada própria, com usuário e senha vindos da configuração. O login fica 30 dias em um
+  cookie assinado (HttpOnly, SameSite=Lax), e 10 erros em 15 minutos freiam novas tentativas; detalhes em
+  [Tela de login de 30 dias](20-tela-de-login.md). A versão Java se recusa a aceitar conexões de fora do
+  computador sem uma senha de pelo menos 12 caracteres; a versão do Vercel responde com erro até a senha ser
+  configurada.
 - **Outros sites não alteram dados.** Requisições que mudam algo e vêm de outra origem são recusadas.
 - **Conteúdo.** O site só carrega scripts e estilos dele mesmo (Content-Security-Policy). Texto vindo de fora
   (títulos, tags, descrições) entra na página sempre como texto, nunca como HTML.

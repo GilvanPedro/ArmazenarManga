@@ -32,7 +32,7 @@ se perde em sites com id por capítulo.
 ### Contas e compartilhamento
 - Cadastro de usuários, com uma lista por pessoa.
 - Uma página pública só de leitura, para mostrar a lista a outras pessoas.
-- Sessão com cookie no lugar do HTTP Basic, com limite de tentativas de senha.
+- Botão para sair de todos os aparelhos (hoje, troca-se a senha) e lista de aparelhos conectados.
 
 ### Leitura
 - Refazer o ajuste perdido da extensão: clicar em botões de "próximo" que não são links, e mostrar ao usuário o

@@ -38,6 +38,9 @@ const estado = {
     filtroTag: '',     // tag escolhida na pagina de um manga, para ver so quem tem ela
     sorteado: null,    // id do manga que acabou de sair no sorteio
     render: 0,         // descarta respostas de telas que ja foram trocadas
+    sessao: null,      // {exigeLogin, logado, usuario, expiraEm} vindo de /api/sessao
+    siteAberto: false, // as listas fixas ja foram carregadas e a navegacao ja esta ligada
+    listaCompleta: null, // {ordem, itens, quando, pedido}: a lista inteira (resumida) guardada para buscar e paginar sem esperar o servidor
 };
 
 // ------------------------------------------------------------------ ajudantes
@@ -60,6 +63,8 @@ function h(tag, atributos, ...filhos) {
 }
 
 async function chamar(metodo, caminho, corpo) {
+    // depois de qualquer alteracao, a lista guardada pode estar velha: a proxima vez busca de novo
+    if (metodo !== 'GET') estado.listaCompleta = null;
     const opcoes = {method: metodo, headers: {}};
     if (corpo instanceof FormData) {
         opcoes.body = corpo;
@@ -75,6 +80,13 @@ async function chamar(metodo, caminho, corpo) {
     }
     if (resposta.status === 204) return null;
     const dados = await resposta.json().catch(() => null);
+    // o login venceu (30 dias) ou foi desfeito em outro lugar: volta para a tela de entrada
+    if (resposta.status === 401 && caminho !== '/api/sessao' && caminho !== '/api/inicio' && estado.sessao && estado.sessao.exigeLogin) {
+        estado.sessao.logado = false;
+        // varias chamadas podem voltar recusadas juntas: a tela de entrada aparece uma vez so
+        if (!document.body.classList.contains('entrando')) telaLogin('Seu login venceu. Entre de novo para continuar.');
+        throw new Error('Entre com seu usuário e senha');
+    }
     // a hospedagem recusa envios grandes antes de chegarem na API, sem mensagem
     if (resposta.status === 413) throw new Error('A imagem é grande demais. Escolha uma menor');
     if (!resposta.ok) {
@@ -267,12 +279,29 @@ function capa(manga, comoLink) {
         atributos.href = '#/manga/' + manga.id;
         atributos['aria-label'] = manga.title + (manga.favorite ? ' (favorito)' : '');
     }
-    const img = h('img', {src: manga.imageUrl, alt: comoLink ? '' : 'Capa de ' + manga.title, loading: 'lazy'});
+    // largura e altura reservam o espaco da capa antes de ela chegar, sem a pagina pular
+    // nos cartoes, a miniatura (bem mais leve) quando ja existe. Na pagina do manga, a miniatura aparece na hora
+    // (ela ja veio com a lista) e da lugar a capa inteira assim que ela chega
+    const miniatura = manga.thumbUrl || miniaturaGuardada(manga.id);
+    const img = h('img', {src: miniatura || manga.imageUrl, alt: comoLink ? '' : 'Capa de ' + manga.title,
+        loading: comoLink ? 'lazy' : 'eager', decoding: 'async', width: '300', height: '450'});
+    if (!comoLink && miniatura) {
+        const inteira = new Image();
+        inteira.onload = () => { img.src = manga.imageUrl; };
+        inteira.src = manga.imageUrl;
+    }
     img.addEventListener('error', () => {
         img.replaceWith(h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (manga.title || '?').trim().charAt(0).toUpperCase()));
     });
     return h(comoLink ? 'a' : 'div', atributos, img, comoLink ? etiquetaStatus(manga.readingStatus) : null, etiquetaNota(manga.rating),
         manga.favorite ? h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★') : null);
+}
+
+/** Miniatura de um manga que veio na lista guardada (a pagina do manga nao traz a miniatura). */
+function miniaturaGuardada(id) {
+    const itens = estado.listaCompleta && estado.listaCompleta.itens;
+    const manga = itens ? itens.find(outro => outro.id === id) : null;
+    return manga ? manga.thumbUrl : null;
 }
 
 function linkExterno(classe, endereco, titulo, texto) {
@@ -453,12 +482,28 @@ function abas(atual) {
         class: 'aba',
         href: endereco,
         'aria-current': atual === nome ? 'page' : null,
+        // clicar na aba que ja esta aberta recarrega o que ela mostra, buscando tudo de novo
+        onclick: atual === nome ? evento => {
+            evento.preventDefault();
+            recarregarAba();
+        } : null,
     }, texto);
     return h('nav', {class: 'abas', 'aria-label': 'Listas'},
         aba('todos', '#/', 'Todos os mangás'),
         aba('hoje', '#/hoje', 'Lançam hoje'),
         aba('descobrir', '#/descobrir', 'Descobrir'),
         aba('atalho', '#/atalho', 'Extensão e atalho'));
+}
+
+/** Busca de novo o que a aba aberta mostra. A grade mantem a busca, os filtros e a pagina. */
+function recarregarAba() {
+    estado.listaCompleta = null;
+    window.scrollTo(0, 0);
+    if (estado.recarregar) {
+        estado.recarregar(true);
+    } else {
+        rota();
+    }
 }
 
 /** Aba dos mangas que estou lendo e que lancam capitulo no dia de hoje. */
@@ -470,7 +515,10 @@ function telaHoje() {
         abas('hoje'),
         h('p', {class: 'subtitulo'}, descricaoDia(hoje), ' · mangás que você está lendo e que lançam capítulo hoje. Ao marcar o capítulo novo, ele sai daqui.'),
         lista);
-    estado.recarregar = () => carregarHoje(lista, hoje);
+    estado.recarregar = () => {
+        lista.classList.add('recarregando');
+        carregarHoje(lista, hoje);
+    };
     carregarHoje(lista, hoje);
 }
 
@@ -487,6 +535,7 @@ async function carregarHoje(lista, hoje) {
         return;
     }
     if (vez !== estado.render) return;
+    lista.classList.remove('recarregando');
     if (mangas.length === 0) {
         lista.className = '';
         lista.replaceChildren(vazio('Nenhum lançamento para ler hoje',
@@ -510,8 +559,9 @@ function telaGrade() {
     busca.addEventListener('input', () => {
         estado.busca = busca.value;
         estado.pagina = 1;
+        // a busca e feita aqui mesmo, na lista guardada: so espera um instante para nao redesenhar a cada tecla
         clearTimeout(estado.esperaDaBusca);
-        estado.esperaDaBusca = setTimeout(() => carregarGrade(lista, paginacao), 180);
+        estado.esperaDaBusca = setTimeout(() => carregarGrade(lista, paginacao), 60);
     });
 
     const ordenar = seletor(estado.ordens, estado.ordem);
@@ -556,7 +606,10 @@ function telaGrade() {
         }, opcao.descricao));
     }
 
-    estado.recarregar = () => carregarGrade(lista, paginacao);
+    estado.recarregar = () => {
+        lista.classList.add('recarregando');
+        carregarGrade(lista, paginacao);
+    };
     app.replaceChildren(
         abas('todos'),
         h('div', {class: 'ferramentas'},
@@ -591,20 +644,69 @@ function paginador(pagina, paginas, irPara) {
     ];
 }
 
-/** Carrega so a pagina atual da grade (24 mangas: 4 fileiras de 6), em vez da lista inteira. */
+const TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
+const LISTA_FRESCA_MS = 20000;
+
+/**
+ * A lista inteira, ja ordenada pelo servidor e sem as descricoes (?resumo=1). Fica guardada enquanto o site esta
+ * aberto: buscar, filtrar por status ou tag e trocar de pagina acontecem aqui mesmo, sem esperar o servidor.
+ * Qualquer alteracao (cadastrar, editar, marcar capitulo...) descarta a lista guardada.
+ */
+function pedirLista(ordem) {
+    const guardada = estado.listaCompleta;
+    if (guardada && guardada.ordem === ordem && guardada.pedido) return guardada.pedido;
+    const parametros = new URLSearchParams({resumo: '1'});
+    if (ordem && ordem !== 'CADASTRO') parametros.set('ordem', ordem);
+    const entrada = {ordem, itens: guardada && guardada.ordem === ordem ? guardada.itens : null, quando: 0, pedido: null};
+    entrada.pedido = chamar('GET', '/api/mangas?' + parametros).then(itens => {
+        if (estado.listaCompleta === entrada) {
+            entrada.itens = itens;
+            entrada.quando = Date.now();
+            entrada.pedido = null;
+        }
+        return itens;
+    }, erro => {
+        if (estado.listaCompleta === entrada) estado.listaCompleta = null;
+        throw erro;
+    });
+    estado.listaCompleta = entrada;
+    return entrada.pedido;
+}
+
+const semAcentos = texto => String(texto || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
+
+/** Os mesmos filtros que o servidor aplica: nome (sem diferenciar acentos), status e tag. */
+function filtrarLista(itens) {
+    const busca = semAcentos(estado.busca);
+    const tag = semAcentos(estado.filtroTag);
+    return itens.filter(manga => (!estado.filtroStatus || manga.readingStatus === estado.filtroStatus)
+        && semAcentos(manga.title).includes(busca)
+        && (!tag || (manga.tags || []).some(outra => semAcentos(outra) === tag)));
+}
+
+/**
+ * Mostra a pagina atual da grade. Se a lista ja estiver guardada, aparece na hora; se estiver guardada ha mais de
+ * 20 segundos, aparece na hora e e conferida no servidor por tras, sendo redesenhada so se algo mudou.
+ */
 async function carregarGrade(lista, paginacao) {
     const vez = ++estado.render;
-    const parametros = new URLSearchParams();
-    if (estado.busca.trim()) parametros.set('titulo', estado.busca.trim());
-    if (estado.filtroStatus) parametros.set('status', estado.filtroStatus);
-    if (estado.filtroTag) parametros.set('tag', estado.filtroTag);
-    if (estado.ordem && estado.ordem !== 'CADASTRO') parametros.set('ordem', estado.ordem);
-    const filtrando = Boolean(estado.busca.trim() || estado.filtroStatus || estado.filtroTag);
-    parametros.set('pagina', estado.pagina);
-
-    let resposta;
+    const ordem = estado.ordem || 'CADASTRO';
+    const guardada = estado.listaCompleta && estado.listaCompleta.ordem === ordem ? estado.listaCompleta : null;
+    if (guardada && guardada.itens) {
+        desenharGrade(lista, paginacao, guardada.itens);
+        if (guardada.pedido || Date.now() - guardada.quando < LISTA_FRESCA_MS) return;
+        const antes = JSON.stringify(guardada.itens);
+        try {
+            const novos = await pedirLista(ordem);
+            if (vez === estado.render && JSON.stringify(novos) !== antes) desenharGrade(lista, paginacao, novos);
+        } catch (e) {
+            // continua mostrando a lista guardada
+        }
+        return;
+    }
+    let itens;
     try {
-        resposta = await chamar('GET', '/api/mangas?' + parametros);
+        itens = await pedirLista(ordem);
     } catch (e) {
         if (vez === estado.render) {
             lista.className = '';
@@ -613,10 +715,20 @@ async function carregarGrade(lista, paginacao) {
         }
         return;
     }
-    if (vez !== estado.render) return;
-    estado.pagina = resposta.pagina; // o servidor corrige uma pagina que deixou de existir
+    if (vez === estado.render) desenharGrade(lista, paginacao, itens);
+}
 
-    if (resposta.total === 0) {
+function desenharGrade(lista, paginacao, todos) {
+    lista.classList.remove('recarregando');
+    const filtrando = Boolean(estado.busca.trim() || estado.filtroStatus || estado.filtroTag);
+    const encontrados = filtrarLista(todos);
+    const paginas = Math.max(1, Math.ceil(encontrados.length / TAMANHO_DA_PAGINA));
+    // pagina alem do fim (um manga foi excluido, ou a busca encolheu a lista) vira a ultima
+    estado.pagina = Math.min(Math.max(1, estado.pagina), paginas);
+    const inicio = (estado.pagina - 1) * TAMANHO_DA_PAGINA;
+    const itens = encontrados.slice(inicio, inicio + TAMANHO_DA_PAGINA);
+
+    if (encontrados.length === 0) {
         lista.className = '';
         lista.replaceChildren(filtrando
             ? vazio('Nada encontrado', 'Nenhum mangá combina com a busca ou o filtro.')
@@ -626,14 +738,80 @@ async function carregarGrade(lista, paginacao) {
         return;
     }
     lista.className = 'grade';
-    lista.replaceChildren(...resposta.itens.map(cartao));
+    const cartoes = itens.map(cartao);
+    // as capas das duas primeiras fileiras vem primeiro e sem esperar a rolagem; o resto, quando chegar perto
+    cartoes.forEach((elemento, i) => {
+        const img = elemento.querySelector('.capa img');
+        if (img && i < 12) {
+            img.loading = 'eager';
+            if (i < 6) img.setAttribute('fetchpriority', 'high');
+        }
+    });
+    lista.replaceChildren(...cartoes);
     const irPara = pagina => {
         estado.pagina = pagina;
-        carregarGrade(lista, paginacao).then(() => window.scrollTo(0, 0));
+        desenharGrade(lista, paginacao, todos);
+        window.scrollTo(0, 0);
     };
     paginacao.replaceChildren(
-        ...(resposta.paginas > 1 ? paginador(resposta.pagina, resposta.paginas, irPara) : []),
-        h('span', {class: 'total'}, resposta.total === 1 ? '1 mangá' : resposta.total + ' mangás'));
+        ...(paginas > 1 ? paginador(estado.pagina, paginas, irPara) : []),
+        h('span', {class: 'total'}, encontrados.length === 1 ? '1 mangá' : encontrados.length + ' mangás'));
+    adiantarCapas(encontrados.slice(inicio + TAMANHO_DA_PAGINA, inicio + 2 * TAMANHO_DA_PAGINA));
+    criarMiniaturas(todos);
+}
+
+const MINIATURA = {largura: 400, altura: 600, qualidade: 0.8};
+const miniaturasTentadas = new Set(lembrado('miniaturas-tentadas', '').split(',').filter(Boolean));
+let criandoMiniaturas = false;
+
+/**
+ * Cria, por tras e devagar, a miniatura das capas enviadas que ainda nao tem uma: o navegador le a capa, faz uma
+ * versao de 400x600 e manda guardar. A capa original continua igual. Na proxima vez, a lista usa a miniatura, que
+ * pesa umas 5 vezes menos. Capas que ja sao pequenas ficam como estao (e nao sao tentadas de novo).
+ */
+function criarMiniaturas(mangas) {
+    if (criandoMiniaturas || !('createImageBitmap' in window)) return;
+    const pendentes = mangas.filter(manga => !manga.thumbUrl && !/^https?:/i.test(manga.imagePath || '')
+        && !/\.gif$/i.test(manga.imagePath || '') && !miniaturasTentadas.has(manga.imagePath));
+    if (pendentes.length === 0) return;
+    criandoMiniaturas = true;
+    const proxima = async () => {
+        const manga = pendentes.shift();
+        if (!manga || document.hidden) {
+            criandoMiniaturas = false;
+            return;
+        }
+        miniaturasTentadas.add(manga.imagePath);
+        try {
+            const original = await (await fetch(manga.imageUrl)).blob();
+            const pequena = await reduzirImagem(original, MINIATURA);
+            if (pequena && pequena.size < original.size * 0.7) {
+                // fetch direto (e nao chamar): guardar a miniatura nao muda a lista, entao ela continua guardada
+                const resposta = await fetch(manga.imageUrl + '/miniatura', {method: 'PUT', headers: {'Content-Type': pequena.type}, body: pequena});
+                if (resposta.ok) manga.thumbUrl = (await resposta.json()).thumbUrl;
+                else miniaturasTentadas.delete(manga.imagePath); // tenta de novo outra vez
+            }
+        } catch (e) {
+            miniaturasTentadas.delete(manga.imagePath);
+        }
+        lembrar('miniaturas-tentadas', [...miniaturasTentadas].slice(-500).join(','));
+        if ('requestIdleCallback' in window) requestIdleCallback(proxima, {timeout: 2000});
+        else setTimeout(proxima, 200);
+    };
+    // comeca depois de a pagina ja estar na tela, para nao disputar a rede com as capas visiveis
+    setTimeout(proxima, 2500);
+}
+
+/** Com o navegador parado, ja baixa as capas da proxima pagina: trocar de pagina mostra tudo na hora. */
+function adiantarCapas(mangas) {
+    if (mangas.length === 0) return;
+    const baixar = () => mangas.forEach(manga => {
+        const imagem = new Image();
+        imagem.decoding = 'async';
+        imagem.src = manga.thumbUrl || manga.imageUrl;
+    });
+    if ('requestIdleCallback' in window) requestIdleCallback(baixar, {timeout: 3000});
+    else setTimeout(baixar, 800);
 }
 
 function cartao(manga) {
@@ -1175,6 +1353,40 @@ function seletor(opcoes, escolhido) {
 // ------------------------------------------------------------------ cadastro e edicao geral
 
 /**
+ * Diminui a capa antes de enviar: no maximo 600x900 (o dobro do tamanho em que ela aparece, para telas de alta
+ * resolucao), em WebP ou JPEG. Capas grandes chegam a pesar 10 vezes mais e atrasam a lista inteira. Se o
+ * navegador nao conseguir ler a imagem, ou se a versao reduzida nao ficar menor, envia a original. GIFs vao como
+ * estao, para nao perder a animacao.
+ */
+async function reduzirCapa(arquivo) {
+    if (!arquivo || arquivo.type === 'image/gif' || !('createImageBitmap' in window)) return arquivo;
+    try {
+        const reduzida = await reduzirImagem(arquivo, {largura: 600, altura: 900, qualidade: 0.86});
+        if (!reduzida || reduzida.size >= arquivo.size) return arquivo;
+        return new File([reduzida], 'capa.' + (reduzida.type === 'image/webp' ? 'webp' : 'jpg'), {type: reduzida.type});
+    } catch (e) {
+        return arquivo;
+    }
+}
+
+/** A imagem cabendo em largura x altura (sem aumentar), em WebP, ou JPEG se o navegador nao gravar WebP. */
+async function reduzirImagem(arquivo, {largura, altura, qualidade}) {
+    const imagem = await createImageBitmap(arquivo);
+    const escala = Math.min(1, largura / imagem.width, altura / imagem.height);
+    const tela = document.createElement('canvas');
+    tela.width = Math.max(1, Math.round(imagem.width * escala));
+    tela.height = Math.max(1, Math.round(imagem.height * escala));
+    const pincel = tela.getContext('2d');
+    pincel.imageSmoothingQuality = 'high';
+    pincel.drawImage(imagem, 0, 0, tela.width, tela.height);
+    imagem.close();
+    const gerar = tipo => new Promise(ok => tela.toBlob(ok, tipo, qualidade));
+    const reduzida = await gerar('image/webp');
+    // navegadores que nao sabem gravar WebP devolvem PNG: nesse caso, JPEG
+    return reduzida && reduzida.type === 'image/webp' ? reduzida : gerar('image/jpeg');
+}
+
+/**
  * Campo de tags do cadastro: as escolhidas viram etiquetas com um X, e o campo de texto sugere as tags da
  * lista geral enquanto se digita. Um nome que ainda nao existe pode ser criado na hora (Enter ou virgula).
  * Devolve { elemento, valores(), adicionar(nome), vazio() }.
@@ -1527,7 +1739,8 @@ async function telaFormulario(id, consulta) {
             if (arquivo.files[0]) {
                 if (!enviado || enviado.arquivo !== arquivo.files[0]) {
                     const envio = new FormData();
-                    envio.append('arquivo', arquivo.files[0]);
+                    const reduzida = await reduzirCapa(arquivo.files[0]);
+                    envio.append('arquivo', reduzida, reduzida.name || 'capa');
                     enviado = {arquivo: arquivo.files[0], imagePath: (await chamar('POST', '/api/imagens', envio)).imagePath};
                 }
                 imagePath = enviado.imagePath;
@@ -2035,31 +2248,146 @@ function rota() {
     return telaGrade();
 }
 
-async function iniciar() {
+// ------------------------------------------------------------------ login
+
+/**
+ * Tela de entrada. O login vale por 30 dias neste navegador, mesmo fechando o navegador ou desligando o
+ * computador. Ao entrar, o site abre na tela que estava no endereco (por exemplo, a de marcar capitulo lido).
+ */
+function telaLogin(aviso) {
+    estado.render++;
+    for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
+    document.body.classList.add('entrando');
+    document.title = 'Entrar · Meus Mangás';
+
+    const usuario = h('input', {type: 'text', id: 'login-usuario', name: 'username', autocomplete: 'username', autocapitalize: 'none',
+        spellcheck: 'false', required: true, value: lembrado('usuario', '')});
+    const senha = h('input', {type: 'password', id: 'login-senha', name: 'password', autocomplete: 'current-password', required: true});
+    const mostrar = h('button', {type: 'button', class: 'mostrar-senha', 'aria-pressed': 'false', 'aria-controls': 'login-senha'}, 'Mostrar');
+    mostrar.addEventListener('click', () => {
+        const visivel = senha.type === 'password';
+        senha.type = visivel ? 'text' : 'password';
+        mostrar.textContent = visivel ? 'Esconder' : 'Mostrar';
+        mostrar.setAttribute('aria-pressed', String(visivel));
+        senha.focus();
+    });
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const entrar = h('button', {type: 'submit', class: 'botao primario entrar'}, 'Entrar');
+    if (aviso) erro.textContent = aviso;
+
+    const formulario = h('form', {class: 'cartao-de-login', 'aria-labelledby': 'titulo-login'},
+        h('img', {class: 'logo-de-login', src: 'favicon.svg', alt: '', width: '56', height: '56'}),
+        h('h1', {id: 'titulo-login'}, 'Meus Mangás'),
+        h('p', {class: 'chamada-de-login'}, 'Entre para ver sua lista, continuar de onde parou e marcar o que leu.'),
+        h('div', {class: 'campo'}, h('label', {for: 'login-usuario'}, 'Usuário'), usuario),
+        h('div', {class: 'campo'}, h('label', {for: 'login-senha'}, 'Senha'), h('div', {class: 'senha-com-botao'}, senha, mostrar)),
+        erro,
+        entrar,
+        h('p', {class: 'nota-de-login'}, 'Você continua conectado por 30 dias neste navegador, mesmo desligando o computador.'));
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        entrar.disabled = true;
+        entrar.textContent = 'Entrando…';
+        erro.textContent = '';
+        try {
+            estado.sessao = await chamar('POST', '/api/sessao', {usuario: usuario.value, senha: senha.value});
+            lembrar('usuario', usuario.value.trim());
+            document.body.classList.remove('entrando');
+            app.replaceChildren();
+            await abrirSite();
+        } catch (e) {
+            erro.textContent = e.message;
+            entrar.disabled = false;
+            entrar.textContent = 'Entrar';
+            senha.select();
+        }
+    });
+
+    app.replaceChildren(h('div', {class: 'fundo-de-login'}, formulario));
+    (usuario.value ? senha : usuario).focus();
+}
+
+async function sair() {
     try {
-        // as ordens sao opcionais: sem elas o site abre igual, so sem os seletores de ordem
-        const ouVazio = promessa => promessa.catch(() => []);
-        [estado.status, estado.formatos, estado.dias, estado.ordens, estado.ordensDeDescoberta] = await Promise.all([
-            chamar('GET', '/api/status'),
-            chamar('GET', '/api/formatos-decimais'),
-            chamar('GET', '/api/dias-da-semana'),
-            ouVazio(chamar('GET', '/api/ordens-da-lista')),
-            ouVazio(chamar('GET', '/api/recomendacoes/ordens')),
+        await chamar('DELETE', '/api/sessao');
+    } catch (e) {
+        avisar(e.message, true);
+        return;
+    }
+    estado.sessao = {...estado.sessao, logado: false};
+    telaLogin();
+}
+
+async function iniciar() {
+    // na pagina principal, a lista ja comeca a vir junto com o inicio, em vez de esperar por ele
+    const naGrade = /^#?\/?(\?.*)?$/.test(location.hash);
+    let inicio;
+    try {
+        const [resposta] = await Promise.all([
+            chamar('GET', '/api/inicio'),
+            naGrade ? adiantarLista() : null,
         ]);
-        if (!estado.ordens.some(ordem => ordem.valor === estado.ordem)) estado.ordem = 'CADASTRO';
+        inicio = resposta;
     } catch (e) {
         app.replaceChildren(vazio('Não foi possível carregar', e.message));
         return;
     }
-    window.addEventListener('hashchange', () => {
-        window.scrollTo(0, 0);
-        rota();
-    });
-    rota();
-    // a extensao se apresenta um instante depois de a pagina carregar
-    for (const atraso of [300, 1500]) {
-        setTimeout(() => { if (!estado.extensao) conferirExtensao(); }, atraso);
+    estado.sessao = inicio.sessao;
+    estado.inicio = inicio;
+    const botaoSair = document.getElementById('sair');
+    botaoSair.hidden = !estado.sessao.exigeLogin;
+    botaoSair.addEventListener('click', sair);
+    if (estado.sessao.exigeLogin && !estado.sessao.logado) {
+        telaLogin();
+        return;
     }
+    await abrirSite();
+}
+
+/**
+ * Pede a lista da pagina principal antes de saber se o login vale, para ganhar tempo. Usa o fetch direto (e nao
+ * chamar) porque, sem login, a resposta e so descartada: quem mostra a tela de entrada e o /api/inicio.
+ */
+async function adiantarLista() {
+    const ordem = estado.ordem || 'CADASTRO';
+    const parametros = new URLSearchParams({resumo: '1'});
+    if (ordem !== 'CADASTRO') parametros.set('ordem', ordem);
+    try {
+        const resposta = await fetch('/api/mangas?' + parametros);
+        if (!resposta.ok) return;
+        estado.listaCompleta = {ordem, itens: await resposta.json(), quando: Date.now(), pedido: null};
+    } catch (e) {
+        // sem problema: a grade pede de novo
+    }
+}
+
+/** Carrega o que o site inteiro usa e mostra a tela do endereco atual. */
+async function abrirSite() {
+    try {
+        // vem junto do /api/inicio; depois de entrar pela tela de login, pede de novo
+        const inicio = estado.inicio || await chamar('GET', '/api/inicio');
+        estado.inicio = null;
+        [estado.status, estado.formatos, estado.dias, estado.ordens, estado.ordensDeDescoberta] =
+            [inicio.status, inicio.formatos, inicio.dias, inicio.ordensDaLista || [], inicio.ordensDeRecomendacao || []];
+        if (!estado.ordens.some(ordem => ordem.valor === estado.ordem)) estado.ordem = 'CADASTRO';
+    } catch (e) {
+        if (!document.body.classList.contains('entrando')) app.replaceChildren(vazio('Não foi possível carregar', e.message));
+        return;
+    }
+    if (!estado.siteAberto) {
+        estado.siteAberto = true;
+        window.addEventListener('hashchange', () => {
+            // enquanto a tela de login esta aberta, o endereco pode mudar sem abrir nada
+            if (document.body.classList.contains('entrando')) return;
+            window.scrollTo(0, 0);
+            rota();
+        });
+        // a extensao se apresenta um instante depois de a pagina carregar
+        for (const atraso of [300, 1500]) {
+            setTimeout(() => { if (!estado.extensao) conferirExtensao(); }, atraso);
+        }
+    }
+    rota();
 }
 
 iniciar();

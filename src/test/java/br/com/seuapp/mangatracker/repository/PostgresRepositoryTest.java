@@ -59,7 +59,7 @@ class PostgresRepositoryTest {
     void setUp() throws Exception {
         banco = BancoPostgres.conectar(endereco);
         try (Connection conexao = banco.getConnection(); Statement comando = conexao.createStatement()) {
-            comando.execute("DROP TABLE IF EXISTS mangas, imagens");
+            comando.execute("DROP TABLE IF EXISTS mangas, imagens, configuracoes");
         }
     }
 
@@ -232,5 +232,27 @@ class PostgresRepositoryTest {
     void recusaEnderecoDeBancoInvalido() {
         assertThrows(IllegalArgumentException.class, () -> BancoPostgres.conectar("isso nao e um endereco"));
         assertThrows(IllegalArgumentException.class, () -> BancoPostgres.conectar("postgresql:///banco"));
+    }
+
+    @Test
+    void segredoDoLoginFicaNoBancoEEOMesmoNasProximasVezes() {
+        byte[] primeiro = SegredoDaSessao.doBanco(banco);
+        assertEquals(32, primeiro.length);
+        // outro servidor (ou o mesmo, reiniciado) le o mesmo segredo
+        try (HikariDataSource outro = BancoPostgres.conectar(endereco)) {
+            org.junit.jupiter.api.Assertions.assertArrayEquals(primeiro, SegredoDaSessao.doBanco(outro));
+        }
+    }
+
+    @Test
+    void listaSoOsNomesComOFinalPedido() {
+        PostgresImagemRepository imagens = new PostgresImagemRepository(banco);
+        imagens.salvar("a.png", new byte[]{1});
+        imagens.salvar("a-mini.webp", new byte[]{2});
+        imagens.salvar("b-mini.jpg", new byte[]{3});
+
+        assertEquals(java.util.Set.of("a-mini.webp"), imagens.listarTerminadosEm("-mini.webp"));
+        assertEquals(java.util.Set.of("b-mini.jpg"), imagens.listarTerminadosEm("-mini.jpg"));
+        assertEquals(java.util.Set.of(), imagens.listarTerminadosEm("-nada.png"));
     }
 }

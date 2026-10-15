@@ -14,6 +14,7 @@ import br.com.seuapp.mangatracker.service.RecomendacaoService;
 import br.com.seuapp.mangatracker.service.SinopseService;
 import br.com.seuapp.mangatracker.service.VerificadorDeLink;
 import br.com.seuapp.mangatracker.web.ApiServer;
+import br.com.seuapp.mangatracker.repository.SegredoDaSessao;
 import br.com.seuapp.mangatracker.web.ApiServer.Credenciais;
 
 import javax.sql.DataSource;
@@ -38,7 +39,7 @@ public class App {
         int porta = Integer.parseInt(System.getenv().getOrDefault("PORT", "7070"));
         // MANGATRACKER_HOST: 127.0.0.1 (padrao) atende so este computador; 0.0.0.0 atende outros computadores
         String host = System.getenv().getOrDefault("MANGATRACKER_HOST", "127.0.0.1").trim();
-        // MANGATRACKER_USUARIO e MANGATRACKER_SENHA: login pedido pelo navegador
+        // MANGATRACKER_USUARIO e MANGATRACKER_SENHA: login da tela de entrada
         String usuario = System.getenv().getOrDefault("MANGATRACKER_USUARIO", "manga");
         String senha = System.getenv().getOrDefault("MANGATRACKER_SENHA", "");
         // MANGATRACKER_CORS: enderecos de outros sites que podem chamar a API, separados por virgula
@@ -56,6 +57,7 @@ public class App {
         }
 
         MangaRepository repository;
+        DataSource banco = null;
         ImagemService imagemService;
         // DATABASE_URL: endereco de um Postgres (postgresql://usuario:senha@servidor/banco).
         // Sem ele, tudo fica em arquivos na pasta acima.
@@ -65,7 +67,7 @@ public class App {
             imagemService = new ImagemService(pasta.resolve("imagens"));
             System.out.println("Dados salvos em arquivos na pasta " + pasta.toAbsolutePath());
         } else {
-            DataSource banco = BancoPostgres.conectar(enderecoDoBanco);
+            banco = BancoPostgres.conectar(enderecoDoBanco);
             PostgresImagemRepository imagensDoBanco = new PostgresImagemRepository(banco);
             repository = new PostgresMangaRepository(banco);
             imagemService = new ImagemService(imagensDoBanco);
@@ -76,7 +78,16 @@ public class App {
             }
         }
         MangaService mangaService = new MangaService(repository, imagemService, new VerificadorDeLink(new BuscadorHttp()));
-        Credenciais credenciais = senha.isBlank() ? null : new Credenciais(usuario, senha);
+        Credenciais credenciais = null;
+        if (!senha.isBlank()) {
+            // MANGATRACKER_SEGREDO (opcional, 32+ caracteres): assina os cookies de login. Sem ele, um segredo e
+            // criado sozinho e guardado junto dos dados, para o login continuar valendo depois de reiniciar
+            byte[] segredo = SegredoDaSessao.doTexto(System.getenv("MANGATRACKER_SEGREDO"));
+            if (segredo == null) {
+                segredo = banco != null ? SegredoDaSessao.doBanco(banco) : SegredoDaSessao.doArquivo(pasta.resolve("segredo-da-sessao"));
+            }
+            credenciais = new Credenciais(usuario, senha, segredo);
+        }
 
         ClienteHttpPadrao internet = new ClienteHttpPadrao();
         new ApiServer(mangaService, imagemService, origens, credenciais, new SinopseService(internet), new RecomendacaoService(internet)).criar().start(host, porta);

@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -30,8 +31,13 @@ public class ImagemService {
             "gif", "image/gif",
             "webp", "image/webp"
     );
-    // so nomes gerados aqui sao aceitos: impede "../" e afins
-    private static final Pattern NOME_VALIDO = Pattern.compile("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.(png|jpg|gif|webp)");
+    // so nomes gerados aqui sao aceitos: impede "../" e afins. "-mini" e a miniatura de uma capa
+    private static final Pattern NOME_VALIDO = Pattern.compile("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}(-mini)?\\.(png|jpg|gif|webp)");
+    private static final Pattern NOME_DE_CAPA = Pattern.compile("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\\.(png|jpg|gif|webp)");
+    /** Miniaturas sao pequenas: a ideia e a lista carregar rapido. */
+    public static final int TAMANHO_MAXIMO_DA_MINIATURA = 300 * 1024;
+    private static final String FINAL_DA_MINIATURA = "-mini.webp";
+    private static final String FINAL_DA_MINIATURA_JPG = "-mini.jpg";
 
     private final ImagemRepository repository;
 
@@ -61,6 +67,54 @@ public class ImagemService {
         String nome = UUID.randomUUID() + "." + descobrirExtensao(bytes);
         repository.salvar(nome, bytes);
         return nome;
+    }
+
+    /**
+     * Guarda uma versao pequena da capa enviada, feita pelo navegador, para a lista mostrar no lugar da original.
+     * A capa original nao muda. So vale para capas ja enviadas; a miniatura tem que ser WebP ou JPEG.
+     *
+     * @return o nome da miniatura
+     */
+    public String salvarMiniatura(String nomeDaCapa, byte[] bytes) {
+        if (nomeDaCapa == null || !NOME_DE_CAPA.matcher(nomeDaCapa).matches() || !repository.existe(nomeDaCapa)) {
+            throw new NotFoundException("Imagem não encontrada");
+        }
+        if (bytes == null || bytes.length == 0) {
+            throw new InvalidImageException("A miniatura está vazia");
+        }
+        if (bytes.length > TAMANHO_MAXIMO_DA_MINIATURA) {
+            throw new InvalidImageException("A miniatura pode ter no máximo 300 KB");
+        }
+        String extensao = descobrirExtensao(bytes);
+        if (!extensao.equals("webp") && !extensao.equals("jpg")) {
+            throw new InvalidImageException("A miniatura precisa ser WEBP ou JPG");
+        }
+        String base = nomeDaCapa.substring(0, nomeDaCapa.lastIndexOf('.'));
+        // uma miniatura so por capa
+        repository.excluir(base + (extensao.equals("webp") ? FINAL_DA_MINIATURA_JPG : FINAL_DA_MINIATURA));
+        String nome = base + "-mini." + extensao;
+        repository.salvar(nome, bytes);
+        return nome;
+    }
+
+    /** Capa de cada miniatura guardada: nome da capa (sem extensao) -> nome da miniatura. */
+    public Map<String, String> miniaturas() {
+        Map<String, String> porCapa = new java.util.HashMap<>();
+        for (String finalDoNome : List.of(FINAL_DA_MINIATURA, FINAL_DA_MINIATURA_JPG)) {
+            for (String nome : repository.listarTerminadosEm(finalDoNome)) {
+                porCapa.put(nome.substring(0, nome.length() - finalDoNome.length()), nome);
+            }
+        }
+        return porCapa;
+    }
+
+    /** Endereco da miniatura de uma capa enviada, ou null se ainda nao houver (ou se a capa for um link de fora). */
+    public static String enderecoDaMiniatura(String imagePath, Map<String, String> miniaturas) {
+        if (imagePath == null || !NOME_DE_CAPA.matcher(imagePath).matches()) {
+            return null;
+        }
+        String nome = miniaturas.get(imagePath.substring(0, imagePath.lastIndexOf('.')));
+        return nome == null ? null : "/api/imagens/" + nome;
     }
 
     public byte[] carregar(String nome) {
@@ -93,6 +147,9 @@ public class ImagemService {
     public void excluir(String imagePath) {
         if (nomeValido(imagePath)) {
             repository.excluir(imagePath);
+            String base = imagePath.substring(0, imagePath.lastIndexOf('.'));
+            repository.excluir(base + FINAL_DA_MINIATURA);
+            repository.excluir(base + FINAL_DA_MINIATURA_JPG);
         }
     }
 

@@ -986,42 +986,219 @@ class ApiServerTest {
         assertEquals(200, enviar("GET", "/favicon.svg", null).statusCode());
     }
 
-    @Test
-    void comSenhaConfiguradaTudoPedeLogin() throws Exception {
+    private void subirComSenha(byte[] segredo) throws Exception {
         app.stop();
         ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
         MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
-        app = new ApiServer(mangaService, imagemService, List.of(), new ApiServer.Credenciais("manga", "sênha secreta"))
+        app = new ApiServer(mangaService, imagemService, List.of(), new ApiServer.Credenciais("manga", "sênha secreta", segredo))
                 .criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
-
-        for (String caminho : List.of("/", "/app.js", "/api/mangas", "/api/status", "/api/imagens/x.png")) {
-            HttpResponse<String> semLogin = enviar("GET", caminho, null);
-            assertEquals(401, semLogin.statusCode(), caminho);
-            assertTrue(semLogin.headers().firstValue("WWW-Authenticate").orElse("").startsWith("Basic"), caminho);
-            assertFalse(semLogin.body().contains("<script"), caminho);
-        }
-        assertEquals(401, enviar("POST", "/api/mangas", manga("T", "1", "LENDO")).statusCode());
-        // a hospedagem consulta /healthz sem senha; ele nao mostra nenhum dado
-        assertEquals(200, enviar("GET", "/healthz", null).statusCode());
-        assertEquals("ok", enviar("GET", "/healthz", null).body());
-        assertEquals(401, comLogin("GET", "/api/mangas", "manga", "errada").statusCode());
-        assertEquals(401, comLogin("GET", "/api/mangas", "outro", "sênha secreta").statusCode());
-        assertEquals(401, comLogin("GET", "/api/mangas", "manga", "").statusCode());
-        assertEquals(401, http.send(HttpRequest.newBuilder(URI.create(base + "/api/mangas"))
-                .header("Authorization", "Basic !!!nao-e-base64").build(), BodyHandlers.ofString()).statusCode());
-
-        assertEquals(200, comLogin("GET", "/api/mangas", "manga", "sênha secreta").statusCode());
-        assertEquals(200, comLogin("GET", "/", "manga", "sênha secreta").statusCode());
-        assertEquals("[]", comLogin("GET", "/api/mangas", "manga", "sênha secreta").body()); // o POST sem login nao cadastrou
     }
 
-    private HttpResponse<String> comLogin(String metodo, String caminho, String usuario, String senha) throws Exception {
-        String login = java.util.Base64.getEncoder().encodeToString((usuario + ":" + senha).getBytes(StandardCharsets.UTF_8));
-        return http.send(HttpRequest.newBuilder(URI.create(base + caminho))
-                .method(metodo, BodyPublishers.noBody())
-                .header("Authorization", "Basic " + login)
-                .build(), BodyHandlers.ofString());
+    private HttpResponse<String> entrar(String usuario, String senha) throws Exception {
+        return enviar("POST", "/api/sessao", mapper.writeValueAsString(Map.of("usuario", usuario, "senha", senha)));
+    }
+
+    /** O valor do cookie de login que a resposta mandou gravar. */
+    private static String cookieDe(HttpResponse<String> resposta) {
+        String cabecalho = resposta.headers().firstValue("Set-Cookie").orElseThrow();
+        return cabecalho.substring(cabecalho.indexOf('=') + 1, cabecalho.indexOf(';'));
+    }
+
+    private HttpResponse<String> comCookie(String metodo, String caminho, String cookie, String corpo) throws Exception {
+        HttpRequest.Builder requisicao = HttpRequest.newBuilder(URI.create(base + caminho))
+                .method(metodo, corpo == null ? BodyPublishers.noBody() : BodyPublishers.ofString(corpo))
+                .header("Cookie", "outro=1; mangas_sessao=" + cookie);
+        if (corpo != null) {
+            requisicao.header("Content-Type", "application/json");
+        }
+        return http.send(requisicao.build(), BodyHandlers.ofString());
+    }
+
+    @Test
+    void comSenhaConfiguradaOsDadosPedemLogin() throws Exception {
+        subirComSenha(new byte[32]);
+
+        for (String caminho : List.of("/api/mangas", "/api/status", "/api/imagens/x.png", "/api/tags")) {
+            HttpResponse<String> semLogin = enviar("GET", caminho, null);
+            assertEquals(401, semLogin.statusCode(), caminho);
+            // sem a janela de senha do navegador: quem pede o login e a tela do site
+            assertTrue(semLogin.headers().firstValue("WWW-Authenticate").isEmpty(), caminho);
+            assertEquals("Entre com seu usuário e senha", json(semLogin).get("mensagem").asText());
+        }
+        assertEquals(401, enviar("POST", "/api/mangas", manga("T", "1", "LENDO")).statusCode());
+        // os arquivos do site nao tem dados: abrem sem login, para a tela de login aparecer
+        for (String caminho : List.of("/", "/app.js", "/app.css", "/favicon.svg", "/icones/nota-bom.svg")) {
+            assertEquals(200, enviar("GET", caminho, null).statusCode(), caminho);
+        }
+        assertEquals(200, enviar("GET", "/healthz", null).statusCode());
+        // a senha do jeito antigo (janela do navegador) nao vale mais
+        String basico = java.util.Base64.getEncoder().encodeToString("manga:sênha secreta".getBytes(StandardCharsets.UTF_8));
+        assertEquals(401, http.send(HttpRequest.newBuilder(URI.create(base + "/api/mangas")).header("Authorization", "Basic " + basico).build(),
+                BodyHandlers.ofString()).statusCode());
+
+        JsonNode antes = json(enviar("GET", "/api/sessao", null));
+        assertTrue(antes.get("exigeLogin").asBoolean());
+        assertFalse(antes.get("logado").asBoolean());
+        assertTrue(antes.get("usuario").isNull());
+    }
+
+    @Test
+    void entrarGuardaOLoginPorTrintaDiasESairApaga() throws Exception {
+        subirComSenha(new byte[32]);
+
+        HttpResponse<String> entrou = entrar(" manga ", "sênha secreta");
+        assertEquals(200, entrou.statusCode(), entrou.body());
+        String cabecalho = entrou.headers().firstValue("Set-Cookie").orElseThrow();
+        assertTrue(cabecalho.startsWith("mangas_sessao=v1."), cabecalho);
+        assertTrue(cabecalho.contains("; Max-Age=2592000;") && cabecalho.contains("HttpOnly") && cabecalho.contains("SameSite=Lax"), cabecalho);
+        assertFalse(cabecalho.contains("Secure"), "endereco http: o navegador recusaria um cookie Secure");
+        assertEquals("manga", json(entrou).get("usuario").asText());
+        java.time.Instant expira = java.time.Instant.parse(json(entrou).get("expiraEm").asText());
+        assertTrue(Math.abs(java.time.Duration.between(java.time.Instant.now().plus(java.time.Duration.ofDays(30)), expira).toSeconds()) < 60, expira.toString());
+
+        String cookie = cookieDe(entrou);
+        assertEquals(200, comCookie("GET", "/api/mangas", cookie, null).statusCode());
+        assertEquals(201, comCookie("POST", "/api/mangas", cookie, manga("Com login", "1", "LENDO")).statusCode());
+        JsonNode sessao = json(comCookie("GET", "/api/sessao", cookie, null));
+        assertTrue(sessao.get("logado").asBoolean());
+        assertEquals("no-store", comCookie("GET", "/api/sessao", cookie, null).headers().firstValue("Cache-Control").orElse(""));
+
+        // cookie alterado ou inventado nao entra
+        String alterado = cookie.substring(0, cookie.length() - 2) + (cookie.endsWith("A") ? "BB" : "AA");
+        for (String falso : List.of(alterado, "v1.9999999999.x.y", "qualquer-coisa", "")) {
+            assertEquals(401, comCookie("GET", "/api/mangas", falso, null).statusCode(), falso);
+        }
+
+        HttpResponse<String> saiu = comCookie("DELETE", "/api/sessao", cookie, null);
+        assertEquals(204, saiu.statusCode());
+        assertTrue(saiu.headers().firstValue("Set-Cookie").orElseThrow().startsWith("mangas_sessao=; Path=/; Max-Age=0;"));
+    }
+
+    @Test
+    void oLoginContinuaDepoisDeReiniciarETrocarASenhaDesfaz() throws Exception {
+        byte[] segredo = new byte[32];
+        segredo[0] = 7;
+        subirComSenha(segredo);
+        String cookie = cookieDe(entrar("manga", "sênha secreta"));
+
+        subirComSenha(segredo); // mesmo segredo guardado: o login de antes continua valendo
+        assertEquals(200, comCookie("GET", "/api/mangas", cookie, null).statusCode());
+
+        subirComSenha(new byte[32]); // segredo apagado: todos os logins acabam
+        assertEquals(401, comCookie("GET", "/api/mangas", cookie, null).statusCode());
+
+        // mesmo segredo, outra senha: o cookie da senha antiga nao vale
+        app.stop();
+        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
+        app = new ApiServer(new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService), imagemService, List.of(),
+                new ApiServer.Credenciais("manga", "senha nova bem longa", segredo)).criar().start("127.0.0.1", 0);
+        base = "http://127.0.0.1:" + app.port();
+        assertEquals(401, comCookie("GET", "/api/mangas", cookie, null).statusCode());
+    }
+
+    @Test
+    void loginErradoNaoEntraEMuitosErrosFreiamNovasTentativas() throws Exception {
+        subirComSenha(new byte[32]);
+
+        HttpResponse<String> errado = entrar("manga", "errada");
+        assertEquals(401, errado.statusCode());
+        assertEquals("Usuário ou senha incorretos", json(errado).get("mensagem").asText());
+        assertTrue(errado.headers().firstValue("Set-Cookie").isEmpty());
+        assertEquals(401, entrar("outro", "sênha secreta").statusCode());
+        assertEquals(400, enviar("POST", "/api/sessao", "{\"usuario\": \"manga\"}").statusCode());
+        assertEquals(400, enviar("POST", "/api/sessao", "nao e json").statusCode());
+        // outro site nao consegue fazer o navegador entrar
+        assertEquals(403, comOrigem("POST", "/api/sessao", "http://site-malicioso.com", "{\"usuario\": \"manga\", \"senha\": \"sênha secreta\"}").statusCode());
+
+        for (int i = 0; i < 8; i++) {
+            entrar("manga", "chute " + i);
+        }
+        // 10 erros: a proxima tentativa espera, mesmo com a senha certa
+        HttpResponse<String> freado = entrar("manga", "sênha secreta");
+        assertEquals(429, freado.statusCode());
+        assertTrue(json(freado).get("mensagem").asText().startsWith("Muitas tentativas erradas. Tente de novo em 15 minutos"), freado.body());
+    }
+
+    @Test
+    void semSenhaNaoHaLogin() throws Exception {
+        JsonNode sessao = json(enviar("GET", "/api/sessao", null));
+        assertFalse(sessao.get("exigeLogin").asBoolean());
+        assertTrue(sessao.get("logado").asBoolean());
+        assertEquals(200, enviar("GET", "/api/mangas", null).statusCode());
+    }
+
+    // ------------------------------------------------------------------ desempenho
+
+    @Test
+    void inicioTrazASessaoEAsListasFixasEmUmaChamadaSo() throws Exception {
+        subirComSenha(new byte[32]);
+        // abre sem login: a tela de entrada precisa saber que o login falta
+        HttpResponse<String> semLogin = enviar("GET", "/api/inicio", null);
+        assertEquals(200, semLogin.statusCode());
+        JsonNode inicio = json(semLogin);
+        assertFalse(inicio.get("sessao").get("logado").asBoolean());
+        assertTrue(inicio.get("sessao").get("exigeLogin").asBoolean());
+        assertEquals(6, inicio.get("status").size());
+        assertEquals("LENDO", inicio.get("status").get(0).get("valor").asText());
+        assertEquals(3, inicio.get("formatos").size());
+        assertEquals(7, inicio.get("dias").size());
+        assertEquals(9, inicio.get("ordensDaLista").size());
+        assertTrue(inicio.get("ordensDeRecomendacao").size() > 0);
+        assertEquals("no-store", semLogin.headers().firstValue("Cache-Control").orElse(""));
+
+        String cookie = cookieDe(entrar("manga", "sênha secreta"));
+        assertTrue(json(comCookie("GET", "/api/inicio", cookie, null)).get("sessao").get("logado").asBoolean());
+    }
+
+    @Test
+    void listaResumidaDeixaDeForaADescricaoEOsOutrosNomes() throws Exception {
+        cadastrar("Solo Leveling", "1", "LENDO");
+
+        JsonNode completa = json(enviar("GET", "/api/mangas", null)).get(0);
+        JsonNode resumida = json(enviar("GET", "/api/mangas?resumo=1", null)).get(0);
+        assertFalse(completa.get("description").isNull());
+        assertTrue(resumida.get("description").isNull());
+        assertEquals(0, resumida.get("altTitles").size());
+        // o resto, que os cartoes usam, continua igual
+        for (String campo : List.of("id", "title", "imageUrl", "readingStatus", "lastChapter", "nextChapterLink", "tags", "rating", "favorite")) {
+            assertEquals(completa.get(campo), resumida.get(campo), campo);
+        }
+        assertEquals(1, json(enviar("GET", "/api/mangas?resumo=1&pagina=1", null)).get("itens").size());
+    }
+
+    @Test
+    void miniaturaDaCapaApareceNaListaEVaiEmboraComACapa() throws Exception {
+        String capa = json(enviarImagem("arquivo", ImagemServiceTest.PNG)).get("imagePath").asText();
+        String semExtensao = capa.substring(0, capa.indexOf('.'));
+        String id = json(enviar("POST", "/api/mangas", manga("Com capa", "1", "LENDO").replace("https://site.com/capa.png", capa))).get("id").asText();
+        assertTrue(json(enviar("GET", "/api/mangas", null)).get(0).get("thumbUrl").isNull());
+
+        byte[] webp = {'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'E', 'B', 'P', 1, 2};
+        HttpResponse<String> guardada = http.send(HttpRequest.newBuilder(URI.create(base + "/api/imagens/" + capa + "/miniatura"))
+                .PUT(BodyPublishers.ofByteArray(webp)).header("Content-Type", "image/webp").build(), BodyHandlers.ofString());
+        assertEquals(200, guardada.statusCode(), guardada.body());
+        String endereco = "/api/imagens/" + semExtensao + "-mini.webp";
+        assertEquals(endereco, json(guardada).get("thumbUrl").asText());
+
+        // aparece na lista, na resumida e nos lancamentos; a pagina do manga continua com a capa inteira
+        assertEquals(endereco, json(enviar("GET", "/api/mangas?resumo=1", null)).get(0).get("thumbUrl").asText());
+        assertEquals(endereco, json(enviar("GET", "/api/mangas?pagina=1", null)).get("itens").get(0).get("thumbUrl").asText());
+        assertEquals("/api/imagens/" + capa, json(enviar("GET", "/api/mangas/" + id, null)).get("imageUrl").asText());
+        HttpResponse<byte[]> baixada = http.send(HttpRequest.newBuilder(URI.create(base + endereco)).build(), HttpResponse.BodyHandlers.ofByteArray());
+        assertArrayEquals(webp, baixada.body());
+        assertEquals("image/webp", baixada.headers().firstValue("Content-Type").orElse(""));
+
+        assertEquals(400, http.send(HttpRequest.newBuilder(URI.create(base + "/api/imagens/" + capa + "/miniatura"))
+                .PUT(BodyPublishers.ofByteArray(ImagemServiceTest.PNG)).build(), BodyHandlers.ofString()).statusCode());
+        assertEquals(404, http.send(HttpRequest.newBuilder(URI.create(base + "/api/imagens/" + UUID.randomUUID() + ".png/miniatura"))
+                .PUT(BodyPublishers.ofByteArray(webp)).build(), BodyHandlers.ofString()).statusCode());
+        assertEquals(403, http.send(HttpRequest.newBuilder(URI.create(base + "/api/imagens/" + capa + "/miniatura"))
+                .PUT(BodyPublishers.ofByteArray(webp)).header("Origin", "http://site-malicioso.com").build(), BodyHandlers.ofString()).statusCode());
+
+        // excluir o manga apaga a capa e a miniatura
+        assertEquals(204, enviar("DELETE", "/api/mangas/" + id, null).statusCode());
+        assertEquals(404, enviar("GET", endereco, null).statusCode());
     }
 
     @Test

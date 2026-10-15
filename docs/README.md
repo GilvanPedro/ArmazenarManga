@@ -23,6 +23,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [17 · Favorito que não abria](17-favorito-que-nao-abria.md) | A correção do favorito de "marcar como lido" em sites que impedem abrir aba nova |
 | [18 · Selo da nota com ícone](18-selo-da-nota-com-icone.md) | O ajuste que trocou o indicativo da nota por um ícone e aumentou o selo na capa |
 | [19 · Destaque roxo do favorito](19-destaque-roxo-do-favorito.md) | O ajuste visual do favorito: borda roxa, reflexo na capa e efeito ao passar o mouse |
+| [20 · Tela de login de 30 dias](20-tela-de-login.md) | A tela de entrada própria, o login que dura 30 dias, o botão de sair e a proteção contra tentativas |
+| [21 · Desempenho](21-desempenho.md) | Lista, busca e capas em menos de 2 segundos: início em uma chamada, lista guardada no navegador, miniaturas e recarregar a aba |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

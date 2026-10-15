@@ -70,6 +70,25 @@ public class PostgresImagemRepository implements ImagemRepository {
     }
 
     @Override
+    public java.util.Set<String> listarTerminadosEm(String finalDoNome) {
+        // so os nomes: o conteudo nao sai do banco
+        try (Connection conexao = banco.getConnection();
+             PreparedStatement comando = conexao.prepareStatement("SELECT nome FROM imagens WHERE right(nome, ?) = ?")) {
+            comando.setInt(1, finalDoNome.length());
+            comando.setString(2, finalDoNome);
+            java.util.Set<String> nomes = new java.util.HashSet<>();
+            try (ResultSet linhas = comando.executeQuery()) {
+                while (linhas.next()) {
+                    nomes.add(linhas.getString(1));
+                }
+            }
+            return nomes;
+        } catch (SQLException e) {
+            throw new PersistenciaException("Nao foi possivel listar as imagens do banco", e);
+        }
+    }
+
+    @Override
     public void excluir(String nome) {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("DELETE FROM imagens WHERE nome = ?")) {

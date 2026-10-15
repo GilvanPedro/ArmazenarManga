@@ -2,9 +2,19 @@
 
 Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) têm as mesmas rotas.
 
-- **Login:** quando há senha configurada, toda rota exige HTTP Basic. A exceção é `/healthz`.
-- **Erros:** `{"mensagem": "..."}` com status `400` (dados inválidos), `401` (sem login), `403` (requisição vinda
-  de outro site), `404` (não encontrado) ou `500`.
+- **Login:** quando há senha configurada, as rotas em `/api/` pedem o cookie de login, obtido em
+  `POST /api/sessao`. As exceções são `/api/sessao` e `/healthz`. Veja [Tela de login de 30 dias](20-tela-de-login.md).
+- **Erros:** `{"mensagem": "..."}` com status `400` (dados inválidos), `401` (sem login ou login errado), `403`
+  (requisição vinda de outro site), `404` (não encontrado), `429` (muitas tentativas de login erradas) ou `500`.
+
+## Login
+
+| Método | Rota | O que faz |
+|--------|------|-----------|
+| `GET` | `/api/inicio` | A sessão e as listas fixas (status, formatos, dias, ordens) em uma chamada; não pede login |
+| `GET` | `/api/sessao` | `{exigeLogin, logado, usuario, expiraEm}` |
+| `POST` | `/api/sessao` | Entra com `{"usuario": "...", "senha": "..."}` e grava o cookie de 30 dias |
+| `DELETE` | `/api/sessao` | Sai: apaga o cookie deste navegador |
 
 ## Mangás
 
@@ -27,6 +37,7 @@ Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) 
 | `status` | Um dos status |
 | `tag` | Nome exato de uma tag |
 | `ordem` | `CADASTRO` (padrão), `RECENTES`, `TITULO`, `TITULO_DESC`, `MAIS_CAPITULOS`, `MENOS_CAPITULOS`, `MELHORES_NOTAS`, `PIORES_NOTAS` (sem nota fica no fim nas duas), `FAVORITOS` |
+| `resumo` | `1` deixa de fora `description` e `altTitles`, para listas grandes |
 | `pagina` | Com ele, a resposta vira uma página; sem ele, a lista inteira |
 | `tamanho` | Itens por página (padrão 24, máximo 100) |
 
@@ -151,7 +162,8 @@ que a fonte não tem.
 | Método | Rota | O que faz |
 |--------|------|-----------|
 | `POST` | `/api/imagens` | Envia uma capa (`multipart/form-data`, campo `arquivo`). PNG, JPG, GIF ou WEBP |
-| `GET` | `/api/imagens/{nome}` | Devolve a capa |
+| `GET` | `/api/imagens/{nome}` | Devolve a capa (ou a miniatura, `{nome}-mini.webp`) |
+| `PUT` | `/api/imagens/{nome}/miniatura` | Guarda a miniatura da capa: corpo com a imagem, WebP ou JPEG, até 300 KB |
 
 O limite é 10 MB na versão Java e 4 MB na do Vercel.
 

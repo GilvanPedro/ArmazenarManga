@@ -37,8 +37,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.time.Duration;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -47,9 +49,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Locale;
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Serve o site e as rotas HTTP usadas por ele. Aqui so se traduz HTTP <-> service, as regras ficam no service. */
@@ -73,7 +75,7 @@ public class ApiServer {
     /**
      * @param origensPermitidas enderecos do site que podem chamar a API pelo navegador (CORS),
      *                          ex.: http://localhost:5173. "*" libera qualquer um.
-     * @param credenciais       usuario e senha pedidos em toda requisicao, ou null para nao pedir login
+     * @param credenciais       usuario e senha da tela de login, ou null para nao pedir login
      */
     public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais) {
         this(mangaService, imagemService, origensPermitidas, credenciais, new SinopseService(SEM_INTERNET));
@@ -93,9 +95,34 @@ public class ApiServer {
         this.imagemService = imagemService;
         this.origensPermitidas = origensPermitidas;
         this.credenciais = credenciais;
+        this.sessoes = credenciais == null ? null : new Sessoes(credenciais.usuario(), credenciais.senha(), credenciais.segredo(), Clock.systemUTC());
     }
 
-    public record Credenciais(String usuario, String senha) {
+    /**
+     * @param segredo assina os cookies de login (veja {@link Sessoes}); guardado junto dos dados para os logins
+     *                continuarem valendo quando o servidor reinicia
+     */
+    public record Credenciais(String usuario, String senha, byte[] segredo) {
+        /** Com um segredo novo: os logins deixam de valer quando o servidor reinicia. */
+        public Credenciais(String usuario, String senha) {
+            this(usuario, senha, segredoNovo());
+        }
+
+        private static byte[] segredoNovo() {
+            byte[] segredo = new byte[32];
+            new SecureRandom().nextBytes(segredo);
+            return segredo;
+        }
+    }
+
+    private final Sessoes sessoes;
+    private final LimiteDeTentativas tentativas = new LimiteDeTentativas(Clock.systemUTC());
+
+    private record LoginRequest(String usuario, String senha) {
+    }
+
+    /** exigeLogin false = site sem senha (uso so neste computador). expiraEm no formato ISO 8601. */
+    private record SessaoResponse(boolean exigeLogin, boolean logado, String usuario, String expiraEm) {
     }
 
     /** Cliente que nunca encontra nada: usado quando a API e criada sem acesso a outros sites (testes). */
@@ -133,6 +160,11 @@ public class ApiServer {
             config.routes.before(this::exigirLogin);
             config.routes.before("/api/*", this::recusarOutrosSites);
 
+            config.routes.get("/api/inicio", this::inicio);
+            config.routes.get("/api/sessao", this::verSessao);
+            config.routes.post("/api/sessao", this::entrar);
+            config.routes.delete("/api/sessao", this::sair);
+
             config.routes.get("/api/mangas", this::listar);
             config.routes.post("/api/mangas", this::cadastrar);
             config.routes.get("/api/mangas/sorteio", this::sortear);
@@ -155,6 +187,7 @@ public class ApiServer {
 
             config.routes.post("/api/imagens", this::enviarImagem);
             config.routes.get("/api/imagens/{nome}", this::baixarImagem);
+            config.routes.put("/api/imagens/{nome}/miniatura", this::guardarMiniatura);
 
             // usado pela hospedagem para saber se o programa esta no ar; nao pede login nem mostra dados
             config.routes.get("/healthz", ctx -> ctx.result("ok"));
@@ -193,29 +226,87 @@ public class ApiServer {
         ctx.header("Referrer-Policy", "no-referrer");
     }
 
+    /**
+     * Os dados (tudo em /api) so saem para quem entrou. Os arquivos do site (HTML, CSS, JS, icones) nao tem
+     * dado nenhum e ficam abertos, para a tela de login poder aparecer.
+     */
     private void exigirLogin(Context ctx) {
-        // o navegador nao manda a senha na consulta previa do CORS (OPTIONS)
-        if (credenciais == null || ctx.method() == HandlerType.OPTIONS || ctx.path().equals("/healthz")
-                || loginCorreto(ctx.header("Authorization"))) {
+        if (credenciais == null || ctx.method() == HandlerType.OPTIONS || !ctx.path().startsWith("/api/")
+                || ctx.path().equals("/api/sessao") || ctx.path().equals("/api/inicio") || sessaoValida(ctx).isPresent()) {
             return;
         }
-        ctx.header("WWW-Authenticate", "Basic realm=\"Meus Mangas\", charset=\"UTF-8\"");
-        erro(ctx, HttpStatus.UNAUTHORIZED, "Informe o usuário e a senha");
+        erro(ctx, HttpStatus.UNAUTHORIZED, "Entre com seu usuário e senha");
         ctx.skipRemainingHandlers();
     }
 
-    private boolean loginCorreto(String cabecalho) {
-        if (cabecalho == null || !cabecalho.regionMatches(true, 0, "Basic ", 0, 6)) {
-            return false;
+    private Optional<Instant> sessaoValida(Context ctx) {
+        return sessoes == null ? Optional.empty() : sessoes.validar(ctx.cookie(Sessoes.COOKIE));
+    }
+
+    private void verSessao(Context ctx) throws JsonProcessingException {
+        ctx.header("Cache-Control", "no-store");
+        json(ctx, HttpStatus.OK, sessao(ctx));
+    }
+
+    private SessaoResponse sessao(Context ctx) {
+        if (credenciais == null) {
+            return new SessaoResponse(false, true, null, null);
         }
-        byte[] informado;
-        try {
-            informado = Base64.getDecoder().decode(cabecalho.substring(6).trim());
-        } catch (IllegalArgumentException e) {
-            return false;
+        Optional<Instant> expira = sessaoValida(ctx);
+        return new SessaoResponse(true, expira.isPresent(), expira.isPresent() ? credenciais.usuario() : null,
+                expira.map(Instant::toString).orElse(null));
+    }
+
+    /** Tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista). */
+    private record InicioResponse(SessaoResponse sessao, List<Map<String, String>> status, List<Map<String, String>> formatos,
+                                  List<Map<String, String>> dias, List<OrdemResponse> ordensDaLista, List<OrdemResponse> ordensDeRecomendacao) {
+    }
+
+    private void inicio(Context ctx) throws JsonProcessingException {
+        ctx.header("Cache-Control", "no-store");
+        json(ctx, HttpStatus.OK, new InicioResponse(sessao(ctx), status(), formatos(), dias(), ordensDaLista(), ordensDeRecomendacao()));
+    }
+
+    private void entrar(Context ctx) throws JsonProcessingException {
+        ctx.header("Cache-Control", "no-store");
+        if (credenciais == null) {
+            json(ctx, HttpStatus.OK, new SessaoResponse(false, true, null, null));
+            return;
         }
-        byte[] esperado = (credenciais.usuario() + ":" + credenciais.senha()).getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(esperado, informado); // comparacao em tempo constante
+        Duration espera = tentativas.espera();
+        if (!espera.isZero()) {
+            long minutos = Math.max(1, (espera.toSeconds() + 59) / 60);
+            erro(ctx, HttpStatus.TOO_MANY_REQUESTS, "Muitas tentativas erradas. Tente de novo em " + minutos + (minutos == 1 ? " minuto" : " minutos"));
+            return;
+        }
+        LoginRequest login = lerCorpo(ctx, LoginRequest.class);
+        if (login.usuario() == null || login.usuario().isBlank() || login.senha() == null || login.senha().isEmpty()) {
+            throw new RequisicaoInvalidaException("Informe o usuário e a senha");
+        }
+        // compara os resumos, para o tempo da comparacao nao dizer onde os textos diferem
+        boolean certo = MessageDigest.isEqual(Sessoes.sha256(login.usuario().trim()), Sessoes.sha256(credenciais.usuario()))
+                & MessageDigest.isEqual(Sessoes.sha256(login.senha()), Sessoes.sha256(credenciais.senha()));
+        if (!certo) {
+            tentativas.registrarErro();
+            erro(ctx, HttpStatus.UNAUTHORIZED, "Usuário ou senha incorretos");
+            return;
+        }
+        String cookie = sessoes.criar();
+        gravarCookie(ctx, cookie, Sessoes.DURACAO.toSeconds());
+        json(ctx, HttpStatus.OK, new SessaoResponse(true, true, credenciais.usuario(), sessoes.validar(cookie).orElseThrow().toString()));
+    }
+
+    /** Sai so neste navegador. Para sair de todos os aparelhos, troque a senha. */
+    private void sair(Context ctx) {
+        ctx.header("Cache-Control", "no-store");
+        gravarCookie(ctx, "", 0);
+        ctx.status(HttpStatus.NO_CONTENT);
+    }
+
+    /** HttpOnly: os scripts da pagina nao leem o cookie. SameSite=Lax: outros sites nao o usam para alterar dados. */
+    private static void gravarCookie(Context ctx, String valor, long segundos) {
+        boolean https = "https".equalsIgnoreCase(ctx.header("X-Forwarded-Proto")) || "https".equalsIgnoreCase(ctx.scheme());
+        ctx.header("Set-Cookie", Sessoes.COOKIE + "=" + valor + "; Path=/; Max-Age=" + segundos + "; HttpOnly; SameSite=Lax" + (https ? "; Secure" : ""));
     }
 
     /** Impede que outro site aberto no navegador altere os dados usando o login de quem esta visitando. */
@@ -290,7 +381,11 @@ public class ApiServer {
     }
 
     private void listarOrdensDaLista(Context ctx) throws JsonProcessingException {
-        json(ctx, HttpStatus.OK, Arrays.stream(OrdemDaLista.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.descricao)).toList());
+        json(ctx, HttpStatus.OK, ordensDaLista());
+    }
+
+    private static List<OrdemResponse> ordensDaLista() {
+        return Arrays.stream(OrdemDaLista.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.descricao)).toList();
     }
 
     static final int TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
@@ -305,9 +400,12 @@ public class ApiServer {
      */
     private void listar(Context ctx) throws JsonProcessingException {
         List<Manga> encontrados = new ArrayList<>(mangaService.listarMangas(ctx.queryParam("titulo"), lerStatus(ctx), ctx.queryParam("tag")));
+        Map<String, String> miniaturas = imagemService.miniaturas();
         lerOrdemDaLista(ctx).aplicar(encontrados);
         List<MangaResponse> mangas = encontrados.stream()
-                .map(MangaResponse::de)
+                .map(manga -> MangaResponse.de(manga, miniaturas))
+                // ?resumo=1: sem descricao e outros nomes, que os cartoes nao usam (a lista inteira fica bem menor)
+                .map(manga -> "1".equals(ctx.queryParam("resumo")) ? manga.resumo() : manga)
                 .toList();
         if (ctx.queryParam("pagina") == null) {
             json(ctx, HttpStatus.OK, mangas);
@@ -341,7 +439,8 @@ public class ApiServer {
 
     /** Mangas da lista que dividem tags com este. */
     private void listarSemelhantes(Context ctx) throws JsonProcessingException {
-        json(ctx, HttpStatus.OK, mangaService.listarSemelhantes(lerId(ctx)).stream().map(MangaResponse::de).toList());
+        Map<String, String> miniaturas = imagemService.miniaturas();
+        json(ctx, HttpStatus.OK, mangaService.listarSemelhantes(lerId(ctx)).stream().map(manga -> MangaResponse.de(manga, miniaturas)).toList());
     }
 
     /** Lista geral de tags, para escolher no cadastro em vez de digitar de novo. */
@@ -405,7 +504,11 @@ public class ApiServer {
     }
 
     private void listarOrdensDeRecomendacao(Context ctx) throws JsonProcessingException {
-        json(ctx, HttpStatus.OK, Arrays.stream(RecomendacaoService.Ordem.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.getDescricao())).toList());
+        json(ctx, HttpStatus.OK, ordensDeRecomendacao());
+    }
+
+    private static List<OrdemResponse> ordensDeRecomendacao() {
+        return Arrays.stream(RecomendacaoService.Ordem.values()).map(ordem -> new OrdemResponse(ordem.name(), ordem.getDescricao())).toList();
     }
 
     /** Mangas parecidos com este que ainda nao estao na lista, buscados na internet pelo titulo e pelas tags dele. */
@@ -440,7 +543,8 @@ public class ApiServer {
                 throw new RequisicaoInvalidaException("O parâmetro 'desde' precisa ser uma data e hora como 2026-10-08T03:00:00Z");
             }
         }
-        json(ctx, HttpStatus.OK, mangaService.listarLancamentos(diaDaSemana, inicioDoDia).stream().map(MangaResponse::de).toList());
+        Map<String, String> miniaturas = imagemService.miniaturas();
+        json(ctx, HttpStatus.OK, mangaService.listarLancamentos(diaDaSemana, inicioDoDia).stream().map(manga -> MangaResponse.de(manga, miniaturas)).toList());
     }
 
     private void sortear(Context ctx) throws JsonProcessingException {
@@ -550,6 +654,16 @@ public class ApiServer {
         json(ctx, HttpStatus.CREATED, Map.of("imagePath", nome, "imageUrl", "/api/imagens/" + nome));
     }
 
+    /** Corpo: a imagem pequena (WebP ou JPEG), feita pelo navegador a partir da capa. */
+    private void guardarMiniatura(Context ctx) throws Exception {
+        byte[] bytes;
+        try (InputStream corpo = ctx.bodyInputStream()) {
+            bytes = corpo.readNBytes(ImagemService.TAMANHO_MAXIMO_DA_MINIATURA + 1);
+        }
+        String nome = imagemService.salvarMiniatura(ctx.pathParam("nome"), bytes);
+        json(ctx, HttpStatus.OK, Map.of("thumbUrl", "/api/imagens/" + nome));
+    }
+
     private void baixarImagem(Context ctx) throws Exception {
         String nome = ctx.pathParam("nome");
         byte[] imagem = imagemService.carregar(nome);
@@ -563,15 +677,19 @@ public class ApiServer {
     // ------------------------------------------------------------------ opcoes dos formularios
 
     private void listarStatus(Context ctx) throws JsonProcessingException {
-        json(ctx, HttpStatus.OK, Arrays.stream(ReadingStatus.values())
-                .map(status -> Map.of("valor", status.name(), "descricao", status.getDescricao()))
-                .toList());
+        json(ctx, HttpStatus.OK, status());
+    }
+
+    private static List<Map<String, String>> status() {
+        return Arrays.stream(ReadingStatus.values()).map(status -> Map.of("valor", status.name(), "descricao", status.getDescricao())).toList();
     }
 
     private void listarFormatosDecimais(Context ctx) throws JsonProcessingException {
-        json(ctx, HttpStatus.OK, Arrays.stream(ChapterDecimalFormat.values())
-                .map(formato -> Map.of("valor", formato.name(), "descricao", formato.getDescricao()))
-                .toList());
+        json(ctx, HttpStatus.OK, formatos());
+    }
+
+    private static List<Map<String, String>> formatos() {
+        return Arrays.stream(ChapterDecimalFormat.values()).map(formato -> Map.of("valor", formato.name(), "descricao", formato.getDescricao())).toList();
     }
 
     /** Descricao do manga buscada na internet pelo titulo, para preencher o cadastro. */
@@ -587,9 +705,11 @@ public class ApiServer {
     }
 
     private void listarDiasDaSemana(Context ctx) throws JsonProcessingException {
-        json(ctx, HttpStatus.OK, Arrays.stream(WeekDay.values())
-                .map(dia -> Map.of("valor", dia.name(), "descricao", dia.getDescricao()))
-                .toList());
+        json(ctx, HttpStatus.OK, dias());
+    }
+
+    private static List<Map<String, String>> dias() {
+        return Arrays.stream(WeekDay.values()).map(dia -> Map.of("valor", dia.name(), "descricao", dia.getDescricao())).toList();
     }
 
     // ------------------------------------------------------------------

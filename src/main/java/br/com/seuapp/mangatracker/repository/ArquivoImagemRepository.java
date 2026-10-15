@@ -45,6 +45,19 @@ public class ArquivoImagemRepository implements ImagemRepository {
     }
 
     @Override
+    public java.util.Set<String> listarTerminadosEm(String finalDoNome) {
+        if (!Files.isDirectory(pasta)) {
+            return java.util.Set.of();
+        }
+        try (var arquivos = Files.list(pasta)) {
+            return arquivos.map(arquivo -> arquivo.getFileName().toString()).filter(nome -> nome.endsWith(finalDoNome))
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        } catch (IOException e) {
+            throw new PersistenciaException("Nao foi possivel listar as imagens em " + pasta, e);
+        }
+    }
+
+    @Override
     public void excluir(String nome) {
         try {
             Files.deleteIfExists(pasta.resolve(nome));

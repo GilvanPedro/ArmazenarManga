@@ -15,6 +15,12 @@ biblioteca nem etapa de build: o que está no repositório é o que o navegador 
 
 ## Telas
 
+### Entrar
+
+Quando o site tem senha e o navegador não está conectado, aparece a tela de entrada no lugar de qualquer outra:
+usuário, senha com botão "Mostrar" e "Entrar". O login vale 30 dias, e o botão "Sair" fica no topo. Veja
+[Tela de login de 30 dias](20-tela-de-login.md).
+
 ### Todos os mangás (`#/`)
 
 A página principal. Em cima: busca por nome, seletor de ordem e botão Sortear. Abaixo, os filtros de status.
@@ -23,7 +29,9 @@ Cada cartão tem a capa com o status (em cima, à esquerda) e a nota (embaixo, �
 (abre o diálogo de progresso) e o **Ler**. Para mangás concluídos, o Ler pergunta entre ler novamente e abrir o
 último capítulo.
 
-A lista é paginada de 24 em 24, e só a página aberta é pedida ao servidor. Buscar ou filtrar volta para a
+A lista é paginada de 24 em 24. Ela é pedida inteira uma vez e guardada no navegador, então buscar, filtrar e
+trocar de página não esperam o servidor (veja [Desempenho](21-desempenho.md)). Os cartões usam a miniatura da
+capa quando ela existe. Clicar na aba já aberta recarrega a lista. Buscar ou filtrar volta para a
 página 1; alterar um capítulo ou abrir um mangá e voltar mantém a página. A ordem escolhida fica lembrada no
 navegador.
 

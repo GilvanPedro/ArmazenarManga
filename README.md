@@ -9,7 +9,8 @@ confere e corrige esse link quando o site muda o endereço.
 ## O que ele faz
 
 - **Lista** com capa, status, último capítulo, tags, descrição e dia de lançamento, com busca, filtros,
-  ordenação, paginação e sorteio.
+  ordenação, paginação e sorteio. A busca, os filtros e as páginas respondem na hora, e as capas usam
+  miniaturas leves.
 - **Botão Ler**, que abre o próximo capítulo no site salvo e confere o link antes.
 - **Marcar como lido** direto da página do capítulo, por uma extensão de navegador ou um favorito.
 - **Lançam hoje**: os mangás em leitura que lançam capítulo no dia e ainda não foram lidos.
@@ -20,7 +21,8 @@ confere e corrige esse link quando o site muda o endereço.
 - **Recomendações** e uma aba para **descobrir** obras por nome, ordem, tags que você quer e tags que não
   quer (em quadros com pesquisa, que podem ser recolhidos), sem repetir o que já está na lista.
 
-Por enquanto o uso é individual: existe uma única conta, que dá acesso a todos os mangás cadastrados.
+Por enquanto o uso é individual: existe uma única conta, que dá acesso a todos os mangás cadastrados. O login
+é feito em uma tela própria e dura 30 dias no navegador, mesmo desligando o computador.
 
 ## Como rodar
 
@@ -70,7 +72,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Filtro de tags no Descobrir](docs/13-filtro-de-tags-no-descobrir.md) | [Recolher as tags no Descobrir](docs/14-recolher-tags-no-descobrir.md) |
 | [Nota dos mangás](docs/15-nota-dos-mangas.md) | [Favoritos e ordem pela nota](docs/16-favoritos-e-ordem-pela-nota.md) |
 | [Favorito de "marcar como lido" que não abria](docs/17-favorito-que-nao-abria.md) | [Selo da nota com ícone](docs/18-selo-da-nota-com-icone.md) |
-| [Destaque roxo do favorito](docs/19-destaque-roxo-do-favorito.md) | |
+| [Destaque roxo do favorito](docs/19-destaque-roxo-do-favorito.md) | [Tela de login de 30 dias](docs/20-tela-de-login.md) |
+| [Desempenho da lista, da busca e das capas](docs/21-desempenho.md) | |
 
 ## Testes
 

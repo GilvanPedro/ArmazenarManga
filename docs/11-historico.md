@@ -92,6 +92,12 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   nome escrito, e o selo na capa ficou maior. Detalhes em [Selo da nota com ícone](18-selo-da-nota-com-icone.md).
 - **Destaque do favorito.** A borda dourada virou um degradê roxo com brilho, a capa ganhou um reflexo discreto
   e as capas passaram a reagir ao mouse. Detalhes em [Destaque roxo do favorito](19-destaque-roxo-do-favorito.md).
+- **Login.** A janela de senha do navegador (HTTP Basic) foi substituída por uma tela de entrada própria, com
+  login de 30 dias guardado em cookie, botão de sair e limite de tentativas erradas. Detalhes em
+  [Tela de login de 30 dias](20-tela-de-login.md).
+- **Desempenho.** O site passou a abrir com uma chamada só, a lista passou a ser guardada no navegador (busca,
+  filtros e páginas sem esperar o servidor), as capas ganharam miniaturas e as novas vão reduzidas. Clicar na aba
+  aberta recarrega. Detalhes em [Desempenho](21-desempenho.md).
 
 ## O que foi removido ou abandonado
 
