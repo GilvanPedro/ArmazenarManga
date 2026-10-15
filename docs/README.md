@@ -28,6 +28,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [22 · Escala e preparação para contas](22-escala-e-contas.md) | Lista feita pelo banco, índices, dono em cada registro e o que falta para o cadastro de contas |
 | [23 · Contas de usuário](23-contas.md) | Cadastro, login por e-mail, página da conta, exclusão e como trazer os mangás de antes das contas |
 | [24 · Foto de perfil](24-foto-de-perfil.md) | A foto de perfil da conta e a ferramenta que passa os mangás antigos para uma conta pelo e-mail |
+| [25 · Página da conta centralizada](25-pagina-da-conta-centralizada.md) | O ajuste que centralizou a página Minha conta |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

@@ -77,6 +77,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Destaque roxo do favorito](docs/19-destaque-roxo-do-favorito.md) | [Tela de login de 30 dias](docs/20-tela-de-login.md) |
 | [Desempenho da lista, da busca e das capas](docs/21-desempenho.md) | [Escala e preparação para contas](docs/22-escala-e-contas.md) |
 | [Contas de usuário](docs/23-contas.md) | [Foto de perfil](docs/24-foto-de-perfil.md) |
+| [Página da conta centralizada](docs/25-pagina-da-conta-centralizada.md) | |
 
 ## Testes
 

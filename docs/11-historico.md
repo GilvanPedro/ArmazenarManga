@@ -106,6 +106,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes em [Contas de usuário](23-contas.md).
 - **Foto de perfil.** Cada conta pode ter uma foto, cortada em quadrado no navegador, que aparece no topo. Veio junto
   uma ferramenta para passar os mangás antigos para uma conta pelo e-mail. Detalhes em [Foto de perfil](24-foto-de-perfil.md).
+- **Página da conta.** Passou a ficar numa coluna no meio da tela, com o cabeçalho centralizado. Detalhes em
+  [Página da conta centralizada](25-pagina-da-conta-centralizada.md).
 
 ## O que foi removido ou abandonado
 
