@@ -115,6 +115,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Comunidade.** Passou a funcionar, no estilo do Twitter: posts com imagens (coladas ou enviadas) e listas de
   mangás anexadas, curtidas, comentários, seguir, perfis e os feeds "Para você" e "Seguindo". Só na versão do
   Vercel. Detalhes em [Comunidade](28-comunidade.md).
+- **Comunidade centralizada.** O feed passou a ficar exatamente no meio da tela, com "Quem seguir" ao lado. Detalhes
+  em [Comunidade centralizada](29-comunidade-centralizada.md).
 
 ## O que foi removido ou abandonado
 

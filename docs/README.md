@@ -32,6 +32,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [26 · Mangás antigos só para admins](26-mangas-antigos-so-para-admins.md) | Quem é admin (`MANGATRACKER_ADMIN_EMAIL`) e a transferência dos mangás antigos só para admins |
 | [27 · Biblioteca e Comunidade](27-biblioteca-e-comunidade.md) | As duas partes do site no topo e a página "Em breve" da Comunidade |
 | [28 · Comunidade](28-comunidade.md) | Posts com imagens e listas, curtidas, comentários, seguir, perfis e o feed "Para você" |
+| [29 · Comunidade centralizada](29-comunidade-centralizada.md) | O ajuste que deixou o feed da Comunidade no meio da tela |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

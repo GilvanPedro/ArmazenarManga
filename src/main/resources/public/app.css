@@ -818,11 +818,14 @@ img.inicial.foto { object-fit: cover; background: var(--superficie-2); }
 
 /* ------------------------------------------------------------ comunidade */
 
-/* feed no meio, com "Quem seguir" ao lado em telas largas */
-.pagina-da-comunidade { display: grid; grid-template-columns: minmax(0, 620px) 300px; justify-content: center; gap: 28px; align-items: start; }
-@media (max-width: 1000px) {
-    .pagina-da-comunidade { grid-template-columns: minmax(0, 620px); }
-    .lateral-da-comunidade { display: none; }
+/* o feed fica exatamente no meio da tela; "Quem seguir" ocupa o espaco da direita, em telas largas */
+.pagina-da-comunidade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 620px) minmax(0, 1fr); gap: 28px; align-items: start; }
+.coluna-da-comunidade { grid-column: 2; }
+.lateral-da-comunidade { grid-column: 3; width: 100%; max-width: 300px; }
+@media (max-width: 1180px) {
+    .pagina-da-comunidade { grid-template-columns: minmax(0, 620px); justify-content: center; }
+    .pagina-da-comunidade .coluna-da-comunidade { grid-column: 1; }
+    .pagina-da-comunidade .lateral-da-comunidade { display: none; }
 }
 .coluna-da-comunidade { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .coluna-da-comunidade > .abas { margin-bottom: 0; }
