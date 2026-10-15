@@ -131,6 +131,14 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   tempo. Detalhes em [Tags da Biblioteca como no Descobrir](34-tags-da-biblioteca-como-no-descobrir.md).
 - **Detalhe da lista.** O mangá aberto dentro de uma lista publicada deixou de mostrar o status, e fechar o detalhe
   voltou a levar à lista. Detalhes em [Detalhe da lista sem status](35-detalhe-da-lista-sem-status.md).
+- **Post aberto.** Clicar num post abre ele em tela própria, com os comentários embaixo; voltar devolve o feed no mesmo
+  ponto. Detalhes em [Post aberto em tela própria](36-post-aberto.md).
+- **Botão de Tags.** O quadro de tags da Biblioteca virou um botão ao lado da ordenação, que abre um painel flutuante.
+  Detalhes em [Botão de Tags na Biblioteca](37-botao-de-tags-na-biblioteca.md).
+- **Clicar fora fecha.** Clicar no fundo de qualquer janela flutuante faz o mesmo que o Esc dela. Detalhes em
+  [Clicar fora fecha a janela](38-clicar-fora-fecha-a-janela.md).
+- **Lista sem status nas capas.** A grade da lista publicada deixou de mostrar o status. Detalhes em
+  [Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md).
 
 ## O que foi removido ou abandonado
 

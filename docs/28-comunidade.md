@@ -19,7 +19,8 @@ indisponível.
   título à lista, se quiser. O post mostra o texto em cima e a lista embaixo, como um retweet com comentário. Depois,
   a lista no post virou um cartão com uma capa só, que abre a lista inteira numa janela: veja
   [Lista publicada em janela](30-lista-publicada-em-janela.md).
-- **Curtir** (♥) e **comentar** (💬). Os comentários abrem embaixo do post.
+- **Curtir** (♥) e **comentar** (💬). Os comentários abrem embaixo do post. Depois, clicar no post ou no 💬 passou a
+  abrir o post em tela própria: veja [Post aberto em tela própria](36-post-aberto.md).
 - **Seguir** leitores: pelo botão "Seguir" ao lado do nome nos posts, nas sugestões "Quem seguir" ou no perfil.
 - **Perfil** de cada leitor (`#/comunidade/perfil/{id}`): foto, nick, desde quando está na Comunidade, número de
   posts, seguidores e seguindo, e os posts dele. No próprio perfil, dá para postar e há o link "Editar perfil".

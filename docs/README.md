@@ -39,6 +39,10 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [33 · Escala da Comunidade](33-escala-da-comunidade.md) | Comunidade para mil leitores ao mesmo tempo e o aviso de 10 ou mais posts novos |
 | [34 · Tags da Biblioteca como no Descobrir](34-tags-da-biblioteca-como-no-descobrir.md) | O quadro de tags da Biblioteca, com pesquisa e várias tags |
 | [35 · Detalhe da lista sem status](35-detalhe-da-lista-sem-status.md) | O mangá da lista publicada sem o status, e fechar o detalhe voltando à lista |
+| [36 · Post aberto em tela própria](36-post-aberto.md) | Clicar num post abre ele maior, com os comentários, e voltar devolve o feed no mesmo ponto |
+| [37 · Botão de Tags na Biblioteca](37-botao-de-tags-na-biblioteca.md) | O quadro de tags virou um botão ao lado da ordenação, com painel flutuante |
+| [38 · Clicar fora fecha a janela](38-clicar-fora-fecha-a-janela.md) | Clicar no fundo de qualquer janela flutuante faz o mesmo que fechá-la |
+| [39 · Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md) | As capas da lista mostram só a nota, sem o status |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

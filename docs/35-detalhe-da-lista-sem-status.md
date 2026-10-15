@@ -7,7 +7,8 @@ Ajuste feito em outubro de 2026 na janela da lista publicada (veja
 
 - **Sem o status no detalhe do mangá.** Ao abrir um mangá dentro da lista, o selo de status de quem cadastrou (Lendo,
   Hiatus, Concluído…) não aparece mais. Continuam a nota (ou "Sem nota"), o selo de favorito, o último capítulo lido, as
-  tags e a descrição. Na grade da lista, as capas continuam como antes.
+  tags e a descrição. Na grade da lista, as capas continuaram como antes (depois o status saiu delas também: veja
+  [Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md)).
 - **Fechar o detalhe volta à lista.** Com um mangá aberto, o **×** e o **Esc** voltam para a grade da lista, em vez de
   fechar a janela e voltar à Comunidade. Com a grade aberta, o × e o Esc fecham a janela, como antes. "← Voltar para a
   lista" continua funcionando.

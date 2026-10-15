@@ -572,11 +572,40 @@ function telaGrade() {
         carregarGrade(lista, paginacao);
     });
 
-    // quadro de tags, como o do Descobrir: so as tags que quero ver (o manga precisa ter todas). As tags sao as que
-    // estao em algum manga da Biblioteca. Clicar numa tag na pagina de um manga chega aqui com ela ja escolhida
-    const lugarDasTags = h('div', {class: 'tags-da-biblioteca'});
+    // filtro de tags compacto, ao lado da ordem: um botao "Tags" que abre, flutuando por cima da lista, o quadro do
+    // Descobrir (pesquisa e as tags dos mangas da Biblioteca). O manga precisa ter todas as escolhidas. Clicar numa tag
+    // na pagina de um manga chega aqui com ela ja escolhida
+    const botaoDeTags = h('button', {type: 'button', class: 'botao botao-de-tags', 'aria-haspopup': 'true', 'aria-expanded': 'false'});
+    const painelDeTags = h('div', {class: 'painel-de-tags', hidden: true});
+    const filtroDeTags = h('div', {class: 'filtro-de-tags'}, botaoDeTags, painelDeTags);
+    const mostrarBotaoDeTags = () => {
+        const quantas = estado.filtroTags.length;
+        botaoDeTags.replaceChildren(...[h('span', {'aria-hidden': 'true'}, '🏷 '), 'Tags', quantas ? h('span', {class: 'quantas-tags'}, String(quantas)) : null].filter(Boolean));
+        botaoDeTags.classList.toggle('ativo', quantas > 0);
+        botaoDeTags.title = quantas ? 'Tags escolhidas: ' + estado.filtroTags.join(', ') : 'Filtrar por tags';
+    };
+    const abrirPainel = aberto => {
+        painelDeTags.hidden = !aberto;
+        botaoDeTags.setAttribute('aria-expanded', String(aberto));
+        if (aberto) painelDeTags.querySelector('input')?.focus();
+    };
+    botaoDeTags.addEventListener('click', () => abrirPainel(painelDeTags.hidden));
+    // clicar fora ou Esc fecha o painel
+    const fecharDeFora = evento => {
+        if (!filtroDeTags.isConnected) return document.removeEventListener('pointerdown', fecharDeFora);
+        if (!filtroDeTags.contains(evento.target)) abrirPainel(false);
+    };
+    document.addEventListener('pointerdown', fecharDeFora);
+    filtroDeTags.addEventListener('keydown', evento => {
+        if (evento.key === 'Escape' && !painelDeTags.hidden) {
+            abrirPainel(false);
+            botaoDeTags.focus();
+        }
+    });
+    mostrarBotaoDeTags();
     const quandoMudarTags = () => {
         estado.pagina = 1;
+        mostrarBotaoDeTags();
         // o endereco acompanha (#/tag/{nome}/{nome}), sem recarregar a tela
         history.replaceState(null, '', estado.filtroTags.length ? '#/tag/' + estado.filtroTags.map(encodeURIComponent).join('/') : '#/');
         carregarGrade(lista, paginacao);
@@ -585,13 +614,18 @@ function telaGrade() {
         const emUso = tags.filter(item => item.quantidade > 0).map(item => item.nome);
         // a mesma tag escrita de outro jeito (no endereco) vira o nome da lista
         estado.filtroTags = estado.filtroTags.map(tag => emUso.find(nome => nome.toLowerCase() === tag.toLowerCase()) || tag);
+        mostrarBotaoDeTags();
         const todas = [...emUso, ...estado.filtroTags.filter(tag => !emUso.includes(tag))];
-        if (todas.length === 0) return;
+        if (todas.length === 0) {
+            painelDeTags.replaceChildren(h('p', {class: 'subtitulo'}, 'Seus mangás ainda não têm tags.'));
+            return;
+        }
         let quadro;
         quadro = quadroDeTags('Tags que quero ver', 'biblioteca', todas, () => estado.filtroTags, lista => { estado.filtroTags = lista; }, () => [], '',
             () => { quadro.desenhar(); quandoMudarTags(); },
-            {aberta: () => estado.tagsDaBibliotecaAbertas, mudar: aberta => { estado.tagsDaBibliotecaAbertas = aberta; quadro.desenhar(); }});
-        lugarDasTags.replaceChildren(quadro.elemento);
+            // no painel a lista de tags fica sempre aberta
+            {aberta: () => true, mudar: () => {}});
+        painelDeTags.replaceChildren(quadro.elemento);
     }).catch(() => {});
 
     const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
@@ -620,9 +654,9 @@ function telaGrade() {
         h('div', {class: 'ferramentas'},
             busca,
             h('span', {class: 'espaco'}),
+            filtroDeTags,
             ordenar,
             h('button', {type: 'button', class: 'botao', onclick: sortear}, '🎲 Sortear')),
-        lugarDasTags,
         filtros,
         lista,
         paginacao);
@@ -2327,6 +2361,12 @@ function rota() {
     document.title = 'Meus Mangás';
     marcarSecao(partes[0] === 'comunidade' ? 'comunidade' : partes[0] === 'conta' ? null : 'biblioteca');
     clearInterval(estado.vigiaDoFeed);
+    // voltando de um post para a tela da Comunidade de onde ele foi aberto: ela volta como estava
+    const guardada = estado.comunidadeGuardada;
+    if (guardada && !(partes[0] === 'comunidade' && partes[1] === 'post')) {
+        if (location.hash === guardada.hash) return restaurarComunidade(guardada);
+        estado.comunidadeGuardada = null;
+    }
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     estado.recarregar = null;
     // uma busca digitada logo antes de trocar de tela nao pode disparar depois e atrapalhar a tela nova
@@ -2539,10 +2579,12 @@ async function telaComunidade(partes) {
     if (qual === 'perfil' && id) return telaPerfil(principal, id, vez);
     if (qual === 'post' && id) {
         document.title = 'Post · Comunidade · Meus Mangás';
-        principal.append(h('a', {class: 'voltar', href: '#/comunidade'}, '← Comunidade'));
+        principal.append(h('div', {class: 'topo-do-post-aberto'},
+            h('button', {type: 'button', class: 'voltar-do-post', onclick: voltarDoPost, 'aria-label': 'Voltar'}, '←'),
+            h('h1', null, 'Post')));
         try {
             const post = await chamar('GET', '/api/comunidade/posts/' + encodeURIComponent(id));
-            if (vez === estado.render) principal.append(cartaoDePost(post, {comentariosAbertos: true}));
+            if (vez === estado.render) principal.append(cartaoDePost(post, {maximizado: true}));
         } catch (e) {
             if (vez === estado.render) principal.append(vazio('Post não encontrado', e.message));
         }
@@ -2574,7 +2616,9 @@ async function telaComunidade(partes) {
         : vazio('A Comunidade está começando', 'Seja o primeiro a postar: conte o que está lendo ou compartilhe uma lista.'));
     if (aberto) {
         avisoDeNovos.dataset.desde = aberto.geradoEm;
-        vigiarPostsNovos(feed, aberto.geradoEm, avisoDeNovos, vez);
+        // ao voltar de um post, a consulta de posts novos recomeca de onde estava
+        estado.retomarFeed = () => vigiarPostsNovos(feed, aberto.geradoEm, avisoDeNovos, vez);
+        estado.retomarFeed();
     }
 }
 
@@ -2746,13 +2790,12 @@ function verImagem(endereco) {
     dialogo.showModal();
 }
 
-/** Capa de um manga da lista anexada (a copia de quando foi publicada), com o status e a nota por cima. */
-function capaDaLista(item, comSelos) {
+/** Capa de um manga da lista anexada (a copia de quando foi publicada), com a nota por cima (o status nao aparece). */
+function capaDaLista(item, comNota) {
     return h('div', {class: 'capa' + (item.favorito ? ' favorita' : '')},
         item.capa ? h('img', {src: item.capa, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'})
             : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (item.titulo || '?').charAt(0).toUpperCase()),
-        comSelos && item.status ? etiquetaStatus(item.status) : null,
-        comSelos ? etiquetaNota(item.nota) : null);
+        comNota ? etiquetaNota(item.nota) : null);
 }
 
 /**
@@ -2827,8 +2870,67 @@ function abrirListaDoPost(lista, autor) {
     dialogo.showModal();
 }
 
-function cartaoDePost(post, {comentariosAbertos} = {}) {
-    const cartao = h('article', {class: 'post'});
+/**
+ * Abre um post em tela propria (maior, com os comentarios embaixo), guardando a tela da Comunidade de onde a pessoa
+ * veio do jeito que estava (posts carregados e rolagem). Voltar devolve essa tela, sem recarregar o feed.
+ */
+function abrirPost(id) {
+    estado.comunidadeGuardada = {
+        hash: location.hash || '#/comunidade',
+        filhos: [...app.childNodes],
+        rolagem: window.scrollY,
+        vez: estado.render,
+        recarregar: estado.recarregar,
+        retomar: estado.retomarFeed,
+        titulo: document.title,
+    };
+    estado.postAberto = id;
+    location.hash = '#/comunidade/post/' + id;
+}
+
+/** Devolve a tela da Comunidade guardada ao abrir um post, no mesmo ponto da rolagem. */
+function restaurarComunidade(guardada) {
+    estado.comunidadeGuardada = null;
+    app.replaceChildren(...guardada.filhos);
+    estado.render = guardada.vez;
+    estado.recarregar = guardada.recarregar;
+    document.title = guardada.titulo;
+    requestAnimationFrame(() => window.scrollTo(0, guardada.rolagem));
+    if (guardada.retomar) guardada.retomar();
+    // o post que foi aberto volta atualizado (curtidas e comentarios novos), ou some, se foi apagado
+    const id = estado.postAberto;
+    estado.postAberto = null;
+    const antigo = id ? app.querySelector('.post[data-id="' + id + '"]') : null;
+    if (!antigo) return;
+    if (estado.postApagado === id) {
+        antigo.remove();
+        estado.postApagado = null;
+        return;
+    }
+    chamar('GET', '/api/comunidade/posts?ids=' + id).then(([novo]) => {
+        if (novo && antigo.isConnected) antigo.replaceWith(cartaoDePost(novo));
+    }).catch(() => {});
+}
+
+/** Sai do post aberto: volta para onde a pessoa estava na Comunidade (ou para o feed, se entrou direto no post). */
+function voltarDoPost() {
+    if (estado.comunidadeGuardada) history.back();
+    else location.hash = '#/comunidade';
+}
+
+/**
+ * Um post. No feed, clicar nele (fora dos botoes e links) ou no 💬 abre o post em tela propria. Maximizado (a tela do
+ * post), o texto fica maior e os comentarios aparecem embaixo, com o campo de comentar no alto deles.
+ */
+function cartaoDePost(post, {maximizado} = {}) {
+    const cartao = h('article', {class: 'post' + (maximizado ? ' maximizado' : ' clicavel'), 'data-id': post.id});
+    if (!maximizado) {
+        cartao.addEventListener('click', evento => {
+            // botoes, links, imagens e texto selecionado continuam fazendo o que fazem
+            if (evento.target.closest('a, button, input, textarea, select, label') || String(window.getSelection()).trim()) return;
+            abrirPost(post.id);
+        });
+    }
     const curtir = h('button', {type: 'button', class: 'acao-do-post curtir', 'aria-pressed': String(post.curti)});
     const mostrarCurtidas = () => {
         curtir.setAttribute('aria-pressed', String(post.curti));
@@ -2851,25 +2953,27 @@ function cartaoDePost(post, {comentariosAbertos} = {}) {
     });
     mostrarCurtidas();
 
-    const areaDeComentarios = h('div', {class: 'comentarios', hidden: true});
-    const comentar = h('button', {type: 'button', class: 'acao-do-post', 'aria-expanded': 'false'});
+    const areaDeComentarios = maximizado ? h('section', {class: 'comentarios', 'aria-label': 'Comentários'}) : null;
+    const comentar = h('button', {type: 'button', class: 'acao-do-post', title: maximizado ? 'Comentar' : 'Ver os comentários'});
     const mostrarComentarios = () => comentar.replaceChildren(h('span', {'aria-hidden': 'true'}, '💬'), ' ', String(post.comentarios), h('span', {class: 'so-leitor'}, ' comentários'));
     mostrarComentarios();
-    const abrirComentarios = async () => {
-        const abrir = areaDeComentarios.hidden;
-        areaDeComentarios.hidden = !abrir;
-        comentar.setAttribute('aria-expanded', String(abrir));
-        if (abrir) await carregarComentarios(post, areaDeComentarios, total => { post.comentarios = total; mostrarComentarios(); });
-    };
-    comentar.addEventListener('click', abrirComentarios);
+    comentar.addEventListener('click', () => {
+        if (maximizado) areaDeComentarios.querySelector('textarea')?.focus();
+        else abrirPost(post.id);
+    });
 
     const apagar = post.podeApagar ? h('button', {type: 'button', class: 'acao-do-post apagar', title: 'Apagar post'}, h('span', {'aria-hidden': 'true'}, '🗑'), h('span', {class: 'so-leitor'}, 'Apagar post')) : null;
     if (apagar) apagar.addEventListener('click', async () => {
         if (!await confirmar('Apagar o post?', 'O post, as curtidas e os comentários dele somem para sempre.', 'Apagar')) return;
         try {
             await chamar('DELETE', '/api/comunidade/posts/' + post.id);
-            cartao.remove();
             avisar('Post apagado');
+            if (maximizado) {
+                estado.postApagado = post.id;
+                voltarDoPost();
+            } else {
+                cartao.remove();
+            }
         } catch (e) {
             avisar(e.message, true);
         }
@@ -2881,20 +2985,25 @@ function cartaoDePost(post, {comentariosAbertos} = {}) {
         h('div', {class: 'corpo-do-post'},
             h('div', {class: 'cabecalho-do-post'},
                 h('a', {class: 'nick', href: perfil}, post.autor.nick),
-                h('a', {class: 'quando', href: '#/comunidade/post/' + post.id, title: new Date(post.criadoEm).toLocaleString('pt-BR')}, quandoFoi(post.criadoEm)),
+                h('a', {class: 'quando', href: '#/comunidade/post/' + post.id, title: new Date(post.criadoEm).toLocaleString('pt-BR'),
+                    onclick: maximizado ? null : evento => { evento.preventDefault(); abrirPost(post.id); }}, quandoFoi(post.criadoEm)),
                 !post.meu && !post.sigoOAutor ? botaoDeSeguir(post.autor.id, false) : null),
             post.texto ? h('p', {class: 'texto-do-post'}, post.texto) : null,
             post.imagens.length ? h('div', {class: 'imagens-do-post quantas-' + post.imagens.length},
                 post.imagens.map(endereco => h('button', {type: 'button', class: 'imagem-do-post', onclick: () => verImagem(endereco), 'aria-label': 'Ver imagem'},
                     h('img', {src: endereco, alt: '', loading: 'lazy', decoding: 'async'})))) : null,
             post.lista ? listaDoPost(post.lista, post.autor) : null,
-            h('div', {class: 'acoes-do-post'}, comentar, curtir, apagar),
-            areaDeComentarios));
-    if (comentariosAbertos) abrirComentarios();
+            h('div', {class: 'acoes-do-post'}, comentar, curtir, apagar)));
+    if (maximizado) {
+        carregarComentarios(post, areaDeComentarios, total => { post.comentarios = total; mostrarComentarios(); }, true);
+        // os comentarios ficam embaixo do post, ocupando a largura toda
+        return h('div', {class: 'post-aberto'}, cartao, areaDeComentarios);
+    }
     return cartao;
 }
 
-async function carregarComentarios(post, area, aoContar) {
+/** @param formularioAntes o campo de comentar vem antes da lista (na tela do post, como no Twitter) */
+async function carregarComentarios(post, area, aoContar, formularioAntes) {
     const lista = h('div', {class: 'lista-de-comentarios'});
     const campo = h('textarea', {rows: '1', maxlength: String(TEXTO_DO_POST_MAXIMO), placeholder: 'Escreva um comentário…', 'aria-label': 'Comentário'});
     const enviar = h('button', {type: 'submit', class: 'botao pequeno primario'}, 'Comentar');
@@ -2943,7 +3052,7 @@ async function carregarComentarios(post, area, aoContar) {
         area.replaceChildren(h('p', {class: 'erro-de-login'}, e.message));
         return;
     }
-    area.replaceChildren(lista, formulario);
+    area.replaceChildren(...(formularioAntes ? [formulario, lista] : [lista, formulario]));
 }
 
 /** O botao redondo no canto, que abre a janela de escrever um post. */
@@ -3470,4 +3579,26 @@ async function abrirSite() {
     rota();
 }
 
+/**
+ * Clicar fora de uma janela flutuante (no fundo escurecido) e o mesmo que fechar: faz o que o Esc faria. Janelas que
+ * tratam o Esc de outro jeito (a lista publicada, com um manga aberto, volta para a lista) fazem o mesmo aqui. O clique
+ * precisa comecar e terminar fora, para selecionar um texto e soltar fora nao fechar nada.
+ */
+function foraDaJanela(janela, evento) {
+    const caixa = janela.getBoundingClientRect();
+    return evento.clientX < caixa.left || evento.clientX > caixa.right || evento.clientY < caixa.top || evento.clientY > caixa.bottom;
+}
+let janelaClicadaFora = null;
+document.addEventListener('pointerdown', evento => {
+    janelaClicadaFora = evento.target instanceof HTMLDialogElement && evento.target.open && foraDaJanela(evento.target, evento) ? evento.target : null;
+});
+document.addEventListener('click', evento => {
+    const janela = janelaClicadaFora;
+    janelaClicadaFora = null;
+    if (!janela || evento.target !== janela || !janela.open || !foraDaJanela(janela, evento)) return;
+    if (janela.dispatchEvent(new Event('cancel', {cancelable: true}))) janela.close();
+});
+
+// voltar de um post devolve a rolagem do feed pelo proprio site
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 iniciar();

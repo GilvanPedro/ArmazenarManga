@@ -190,10 +190,30 @@ select:disabled { opacity: .55; }
 .ferramentas input[type=search] { flex: 1 1 240px; max-width: 420px; }
 .ferramentas .espaco { flex: 1 1 0; }
 .ferramentas select.ordenar { width: auto; flex: 0 1 auto; max-width: 100%; }
-/* quadro de tags da Biblioteca (o mesmo do Descobrir, so com as tags que quero ver) */
-.tags-da-biblioteca { margin-bottom: 14px; }
-.tags-da-biblioteca:empty { display: none; }
+/* filtro de tags da Biblioteca: um botao ao lado da ordem, que abre o quadro de tags flutuando por cima da lista */
+.filtro-de-tags { position: relative; }
+.botao-de-tags { gap: 6px; }
+.botao-de-tags.ativo { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque); }
+.quantas-tags { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--destaque); color: var(--sobre-destaque); font-size: 12px; font-weight: 800; }
+.painel-de-tags {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 6;
+    width: min(380px, calc(100vw - 32px));
+    padding: 0;
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+}
+.painel-de-tags[hidden] { display: none; }
+.painel-de-tags > .subtitulo { margin: 0; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.painel-de-tags .quadro-de-tags { padding: 12px; }
+.painel-de-tags .recolher-tags { display: none; }
+.painel-de-tags .opcoes-de-tag { max-height: 220px; }
 .quadro-de-tags.biblioteca h3::before { content: "🏷 "; }
+@media (max-width: 560px) {
+    .painel-de-tags { right: auto; left: 0; }
+}
 .recomendacoes .generos, .cartao > .generos { text-align: center; color: var(--texto-fraco); font-size: 12px; min-height: 1.5em; margin-top: -4px; }
 .paginacao span.total:not(:last-child) { flex-basis: auto; margin-top: 0; }
 
@@ -946,6 +966,22 @@ dialog.janela-da-lista[open] { display: flex; }
 
 /* posts */
 .feed { display: flex; flex-direction: column; gap: 12px; }
+.post.clicavel { cursor: pointer; transition: border-color .15s, background .15s; }
+.post.clicavel:hover { border-color: color-mix(in srgb, var(--texto) 25%, var(--borda)); }
+/* post aberto em tela propria: texto maior e os comentarios embaixo, como no Twitter */
+.topo-do-post-aberto { display: flex; align-items: center; gap: 14px; }
+.topo-do-post-aberto h1 { margin: 0; font-size: 22px; }
+.voltar-do-post { width: 38px; height: 38px; border: 0; border-radius: 50%; background: none; color: var(--texto); font-size: 22px; cursor: pointer; }
+.voltar-do-post:hover { background: color-mix(in srgb, var(--texto) 9%, transparent); }
+.voltar-do-post:focus-visible { outline: 2px solid var(--destaque); }
+.post-aberto { display: flex; flex-direction: column; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); overflow: hidden; }
+.post-aberto .post { border: 0; border-radius: 0; padding: 18px 18px 12px; }
+.post.maximizado .texto-do-post { font-size: 19px; line-height: 1.5; }
+.post.maximizado .acoes-do-post { padding-top: 10px; border-top: 1px solid var(--borda); }
+.post-aberto .comentarios { padding: 14px 18px 18px; border-top: 1px solid var(--borda); gap: 14px; }
+.post-aberto .lista-de-comentarios { gap: 0; }
+.post-aberto .comentario { padding: 14px 0; border-top: 1px solid var(--borda); }
+.post-aberto .novo-comentario { padding-bottom: 4px; }
 .post { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
 .autor-do-post { flex: none; text-decoration: none; }
 .corpo-do-post { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }

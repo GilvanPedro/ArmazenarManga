@@ -43,3 +43,6 @@ vale para contas grandes, em que a lista é filtrada pelo servidor.
   em todas as ordens.
 - No navegador, com 15 mangás: o quadro começa recolhido; pesquisar abre e Enter marca; Fantasy (9), Fantasy e Action
   (6), somado ao status Lendo (2); recolher mantendo as escolhidas; Limpar; chegar pela tag de um mangá; e o celular.
+
+> Depois, o quadro saiu de baixo da busca e virou um botão ao lado da ordenação: veja
+> [Botão de Tags na Biblioteca](37-botao-de-tags-na-biblioteca.md).
