@@ -129,6 +129,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   de 10 ou mais posts novos no algoritmo de cada pessoa. Detalhes em [Escala da Comunidade](33-escala-da-comunidade.md).
 - **Tags da Biblioteca como no Descobrir.** O seletor virou o quadro de tags do Descobrir, com várias tags ao mesmo
   tempo. Detalhes em [Tags da Biblioteca como no Descobrir](34-tags-da-biblioteca-como-no-descobrir.md).
+- **Detalhe da lista.** O mangá aberto dentro de uma lista publicada deixou de mostrar o status, e fechar o detalhe
+  voltou a levar à lista. Detalhes em [Detalhe da lista sem status](35-detalhe-da-lista-sem-status.md).
 
 ## O que foi removido ou abandonado
 

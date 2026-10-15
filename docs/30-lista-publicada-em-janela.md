@@ -25,7 +25,8 @@ status, a nota e a borda de favorito.
 
 Clicar num mangá mostra, na mesma janela, **o que o autor tinha cadastrado** quando publicou a lista:
 
-- capa, status, **nota** (ou "Sem nota") e o selo **Favorito**;
+- capa, status, **nota** (ou "Sem nota") e o selo **Favorito** (o status saiu depois: veja
+  [Detalhe da lista sem status](35-detalhe-da-lista-sem-status.md));
 - **último capítulo lido**;
 - **tags**;
 - **descrição** (ou "Sem descrição").

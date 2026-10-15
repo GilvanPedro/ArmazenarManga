@@ -2771,15 +2771,30 @@ function listaDoPost(lista, autor) {
         h('span', {class: 'ver-lista'}, 'Ver lista →')));
 }
 
-/** Janela com todos os mangas da lista; clicar em um mostra o que o autor tinha cadastrado dele. So para ver. */
+/**
+ * Janela com todos os mangas da lista; clicar em um mostra o que o autor tinha cadastrado dele. So para ver. Com um
+ * manga aberto, fechar (× ou Esc) volta para a lista; com a lista aberta, fecha a janela.
+ */
 function abrirListaDoPost(lista, autor) {
     const conteudo = h('div', {class: 'conteudo-da-lista'});
     const titulo = h('h2', null);
     const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
     const dialogo = h('dialog', {class: 'janela-da-lista-publicada'}, h('div', {class: 'topo-da-janela'}, titulo, fechar), conteudo);
-    fechar.addEventListener('click', () => dialogo.close());
+    let vendoManga = false;
+    fechar.addEventListener('click', () => {
+        if (vendoManga) mostrarLista();
+        else dialogo.close();
+    });
+    // o Esc do navegador tambem volta para a lista antes de fechar
+    dialogo.addEventListener('cancel', evento => {
+        if (!vendoManga) return;
+        evento.preventDefault();
+        mostrarLista();
+    });
 
     const mostrarLista = () => {
+        vendoManga = false;
+        fechar.setAttribute('aria-label', 'Fechar');
         titulo.textContent = lista.titulo || 'Lista de mangás';
         conteudo.replaceChildren(
             h('p', {class: 'subtitulo'}, 'Lista de ', h('b', null, autor.nick), ' · ', lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás'),
@@ -2787,6 +2802,8 @@ function abrirListaDoPost(lista, autor) {
                 onclick: () => mostrarManga(item)}, capaDaLista(item, true), h('span', {class: 'nome-do-item'}, item.titulo)))));
     };
     const mostrarManga = item => {
+        vendoManga = true;
+        fechar.setAttribute('aria-label', 'Voltar para a lista');
         titulo.textContent = item.titulo;
         const capitulo = item.capitulo == null ? null : mostrarCapitulo(item.capitulo);
         conteudo.replaceChildren(
@@ -2794,8 +2811,8 @@ function abrirListaDoPost(lista, autor) {
             h('div', {class: 'manga-da-lista'},
                 capaDaLista(item, false),
                 h('div', {class: 'sobre-o-manga'},
+                    // o status (lendo, hiatus...) e de quem cadastrou: nao aparece aqui
                     h('div', {class: 'linha'},
-                        item.status ? etiquetaStatus(item.status) : null,
                         item.nota != null ? etiquetaNota(item.nota, true) : h('span', {class: 'capitulo-atual'}, 'Sem nota'),
                         item.favorito ? h('span', {class: 'selo-favorito'}, '★ Favorito') : null),
                     capitulo != null ? h('p', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, capitulo)) : null,

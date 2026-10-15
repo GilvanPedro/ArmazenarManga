@@ -38,6 +38,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [32 · Filtro de tag na Biblioteca](32-filtro-de-tag-na-biblioteca.md) | O seletor de tags ao lado da ordenação, na lista da Biblioteca |
 | [33 · Escala da Comunidade](33-escala-da-comunidade.md) | Comunidade para mil leitores ao mesmo tempo e o aviso de 10 ou mais posts novos |
 | [34 · Tags da Biblioteca como no Descobrir](34-tags-da-biblioteca-como-no-descobrir.md) | O quadro de tags da Biblioteca, com pesquisa e várias tags |
+| [35 · Detalhe da lista sem status](35-detalhe-da-lista-sem-status.md) | O mangá da lista publicada sem o status, e fechar o detalhe voltando à lista |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
