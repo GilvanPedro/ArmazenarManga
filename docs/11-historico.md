@@ -141,6 +141,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Lista publicada sem status nas capas](39-lista-sem-status-nas-capas.md).
 - **Campo de tags.** O campo de pesquisar tag do painel deixou de ser um bloco gigante, e o painel parou de sair da
   tela no celular. Detalhes em [Campo de tags como barra de pesquisa](40-campo-de-tags-como-barra-de-pesquisa.md).
+- **Comunidade mais larga.** O feed passou de 620 para 860 px, junto do "Quem seguir"; as abas perderam a barra de
+  rolagem; e o rótulo "Lista" perdeu o emoji. Detalhes em [Comunidade mais larga](41-comunidade-mais-larga.md).
 
 ## O que foi removido ou abandonado
 

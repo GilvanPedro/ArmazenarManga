@@ -165,11 +165,13 @@ input::placeholder, textarea::placeholder { color: var(--texto-fraco); opacity: 
 
 /* ------------------------------------------------------------ grade */
 
-.abas { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 1px solid var(--borda); overflow-x: auto; }
+/* a linha embaixo das abas e uma sombra por dentro: com borda, o sublinhado da aba ativa (margem -1px) passava 1px e
+   criava uma barra de rolagem */
+.abas { display: flex; gap: 4px; margin-bottom: 18px; box-shadow: inset 0 -1px var(--borda); overflow-x: auto; scrollbar-width: none; }
+.abas::-webkit-scrollbar { display: none; }
 .aba {
     flex: none;
     padding: 9px 14px;
-    margin-bottom: -1px;
     border-bottom: 2px solid transparent;
     color: var(--texto-fraco);
     font-weight: 650;
@@ -847,12 +849,12 @@ img.inicial.foto { object-fit: cover; background: var(--superficie-2); }
 
 /* ------------------------------------------------------------ comunidade */
 
-/* o feed fica exatamente no meio da tela; "Quem seguir" ocupa o espaco da direita, em telas largas */
-.pagina-da-comunidade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 620px) minmax(0, 1fr); gap: 28px; align-items: start; }
-.coluna-da-comunidade { grid-column: 2; }
-.lateral-da-comunidade { grid-column: 3; width: 100%; max-width: 300px; }
-@media (max-width: 1180px) {
-    .pagina-da-comunidade { grid-template-columns: minmax(0, 620px); justify-content: center; }
+/* o feed largo e "Quem seguir" do lado direito, os dois juntos no meio da tela; em telas menores, so o feed */
+.pagina-da-comunidade { display: grid; grid-template-columns: minmax(0, 860px) 300px; justify-content: center; gap: 28px; align-items: start; }
+.coluna-da-comunidade { grid-column: 1; }
+.lateral-da-comunidade { grid-column: 2; width: 100%; }
+@media (max-width: 1100px) {
+    .pagina-da-comunidade { grid-template-columns: minmax(0, 860px); justify-content: center; }
     .pagina-da-comunidade .coluna-da-comunidade { grid-column: 1; }
     .pagina-da-comunidade .lateral-da-comunidade { display: none; }
 }

@@ -27,3 +27,6 @@ Vale para o feed, para o perfil de cada leitor e para a página de um post sozin
 
 Conferido em um navegador, medindo o espaço dos dois lados do feed: iguais em 1920, 1366, 1200, 1100 e 768 px, e
 16 px de cada lado no celular (375 px), sem rolagem para o lado. Não há teste automático.
+
+> Depois, o feed ficou mais largo (até 860 px) e passou a ficar no meio da tela junto com o "Quem seguir": veja
+> [Comunidade mais larga](41-comunidade-mais-larga.md).

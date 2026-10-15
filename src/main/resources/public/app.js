@@ -2808,7 +2808,7 @@ function listaDoPost(lista, autor) {
         onclick: () => abrirListaDoPost(lista, autor)},
     h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false)),
     h('div', {class: 'sobre-a-lista'},
-        h('span', {class: 'tipo-da-lista'}, '📚 Lista'),
+        h('span', {class: 'tipo-da-lista'}, 'Lista'),
         h('b', null, lista.titulo || 'Lista de mangás'),
         h('small', null, quantos + ': ' + lista.itens.slice(0, 3).map(item => item.titulo).join(', ') + (lista.itens.length > 3 ? '…' : '')),
         h('span', {class: 'ver-lista'}, 'Ver lista →')));
@@ -3107,7 +3107,7 @@ function editorDePost(aoPublicar, naJanela) {
             h('button', {type: 'button', class: 'tirar', 'aria-label': 'Tirar imagem', onclick: () => { imagens.splice(imagens.indexOf(imagem), 1); atualizar(); }}, '×'))),
             ...Array.from({length: enviando}, () => h('div', {class: 'previa carregando'}, '…')));
         anexo.replaceChildren(...(lista ? [h('div', {class: 'lista-anexada'},
-            h('span', null, '📚 ', h('b', null, lista.titulo || 'Lista de mangás'), ' · ', lista.mangas.length === 1 ? '1 mangá' : lista.mangas.length + ' mangás'),
+            h('span', null, h('b', null, lista.titulo || 'Lista de mangás'), ' · ', lista.mangas.length === 1 ? '1 mangá' : lista.mangas.length + ' mangás'),
             h('button', {type: 'button', class: 'botao pequeno', onclick: () => escolherLista(lista, nova => { lista = nova; atualizar(); })}, 'Editar'),
             h('button', {type: 'button', class: 'tirar', 'aria-label': 'Tirar a lista', onclick: () => { lista = null; atualizar(); }}, '×'))] : []));
     };
