@@ -87,7 +87,32 @@ h1, h2 { line-height: 1.2; margin: 0; text-wrap: balance; }
     text-decoration: none;
 }
 
-.acoes-do-topo { display: flex; align-items: center; gap: 8px; }
+.acoes-do-topo { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+/* as duas partes do site, ao lado do logo */
+.secoes { display: flex; align-items: center; gap: 4px; margin-left: 18px; }
+.secoes[hidden] { display: none; }
+.secao {
+    padding: 7px 14px;
+    border-radius: 999px;
+    color: var(--texto-fraco);
+    font-weight: 700;
+    font-size: 15px;
+    text-decoration: none;
+    transition: background .12s, color .12s;
+}
+.secao:hover { color: var(--texto); background: color-mix(in srgb, var(--texto) 7%, transparent); }
+.secao[aria-current=page] { color: var(--texto); background: color-mix(in srgb, var(--destaque) 16%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--destaque) 45%, transparent); }
+.secao:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+/* telas estreitas: as partes descem para uma linha propria, embaixo do logo e dos botoes */
+@media (max-width: 720px) {
+    .topo { flex-wrap: wrap; row-gap: 8px; }
+    .secoes { order: 3; flex-basis: 100%; margin-left: 0; }
+    .secao { flex: 1; text-align: center; }
+}
+/* celular: so o icone do logo, para os botoes caberem na mesma linha */
+@media (max-width: 480px) {
+    .marca span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
 .acoes-do-topo [hidden] { display: none; }
 
 main {
@@ -790,3 +815,16 @@ img.inicial.foto { object-fit: cover; background: var(--superficie-2); }
 .secao-da-conta label.botao { position: relative; overflow: hidden; }
 .secao-da-conta label.botao input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .secao-da-conta label.botao:focus-within { outline: 2px solid var(--destaque); outline-offset: 2px; }
+
+/* ------------------------------------------------------------ comunidade (em breve) */
+
+.pagina-da-comunidade { display: flex; flex-direction: column; gap: 28px; max-width: 900px; margin: 0 auto; padding-top: 18px; }
+.chamada-da-comunidade { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.chamada-da-comunidade h1 { margin: 0; font-size: clamp(30px, 5vw, 42px); letter-spacing: -.02em; }
+.chamada-da-comunidade .subtitulo { margin: 0; max-width: 52ch; }
+.selo-em-breve { padding: 3px 12px; border-radius: 999px; background: #8b5cf6; color: #fff; font-size: 12.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.ideias-da-comunidade { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; }
+.ideia-da-comunidade { display: flex; flex-direction: column; gap: 8px; padding: 20px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.ideia-da-comunidade h2 { margin: 0; font-size: 18px; }
+.ideia-da-comunidade p { margin: 0; color: var(--texto-fraco); line-height: 1.5; }
+.icone-da-ideia { font-size: 28px; line-height: 1; }

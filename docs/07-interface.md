@@ -15,6 +15,13 @@ biblioteca nem etapa de build: o que está no repositório é o que o navegador 
 
 ## Telas
 
+O topo divide o site em duas partes: **Biblioteca** (todas as telas abaixo, menos a Comunidade e Minha conta) e
+**Comunidade**. Veja [Biblioteca e Comunidade](27-biblioteca-e-comunidade.md).
+
+### Comunidade (`#/comunidade`)
+
+Por enquanto, uma página "Em breve" com o que está planejado: listas publicadas, posts e comentários.
+
 ### Entrar
 
 Quando o navegador não está conectado, aparece a tela de entrada no lugar de qualquer outra: e-mail, senha com

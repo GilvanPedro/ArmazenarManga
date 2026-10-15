@@ -16,8 +16,13 @@
         <img src="favicon.svg" alt="" width="28" height="28">
         <span>Meus Mangás</span>
     </a>
+    <!-- as duas partes do site: a biblioteca de cada um (a lista, os lancamentos, descobrir) e a comunidade -->
+    <nav class="secoes" aria-label="Partes do site" hidden>
+        <a class="secao" id="secao-biblioteca" href="#/">Biblioteca</a>
+        <a class="secao" id="secao-comunidade" href="#/comunidade">Comunidade</a>
+    </nav>
     <div class="acoes-do-topo">
-        <a class="botao primario" href="#/novo">+ Adicionar</a>
+        <a class="botao primario" id="adicionar" href="#/novo">+ Adicionar</a>
         <!-- aparecem depois de entrar na conta -->
         <a id="minha-conta" class="botao minha-conta" href="#/conta" hidden></a>
         <button type="button" id="sair" class="botao" hidden>Sair</button>

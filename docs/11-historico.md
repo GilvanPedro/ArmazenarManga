@@ -110,6 +110,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Página da conta centralizada](25-pagina-da-conta-centralizada.md).
 - **Mangás antigos só para admins.** A transferência deixou de pedir a senha antiga e passou a ser só para admins,
   definidos pela variável `MANGATRACKER_ADMIN_EMAIL`. Detalhes em [Mangás antigos só para admins](26-mangas-antigos-so-para-admins.md).
+- **Biblioteca e Comunidade.** O topo ganhou as duas partes do site: a Biblioteca (tudo o que já existia) e a
+  Comunidade, por enquanto uma página "Em breve". Detalhes em [Biblioteca e Comunidade](27-biblioteca-e-comunidade.md).
 
 ## O que foi removido ou abandonado
 

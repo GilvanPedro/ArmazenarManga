@@ -2297,10 +2297,24 @@ async function telaCapturar(consulta) {
 
 // ------------------------------------------------------------------ rotas
 
+/**
+ * Marca no topo em qual parte do site a pessoa esta: a Comunidade, ou a Biblioteca (todo o resto, menos a pagina da
+ * conta, que nao e de nenhuma das duas). O "+ Adicionar" so faz sentido na Biblioteca.
+ */
+function marcarSecao(parte) {
+    for (const [nome, link] of [['biblioteca', 'secao-biblioteca'], ['comunidade', 'secao-comunidade']]) {
+        const elemento = document.getElementById(link);
+        if (nome === parte) elemento.setAttribute('aria-current', 'page');
+        else elemento.removeAttribute('aria-current');
+    }
+    document.getElementById('adicionar').hidden = parte !== 'biblioteca';
+}
+
 function rota() {
     const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
     const partes = caminho.split('/');
     document.title = 'Meus Mangás';
+    marcarSecao(partes[0] === 'comunidade' ? 'comunidade' : partes[0] === 'conta' ? null : 'biblioteca');
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     estado.recarregar = null;
     // uma busca digitada logo antes de trocar de tela nao pode disparar depois e atrapalhar a tela nova
@@ -2317,6 +2331,7 @@ function rota() {
     if (partes[0] === 'descobrir') return telaDescobrir();
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'conta') return telaConta();
+    if (partes[0] === 'comunidade') return telaComunidade();
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null, consulta);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
@@ -2439,11 +2454,12 @@ function avatar(conta, grande) {
     return h('span', {class: classe, 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase());
 }
 
-/** Nick e foto no topo (levam a "Minha conta") e o botao Sair. */
+/** Nick e foto no topo (levam a "Minha conta"), o botao Sair e as partes do site (so depois de entrar). */
 function mostrarConta(conta) {
     const link = document.getElementById('minha-conta');
     const sair = document.getElementById('sair');
     link.hidden = sair.hidden = !conta;
+    document.querySelector('.secoes').hidden = !conta;
     if (conta) {
         link.replaceChildren(avatar(conta), h('span', {class: 'nick'}, conta.nick));
         link.title = 'Minha conta (' + conta.email + ')';
@@ -2475,6 +2491,26 @@ async function sair() {
     esquecerDadosDaConta();
     estado.sessao = {...estado.sessao, logado: false, conta: null};
     telaLogin();
+}
+
+// ------------------------------------------------------------------ comunidade
+
+/** Pagina da Comunidade. Ainda nao existe: mostra o que esta planejado para ela. */
+function telaComunidade() {
+    estado.render++;
+    document.title = 'Comunidade · Meus Mangás';
+    const ideia = (icone, titulo, texto) => h('article', {class: 'ideia-da-comunidade'},
+        h('span', {class: 'icone-da-ideia', 'aria-hidden': 'true'}, icone), h('h2', null, titulo), h('p', null, texto));
+    app.replaceChildren(h('div', {class: 'pagina-da-comunidade'},
+        h('div', {class: 'chamada-da-comunidade'},
+            h('span', {class: 'selo-em-breve'}, 'Em breve'),
+            h('h1', null, 'Comunidade'),
+            h('p', {class: 'subtitulo'}, 'Um lugar para trocar ideias com outros leitores. Enquanto isso, sua lista continua na Biblioteca.'),
+            h('a', {class: 'botao primario', href: '#/'}, 'Ir para a Biblioteca')),
+        h('div', {class: 'ideias-da-comunidade'},
+            ideia('📚', 'Listas', 'Monte e publique listas de mangás: os que você leu, os que está lendo, os que recomenda e o que mais quiser.'),
+            ideia('💬', 'Posts', 'Escreva posts curtos, no estilo do Twitter, com imagens coladas ou enviadas do seu computador.'),
+            ideia('🗨️', 'Comentários', 'Comente nos posts e nas listas publicadas pelos outros leitores.'))));
 }
 
 // ------------------------------------------------------------------ minha conta
@@ -2674,6 +2710,12 @@ async function iniciar() {
     estado.sessao = inicio.sessao;
     estado.inicio = inicio;
     document.getElementById('sair').addEventListener('click', sair);
+    document.getElementById('secao-biblioteca').addEventListener('click', evento => {
+        if (location.hash === '#/' || location.hash === '') {
+            evento.preventDefault();
+            recarregarAba();
+        }
+    });
     if (!estado.sessao.logado) {
         telaLogin();
         return;
