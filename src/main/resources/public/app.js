@@ -2669,18 +2669,68 @@ function verImagem(endereco) {
     dialogo.showModal();
 }
 
-/** A lista de mangas anexada a um post (a copia de quando foi publicado). */
-function listaDoPost(lista) {
-    return h('div', {class: 'lista-do-post'},
-        h('div', {class: 'titulo-da-lista'}, h('span', {'aria-hidden': 'true'}, '📚'), ' ', lista.titulo || 'Lista de mangás',
-            h('small', null, lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás')),
-        h('div', {class: 'itens-da-lista'}, lista.itens.map(item => h('div', {class: 'item-da-lista', title: item.titulo},
-            h('div', {class: 'capa' + (item.favorito ? ' favorita' : '')},
-                item.capa ? h('img', {src: item.capa, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'})
-                    : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (item.titulo || '?').charAt(0).toUpperCase()),
-                item.status ? etiquetaStatus(item.status) : null,
-                etiquetaNota(item.nota)),
-            h('span', {class: 'nome-do-item'}, item.titulo)))));
+/** Capa de um manga da lista anexada (a copia de quando foi publicada), com o status e a nota por cima. */
+function capaDaLista(item, comSelos) {
+    return h('div', {class: 'capa' + (item.favorito ? ' favorita' : '')},
+        item.capa ? h('img', {src: item.capa, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'})
+            : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (item.titulo || '?').charAt(0).toUpperCase()),
+        comSelos && item.status ? etiquetaStatus(item.status) : null,
+        comSelos ? etiquetaNota(item.nota) : null);
+}
+
+/**
+ * A lista anexada a um post: no post, so a capa do primeiro manga (com as seguintes empilhadas atras), o titulo e
+ * quantos sao. Clicar abre a lista inteira numa janela.
+ */
+function listaDoPost(lista, autor) {
+    const quantos = lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás';
+    return h('button', {type: 'button', class: 'lista-do-post', 'aria-label': 'Ver a lista ' + (lista.titulo || 'de mangás') + ', ' + quantos,
+        onclick: () => abrirListaDoPost(lista, autor)},
+    h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false)),
+    h('div', {class: 'sobre-a-lista'},
+        h('span', {class: 'tipo-da-lista'}, '📚 Lista'),
+        h('b', null, lista.titulo || 'Lista de mangás'),
+        h('small', null, quantos + ': ' + lista.itens.slice(0, 3).map(item => item.titulo).join(', ') + (lista.itens.length > 3 ? '…' : '')),
+        h('span', {class: 'ver-lista'}, 'Ver lista →')));
+}
+
+/** Janela com todos os mangas da lista; clicar em um mostra o que o autor tinha cadastrado dele. So para ver. */
+function abrirListaDoPost(lista, autor) {
+    const conteudo = h('div', {class: 'conteudo-da-lista'});
+    const titulo = h('h2', null);
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const dialogo = h('dialog', {class: 'janela-da-lista-publicada'}, h('div', {class: 'topo-da-janela'}, titulo, fechar), conteudo);
+    fechar.addEventListener('click', () => dialogo.close());
+
+    const mostrarLista = () => {
+        titulo.textContent = lista.titulo || 'Lista de mangás';
+        conteudo.replaceChildren(
+            h('p', {class: 'subtitulo'}, 'Lista de ', h('b', null, autor.nick), ' · ', lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás'),
+            h('div', {class: 'grade-da-lista'}, lista.itens.map(item => h('button', {type: 'button', class: 'item-da-lista', title: item.titulo,
+                onclick: () => mostrarManga(item)}, capaDaLista(item, true), h('span', {class: 'nome-do-item'}, item.titulo)))));
+    };
+    const mostrarManga = item => {
+        titulo.textContent = item.titulo;
+        const capitulo = item.capitulo == null ? null : mostrarCapitulo(item.capitulo);
+        conteudo.replaceChildren(
+            h('button', {type: 'button', class: 'voltar-para-a-lista', onclick: mostrarLista}, '← Voltar para a lista'),
+            h('div', {class: 'manga-da-lista'},
+                capaDaLista(item, false),
+                h('div', {class: 'sobre-o-manga'},
+                    h('div', {class: 'linha'},
+                        item.status ? etiquetaStatus(item.status) : null,
+                        item.nota != null ? etiquetaNota(item.nota, true) : h('span', {class: 'capitulo-atual'}, 'Sem nota'),
+                        item.favorito ? h('span', {class: 'selo-favorito'}, '★ Favorito') : null),
+                    capitulo != null ? h('p', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, capitulo)) : null,
+                    item.tags && item.tags.length ? h('div', {class: 'linha'}, item.tags.map(tag => h('span', {class: 'tag'}, tag))) : null,
+                    item.descricao ? h('p', {class: 'descricao'}, item.descricao) : h('p', {class: 'descricao sem'}, 'Sem descrição.'),
+                    h('p', {class: 'nota-de-login'}, 'Como estava na Biblioteca de ' + autor.nick + ' quando a lista foi publicada.'))));
+        conteudo.scrollTop = 0;
+    };
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    mostrarLista();
+    dialogo.showModal();
 }
 
 function cartaoDePost(post, {comentariosAbertos} = {}) {
@@ -2743,7 +2793,7 @@ function cartaoDePost(post, {comentariosAbertos} = {}) {
             post.imagens.length ? h('div', {class: 'imagens-do-post quantas-' + post.imagens.length},
                 post.imagens.map(endereco => h('button', {type: 'button', class: 'imagem-do-post', onclick: () => verImagem(endereco), 'aria-label': 'Ver imagem'},
                     h('img', {src: endereco, alt: '', loading: 'lazy', decoding: 'async'})))) : null,
-            post.lista ? listaDoPost(post.lista) : null,
+            post.lista ? listaDoPost(post.lista, post.autor) : null,
             h('div', {class: 'acoes-do-post'}, comentar, curtir, apagar),
             areaDeComentarios));
     if (comentariosAbertos) abrirComentarios();

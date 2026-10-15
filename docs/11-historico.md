@@ -117,6 +117,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Vercel. Detalhes em [Comunidade](28-comunidade.md).
 - **Comunidade centralizada.** O feed passou a ficar exatamente no meio da tela, com "Quem seguir" ao lado. Detalhes
   em [Comunidade centralizada](29-comunidade-centralizada.md).
+- **Lista publicada em janela.** No post, a lista virou um cartão com uma capa só; clicar abre a lista inteira, e
+  clicar num mangá mostra nota, capítulo, tags e descrição de quando ela foi publicada. Detalhes em
+  [Lista publicada em janela](30-lista-publicada-em-janela.md).
 
 ## O que foi removido ou abandonado
 

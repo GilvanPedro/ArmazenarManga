@@ -194,6 +194,9 @@ export function criarComunidade(f) {
             itens.push({
                 titulo: manga.title, capa, status: manga.readingStatus, nota: Number.isInteger(manga.rating) ? manga.rating : null,
                 favorito: manga.favorite === true, capitulo: manga.lastChapter ?? null,
+                // para quem abrir o manga na lista: as tags e a descricao como estavam na biblioteca
+                tags: (Array.isArray(manga.tags) ? manga.tags : []).filter(tag => typeof tag === 'string').slice(0, 20),
+                descricao: typeof manga.description === 'string' ? manga.description.slice(0, 2000) : '',
             });
         }
         return { titulo: lista.titulo, itens };

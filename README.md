@@ -82,7 +82,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Contas de usuário](docs/23-contas.md) | [Foto de perfil](docs/24-foto-de-perfil.md) |
 | [Página da conta centralizada](docs/25-pagina-da-conta-centralizada.md) | [Mangás antigos só para admins](docs/26-mangas-antigos-so-para-admins.md) |
 | [Biblioteca e Comunidade](docs/27-biblioteca-e-comunidade.md) | [Comunidade](docs/28-comunidade.md) |
-| [Comunidade centralizada](docs/29-comunidade-centralizada.md) | |
+| [Comunidade centralizada](docs/29-comunidade-centralizada.md) | [Lista publicada em janela](docs/30-lista-publicada-em-janela.md) |
 
 ## Testes
 

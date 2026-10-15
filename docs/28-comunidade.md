@@ -16,8 +16,9 @@ indisponível.
   imagem copiada). O navegador diminui cada imagem para no máximo 1600 px antes de enviar; GIFs vão como estão,
   para não perder a animação. Clicar numa imagem do post abre ela grande.
 - **Lista anexada:** o botão "Lista" abre a Biblioteca para escolher de 1 a 20 mangás (com busca pelo nome) e dar um
-  título à lista, se quiser. O post mostra o texto em cima e a lista embaixo, como um retweet com comentário. Cada
-  mangá aparece com a capa, o status, a nota e a borda de favorito.
+  título à lista, se quiser. O post mostra o texto em cima e a lista embaixo, como um retweet com comentário. Depois,
+  a lista no post virou um cartão com uma capa só, que abre a lista inteira numa janela: veja
+  [Lista publicada em janela](30-lista-publicada-em-janela.md).
 - **Curtir** (♥) e **comentar** (💬). Os comentários abrem embaixo do post.
 - **Seguir** leitores: pelo botão "Seguir" ao lado do nome nos posts, nas sugestões "Quem seguir" ou no perfil.
 - **Perfil** de cada leitor (`#/comunidade/perfil/{id}`): foto, nick, desde quando está na Comunidade, número de

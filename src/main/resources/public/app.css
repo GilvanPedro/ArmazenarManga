@@ -934,17 +934,70 @@ a.quando:hover { text-decoration: underline; }
 .seguir.seguindo { background: transparent; }
 .seguir:not(.seguindo) { background: var(--texto); border-color: var(--texto); color: var(--fundo); }
 
-/* lista anexada ao post */
-.lista-do-post { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid var(--borda); border-radius: 12px; background: var(--superficie-2); }
-.titulo-da-lista { font-weight: 750; display: flex; align-items: baseline; gap: 6px; }
-.titulo-da-lista small { color: var(--texto-fraco); font-weight: 600; margin-left: auto; }
-.itens-da-lista { display: grid; grid-auto-flow: column; grid-auto-columns: 112px; gap: 10px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-.item-da-lista { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.item-da-lista .capa { border-radius: 9px; }
+/* lista anexada ao post: so a primeira capa, com as outras empilhadas atras */
+.lista-do-post {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--borda);
+    border-radius: 12px;
+    background: var(--superficie-2);
+    color: var(--texto);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+}
+.lista-do-post:hover { border-color: var(--destaque); }
+.lista-do-post:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.pilha-de-capas { position: relative; flex: none; width: 76px; }
+.pilha-de-capas .capa { border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, .25); }
+.pilha-de-capas.com-mais::before, .pilha-de-capas.com-mais::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    border: 1px solid var(--borda);
+    background: var(--superficie);
+}
+.pilha-de-capas.com-mais::before { transform: translate(10px, -6px) rotate(6deg); }
+.pilha-de-capas.com-mais::after { transform: translate(5px, -3px) rotate(3deg); }
+.pilha-de-capas .capa { position: relative; z-index: 1; }
+.sobre-a-lista { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding-left: 6px; }
+.sobre-a-lista b { font-size: 16px; overflow-wrap: anywhere; }
+.sobre-a-lista small { color: var(--texto-fraco); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tipo-da-lista { color: var(--destaque-forte); font-size: 12.5px; font-weight: 750; }
+.ver-lista { margin-top: 4px; color: var(--destaque-forte); font-size: 13.5px; font-weight: 700; }
+
+/* janela da lista publicada */
+dialog.janela-da-lista-publicada { width: min(760px, calc(100vw - 24px)); max-height: 88vh; display: none; flex-direction: column; }
+dialog.janela-da-lista-publicada[open] { display: flex; }
+.janela-da-lista-publicada .topo-da-janela h2 { overflow-wrap: anywhere; }
+.conteudo-da-lista { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 2px; }
+.conteudo-da-lista > .subtitulo { margin: -6px 0 0; }
+.grade-da-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 14px; }
+.item-da-lista { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; color: var(--texto); font: inherit; cursor: pointer; }
+.item-da-lista .capa { border-radius: 9px; transition: transform .15s; }
+.item-da-lista:hover .capa { transform: translateY(-3px); }
+.item-da-lista:focus-visible { outline: 2px solid var(--destaque); outline-offset: 3px; border-radius: 9px; }
 .item-da-lista .status { font-size: 10.5px; padding: 1px 7px; top: 5px; left: 5px; }
 .item-da-lista .capa .nota { font-size: 13px; padding: 2px 8px 2px 3px; right: 5px; bottom: 5px; border-width: 1.5px; }
 .item-da-lista .capa .nota img { width: 18px; height: 18px; }
 .nome-do-item { font-size: 12.5px; font-weight: 650; line-height: 1.25; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.voltar-para-a-lista { align-self: flex-start; border: 0; background: none; color: var(--texto-fraco); font: inherit; font-weight: 650; cursor: pointer; padding: 0; }
+.voltar-para-a-lista:hover { color: var(--texto); }
+.manga-da-lista { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: start; }
+.manga-da-lista > .capa { border-radius: 12px; }
+.sobre-o-manga { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sobre-o-manga .capitulo-atual { margin: 0; }
+.sobre-o-manga .nota-de-login { text-align: left; margin: 0; }
+.selo-favorito { padding: 2px 10px; border-radius: 999px; background: #8b5cf6; color: #fff; font-size: 12px; font-weight: 750; }
+@media (max-width: 520px) {
+    .manga-da-lista { grid-template-columns: 1fr; }
+    .manga-da-lista > .capa { width: 150px; justify-self: center; }
+}
 
 /* comentarios */
 .comentarios { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--borda); }

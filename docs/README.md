@@ -33,6 +33,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [27 · Biblioteca e Comunidade](27-biblioteca-e-comunidade.md) | As duas partes do site no topo e a página "Em breve" da Comunidade |
 | [28 · Comunidade](28-comunidade.md) | Posts com imagens e listas, curtidas, comentários, seguir, perfis e o feed "Para você" |
 | [29 · Comunidade centralizada](29-comunidade-centralizada.md) | O ajuste que deixou o feed da Comunidade no meio da tela |
+| [30 · Lista publicada em janela](30-lista-publicada-em-janela.md) | A lista no post com uma capa só, a janela com todos os mangás e o mangá em detalhe |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
