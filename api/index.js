@@ -6,7 +6,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
-import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, mesmoTexto, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
+import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
@@ -692,9 +692,18 @@ function semCache(resposta) {
     return resposta;
 }
 
+/**
+ * Contas de administracao: as marcadas no banco e as dos e-mails em MANGATRACKER_ADMIN_EMAIL (separados por virgula).
+ * Pela variavel, o dono do site se torna admin sem precisar mexer no banco.
+ */
+function ehAdmin(conta) {
+    const emails = (process.env.MANGATRACKER_ADMIN_EMAIL || '').split(',').map(normalizarEmail).filter(Boolean);
+    return conta.admin === true || emails.includes(normalizarEmail(conta.email));
+}
+
 /** A conta como o site ve: nunca leva a senha guardada. */
 const contaPublica = conta => ({
-    id: conta.id, email: conta.email, nick: conta.nick, admin: conta.admin === true,
+    id: conta.id, email: conta.email, nick: conta.nick, admin: ehAdmin(conta),
     // a foto e uma imagem da propria conta: so quem esta nela consegue abrir
     foto: conta.foto ? '/api/imagens/' + conta.foto : null,
 });
@@ -733,8 +742,6 @@ const LIMITES = {
     loginGeral: { maximo: 100, minutos: 15 },
     // contas criadas no site inteiro: 20 por hora
     cadastro: { maximo: 20, minutos: 60 },
-    // senha antiga errada ao trazer os mangas antigos: 10 em 15 minutos
-    contaAntiga: { maximo: 10, minutos: 15 },
 };
 
 /** Minutos de espera antes de poder tentar de novo (0 = pode agora). chave com % no fim conta todas que comecam assim. */
@@ -822,8 +829,8 @@ async function tratarConta(request, sessao, acao) {
             ...contaPublica(conta),
             criadaEm: conta.criada_em,
             mangas: rows[0].mangas,
-            // os mangas de antes das contas podem ser trazidos por quem sabe a senha antiga do site
-            mangasAntigos: process.env.MANGATRACKER_SENHA ? rows[0].antigos : 0,
+            // os mangas de antes das contas: so os admins veem e podem trazer
+            mangasAntigos: ehAdmin(conta) ? rows[0].antigos : 0,
         }));
     }
     if (request.method === 'PUT') {
@@ -876,19 +883,9 @@ async function tratarConta(request, sessao, acao) {
     throw new Recusa(404, 'Endereço não encontrado');
 }
 
-/**
- * Traz para esta conta os mangas e capas de antes do cadastro de contas (conta "principal"). Pede a senha antiga do
- * site (MANGATRACKER_SENHA): so o dono do site sabe. A conta que faz isso vira a conta de administracao.
- */
+/** Traz para esta conta os mangas e capas de antes do cadastro de contas (conta "principal"). So para admins. */
 async function trazerMangasAntigos(request, conta) {
-    const senhaAntiga = process.env.MANGATRACKER_SENHA;
-    if (!senhaAntiga) throw new Recusa(404, 'Não há mangás antigos para trazer');
-    const { senha } = await lerCorpo(request);
-    await exigirQueNaoEstejaFreado('conta-antiga', LIMITES.contaAntiga);
-    if (typeof senha !== 'string' || !mesmoTexto(senha, senhaAntiga)) {
-        await registrarTentativa('conta-antiga');
-        throw new Recusa(403, 'Senha antiga do site incorreta');
-    }
+    if (!ehAdmin(conta)) throw new Recusa(403, 'Só administradores podem trazer os mangás antigos');
     const cliente = await (await banco()).connect();
     try {
         await cliente.query('BEGIN');

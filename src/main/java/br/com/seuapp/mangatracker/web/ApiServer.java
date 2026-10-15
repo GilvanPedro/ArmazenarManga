@@ -100,7 +100,7 @@ public class ApiServer {
         this.imagemService = imagemService;
         this.origensPermitidas = origensPermitidas;
         Acesso efetivo = acesso != null ? acesso : new Acesso(new ContaService(new ContaRepositoryEmMemoria(), mangaService, imagemService,
-                null, 1_000, Clock.systemUTC()), segredoNovo());
+                java.util.List.of(), 1_000, Clock.systemUTC()), segredoNovo());
         this.contas = efetivo.contas();
         this.sessoes = new Sessoes(efetivo.segredo(), Clock.systemUTC());
     }
@@ -134,9 +134,10 @@ public class ApiServer {
 
     /** A conta como o site ve: nunca leva a senha guardada. foto: o endereco da imagem, so a propria conta abre. */
     private record ContaResponse(UUID id, String email, String nick, boolean admin, String foto) {
-        static ContaResponse de(Conta conta) {
-            return new ContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin(), conta.foto() == null ? null : "/api/imagens/" + conta.foto());
-        }
+    }
+
+    private ContaResponse contaResponse(Conta conta) {
+        return new ContaResponse(conta.id(), conta.email(), conta.nick(), contas.ehAdmin(conta), conta.foto() == null ? null : "/api/imagens/" + conta.foto());
     }
 
     /** expiraEm no formato ISO 8601. exigeLogin e sempre true (fica por compatibilidade com o site). */
@@ -300,9 +301,9 @@ public class ApiServer {
         return sessao;
     }
 
-    private static SessaoResponse resposta(Sessao sessao) {
+    private SessaoResponse resposta(Sessao sessao) {
         return sessao == null ? new SessaoResponse(true, false, null, null)
-                : new SessaoResponse(true, true, ContaResponse.de(sessao.conta()), sessao.expira().toString());
+                : new SessaoResponse(true, true, contaResponse(sessao.conta()), sessao.expira().toString());
     }
 
     private void verSessao(Context ctx) throws JsonProcessingException {
@@ -349,7 +350,7 @@ public class ApiServer {
         ctx.header("Cache-Control", "no-store");
         ContaService.Dados dados = contas.dados(sessaoExigida(ctx).conta().id());
         Conta conta = dados.conta();
-        json(ctx, HttpStatus.OK, new DadosDaContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin(),
+        json(ctx, HttpStatus.OK, new DadosDaContaResponse(conta.id(), conta.email(), conta.nick(), contas.ehAdmin(conta),
                 conta.foto() == null ? null : "/api/imagens/" + conta.foto(), conta.criadaEm().toString(),
                 dados.mangas(), dados.mangasAntigos()));
     }
@@ -383,7 +384,7 @@ public class ApiServer {
     }
 
     private void trazerMangasAntigos(Context ctx) throws JsonProcessingException {
-        int trazidos = contas.trazerMangasAntigos(sessaoExigida(ctx).conta().id(), lerCorpo(ctx, SenhaRequest.class).senha());
+        int trazidos = contas.trazerMangasAntigos(sessaoExigida(ctx).conta().id());
         json(ctx, HttpStatus.OK, Map.of("trazidos", trazidos, "admin", true));
     }
 

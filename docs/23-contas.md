@@ -52,9 +52,8 @@ Para passá-los para uma conta de verdade:
 
 Os mangás e as capas passam para a conta, e ela ganha o selo **Admin**. A parte some depois disso.
 
-Por que pedir a senha antiga: o site está aberto para qualquer pessoa criar conta. Se a transferência fosse para
-a primeira conta criada, um desconhecido que se cadastrasse antes do dono levaria os mangás. Só quem configurou o
-site sabe a senha antiga.
+**Isso mudou depois:** a parte passou a ser só para admins, sem a senha antiga. Veja
+[Mangás antigos só para admins](26-mangas-antigos-so-para-admins.md).
 
 Hoje o selo Admin só marca a conta; ele ainda não dá nenhuma ferramenta a mais.
 

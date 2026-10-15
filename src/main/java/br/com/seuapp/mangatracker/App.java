@@ -41,9 +41,9 @@ public class App {
         int porta = Integer.parseInt(System.getenv().getOrDefault("PORT", "7070"));
         // MANGATRACKER_HOST: 127.0.0.1 (padrao) atende so este computador; 0.0.0.0 atende outros computadores
         String host = System.getenv().getOrDefault("MANGATRACKER_HOST", "127.0.0.1").trim();
-        // MANGATRACKER_SENHA (opcional): a senha do site de antes das contas. Quem a souber pode trazer, pela pagina
-        // "Minha conta", os mangas cadastrados antes das contas existirem
-        String senhaAntiga = System.getenv().getOrDefault("MANGATRACKER_SENHA", "");
+        // MANGATRACKER_ADMIN_EMAIL (opcional): e-mails das contas de administracao, separados por virgula. So elas veem e
+        // trazem, pela pagina "Minha conta", os mangas cadastrados antes das contas existirem
+        List<String> emailsAdmin = Arrays.asList(System.getenv().getOrDefault("MANGATRACKER_ADMIN_EMAIL", "").split(","));
         // MANGATRACKER_CORS: enderecos de outros sites que podem chamar a API, separados por virgula
         List<String> origens = Arrays.stream(System.getenv().getOrDefault("MANGATRACKER_CORS", "").split(","))
                 .map(String::trim)
@@ -84,7 +84,7 @@ public class App {
         if (segredo == null) {
             segredo = banco != null ? SegredoDaSessao.doBanco(banco) : SegredoDaSessao.doArquivo(pasta.resolve("segredo-da-sessao"));
         }
-        ApiServer.Acesso acesso = new ApiServer.Acesso(new ContaService(contas, mangaService, imagemService, senhaAntiga), segredo);
+        ApiServer.Acesso acesso = new ApiServer.Acesso(new ContaService(contas, mangaService, imagemService, emailsAdmin), segredo);
 
         ClienteHttpPadrao internet = new ClienteHttpPadrao();
         new ApiServer(mangaService, imagemService, origens, acesso, new SinopseService(internet), new RecomendacaoService(internet)).criar().start(host, porta);

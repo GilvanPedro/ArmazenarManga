@@ -7,8 +7,6 @@ import br.com.seuapp.mangatracker.repository.ContaAtual;
 import br.com.seuapp.mangatracker.repository.ContaRepository;
 import br.com.seuapp.mangatracker.repository.EstruturaDoBanco;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Locale;
@@ -33,36 +31,40 @@ public class ContaService {
     private final ContaRepository contas;
     private final MangaServiceInterface mangas;
     private final ImagemService imagens;
-    private final String senhaAntiga;
+    private final java.util.Set<String> emailsAdmin;
     private final int iteracoes;
     private final String hashDeMentira;
     // senha errada de um e-mail: 10 em 15 minutos; no site inteiro: 100 em 15 minutos
     private final LimiteDeTentativas errosPorEmail;
     private final LimiteDeTentativas errosNoSite;
-    // contas criadas no site inteiro: 20 por hora; senha antiga errada: 10 em 15 minutos
+    // contas criadas no site inteiro: 20 por hora
     private final LimiteDeTentativas cadastros;
-    private final LimiteDeTentativas errosDaSenhaAntiga;
 
     /**
-     * @param senhaAntiga a senha do site de antes das contas (MANGATRACKER_SENHA): quem a souber pode trazer os mangas
-     *                    antigos para a propria conta. null = nao da para trazer
+     * @param emailsAdmin e-mails das contas de administracao (MANGATRACKER_ADMIN_EMAIL), alem das marcadas como
+     *                    admin. So os admins veem e trazem os mangas de antes das contas
      * @param iteracoes   do hash das senhas novas ({@link Senhas#ITERACOES}; os testes usam menos, para irem rapido)
      */
-    public ContaService(ContaRepository contas, MangaServiceInterface mangas, ImagemService imagens, String senhaAntiga, int iteracoes, Clock relogio) {
+    public ContaService(ContaRepository contas, MangaServiceInterface mangas, ImagemService imagens, java.util.Collection<String> emailsAdmin, int iteracoes, Clock relogio) {
         this.contas = Objects.requireNonNull(contas);
         this.mangas = Objects.requireNonNull(mangas);
         this.imagens = Objects.requireNonNull(imagens);
-        this.senhaAntiga = senhaAntiga == null || senhaAntiga.isEmpty() ? null : senhaAntiga;
+        this.emailsAdmin = emailsAdmin == null ? java.util.Set.of()
+                : emailsAdmin.stream().map(ContaService::normalizarEmail).filter(email -> !email.isEmpty()).collect(java.util.stream.Collectors.toUnmodifiableSet());
         this.iteracoes = iteracoes;
         this.hashDeMentira = Senhas.gerar("senha que ninguem usa", iteracoes);
         this.errosPorEmail = new LimiteDeTentativas(10, Duration.ofMinutes(15), relogio);
         this.errosNoSite = new LimiteDeTentativas(100, Duration.ofMinutes(15), relogio);
         this.cadastros = new LimiteDeTentativas(20, Duration.ofHours(1), relogio);
-        this.errosDaSenhaAntiga = new LimiteDeTentativas(10, Duration.ofMinutes(15), relogio);
     }
 
-    public ContaService(ContaRepository contas, MangaServiceInterface mangas, ImagemService imagens, String senhaAntiga) {
-        this(contas, mangas, imagens, senhaAntiga, Senhas.ITERACOES, Clock.systemUTC());
+    public ContaService(ContaRepository contas, MangaServiceInterface mangas, ImagemService imagens, java.util.Collection<String> emailsAdmin) {
+        this(contas, mangas, imagens, emailsAdmin, Senhas.ITERACOES, Clock.systemUTC());
+    }
+
+    /** E admin: marcada como admin, ou com o e-mail em MANGATRACKER_ADMIN_EMAIL. */
+    public boolean ehAdmin(Conta conta) {
+        return conta.admin() || emailsAdmin.contains(conta.email());
     }
 
     // ------------------------------------------------------------------ regras dos dados
@@ -168,7 +170,8 @@ public class ContaService {
     public Dados dados(UUID id) {
         Conta conta = exigir(id);
         int meus = ContaAtual.com(id.toString(), () -> mangas.contar(ConsultaDeMangas.todos(null, null, null, null)));
-        int antigos = senhaAntiga == null ? 0
+        // os mangas de antes das contas: so os admins veem e podem trazer
+        int antigos = !ehAdmin(conta) ? 0
                 : ContaAtual.com(EstruturaDoBanco.CONTA_PRINCIPAL, () -> mangas.contar(ConsultaDeMangas.todos(null, null, null, null)));
         return new Dados(conta, meus, antigos);
     }
@@ -236,20 +239,11 @@ public class ContaService {
         contas.excluir(id);
     }
 
-    /**
-     * Traz para a conta os mangas e capas de antes das contas. Pede a senha antiga do site: so o dono sabe. A conta
-     * que faz isso vira a de administracao. @return quantos mangas vieram
-     */
-    public int trazerMangasAntigos(UUID id, String senha) {
+    /** Traz para a conta os mangas e capas de antes das contas. So para admins. @return quantos mangas vieram */
+    public int trazerMangasAntigos(UUID id) {
         Conta conta = exigir(id);
-        if (senhaAntiga == null) {
-            throw new ContaException(404, "Não há mangás antigos para trazer");
-        }
-        exigirQueNaoEstejaFreado(errosDaSenhaAntiga, "");
-        boolean certa = senha != null && MessageDigest.isEqual(Senhas.resumo(senha), Senhas.resumo(senhaAntiga));
-        if (!certa) {
-            errosDaSenhaAntiga.registrarErro("");
-            throw new ContaException(403, "Senha antiga do site incorreta");
+        if (!ehAdmin(conta)) {
+            throw new ContaException(403, "Só administradores podem trazer os mangás antigos");
         }
         int trazidos = ContaAtual.com(id.toString(), () -> {
             imagens.trazerDe(EstruturaDoBanco.CONTA_PRINCIPAL);

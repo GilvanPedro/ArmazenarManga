@@ -108,6 +108,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   uma ferramenta para passar os mangás antigos para uma conta pelo e-mail. Detalhes em [Foto de perfil](24-foto-de-perfil.md).
 - **Página da conta.** Passou a ficar numa coluna no meio da tela, com o cabeçalho centralizado. Detalhes em
   [Página da conta centralizada](25-pagina-da-conta-centralizada.md).
+- **Mangás antigos só para admins.** A transferência deixou de pedir a senha antiga e passou a ser só para admins,
+  definidos pela variável `MANGATRACKER_ADMIN_EMAIL`. Detalhes em [Mangás antigos só para admins](26-mangas-antigos-so-para-admins.md).
 
 ## O que foi removido ou abandonado
 

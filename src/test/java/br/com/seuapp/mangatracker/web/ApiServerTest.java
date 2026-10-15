@@ -1011,11 +1011,11 @@ class ApiServerTest {
     }
 
     /** Sobe o servidor com contas guardadas em arquivo e uma pasta de dados por conta, como o programa de verdade. */
-    private void subirComContas(byte[] segredo, String senhaAntiga) throws Exception {
+    private void subirComContas(byte[] segredo, List<String> emailsAdmin) throws Exception {
         app.stop();
         ImagemService imagemService = new ImagemService(new ArquivoImagemRepositoryPorConta(pasta));
         MangaService mangaService = new MangaService(new JsonMangaRepositoryPorConta(pasta), imagemService);
-        ContaService contas = new ContaService(new ArquivoContaRepository(pasta.resolve("contas.json")), mangaService, imagemService, senhaAntiga,
+        ContaService contas = new ContaService(new ArquivoContaRepository(pasta.resolve("contas.json")), mangaService, imagemService, emailsAdmin,
                 1_000, java.time.Clock.systemUTC());
         app = new ApiServer(mangaService, imagemService, List.of(), new ApiServer.Acesso(contas, segredo)).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
@@ -1230,34 +1230,42 @@ class ApiServerTest {
     }
 
     @Test
-    void mangasAntigosVaoParaQuemSabeASenhaAntigaEssaContaViraAdmin() throws Exception {
-        subirComContas(new byte[32], "senha antiga do site");
+    void soAdminVeETrazOsMangasAntigos() throws Exception {
+        // admin pelo e-mail configurado (MANGATRACKER_ADMIN_EMAIL), escrito de outro jeito
+        subirComContas(new byte[32], List.of(" Dono@Exemplo.com "));
         // um manga de antes das contas, gravado direto na conta antiga
         new JsonMangaRepositoryPorConta(pasta).salvar(new br.com.seuapp.mangatracker.domain.Manga("Antigo", "https://site.com/c.png",
                 new java.util.ArrayList<>(), "https://site.com/{cap}", null, java.math.BigDecimal.ONE, br.com.seuapp.mangatracker.domain.ReadingStatus.LENDO, ""));
-        String cookie = cookieDe(comCookie("POST", "/api/contas", null, conta("dono@exemplo.com", "Dono", "123456")));
-        String outra = cookieDe(comCookie("POST", "/api/contas", null, conta("visita@exemplo.com", "Visita", "123456")));
+        String dono = cookieDe(comCookie("POST", "/api/contas", null, conta("dono@exemplo.com", "Dono", "123456")));
+        String visita = cookieDe(comCookie("POST", "/api/contas", null, conta("visita@exemplo.com", "Visita", "123456")));
 
-        JsonNode antes = json(comCookie("GET", "/api/conta", cookie, null));
-        assertEquals(1, antes.get("mangasAntigos").asInt());
-        assertEquals(0, antes.get("mangas").asInt());
-        assertEquals(403, comCookie("POST", "/api/conta/mangas-antigos", outra, "{\"senha\": \"chute\"}").statusCode());
+        // quem nao e admin nem fica sabendo que existem mangas antigos, e nao consegue trazer
+        JsonNode daVisita = json(comCookie("GET", "/api/conta", visita, null));
+        assertFalse(daVisita.get("admin").asBoolean());
+        assertEquals(0, daVisita.get("mangasAntigos").asInt());
+        HttpResponse<String> recusado = comCookie("POST", "/api/conta/mangas-antigos", visita, "{}");
+        assertEquals(403, recusado.statusCode());
+        assertEquals("Só administradores podem trazer os mangás antigos", json(recusado).get("mensagem").asText());
 
-        HttpResponse<String> trazidos = comCookie("POST", "/api/conta/mangas-antigos", cookie, "{\"senha\": \"senha antiga do site\"}");
+        JsonNode doDono = json(comCookie("GET", "/api/conta", dono, null));
+        assertTrue(doDono.get("admin").asBoolean());
+        assertEquals(1, doDono.get("mangasAntigos").asInt());
+        assertTrue(json(comCookie("GET", "/api/sessao", dono, null)).get("conta").get("admin").asBoolean());
+        HttpResponse<String> trazidos = comCookie("POST", "/api/conta/mangas-antigos", dono, "{}");
         assertEquals(200, trazidos.statusCode(), trazidos.body());
         assertEquals(1, json(trazidos).get("trazidos").asInt());
-        JsonNode depois = json(comCookie("GET", "/api/conta", cookie, null));
-        assertTrue(depois.get("admin").asBoolean());
+        JsonNode depois = json(comCookie("GET", "/api/conta", dono, null));
         assertEquals(1, depois.get("mangas").asInt());
         assertEquals(0, depois.get("mangasAntigos").asInt());
-        assertTrue(json(comCookie("GET", "/api/sessao", cookie, null)).get("conta").get("admin").asBoolean());
-        assertEquals(List.of("Antigo"), json(comCookie("GET", "/api/mangas", cookie, null)).findValuesAsText("title"));
-        assertEquals(0, json(comCookie("GET", "/api/mangas?pagina=1", outra, null)).get("total").asInt());
-        // sem senha antiga configurada, nao ha o que trazer
+        assertEquals(List.of("Antigo"), json(comCookie("GET", "/api/mangas", dono, null)).findValuesAsText("title"));
+        assertEquals(0, json(comCookie("GET", "/api/mangas?pagina=1", visita, null)).get("total").asInt());
+
+        // quem trouxe fica marcado como admin, mesmo sem o e-mail configurado
         subirComContas(new byte[32], null);
-        String semAntiga = cookieDe(comCookie("POST", "/api/sessao", null, login("dono@exemplo.com", "123456")));
-        assertEquals(0, json(comCookie("GET", "/api/conta", semAntiga, null)).get("mangasAntigos").asInt());
-        assertEquals(404, comCookie("POST", "/api/conta/mangas-antigos", semAntiga, "{\"senha\": \"senha antiga do site\"}").statusCode());
+        String semVariavel = cookieDe(comCookie("POST", "/api/sessao", null, login("dono@exemplo.com", "123456")));
+        assertTrue(json(comCookie("GET", "/api/conta", semVariavel, null)).get("admin").asBoolean());
+        String visitaSemVariavel = cookieDe(comCookie("POST", "/api/sessao", null, login("visita@exemplo.com", "123456")));
+        assertEquals(403, comCookie("POST", "/api/conta/mangas-antigos", visitaSemVariavel, "{}").statusCode());
     }
 
     /** Envia uma imagem com o cookie escolhido e devolve o nome dela. */

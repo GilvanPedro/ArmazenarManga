@@ -2480,7 +2480,7 @@ async function sair() {
 // ------------------------------------------------------------------ minha conta
 
 /** Pergunta de confirmacao em uma janela do site. Resolve true so com o clique em confirmar. */
-function confirmar(titulo, texto, botao) {
+function confirmar(titulo, texto, botao, perigo = true) {
     return new Promise(resolver => {
         const dialogo = h('dialog', {class: 'confirmacao'},
             h('form', {method: 'dialog'},
@@ -2488,7 +2488,7 @@ function confirmar(titulo, texto, botao) {
                 h('p', null, texto),
                 h('div', {class: 'acoes'},
                     h('button', {value: 'nao', class: 'botao'}, 'Cancelar'),
-                    h('button', {value: 'sim', class: 'botao perigo cheio'}, botao))));
+                    h('button', {value: 'sim', class: perigo ? 'botao perigo cheio' : 'botao primario'}, botao))));
         dialogo.addEventListener('close', () => {
             resolver(dialogo.returnValue === 'sim');
             dialogo.remove();
@@ -2612,12 +2612,14 @@ async function telaConta() {
             avisar('Senha trocada');
         });
 
-    const senhaAntiga = campoDeSenha('conta-senha-antiga', 'off', 'Senha antiga do site');
-    const secaoAntigos = conta.mangasAntigos > 0 ? secaoDaConta('Mangás de antes das contas',
-        `Há ${conta.mangasAntigos === 1 ? '1 mangá cadastrado' : conta.mangasAntigos + ' mangás cadastrados'} antes de o site ter contas. `
-        + 'Quem souber a senha antiga do site pode trazê-los para esta conta, com as capas. Esta conta passa a ser a de administração.',
-        [senhaAntiga.elemento], 'Trazer para esta conta', async () => {
-            const resposta = await chamar('POST', '/api/conta/mangas-antigos', {senha: senhaAntiga.entrada.value});
+    // so para admins: os mangas cadastrados antes de o site ter contas
+    const quantosAntigos = conta.mangasAntigos === 1 ? '1 mangá cadastrado' : conta.mangasAntigos + ' mangás cadastrados';
+    const secaoAntigos = conta.admin && conta.mangasAntigos > 0 ? secaoDaConta('Mangás de antes das contas',
+        `Há ${quantosAntigos} antes de o site ter contas. Como administrador, você pode trazê-los para esta conta, com as capas.`,
+        [], 'Trazer para esta conta', async () => {
+            const certeza = await confirmar('Trazer os mangás antigos?', `${quantosAntigos[0].toUpperCase() + quantosAntigos.slice(1)} passarão para a conta ${conta.email}.`, 'Trazer', false);
+            if (!certeza) return;
+            const resposta = await chamar('POST', '/api/conta/mangas-antigos', {});
             avisar(resposta.trazidos === 1 ? '1 mangá trazido para a sua conta' : resposta.trazidos + ' mangás trazidos para a sua conta');
             atualizar(await chamar('GET', '/api/sessao'));
             telaConta();

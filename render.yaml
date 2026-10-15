@@ -10,5 +10,5 @@ services:
       # o Render pergunta o valor destas duas na hora de criar
       - key: DATABASE_URL        # endereco do banco Postgres gratuito (Neon)
         sync: false
-      - key: MANGATRACKER_SENHA  # opcional: senha antiga do site, para trazer os mangas de antes das contas
+      - key: MANGATRACKER_ADMIN_EMAIL  # opcional: e-mail da conta de administracao
         sync: false

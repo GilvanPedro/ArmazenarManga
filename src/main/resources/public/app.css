@@ -779,7 +779,8 @@ body.entrando main { max-width: none; padding: 0; }
 .botao.perigo.cheio:hover { filter: brightness(1.08); }
 
 dialog.confirmacao { max-width: 420px; }
-dialog.confirmacao h2 { margin: 0 0 8px; color: var(--perigo); }
+dialog.confirmacao h2 { margin: 0 0 8px; }
+dialog.confirmacao:has(.perigo) h2 { color: var(--perigo); }
 dialog.confirmacao p { margin: 0 0 18px; line-height: 1.5; }
 dialog.confirmacao .acoes { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 

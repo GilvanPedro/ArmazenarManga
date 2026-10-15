@@ -20,7 +20,7 @@ trabalham só com os mangás e as capas da conta de quem está usando. Veja [Con
 | `GET` | `/api/conta` | Dados da conta, quantos mangás ela tem e quantos mangás antigos pode trazer |
 | `PUT` | `/api/conta` | Edita `{nick, email, senhaNova, senhaAtual, foto}` (e-mail e senha pedem `senhaAtual`; `foto` é o nome de uma imagem enviada, ou `null`) |
 | `DELETE` | `/api/conta` | Exclui a conta, os mangás e as capas, com `{senha}` |
-| `POST` | `/api/conta/mangas-antigos` | Traz os mangás de antes das contas, com `{senha}` (a senha antiga do site) |
+| `POST` | `/api/conta/mangas-antigos` | Traz os mangás de antes das contas para a conta. Só para admins |
 
 ## Mangás
 

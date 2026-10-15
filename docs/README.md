@@ -29,6 +29,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [23 · Contas de usuário](23-contas.md) | Cadastro, login por e-mail, página da conta, exclusão e como trazer os mangás de antes das contas |
 | [24 · Foto de perfil](24-foto-de-perfil.md) | A foto de perfil da conta e a ferramenta que passa os mangás antigos para uma conta pelo e-mail |
 | [25 · Página da conta centralizada](25-pagina-da-conta-centralizada.md) | O ajuste que centralizou a página Minha conta |
+| [26 · Mangás antigos só para admins](26-mangas-antigos-so-para-admins.md) | Quem é admin (`MANGATRACKER_ADMIN_EMAIL`) e a transferência dos mangás antigos só para admins |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
