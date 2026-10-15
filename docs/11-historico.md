@@ -112,6 +112,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   definidos pela variável `MANGATRACKER_ADMIN_EMAIL`. Detalhes em [Mangás antigos só para admins](26-mangas-antigos-so-para-admins.md).
 - **Biblioteca e Comunidade.** O topo ganhou as duas partes do site: a Biblioteca (tudo o que já existia) e a
   Comunidade, por enquanto uma página "Em breve". Detalhes em [Biblioteca e Comunidade](27-biblioteca-e-comunidade.md).
+- **Comunidade.** Passou a funcionar, no estilo do Twitter: posts com imagens (coladas ou enviadas) e listas de
+  mangás anexadas, curtidas, comentários, seguir, perfis e os feeds "Para você" e "Seguindo". Só na versão do
+  Vercel. Detalhes em [Comunidade](28-comunidade.md).
 
 ## O que foi removido ou abandonado
 

@@ -7,7 +7,7 @@ mvn package    # testes da versão Java (e gera o .jar)
 npm test       # testes da versão JavaScript
 ```
 
-Hoje são **289** testes na versão Java e **57** na versão JavaScript.
+Hoje são **289** testes na versão Java e **61** na versão JavaScript.
 
 ## Versão Java
 

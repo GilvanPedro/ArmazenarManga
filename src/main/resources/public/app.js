@@ -2331,7 +2331,7 @@ function rota() {
     if (partes[0] === 'descobrir') return telaDescobrir();
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'conta') return telaConta();
-    if (partes[0] === 'comunidade') return telaComunidade();
+    if (partes[0] === 'comunidade') return telaComunidade(partes.slice(1));
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null, consulta);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
@@ -2495,22 +2495,498 @@ async function sair() {
 
 // ------------------------------------------------------------------ comunidade
 
-/** Pagina da Comunidade. Ainda nao existe: mostra o que esta planejado para ela. */
-function telaComunidade() {
-    estado.render++;
+/** Poe um post novo no alto do feed (tirando o aviso de feed vazio, se houver). */
+function porNoFeed(feed, post) {
+    feed.querySelectorAll(':scope > .vazio').forEach(aviso => aviso.remove());
+    feed.prepend(cartaoDePost(post));
+}
+
+/** "agora", "há 5 min", "há 3 h", "há 2 d" e, depois de uma semana, a data. */
+function quandoFoi(data) {
+    const segundos = Math.max(0, (Date.now() - new Date(data).getTime()) / 1000);
+    if (segundos < 60) return 'agora';
+    if (segundos < 3600) return 'há ' + Math.floor(segundos / 60) + ' min';
+    if (segundos < 86400) return 'há ' + Math.floor(segundos / 3600) + ' h';
+    if (segundos < 7 * 86400) return 'há ' + Math.floor(segundos / 86400) + ' d';
+    return new Date(data).toLocaleDateString('pt-BR', {day: 'numeric', month: 'short', year: 'numeric'});
+}
+
+const TEXTO_DO_POST_MAXIMO = 500;
+const IMAGENS_DO_POST_MAXIMO = 4;
+const MANGAS_DA_LISTA_MAXIMO = 20;
+
+/** A pagina da Comunidade: feeds "Para voce" e "Seguindo", o perfil de cada leitor e um post sozinho. */
+async function telaComunidade(partes) {
+    const vez = ++estado.render;
+    const [qual, id] = partes;
+    const principal = h('div', {class: 'coluna-da-comunidade'});
+    const lateral = h('aside', {class: 'lateral-da-comunidade'});
+    app.replaceChildren(h('div', {class: 'pagina-da-comunidade'}, principal, lateral), botaoDeEscrever());
+    carregarSugestoes(lateral, vez);
+
+    if (qual === 'perfil' && id) return telaPerfil(principal, id, vez);
+    if (qual === 'post' && id) {
+        document.title = 'Post · Comunidade · Meus Mangás';
+        principal.append(h('a', {class: 'voltar', href: '#/comunidade'}, '← Comunidade'));
+        try {
+            const post = await chamar('GET', '/api/comunidade/posts/' + encodeURIComponent(id));
+            if (vez === estado.render) principal.append(cartaoDePost(post, {comentariosAbertos: true}));
+        } catch (e) {
+            if (vez === estado.render) principal.append(vazio('Post não encontrado', e.message));
+        }
+        return;
+    }
+    const feed = qual === 'seguindo' ? 'seguindo' : 'para-voce';
     document.title = 'Comunidade · Meus Mangás';
-    const ideia = (icone, titulo, texto) => h('article', {class: 'ideia-da-comunidade'},
-        h('span', {class: 'icone-da-ideia', 'aria-hidden': 'true'}, icone), h('h2', null, titulo), h('p', null, texto));
-    app.replaceChildren(h('div', {class: 'pagina-da-comunidade'},
-        h('div', {class: 'chamada-da-comunidade'},
-            h('span', {class: 'selo-em-breve'}, 'Em breve'),
-            h('h1', null, 'Comunidade'),
-            h('p', {class: 'subtitulo'}, 'Um lugar para trocar ideias com outros leitores. Enquanto isso, sua lista continua na Biblioteca.'),
-            h('a', {class: 'botao primario', href: '#/'}, 'Ir para a Biblioteca')),
-        h('div', {class: 'ideias-da-comunidade'},
-            ideia('📚', 'Listas', 'Monte e publique listas de mangás: os que você leu, os que está lendo, os que recomenda e o que mais quiser.'),
-            ideia('💬', 'Posts', 'Escreva posts curtos, no estilo do Twitter, com imagens coladas ou enviadas do seu computador.'),
-            ideia('🗨️', 'Comentários', 'Comente nos posts e nas listas publicadas pelos outros leitores.'))));
+    const aba = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': feed === nome ? 'page' : null,
+        onclick: feed === nome ? evento => { evento.preventDefault(); recarregarAba(); } : null}, texto);
+    const lista = h('div', {class: 'feed'});
+    principal.append(
+        h('h1', {class: 'so-leitor'}, 'Comunidade'),
+        editorDePost(post => porNoFeed(lista, post)),
+        h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
+        lista);
+    estado.recarregar = () => telaComunidade(partes);
+    await carregarFeed(lista, '/api/comunidade/posts?feed=' + feed, vez, feed === 'seguindo'
+        ? vazio('Nada por aqui ainda', 'Os posts de quem você segue aparecem aqui. Siga leitores pela aba "Para você" ou pelas sugestões.')
+        : vazio('A Comunidade está começando', 'Seja o primeiro a postar: conte o que está lendo ou compartilhe uma lista.'));
+}
+
+/** Uma pagina de posts por vez; a proxima vem ao chegar perto do fim (ou pelo botao). */
+async function carregarFeed(lista, endereco, vez, seVazio, pagina = 1) {
+    let resposta;
+    try {
+        resposta = await chamar('GET', endereco + (endereco.includes('?') ? '&' : '?') + 'pagina=' + pagina);
+    } catch (e) {
+        if (vez !== estado.render) return;
+        // a versao Java do servidor nao tem a Comunidade
+        lista.append(/404|não encontrado/i.test(e.message)
+            ? vazio('Comunidade indisponível', 'A Comunidade só existe na versão do site publicada no Vercel.')
+            : vazio('Algo deu errado', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    if (pagina === 1 && resposta.itens.length === 0) {
+        lista.append(seVazio);
+        return;
+    }
+    lista.append(...resposta.itens.map(post => cartaoDePost(post)));
+    if (!resposta.temMais) return;
+    const mais = h('button', {type: 'button', class: 'botao carregar-mais'}, 'Carregar mais');
+    const carregar = () => {
+        observador.disconnect();
+        mais.remove();
+        carregarFeed(lista, endereco, vez, seVazio, pagina + 1);
+    };
+    mais.addEventListener('click', carregar);
+    const observador = new IntersectionObserver(entradas => { if (entradas.some(entrada => entrada.isIntersecting)) carregar(); }, {rootMargin: '600px'});
+    lista.append(mais);
+    observador.observe(mais);
+}
+
+async function carregarSugestoes(lateral, vez) {
+    let contas;
+    try {
+        contas = await chamar('GET', '/api/comunidade/sugestoes');
+    } catch (e) {
+        return;
+    }
+    if (vez !== estado.render || contas.length === 0) return;
+    lateral.append(h('section', {class: 'caixa-da-comunidade'},
+        h('h2', null, 'Quem seguir'),
+        ...contas.map(conta => h('div', {class: 'sugestao'},
+            h('a', {class: 'quem', href: '#/comunidade/perfil/' + conta.id}, avatar(conta), h('span', null, h('b', null, conta.nick),
+                h('small', null, conta.posts === 1 ? '1 post no último mês' : conta.posts + ' posts no último mês'))),
+            botaoDeSeguir(conta.id, false)))));
+}
+
+/** Seguir / Seguindo (passar o mouse mostra "Deixar de seguir"). */
+function botaoDeSeguir(contaId, sigo, aoMudar) {
+    const botao = h('button', {type: 'button', class: 'botao pequeno seguir'});
+    const mostrar = valor => {
+        sigo = valor;
+        botao.classList.toggle('seguindo', sigo);
+        botao.textContent = sigo ? 'Seguindo' : 'Seguir';
+        botao.setAttribute('aria-pressed', String(sigo));
+    };
+    botao.addEventListener('mouseenter', () => { if (sigo) botao.textContent = 'Deixar de seguir'; });
+    botao.addEventListener('mouseleave', () => mostrar(sigo));
+    botao.addEventListener('click', async () => {
+        botao.disabled = true;
+        try {
+            const perfil = await chamar(sigo ? 'DELETE' : 'POST', '/api/comunidade/contas/' + contaId + '/seguir');
+            mostrar(perfil.sigo);
+            if (aoMudar) aoMudar(perfil);
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        botao.disabled = false;
+    });
+    mostrar(sigo);
+    return botao;
+}
+
+async function telaPerfil(principal, id, vez) {
+    let perfil;
+    try {
+        perfil = await chamar('GET', '/api/comunidade/contas/' + encodeURIComponent(id));
+    } catch (e) {
+        if (vez === estado.render) principal.append(vazio('Leitor não encontrado', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    document.title = perfil.nick + ' · Comunidade · Meus Mangás';
+    const numeros = h('p', {class: 'numeros-do-perfil'});
+    const mostrarNumeros = dados => numeros.replaceChildren(
+        h('span', null, h('b', null, String(dados.posts)), dados.posts === 1 ? ' post' : ' posts'),
+        h('span', null, h('b', null, String(dados.seguidores)), dados.seguidores === 1 ? ' seguidor' : ' seguidores'),
+        h('span', null, h('b', null, String(dados.seguindo)), ' seguindo'));
+    mostrarNumeros(perfil);
+    const lista = h('div', {class: 'feed'});
+    principal.append(
+        h('a', {class: 'voltar', href: '#/comunidade'}, '← Comunidade'),
+        h('div', {class: 'cabecalho-do-perfil'},
+            avatar(perfil, true),
+            h('h1', null, perfil.nick),
+            h('p', {class: 'subtitulo'}, 'Na Comunidade desde ' + new Date(perfil.criadaEm).toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'})),
+            numeros,
+            perfil.euMesmo ? h('a', {class: 'botao pequeno', href: '#/conta'}, 'Editar perfil') : botaoDeSeguir(perfil.id, perfil.sigo, mostrarNumeros)),
+        perfil.euMesmo ? editorDePost(post => porNoFeed(lista, post)) : null,
+        lista);
+    estado.recarregar = () => telaComunidade(['perfil', id]);
+    await carregarFeed(lista, '/api/comunidade/contas/' + perfil.id + '/posts', vez,
+        vazio(perfil.euMesmo ? 'Você ainda não postou' : perfil.nick + ' ainda não postou', perfil.euMesmo ? 'Escreva o primeiro post aqui em cima.' : ''));
+}
+
+/** Uma imagem grande, por cima da pagina. */
+function verImagem(endereco) {
+    const dialogo = h('dialog', {class: 'imagem-grande'},
+        h('form', {method: 'dialog'}, h('button', {class: 'fechar', 'aria-label': 'Fechar'}, '×')),
+        h('img', {src: endereco, alt: ''}));
+    dialogo.addEventListener('click', evento => { if (evento.target === dialogo || evento.target.tagName === 'IMG') dialogo.close(); });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+}
+
+/** A lista de mangas anexada a um post (a copia de quando foi publicado). */
+function listaDoPost(lista) {
+    return h('div', {class: 'lista-do-post'},
+        h('div', {class: 'titulo-da-lista'}, h('span', {'aria-hidden': 'true'}, '📚'), ' ', lista.titulo || 'Lista de mangás',
+            h('small', null, lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás')),
+        h('div', {class: 'itens-da-lista'}, lista.itens.map(item => h('div', {class: 'item-da-lista', title: item.titulo},
+            h('div', {class: 'capa' + (item.favorito ? ' favorita' : '')},
+                item.capa ? h('img', {src: item.capa, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'})
+                    : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (item.titulo || '?').charAt(0).toUpperCase()),
+                item.status ? etiquetaStatus(item.status) : null,
+                etiquetaNota(item.nota)),
+            h('span', {class: 'nome-do-item'}, item.titulo)))));
+}
+
+function cartaoDePost(post, {comentariosAbertos} = {}) {
+    const cartao = h('article', {class: 'post'});
+    const curtir = h('button', {type: 'button', class: 'acao-do-post curtir', 'aria-pressed': String(post.curti)});
+    const mostrarCurtidas = () => {
+        curtir.setAttribute('aria-pressed', String(post.curti));
+        curtir.replaceChildren(h('span', {'aria-hidden': 'true'}, post.curti ? '♥' : '♡'), ' ', String(post.curtidas), h('span', {class: 'so-leitor'}, ' curtidas'));
+        curtir.title = post.curti ? 'Descurtir' : 'Curtir';
+    };
+    curtir.addEventListener('click', async () => {
+        // muda na hora e confirma com o servidor
+        post.curti = !post.curti;
+        post.curtidas += post.curti ? 1 : -1;
+        mostrarCurtidas();
+        try {
+            Object.assign(post, await chamar(post.curti ? 'POST' : 'DELETE', '/api/comunidade/posts/' + post.id + '/curtida'));
+        } catch (e) {
+            post.curti = !post.curti;
+            post.curtidas += post.curti ? 1 : -1;
+            avisar(e.message, true);
+        }
+        mostrarCurtidas();
+    });
+    mostrarCurtidas();
+
+    const areaDeComentarios = h('div', {class: 'comentarios', hidden: true});
+    const comentar = h('button', {type: 'button', class: 'acao-do-post', 'aria-expanded': 'false'});
+    const mostrarComentarios = () => comentar.replaceChildren(h('span', {'aria-hidden': 'true'}, '💬'), ' ', String(post.comentarios), h('span', {class: 'so-leitor'}, ' comentários'));
+    mostrarComentarios();
+    const abrirComentarios = async () => {
+        const abrir = areaDeComentarios.hidden;
+        areaDeComentarios.hidden = !abrir;
+        comentar.setAttribute('aria-expanded', String(abrir));
+        if (abrir) await carregarComentarios(post, areaDeComentarios, total => { post.comentarios = total; mostrarComentarios(); });
+    };
+    comentar.addEventListener('click', abrirComentarios);
+
+    const apagar = post.podeApagar ? h('button', {type: 'button', class: 'acao-do-post apagar', title: 'Apagar post'}, h('span', {'aria-hidden': 'true'}, '🗑'), h('span', {class: 'so-leitor'}, 'Apagar post')) : null;
+    if (apagar) apagar.addEventListener('click', async () => {
+        if (!await confirmar('Apagar o post?', 'O post, as curtidas e os comentários dele somem para sempre.', 'Apagar')) return;
+        try {
+            await chamar('DELETE', '/api/comunidade/posts/' + post.id);
+            cartao.remove();
+            avisar('Post apagado');
+        } catch (e) {
+            avisar(e.message, true);
+        }
+    });
+
+    const perfil = '#/comunidade/perfil/' + post.autor.id;
+    cartao.append(
+        h('a', {class: 'autor-do-post', href: perfil, 'aria-label': post.autor.nick}, avatar(post.autor)),
+        h('div', {class: 'corpo-do-post'},
+            h('div', {class: 'cabecalho-do-post'},
+                h('a', {class: 'nick', href: perfil}, post.autor.nick),
+                h('a', {class: 'quando', href: '#/comunidade/post/' + post.id, title: new Date(post.criadoEm).toLocaleString('pt-BR')}, quandoFoi(post.criadoEm)),
+                !post.meu && !post.sigoOAutor ? botaoDeSeguir(post.autor.id, false) : null),
+            post.texto ? h('p', {class: 'texto-do-post'}, post.texto) : null,
+            post.imagens.length ? h('div', {class: 'imagens-do-post quantas-' + post.imagens.length},
+                post.imagens.map(endereco => h('button', {type: 'button', class: 'imagem-do-post', onclick: () => verImagem(endereco), 'aria-label': 'Ver imagem'},
+                    h('img', {src: endereco, alt: '', loading: 'lazy', decoding: 'async'})))) : null,
+            post.lista ? listaDoPost(post.lista) : null,
+            h('div', {class: 'acoes-do-post'}, comentar, curtir, apagar),
+            areaDeComentarios));
+    if (comentariosAbertos) abrirComentarios();
+    return cartao;
+}
+
+async function carregarComentarios(post, area, aoContar) {
+    const lista = h('div', {class: 'lista-de-comentarios'});
+    const campo = h('textarea', {rows: '1', maxlength: String(TEXTO_DO_POST_MAXIMO), placeholder: 'Escreva um comentário…', 'aria-label': 'Comentário'});
+    const enviar = h('button', {type: 'submit', class: 'botao pequeno primario'}, 'Comentar');
+    const formulario = h('form', {class: 'novo-comentario'}, avatar(estado.sessao.conta), campo, enviar);
+    const desenhar = comentarios => {
+        aoContar(comentarios.length);
+        lista.replaceChildren(...comentarios.map(comentario => {
+            const apagar = comentario.podeApagar ? h('button', {type: 'button', class: 'apagar-comentario', title: 'Apagar comentário'}, '×') : null;
+            const item = h('div', {class: 'comentario'},
+                h('a', {href: '#/comunidade/perfil/' + comentario.autor.id}, avatar(comentario.autor)),
+                h('div', null,
+                    h('div', {class: 'cabecalho-do-post'}, h('a', {class: 'nick', href: '#/comunidade/perfil/' + comentario.autor.id}, comentario.autor.nick),
+                        h('span', {class: 'quando'}, quandoFoi(comentario.criadoEm)), apagar),
+                    h('p', {class: 'texto-do-post'}, comentario.texto)));
+            if (apagar) apagar.addEventListener('click', async () => {
+                if (!await confirmar('Apagar o comentário?', 'Ele some para sempre.', 'Apagar')) return;
+                try {
+                    await chamar('DELETE', '/api/comunidade/comentarios/' + comentario.id);
+                    item.remove();
+                    aoContar(lista.children.length);
+                } catch (e) {
+                    avisar(e.message, true);
+                }
+            });
+            return item;
+        }));
+    };
+    campo.addEventListener('input', () => { campo.style.height = 'auto'; campo.style.height = campo.scrollHeight + 'px'; });
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        if (!campo.value.trim()) return;
+        enviar.disabled = true;
+        try {
+            desenhar(await chamar('POST', '/api/comunidade/posts/' + post.id + '/comentarios', {texto: campo.value}));
+            campo.value = '';
+            campo.style.height = 'auto';
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        enviar.disabled = false;
+    });
+    area.replaceChildren(h('p', {class: 'subtitulo'}, 'Carregando…'));
+    try {
+        desenhar(await chamar('GET', '/api/comunidade/posts/' + post.id + '/comentarios'));
+    } catch (e) {
+        area.replaceChildren(h('p', {class: 'erro-de-login'}, e.message));
+        return;
+    }
+    area.replaceChildren(lista, formulario);
+}
+
+/** O botao redondo no canto, que abre a janela de escrever um post. */
+function botaoDeEscrever() {
+    const botao = h('button', {type: 'button', class: 'botao-de-escrever', title: 'Escrever um post', 'aria-label': 'Escrever um post'}, '✎');
+    botao.addEventListener('click', () => {
+        const dialogo = h('dialog', {class: 'janela-de-escrever'});
+        const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+        fechar.addEventListener('click', () => dialogo.close());
+        dialogo.append(h('div', {class: 'topo-da-janela'}, h('h2', null, 'Novo post'), fechar), editorDePost(post => {
+            dialogo.close();
+            const feed = app.querySelector('.feed');
+            // no proprio feed ou no proprio perfil, o post novo aparece em cima; em outra tela, abre o post
+            if (feed && (!location.hash.includes('/perfil/') || location.hash.endsWith(estado.sessao.conta.id))) porNoFeed(feed, post);
+            else location.hash = '#/comunidade/post/' + post.id;
+            avisar('Post publicado');
+        }, true));
+        dialogo.addEventListener('close', () => dialogo.remove());
+        document.body.append(dialogo);
+        dialogo.showModal();
+        dialogo.querySelector('textarea').focus();
+    });
+    return botao;
+}
+
+/**
+ * Campo de escrever um post: texto (ate 500), ate 4 imagens (escolhidas ou coladas com Ctrl+V) e uma lista de mangas
+ * da Biblioteca. As imagens sao diminuidas aqui antes de enviar.
+ */
+function editorDePost(aoPublicar, naJanela) {
+    const imagens = []; // {nome, url} ja enviadas
+    let lista = null; // {titulo, mangas: [{id, title, imageUrl, thumbUrl}]}
+    const texto = h('textarea', {rows: naJanela ? '5' : '2', maxlength: String(TEXTO_DO_POST_MAXIMO), placeholder: 'O que você está lendo?', 'aria-label': 'Texto do post'});
+    const contador = h('span', {class: 'contador'});
+    const previas = h('div', {class: 'previas-do-post'});
+    const anexo = h('div', {class: 'anexo-da-lista'});
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const publicar = h('button', {type: 'submit', class: 'botao primario'}, 'Publicar');
+    const arquivo = h('input', {type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', multiple: true, hidden: true});
+    const botaoImagem = h('button', {type: 'button', class: 'ferramenta-do-post', title: 'Adicionar imagens (ou cole com Ctrl+V)'}, '🖼', h('span', null, ' Imagem'));
+    const botaoLista = h('button', {type: 'button', class: 'ferramenta-do-post', title: 'Anexar uma lista de mangás da sua Biblioteca'}, '📚', h('span', null, ' Lista'));
+    let enviando = 0;
+
+    const atualizar = () => {
+        const tamanho = [...texto.value].length;
+        contador.textContent = tamanho > TEXTO_DO_POST_MAXIMO - 80 ? String(TEXTO_DO_POST_MAXIMO - tamanho) : '';
+        contador.classList.toggle('perto', tamanho > TEXTO_DO_POST_MAXIMO - 20);
+        publicar.disabled = enviando > 0 || (!texto.value.trim() && imagens.length === 0 && !lista);
+        botaoImagem.disabled = imagens.length + enviando >= IMAGENS_DO_POST_MAXIMO;
+        previas.replaceChildren(...imagens.map(imagem => h('div', {class: 'previa'},
+            h('img', {src: imagem.url, alt: ''}),
+            h('button', {type: 'button', class: 'tirar', 'aria-label': 'Tirar imagem', onclick: () => { imagens.splice(imagens.indexOf(imagem), 1); atualizar(); }}, '×'))),
+            ...Array.from({length: enviando}, () => h('div', {class: 'previa carregando'}, '…')));
+        anexo.replaceChildren(...(lista ? [h('div', {class: 'lista-anexada'},
+            h('span', null, '📚 ', h('b', null, lista.titulo || 'Lista de mangás'), ' · ', lista.mangas.length === 1 ? '1 mangá' : lista.mangas.length + ' mangás'),
+            h('button', {type: 'button', class: 'botao pequeno', onclick: () => escolherLista(lista, nova => { lista = nova; atualizar(); })}, 'Editar'),
+            h('button', {type: 'button', class: 'tirar', 'aria-label': 'Tirar a lista', onclick: () => { lista = null; atualizar(); }}, '×'))] : []));
+    };
+
+    const adicionarImagens = async arquivos => {
+        erro.textContent = '';
+        const cabem = arquivos.filter(escolhido => escolhido.type.startsWith('image/')).slice(0, IMAGENS_DO_POST_MAXIMO - imagens.length - enviando);
+        enviando += cabem.length;
+        atualizar();
+        for (const escolhido of cabem) {
+            try {
+                // GIF vai como esta (para nao perder a animacao); as outras sao diminuidas
+                const reduzida = escolhido.type === 'image/gif' ? escolhido : await reduzirImagem(escolhido, {largura: 1600, altura: 1600, qualidade: 0.85});
+                const envio = new FormData();
+                envio.append('arquivo', reduzida, 'imagem.' + ((reduzida.type || '').split('/')[1] || 'jpg'));
+                imagens.push(await chamar('POST', '/api/comunidade/imagens', envio));
+            } catch (e) {
+                erro.textContent = /decode|bitmap/i.test(e.message) ? 'Não foi possível ler uma das imagens.' : e.message;
+            }
+            enviando--;
+            atualizar();
+        }
+    };
+    arquivo.addEventListener('change', () => {
+        adicionarImagens([...arquivo.files]);
+        arquivo.value = '';
+    });
+    botaoImagem.addEventListener('click', () => arquivo.click());
+    // colar imagem (print, imagem copiada) direto no campo
+    texto.addEventListener('paste', evento => {
+        const coladas = [...(evento.clipboardData?.files || [])].filter(colado => colado.type.startsWith('image/'));
+        if (coladas.length) {
+            evento.preventDefault();
+            adicionarImagens(coladas);
+        }
+    });
+    texto.addEventListener('input', () => {
+        if (!naJanela) {
+            texto.style.height = 'auto';
+            texto.style.height = Math.min(texto.scrollHeight, 320) + 'px';
+        }
+        atualizar();
+    });
+    botaoLista.addEventListener('click', () => escolherLista(lista, nova => { lista = nova; atualizar(); }));
+
+    const formulario = h('form', {class: 'editor-de-post' + (naJanela ? ' na-janela' : '')},
+        avatar(estado.sessao.conta),
+        h('div', {class: 'campo-do-post'},
+            texto, previas, anexo, erro,
+            h('div', {class: 'barra-do-post'}, botaoImagem, botaoLista, arquivo, h('span', {class: 'espaco'}), contador, publicar)));
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        erro.textContent = '';
+        publicar.disabled = true;
+        try {
+            const post = await chamar('POST', '/api/comunidade/posts', {
+                texto: texto.value,
+                imagens: imagens.map(imagem => imagem.nome),
+                lista: lista ? {titulo: lista.titulo, mangas: lista.mangas.map(manga => manga.id)} : null,
+            });
+            texto.value = '';
+            texto.style.height = '';
+            imagens.length = 0;
+            lista = null;
+            aoPublicar(post);
+        } catch (e) {
+            erro.textContent = e.message;
+        }
+        atualizar();
+    });
+    atualizar();
+    return formulario;
+}
+
+/** Janela para montar a lista: titulo e ate 20 mangas da Biblioteca, buscados pelo nome. */
+function escolherLista(atual, aoConfirmar) {
+    const escolhidos = atual ? [...atual.mangas] : [];
+    const titulo = h('input', {type: 'text', maxlength: '80', placeholder: 'Ex.: Os que mais recomendo', value: atual ? atual.titulo : '', 'aria-label': 'Título da lista'});
+    const busca = h('input', {type: 'search', placeholder: 'Buscar na sua Biblioteca…', 'aria-label': 'Buscar mangá'});
+    const resultados = h('div', {class: 'resultados-da-lista'});
+    const selecionados = h('div', {class: 'escolhidos-da-lista'});
+    const anexar = h('button', {type: 'button', class: 'botao primario'});
+    const linha = manga => {
+        const marcado = escolhidos.some(outro => outro.id === manga.id);
+        return h('button', {type: 'button', class: 'manga-da-busca', 'aria-pressed': String(marcado),
+            disabled: !marcado && escolhidos.length >= MANGAS_DA_LISTA_MAXIMO,
+            onclick: () => {
+                const posicao = escolhidos.findIndex(outro => outro.id === manga.id);
+                if (posicao >= 0) escolhidos.splice(posicao, 1); else escolhidos.push(manga);
+                desenhar();
+            }},
+        h('img', {src: manga.thumbUrl || manga.imageUrl, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'}),
+        h('span', null, h('b', null, manga.title), h('small', null, descricaoStatus(manga.readingStatus))),
+        h('span', {class: 'marca-da-busca', 'aria-hidden': 'true'}, marcado ? '✓' : '+'));
+    };
+    let encontrados = [];
+    const desenhar = () => {
+        resultados.replaceChildren(...(encontrados.length ? encontrados.map(linha) : [h('p', {class: 'subtitulo'}, 'Nenhum mangá encontrado na sua Biblioteca.')]));
+        selecionados.replaceChildren(...escolhidos.map(manga => h('span', {class: 'tag escolhida'}, manga.title,
+            h('button', {type: 'button', 'aria-label': 'Tirar ' + manga.title, onclick: () => { escolhidos.splice(escolhidos.indexOf(manga), 1); desenhar(); }}, '×'))));
+        anexar.textContent = escolhidos.length ? `Anexar ${escolhidos.length} de ${MANGAS_DA_LISTA_MAXIMO}` : 'Escolha os mangás';
+        anexar.disabled = escolhidos.length === 0;
+    };
+    const buscar = async () => {
+        const parametros = new URLSearchParams({resumo: '1', pagina: '1', tamanho: '30'});
+        if (busca.value.trim()) parametros.set('titulo', busca.value.trim());
+        try {
+            encontrados = (await chamar('GET', '/api/mangas?' + parametros)).itens;
+        } catch (e) {
+            encontrados = [];
+        }
+        desenhar();
+    };
+    let espera;
+    busca.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(buscar, 200); });
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const dialogo = h('dialog', {class: 'janela-da-lista'},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, 'Anexar lista'), fechar),
+        h('label', {class: 'campo'}, h('span', null, 'Título (opcional)'), titulo),
+        busca, selecionados, resultados,
+        h('div', {class: 'acoes'}, anexar));
+    fechar.addEventListener('click', () => dialogo.close());
+    anexar.addEventListener('click', () => {
+        aoConfirmar({titulo: titulo.value.trim(), mangas: escolhidos});
+        dialogo.close();
+    });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    desenhar();
+    buscar();
+    busca.focus();
 }
 
 // ------------------------------------------------------------------ minha conta

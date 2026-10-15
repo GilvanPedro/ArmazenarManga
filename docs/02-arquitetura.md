@@ -26,7 +26,7 @@ foi reescrita em JavaScript como uma função do Vercel. As duas versões:
 | Código | `src/main/java/...` | `api/` |
 | Armazenamento | Arquivo JSON ou Postgres | Só Postgres |
 | Limite de capa enviada | 10 MB | 4 MB (limite da plataforma) |
-| Testes | 289, em todas as camadas do servidor | 57, cobrindo verificação, sinopse, recomendações, login e contas |
+| Testes | 289, em todas as camadas do servidor | 61, cobrindo verificação, sinopse, recomendações, login, contas e Comunidade |
 
 ## Versão Java: camadas
 

@@ -21,8 +21,8 @@ confere e corrige esse link quando o site muda o endereço.
 - **Recomendações** e uma aba para **descobrir** obras por nome, ordem, tags que você quer e tags que não
   quer (em quadros com pesquisa, que podem ser recolhidos), sem repetir o que já está na lista.
 
-O site tem duas partes: a **Biblioteca**, com a lista de mangás de cada conta, e a **Comunidade**, que ainda vai
-ser feita (listas publicadas, posts e comentários).
+O site tem duas partes: a **Biblioteca**, com a lista de mangás de cada conta, e a **Comunidade**, no estilo do
+Twitter: posts com imagens e listas de mangás, curtidas, comentários, seguir leitores e um feed "Para você".
 
 Cada pessoa cria a sua conta (e-mail, nick, senha e, se quiser, uma foto de perfil) e vê só os mangás que ela
 mesma cadastrou. O banco aguenta
@@ -81,7 +81,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Desempenho da lista, da busca e das capas](docs/21-desempenho.md) | [Escala e preparação para contas](docs/22-escala-e-contas.md) |
 | [Contas de usuário](docs/23-contas.md) | [Foto de perfil](docs/24-foto-de-perfil.md) |
 | [Página da conta centralizada](docs/25-pagina-da-conta-centralizada.md) | [Mangás antigos só para admins](docs/26-mangas-antigos-so-para-admins.md) |
-| [Biblioteca e Comunidade](docs/27-biblioteca-e-comunidade.md) | |
+| [Biblioteca e Comunidade](docs/27-biblioteca-e-comunidade.md) | [Comunidade](docs/28-comunidade.md) |
 
 ## Testes
 

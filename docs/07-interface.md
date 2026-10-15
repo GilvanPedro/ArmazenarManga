@@ -20,7 +20,9 @@ O topo divide o site em duas partes: **Biblioteca** (todas as telas abaixo, meno
 
 ### Comunidade (`#/comunidade`)
 
-Por enquanto, uma página "Em breve" com o que está planejado: listas publicadas, posts e comentários.
+Feeds "Para você" e "Seguindo", campo de escrever no alto, botão ✎ que abre a janela de escrever, posts com imagens
+e listas anexadas, curtidas, comentários, "Quem seguir" ao lado e o perfil de cada leitor
+(`#/comunidade/perfil/{id}`). Veja [Comunidade](28-comunidade.md).
 
 ### Entrar
 

@@ -29,7 +29,8 @@ Mostra o selo **Em breve**, o título, um botão para voltar à Biblioteca e tr�
 - **Posts:** posts curtos, no estilo do Twitter, com imagens coladas ou enviadas do computador.
 - **Comentários:** comentar nos posts e nas listas publicadas.
 
-Nada disso funciona ainda; a página só apresenta a ideia. Não houve mudança no servidor.
+Nada disso funcionava ainda; a página só apresentava a ideia. Depois a Comunidade foi feita: veja
+[Comunidade](28-comunidade.md).
 
 ## O que a Comunidade vai precisar
 

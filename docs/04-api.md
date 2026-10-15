@@ -178,3 +178,9 @@ O limite é 10 MB na versão Java e 4 MB na do Vercel.
 ## Outros
 
 `GET /healthz` responde `ok` sem login. A hospedagem usa essa rota para saber se o programa está no ar.
+
+## Comunidade
+
+Só na versão do Vercel. Todas as rotas ficam em `/api/comunidade/...` e pedem login: feed (`posts?feed=para-voce`
+ou `seguindo`), publicar, curtir, comentar, seguir, perfis, imagens e sugestões. A lista completa está em
+[Comunidade](28-comunidade.md).

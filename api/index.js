@@ -7,6 +7,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
+import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade } from './_comunidade_rotas.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
@@ -107,7 +108,7 @@ const ESTRUTURA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
-`;
+` + ESTRUTURA_DA_COMUNIDADE;
 
 async function banco() {
     if (!conexoes) {
@@ -983,6 +984,7 @@ async function rotear(request) {
     if (!sessao) throw new Recusa(401, 'Entre na sua conta');
     contexto.getStore().conta = sessao.conta.id;
     if (recurso === 'conta' && partes.length <= 2) return tratarConta(request, sessao, id);
+    if (recurso === 'comunidade') return comunidade()(request, url, partes.slice(1), sessao.conta);
 
     if (recurso === 'status' && partes.length === 1 && metodo === 'GET') {
         return json(200, listaDeStatus());
@@ -1237,6 +1239,16 @@ async function rotear(request) {
     throw new Recusa(404, 'Rota não encontrada');
 }
 
+// a Comunidade (api/_comunidade_rotas.js) usa as mesmas ferramentas do resto da API
+let rotasDaComunidade;
+function comunidade() {
+    rotasDaComunidade ??= criarComunidade({
+        banco, json, Recusa, lerCorpo, semCache, exigirQueNaoEstejaFreado, registrarTentativa, descobrirExtensao, ehAdmin,
+        miniaturasDe: miniaturas,
+    });
+    return rotasDaComunidade;
+}
+
 async function tratar(request) {
     try {
         // a conta de quem esta usando vale para todas as consultas desta requisicao (hoje, sempre a principal)
@@ -1244,7 +1256,7 @@ async function tratar(request) {
         return await contexto.run({ conta: null }, () => rotear(request));
     } catch (erro) {
         if (erro instanceof Recusa) return json(erro.status, { mensagem: erro.message });
-        if (erro instanceof DadoInvalido) return json(400, { mensagem: erro.message });
+        if (erro instanceof DadoInvalido || erro instanceof DadoInvalidoNaComunidade) return json(400, { mensagem: erro.message });
         console.error('Erro inesperado em', request.method, request.url, erro);
         return json(500, { mensagem: 'Erro inesperado' });
     }

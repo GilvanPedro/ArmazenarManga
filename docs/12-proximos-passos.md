@@ -36,9 +36,8 @@ se perde em sites com id por capítulo.
 - Botão para sair de todos os aparelhos (hoje, troca-se a senha) e lista de aparelhos conectados.
 
 ### Comunidade
-- Listas de mangás publicadas (lidos, lendo, recomendados), posts no estilo do Twitter com imagens coladas ou
-  enviadas, e comentários em posts e listas. O que isso vai precisar está em
-  [Biblioteca e Comunidade](27-biblioteca-e-comunidade.md).
+- Repostar e citar posts, notificações, editar post, denunciar e bloquear, moderação para admins e a Comunidade
+  na versão Java. Veja [Comunidade](28-comunidade.md).
 
 ### Leitura
 - Refazer o ajuste perdido da extensão: clicar em botões de "próximo" que não são links, e mostrar ao usuário o
