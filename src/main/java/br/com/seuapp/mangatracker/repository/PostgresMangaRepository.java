@@ -29,20 +29,24 @@ import java.util.UUID;
 public class PostgresMangaRepository implements MangaRepository {
 
     private final DataSource banco;
-    private final String conta;
+    private final java.util.function.Supplier<String> conta;
     private final ObjectMapper mapper = JsonMapper.builder()
             .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN)
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
+    /** Os dados da conta de quem esta usando ({@link ContaAtual}). */
     public PostgresMangaRepository(DataSource banco) {
-        this(banco, EstruturaDoBanco.CONTA_PRINCIPAL);
+        this.banco = Objects.requireNonNull(banco);
+        this.conta = ContaAtual::obter;
+        EstruturaDoBanco.preparar(banco);
     }
 
     /** @param conta de quem sao os mangas: todas as consultas e gravacoes ficam so nela */
     public PostgresMangaRepository(DataSource banco, String conta) {
         this.banco = Objects.requireNonNull(banco);
-        this.conta = Objects.requireNonNull(conta);
+        Objects.requireNonNull(conta);
+        this.conta = () -> conta;
         EstruturaDoBanco.preparar(banco);
     }
 
@@ -59,7 +63,7 @@ public class PostgresMangaRepository implements MangaRepository {
             List<String> tags = manga.getTags() == null ? List.of() : manga.getTags().stream().map(Tag::getNome).toList();
             comando.setObject(1, manga.getId());
             comando.setString(2, mapper.writeValueAsString(MangaJson.de(manga)));
-            comando.setString(3, conta);
+            comando.setString(3, conta.get());
             comando.setString(4, EstruturaDoBanco.tituloDeBusca(manga.getTitle()));
             comando.setArray(5, conexao.createArrayOf("text", EstruturaDoBanco.tagsDeBusca(tags).toArray()));
             comando.executeUpdate();
@@ -76,7 +80,7 @@ public class PostgresMangaRepository implements MangaRepository {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("SELECT dados FROM mangas WHERE id = ? AND conta = ?")) {
             comando.setObject(1, id);
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             try (ResultSet linhas = comando.executeQuery()) {
                 return linhas.next() ? Optional.of(lerManga(linhas)) : Optional.empty();
             }
@@ -89,7 +93,7 @@ public class PostgresMangaRepository implements MangaRepository {
     public List<Manga> listarTodos() {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("SELECT dados FROM mangas WHERE conta = ? ORDER BY ordem")) {
-            comando.setString(1, conta);
+            comando.setString(1, conta.get());
             List<Manga> mangas = new ArrayList<>();
             try (ResultSet linhas = comando.executeQuery()) {
                 while (linhas.next()) {
@@ -107,10 +111,31 @@ public class PostgresMangaRepository implements MangaRepository {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("DELETE FROM mangas WHERE id = ? AND conta = ?")) {
             comando.setObject(1, id);
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             comando.executeUpdate();
         } catch (SQLException e) {
             throw new PersistenciaException("Nao foi possivel excluir o manga do banco", e);
+        }
+    }
+
+    @Override
+    public void excluirTodos() {
+        executar("DELETE FROM mangas WHERE conta = ?", conta.get());
+    }
+
+    @Override
+    public int trazerDe(String outraConta) {
+        return executar("UPDATE mangas SET conta = ? WHERE conta = ?", conta.get(), outraConta);
+    }
+
+    private int executar(String sql, Object... valores) {
+        try (Connection conexao = banco.getConnection(); PreparedStatement comando = conexao.prepareStatement(sql)) {
+            for (int i = 0; i < valores.length; i++) {
+                comando.setObject(i + 1, valores[i]);
+            }
+            return comando.executeUpdate();
+        } catch (SQLException e) {
+            throw new PersistenciaException("Nao foi possivel alterar os mangas no banco", e);
         }
     }
 
@@ -140,7 +165,7 @@ public class PostgresMangaRepository implements MangaRepository {
 
     private Filtros filtros(ConsultaDeMangas consulta) {
         List<String> condicoes = new ArrayList<>(List.of("conta = ?"));
-        List<Object> valores = new ArrayList<>(List.of(conta));
+        List<Object> valores = new ArrayList<>(List.of(conta.get()));
         if (consulta.status() != null) {
             condicoes.add("dados->>'readingStatus' = ?");
             valores.add(consulta.status().name());

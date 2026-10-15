@@ -1,38 +1,51 @@
 // Login que vale por 30 dias, guardado em um cookie do navegador. Mesmo formato e mesma assinatura da versao
 // Java (web/Sessoes.java), para um login valer nas duas quando elas usam o mesmo banco.
 //
-// O cookie leva ate quando o login vale e uma assinatura feita com um segredo que so o servidor tem. Assim nao e
-// preciso guardar as sessoes. A assinatura tambem depende do usuario e da senha: trocar a senha desfaz todos os
-// logins, em qualquer aparelho.
+// O cookie diz de qual conta e o login, ate quando vale, e leva uma assinatura feita com um segredo que so o
+// servidor tem. A assinatura tambem depende da senha guardada da conta: trocar a senha desfaz todos os logins
+// daquela conta, em qualquer aparelho.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const COOKIE = 'mangas_sessao';
 export const DURACAO_SEGUNDOS = 30 * 24 * 60 * 60;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 const sha256 = texto => createHash('sha256').update(texto, 'utf8').digest();
 
-function assinar(segredo, corpo, usuario, senha) {
-    const resumoDoLogin = sha256(usuario + '\n' + senha).toString('base64url');
-    return createHmac('sha256', segredo).update(corpo + '.' + resumoDoLogin, 'utf8').digest('base64url');
+function assinar(segredo, corpo, senhaGuardada) {
+    const resumoDaSenha = sha256(senhaGuardada).toString('base64url');
+    return createHmac('sha256', segredo).update(corpo + '.' + resumoDaSenha, 'utf8').digest('base64url');
 }
 
-/** Um login novo, que vale de agora ate daqui a 30 dias. Formato: v1.{expira em segundos}.{aleatorio}.{assinatura} */
-export function criarSessao(segredo, usuario, senha, agora = Date.now()) {
-    const corpo = 'v1.' + (Math.floor(agora / 1000) + DURACAO_SEGUNDOS) + '.' + randomBytes(16).toString('base64url');
-    return corpo + '.' + assinar(segredo, corpo, usuario, senha);
+/**
+ * Um login novo da conta, que vale de agora ate daqui a 30 dias.
+ * Formato: v2.{id da conta}.{expira em segundos}.{aleatorio}.{assinatura}
+ *
+ * @param senhaGuardada o hash da senha guardado na conta (nunca a senha digitada)
+ */
+export function criarSessao(segredo, contaId, senhaGuardada, agora = Date.now()) {
+    const corpo = 'v2.' + contaId + '.' + (Math.floor(agora / 1000) + DURACAO_SEGUNDOS) + '.' + randomBytes(16).toString('base64url');
+    return corpo + '.' + assinar(segredo, corpo, senhaGuardada);
 }
 
-/** Ate quando o login vale (Date), se o cookie for verdadeiro e ainda nao tiver vencido; senao null. */
-export function validarSessao(cookie, segredo, usuario, senha, agora = Date.now()) {
-    if (typeof cookie !== 'string' || cookie.length > 200) return null;
+/** De qual conta e o cookie, sem conferir a assinatura (para buscar a conta e depois validar). */
+export function contaDoCookie(cookie) {
+    if (typeof cookie !== 'string' || cookie.length > 300) return null;
     const partes = cookie.split('.');
-    if (partes.length !== 4 || partes[0] !== 'v1' || !/^\d{1,12}$/.test(partes[1])) return null;
-    const expira = Number(partes[1]);
+    return partes.length === 5 && partes[0] === 'v2' && ID.test(partes[1]) ? partes[1] : null;
+}
+
+/** Ate quando o login vale (Date), se o cookie for verdadeiro, da conta e ainda nao tiver vencido; senao null. */
+export function validarSessao(cookie, segredo, contaId, senhaGuardada, agora = Date.now()) {
+    if (contaDoCookie(cookie) !== contaId || typeof senhaGuardada !== 'string') return null;
+    const partes = cookie.split('.');
+    if (!/^\d{1,12}$/.test(partes[2])) return null;
+    const expira = Number(partes[2]);
     const segundos = Math.floor(agora / 1000);
     // vencido, ou com uma validade maior do que o servidor daria
     if (expira <= segundos || expira > segundos + DURACAO_SEGUNDOS + 60) return null;
-    const esperada = Buffer.from(assinar(segredo, partes.slice(0, 3).join('.'), usuario, senha));
-    const recebida = Buffer.from(partes[3]);
+    const esperada = Buffer.from(assinar(segredo, partes.slice(0, 4).join('.'), senhaGuardada));
+    const recebida = Buffer.from(partes[4]);
     if (esperada.length !== recebida.length || !timingSafeEqual(esperada, recebida)) return null;
     return new Date(expira * 1000);
 }

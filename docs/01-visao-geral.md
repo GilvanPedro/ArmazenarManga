@@ -30,8 +30,8 @@ cada mangá tem o link do site de leitura, e o sistema cuida de manter esse link
 
 ## Limites de hoje
 
-- **Uso individual.** Existe uma única conta (um usuário e uma senha, definidos na configuração). Quem entra vê e
-  altera todos os mangás. Não há cadastro de usuários nem listas separadas por pessoa.
+- **Contas sem recuperação de senha.** Qualquer pessoa pode criar uma conta e vê só os próprios mangás, mas não há
+  como recuperar uma senha esquecida nem confirmar o e-mail, porque o site não envia e-mails.
 - **Sites com proteção contra robôs.** O servidor não consegue abrir páginas de sites que exigem um navegador de
   verdade (por exemplo, os que usam o desafio do Cloudflare). Neles a verificação automática não funciona, e o
   caminho é a extensão ou o favorito. Veja [05 · Links e leitura](05-links-e-leitura.md).

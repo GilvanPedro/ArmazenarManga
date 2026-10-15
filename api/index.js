@@ -6,7 +6,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
-import { COOKIE, DURACAO_SEGUNDOS, criarSessao, lerCookie, mesmoTexto, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
+import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, mesmoTexto, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
+import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
@@ -45,7 +46,6 @@ const TAGS_SUGERIDAS = ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Ho
     'Dungeon', 'Historical', 'Isekai', 'Magic', 'Martial Arts', 'Murim', 'Regression', 'Reincarnation',
     'Revenge', 'School Life', 'System', 'Villainess'];
 const MARCADOR = '{cap}';
-const SENHA_MINIMA = 12;
 // o Vercel recusa requisicoes maiores que 4,5 MB
 const TAMANHO_MAXIMO = 4 * 1024 * 1024;
 const TIPOS = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
@@ -66,13 +66,18 @@ class Recusa extends Error {
 // ------------------------------------------------------------------ banco e conta
 
 /**
- * Cada manga e cada capa pertencem a uma conta, e toda consulta filtra pela conta de quem esta usando. Hoje existe
- * uma conta so ("principal"). Quando houver cadastro de contas, contaAtual() passa a vir da sessao, e o resto do
- * codigo nao precisa mudar.
+ * Cada manga e cada capa pertencem a uma conta, e toda consulta filtra pela conta de quem esta usando, que vem da
+ * sessao (veja rotear). Sem sessao nao ha conta, e qualquer consulta de dados falha em vez de cair na conta de
+ * outra pessoa. "principal" e a conta de antes do cadastro de contas: os mangas dela esperam ser trazidos para
+ * uma conta de verdade (POST /api/conta/mangas-antigos).
  */
-const CONTA_PRINCIPAL = 'principal';
+const CONTA_ANTIGA = 'principal';
 const contexto = new AsyncLocalStorage();
-const contaAtual = () => contexto.getStore()?.conta ?? CONTA_PRINCIPAL;
+function contaAtual() {
+    const conta = contexto.getStore()?.conta;
+    if (!conta) throw new Error('Consulta de dados sem conta');
+    return conta;
+}
 
 let conexoes;
 let tabelasProntas;
@@ -96,6 +101,11 @@ const ESTRUTURA = `
     CREATE INDEX IF NOT EXISTS mangas_conta_status ON mangas (conta, (dados->>'readingStatus'));
     CREATE INDEX IF NOT EXISTS mangas_conta_imagem ON mangas (conta, (dados->>'imagePath'));
     CREATE INDEX IF NOT EXISTS mangas_tags_busca ON mangas USING GIN (tags_busca);
+    CREATE TABLE IF NOT EXISTS contas (id UUID PRIMARY KEY, email TEXT NOT NULL, nick TEXT NOT NULL, senha_hash TEXT NOT NULL,
+        admin BOOLEAN NOT NULL DEFAULT false, criada_em TIMESTAMPTZ NOT NULL DEFAULT now());
+    CREATE UNIQUE INDEX IF NOT EXISTS contas_email ON contas (email);
+    ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
 `;
 
 async function banco() {
@@ -658,12 +668,15 @@ async function segredoDaSessao() {
     return segredoGuardado;
 }
 
-const usuarioDoSite = () => process.env.MANGATRACKER_USUARIO || 'manga';
-
+/** A conta do cookie, se o login for verdadeiro e valer ainda: { conta, expira } ou null. */
 async function sessaoValida(request) {
     const cookie = lerCookie(request.headers.get('cookie'), COOKIE);
-    if (!cookie) return null;
-    return validarSessao(cookie, await segredoDaSessao(), usuarioDoSite(), process.env.MANGATRACKER_SENHA);
+    const id = contaDoCookie(cookie);
+    if (!id) return null;
+    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em FROM contas WHERE id = $1', [id]);
+    if (rows.length === 0) return null; // conta excluida
+    const expira = validarSessao(cookie, await segredoDaSessao(), rows[0].id, rows[0].senha_hash);
+    return expira ? { conta: rows[0], expira } : null;
 }
 
 function usaHttps(request) {
@@ -675,62 +688,202 @@ function semCache(resposta) {
     return resposta;
 }
 
-const respostaDaSessao = (expira) => ({
+/** A conta como o site ve: nunca leva a senha guardada. */
+const contaPublica = conta => ({ id: conta.id, email: conta.email, nick: conta.nick, admin: conta.admin === true });
+
+const respostaDaSessao = sessao => ({
     exigeLogin: true,
-    logado: Boolean(expira),
-    usuario: expira ? usuarioDoSite() : null,
-    expiraEm: expira ? expira.toISOString() : null,
+    logado: Boolean(sessao),
+    conta: sessao ? contaPublica(sessao.conta) : null,
+    expiraEm: sessao ? sessao.expira.toISOString() : null,
 });
 
-const MAXIMO_DE_ERROS = 10;
-const JANELA_DE_ERROS_MINUTOS = 15;
-
-/**
- * Freia quem tenta adivinhar a senha: depois de 10 erros em 15 minutos, novos logins esperam. O limite vale para o
- * site inteiro (o endereco de quem tenta pode ser falsificado) e fica no banco, porque cada chamada pode cair em
- * uma instancia diferente da funcao. Quem ja entrou continua dentro.
- */
-async function minutosDeEspera() {
-    const { rows } = await (await banco()).query(
-        `SELECT count(*)::int AS erros, extract(epoch FROM min(quando) + interval '${JANELA_DE_ERROS_MINUTOS} minutes' - now()) AS faltam
-         FROM tentativas_de_login WHERE quando > now() - interval '${JANELA_DE_ERROS_MINUTOS} minutes'`);
-    return rows[0].erros < MAXIMO_DE_ERROS ? 0 : Math.max(1, Math.ceil(Number(rows[0].faltam) / 60));
+/** Entra na conta: grava o cookie de 30 dias e responde como GET /api/sessao. */
+async function entrarNaConta(request, conta, status = 200) {
+    const segredo = await segredoDaSessao();
+    const cookie = criarSessao(segredo, conta.id, conta.senha_hash);
+    const resposta = semCache(json(status, respostaDaSessao({ conta, expira: validarSessao(cookie, segredo, conta.id, conta.senha_hash) })));
+    resposta.headers.set('Set-Cookie', textoDoCookie(cookie, DURACAO_SEGUNDOS, usaHttps(request)));
+    return resposta;
 }
 
-async function registrarErroDeLogin() {
+function apagarCookie(request, resposta) {
+    resposta.headers.set('Set-Cookie', textoDoCookie('', 0, usaHttps(request)));
+    return resposta;
+}
+
+// ------------------------------------------------------------------ limites de tentativas
+
+/**
+ * Freia quem tenta adivinhar senhas ou criar contas em massa. As tentativas ficam no banco, porque cada chamada
+ * pode cair em uma instancia diferente da funcao. Quem ja entrou continua dentro.
+ */
+const LIMITES = {
+    // senha errada de um e-mail: 10 em 15 minutos
+    login: { maximo: 10, minutos: 15 },
+    // senha errada no site inteiro, somando todos os e-mails: 100 em 15 minutos
+    loginGeral: { maximo: 100, minutos: 15 },
+    // contas criadas no site inteiro: 20 por hora
+    cadastro: { maximo: 20, minutos: 60 },
+    // senha antiga errada ao trazer os mangas antigos: 10 em 15 minutos
+    contaAntiga: { maximo: 10, minutos: 15 },
+};
+
+/** Minutos de espera antes de poder tentar de novo (0 = pode agora). chave com % no fim conta todas que comecam assim. */
+async function minutosDeEspera(chave, { maximo, minutos }) {
+    const { rows } = await (await banco()).query(
+        `SELECT count(*)::int AS vezes, extract(epoch FROM min(quando) + make_interval(mins => $2) - now()) AS faltam
+         FROM tentativas_de_login WHERE chave LIKE $1 AND quando > now() - make_interval(mins => $2)`, [chave, minutos]);
+    return rows[0].vezes < maximo ? 0 : Math.max(1, Math.ceil(Number(rows[0].faltam) / 60));
+}
+
+async function registrarTentativa(chave) {
     const conexao = await banco();
-    await conexao.query('INSERT INTO tentativas_de_login DEFAULT VALUES');
+    await conexao.query('INSERT INTO tentativas_de_login (chave) VALUES ($1)', [chave]);
     await conexao.query("DELETE FROM tentativas_de_login WHERE quando < now() - interval '1 day'");
 }
 
-/** GET ve se entrou, POST entra, DELETE sai (so neste navegador; para sair de todos, troque a senha). */
+async function exigirQueNaoEstejaFreado(chave, limite) {
+    const espera = await minutosDeEspera(chave, limite);
+    if (espera > 0) throw new Recusa(429, `Muitas tentativas. Tente de novo em ${espera} ${espera === 1 ? 'minuto' : 'minutos'}`);
+}
+
+// a chave do e-mail nao pode ter % nem _, que o LIKE leria como curinga
+const chaveDoLogin = email => 'login:' + normalizarEmail(email).replace(/[%_\\]/g, '');
+
+// ------------------------------------------------------------------ rotas de sessao e de conta
+
+/** GET ve se entrou, POST entra (e-mail e senha), DELETE sai (so neste navegador). */
 async function tratarSessao(request) {
+    if (request.method === 'GET') return semCache(json(200, respostaDaSessao(await sessaoValida(request))));
+    if (request.method === 'DELETE') return apagarCookie(request, semCache(new Response(null, { status: 204 })));
+    if (request.method !== 'POST') throw new Recusa(404, 'Endereço não encontrado');
+    const { email, senha } = await lerCorpo(request);
+    if (typeof email !== 'string' || !email.trim() || typeof senha !== 'string' || senha === '') throw new Recusa(400, 'Informe o e-mail e a senha');
+    const chave = chaveDoLogin(email);
+    await exigirQueNaoEstejaFreado(chave, LIMITES.login);
+    await exigirQueNaoEstejaFreado('login:%', LIMITES.loginGeral);
+    const { rows } = await (await banco()).query('SELECT * FROM contas WHERE email = $1', [normalizarEmail(email)]);
+    // a mesma resposta e o mesmo tempo para e-mail que nao existe e senha errada
+    const certo = rows.length ? await senhaConfere(senha, rows[0].senha_hash) : (await gastarTempoDeUmaSenha(senha), false);
+    if (!certo) {
+        await registrarTentativa(chave);
+        throw new Recusa(401, 'E-mail ou senha incorretos');
+    }
+    return entrarNaConta(request, rows[0]);
+}
+
+/** POST /api/contas: cria a conta e ja entra nela. */
+async function criarConta(request) {
+    const dados = await lerCorpo(request);
+    const email = validarEmail(dados.email);
+    const nick = validarNick(dados.nick);
+    const senha = validarSenha(dados.senha);
+    await exigirQueNaoEstejaFreado('cadastro', LIMITES.cadastro);
+    const senhaHash = await gerarHash(senha);
+    const { rows } = await (await banco()).query(
+        `INSERT INTO contas (id, email, nick, senha_hash) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING RETURNING *`,
+        [randomUUID(), email, nick, senhaHash]);
+    if (rows.length === 0) throw new Recusa(409, 'Já existe uma conta com esse e-mail');
+    await registrarTentativa('cadastro');
+    return entrarNaConta(request, rows[0], 201);
+}
+
+/** Confere a senha atual antes de mudancas que pedem ela (trocar e-mail ou senha, excluir a conta). */
+async function exigirSenhaAtual(conta, senha) {
+    const chave = chaveDoLogin(conta.email);
+    await exigirQueNaoEstejaFreado(chave, LIMITES.login);
+    if (typeof senha !== 'string' || senha === '') throw new Recusa(400, 'Confirme com a sua senha atual');
+    if (!(await senhaConfere(senha, conta.senha_hash))) {
+        await registrarTentativa(chave);
+        throw new Recusa(403, 'Senha atual incorreta');
+    }
+}
+
+/** A conta de quem esta usando: GET mostra, PUT edita, DELETE exclui (com a senha). */
+async function tratarConta(request, sessao, acao) {
+    const db = await banco();
+    const conta = sessao.conta;
+    if (acao === 'mangas-antigos' && request.method === 'POST') return trazerMangasAntigos(request, conta);
+    if (acao) throw new Recusa(404, 'Endereço não encontrado');
     if (request.method === 'GET') {
-        return semCache(json(200, respostaDaSessao(await sessaoValida(request))));
+        const { rows } = await db.query(
+            `SELECT (SELECT count(*) FROM mangas WHERE conta = $1)::int AS mangas, (SELECT count(*) FROM mangas WHERE conta = $2)::int AS antigos`,
+            [conta.id, CONTA_ANTIGA]);
+        return semCache(json(200, {
+            ...contaPublica(conta),
+            criadaEm: conta.criada_em,
+            mangas: rows[0].mangas,
+            // os mangas de antes das contas podem ser trazidos por quem sabe a senha antiga do site
+            mangasAntigos: process.env.MANGATRACKER_SENHA ? rows[0].antigos : 0,
+        }));
+    }
+    if (request.method === 'PUT') {
+        const dados = await lerCorpo(request);
+        const nick = dados.nick === undefined ? conta.nick : validarNick(dados.nick);
+        const email = dados.email === undefined ? conta.email : validarEmail(dados.email);
+        const senhaNova = dados.senhaNova === undefined || dados.senhaNova === '' ? null : validarSenha(dados.senhaNova);
+        // trocar o e-mail ou a senha pede a senha atual; o nick, nao
+        if (email !== conta.email || senhaNova) await exigirSenhaAtual(conta, dados.senhaAtual);
+        const senhaHash = senhaNova ? await gerarHash(senhaNova) : conta.senha_hash;
+        let rows;
+        try {
+            ({ rows } = await db.query('UPDATE contas SET nick = $2, email = $3, senha_hash = $4 WHERE id = $1 RETURNING *', [conta.id, nick, email, senhaHash]));
+        } catch (erro) {
+            if (erro.code === '23505') throw new Recusa(409, 'Já existe uma conta com esse e-mail');
+            throw erro;
+        }
+        // senha nova desfaz os logins dos outros aparelhos; este ganha um cookie novo
+        return senhaNova ? entrarNaConta(request, rows[0]) : semCache(json(200, respostaDaSessao({ conta: rows[0], expira: sessao.expira })));
     }
     if (request.method === 'DELETE') {
-        const resposta = semCache(new Response(null, { status: 204 }));
-        resposta.headers.set('Set-Cookie', textoDoCookie('', 0, usaHttps(request)));
-        return resposta;
+        const { senha } = await lerCorpo(request);
+        await exigirSenhaAtual(conta, senha);
+        const cliente = await db.connect();
+        try {
+            await cliente.query('BEGIN');
+            await cliente.query('DELETE FROM mangas WHERE conta = $1', [conta.id]);
+            await cliente.query('DELETE FROM imagens WHERE conta = $1', [conta.id]);
+            await cliente.query('DELETE FROM contas WHERE id = $1', [conta.id]);
+            await cliente.query('COMMIT');
+        } catch (erro) {
+            await cliente.query('ROLLBACK');
+            throw erro;
+        } finally {
+            cliente.release();
+        }
+        return apagarCookie(request, semCache(new Response(null, { status: 204 })));
     }
-    if (request.method !== 'POST') throw new Recusa(404, 'Endereço não encontrado');
-    const espera = await minutosDeEspera();
-    if (espera > 0) throw new Recusa(429, `Muitas tentativas erradas. Tente de novo em ${espera} ${espera === 1 ? 'minuto' : 'minutos'}`);
-    const { usuario, senha } = await lerCorpo(request);
-    if (typeof usuario !== 'string' || !usuario.trim() || typeof senha !== 'string' || senha === '') {
-        throw new Recusa(400, 'Informe o usuário e a senha');
+    throw new Recusa(404, 'Endereço não encontrado');
+}
+
+/**
+ * Traz para esta conta os mangas e capas de antes do cadastro de contas (conta "principal"). Pede a senha antiga do
+ * site (MANGATRACKER_SENHA): so o dono do site sabe. A conta que faz isso vira a conta de administracao.
+ */
+async function trazerMangasAntigos(request, conta) {
+    const senhaAntiga = process.env.MANGATRACKER_SENHA;
+    if (!senhaAntiga) throw new Recusa(404, 'Não há mangás antigos para trazer');
+    const { senha } = await lerCorpo(request);
+    await exigirQueNaoEstejaFreado('conta-antiga', LIMITES.contaAntiga);
+    if (typeof senha !== 'string' || !mesmoTexto(senha, senhaAntiga)) {
+        await registrarTentativa('conta-antiga');
+        throw new Recusa(403, 'Senha antiga do site incorreta');
     }
-    // as duas comparacoes sempre acontecem, para o tempo nao dizer qual das duas errou
-    const certo = [mesmoTexto(usuario.trim(), usuarioDoSite()), mesmoTexto(senha, process.env.MANGATRACKER_SENHA)].every(Boolean);
-    if (!certo) {
-        await registrarErroDeLogin();
-        throw new Recusa(401, 'Usuário ou senha incorretos');
+    const cliente = await (await banco()).connect();
+    try {
+        await cliente.query('BEGIN');
+        const { rowCount } = await cliente.query('UPDATE mangas SET conta = $1 WHERE conta = $2', [conta.id, CONTA_ANTIGA]);
+        await cliente.query('UPDATE imagens SET conta = $1 WHERE conta = $2', [conta.id, CONTA_ANTIGA]);
+        await cliente.query('UPDATE contas SET admin = true WHERE id = $1', [conta.id]);
+        await cliente.query('COMMIT');
+        return json(200, { trazidos: rowCount, admin: true });
+    } catch (erro) {
+        await cliente.query('ROLLBACK');
+        throw erro;
+    } finally {
+        cliente.release();
     }
-    const segredo = await segredoDaSessao();
-    const cookie = criarSessao(segredo, usuarioDoSite(), process.env.MANGATRACKER_SENHA);
-    const resposta = semCache(json(200, respostaDaSessao(validarSessao(cookie, segredo, usuarioDoSite(), process.env.MANGATRACKER_SENHA))));
-    resposta.headers.set('Set-Cookie', textoDoCookie(cookie, DURACAO_SEGUNDOS, usaHttps(request)));
-    return resposta;
 }
 
 /** Impede que outro site aberto no navegador altere os dados usando o login de quem esta visitando. */
@@ -798,11 +951,9 @@ async function rotear(request) {
     if (!process.env.DATABASE_URL) {
         throw new Recusa(503, 'Falta configurar o banco: defina DATABASE_URL nas variáveis de ambiente do Vercel e publique de novo');
     }
-    if ((process.env.MANGATRACKER_SENHA || '').length < SENHA_MINIMA) {
-        throw new Recusa(503, `Falta configurar a senha do site: defina MANGATRACKER_SENHA (mínimo de ${SENHA_MINIMA} caracteres) nas variáveis de ambiente do Vercel e publique de novo`);
-    }
     if (vemDeOutroSite(request)) throw new Recusa(403, 'Requisição vinda de outro site');
     if (recurso === 'sessao' && partes.length === 1) return tratarSessao(request);
+    if (recurso === 'contas' && partes.length === 1 && metodo === 'POST') return criarConta(request);
     // tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista)
     if (recurso === 'inicio' && partes.length === 1 && metodo === 'GET') {
         return semCache(json(200, {
@@ -811,8 +962,11 @@ async function rotear(request) {
             ordensDaLista: listaDeOrdens(ORDENS_DA_LISTA), ordensDeRecomendacao: listaDeOrdens(ORDENS),
         }));
     }
-    // sem a janela de senha do navegador: quem pede o login e a tela do site
-    if (!(await sessaoValida(request))) throw new Recusa(401, 'Entre com seu usuário e senha');
+    // daqui em diante, so com login: a conta da sessao vale para todas as consultas desta requisicao
+    const sessao = await sessaoValida(request);
+    if (!sessao) throw new Recusa(401, 'Entre na sua conta');
+    contexto.getStore().conta = sessao.conta.id;
+    if (recurso === 'conta' && partes.length <= 2) return tratarConta(request, sessao, id);
 
     if (recurso === 'status' && partes.length === 1 && metodo === 'GET') {
         return json(200, listaDeStatus());
@@ -1070,9 +1224,11 @@ async function rotear(request) {
 async function tratar(request) {
     try {
         // a conta de quem esta usando vale para todas as consultas desta requisicao (hoje, sempre a principal)
-        return await contexto.run({ conta: CONTA_PRINCIPAL }, () => rotear(request));
+        // a conta e preenchida por rotear depois de conferir o login; antes disso, nenhuma consulta de dados funciona
+        return await contexto.run({ conta: null }, () => rotear(request));
     } catch (erro) {
         if (erro instanceof Recusa) return json(erro.status, { mensagem: erro.message });
+        if (erro instanceof DadoInvalido) return json(400, { mensagem: erro.message });
         console.error('Erro inesperado em', request.method, request.url, erro);
         return json(500, { mensagem: 'Erro inesperado' });
     }

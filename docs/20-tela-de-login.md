@@ -23,8 +23,8 @@ do próprio site, que mantém a pessoa conectada por 30 dias e tem um botão de 
 - O usuário digitado fica lembrado neste navegador; a senha, não. O formulário segue o padrão que os
   gerenciadores de senha reconhecem.
 
-O usuário e a senha continuam sendo os das variáveis `MANGATRACKER_USUARIO` (padrão `manga`) e
-`MANGATRACKER_SENHA`. Nada precisa ser configurado de novo no Vercel ou no Render.
+Na época, o usuário e a senha eram os das variáveis `MANGATRACKER_USUARIO` e `MANGATRACKER_SENHA`. Depois o login
+passou a ser por conta, com e-mail e senha: veja [Contas de usuário](23-contas.md).
 
 ## Como o login é guardado
 

@@ -9,6 +9,12 @@ public interface ImagemRepository {
     boolean existe(String nome);
     void excluir(String nome);
 
+    /** Apaga todas as capas da conta atual (ao excluir a conta). */
+    void excluirTodas();
+
+    /** Traz para a conta atual todas as capas de outra conta. */
+    void trazerDe(String outraConta);
+
     /** Quais destes nomes estao guardados. */
     default java.util.Set<String> existentes(java.util.Collection<String> nomes) {
         return nomes.stream().filter(this::existe).collect(java.util.stream.Collectors.toUnmodifiableSet());

@@ -27,4 +27,23 @@ public interface MangaRepository {
     default int contar(ConsultaDeMangas consulta) {
         return (int) listarTodos().stream().filter(consulta::aceita).count();
     }
+
+    /** Apaga todos os mangas da conta atual (ao excluir a conta). */
+    default void excluirTodos() {
+        listarTodos().forEach(manga -> excluir(manga.getId()));
+    }
+
+    /** Traz para a conta atual todos os mangas de outra conta. @return quantos vieram */
+    default int trazerDe(String outraConta) {
+        String destino = ContaAtual.obter();
+        java.util.List<Manga> deLa = ContaAtual.com(outraConta, this::listarTodos);
+        for (Manga manga : deLa) {
+            salvar(manga);
+            ContaAtual.com(outraConta, () -> {
+                excluir(manga.getId());
+                return null;
+            });
+        }
+        return destino.equals(outraConta) ? 0 : deLa.size();
+    }
 }

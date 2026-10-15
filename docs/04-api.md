@@ -1,7 +1,7 @@
 # 04 · API
 
 Todas as rotas respondem JSON. As duas versões do servidor (Java e JavaScript) têm as mesmas rotas. Todas
-trabalham só com os mangás e as capas da conta de quem está usando; hoje há uma conta só.
+trabalham só com os mangás e as capas da conta de quem está usando. Veja [Contas de usuário](23-contas.md).
 
 - **Login:** quando há senha configurada, as rotas em `/api/` pedem o cookie de login, obtido em
   `POST /api/sessao`. As exceções são `/api/sessao` e `/healthz`. Veja [Tela de login de 30 dias](20-tela-de-login.md).
@@ -13,9 +13,14 @@ trabalham só com os mangás e as capas da conta de quem está usando; hoje há 
 | Método | Rota | O que faz |
 |--------|------|-----------|
 | `GET` | `/api/inicio` | A sessão e as listas fixas (status, formatos, dias, ordens) em uma chamada; não pede login |
-| `GET` | `/api/sessao` | `{exigeLogin, logado, usuario, expiraEm}` |
-| `POST` | `/api/sessao` | Entra com `{"usuario": "...", "senha": "..."}` e grava o cookie de 30 dias |
+| `GET` | `/api/sessao` | `{exigeLogin, logado, conta: {id, email, nick, admin}, expiraEm}` |
+| `POST` | `/api/sessao` | Entra com `{"email": "...", "senha": "..."}` e grava o cookie de 30 dias |
 | `DELETE` | `/api/sessao` | Sai: apaga o cookie deste navegador |
+| `POST` | `/api/contas` | Cria a conta `{email, nick, senha}` e já entra nela |
+| `GET` | `/api/conta` | Dados da conta, quantos mangás ela tem e quantos mangás antigos pode trazer |
+| `PUT` | `/api/conta` | Edita `{nick, email, senhaNova, senhaAtual}` (e-mail e senha pedem `senhaAtual`) |
+| `DELETE` | `/api/conta` | Exclui a conta, os mangás e as capas, com `{senha}` |
+| `POST` | `/api/conta/mangas-antigos` | Traz os mangás de antes das contas, com `{senha}` (a senha antiga do site) |
 
 ## Mangás
 

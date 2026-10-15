@@ -15,16 +15,20 @@ import java.util.Optional;
 public class PostgresImagemRepository implements ImagemRepository {
 
     private final DataSource banco;
-    private final String conta;
+    private final java.util.function.Supplier<String> conta;
 
+    /** Os dados da conta de quem esta usando ({@link ContaAtual}). */
     public PostgresImagemRepository(DataSource banco) {
-        this(banco, EstruturaDoBanco.CONTA_PRINCIPAL);
+        this.banco = Objects.requireNonNull(banco);
+        this.conta = ContaAtual::obter;
+        EstruturaDoBanco.preparar(banco);
     }
 
     /** @param conta de quem sao as capas: so as dela sao lidas, gravadas e apagadas */
     public PostgresImagemRepository(DataSource banco, String conta) {
         this.banco = Objects.requireNonNull(banco);
-        this.conta = Objects.requireNonNull(conta);
+        Objects.requireNonNull(conta);
+        this.conta = () -> conta;
         EstruturaDoBanco.preparar(banco);
     }
 
@@ -35,9 +39,9 @@ public class PostgresImagemRepository implements ImagemRepository {
                 ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo WHERE imagens.conta = EXCLUDED.conta""";
         try (Connection conexao = banco.getConnection(); PreparedStatement comando = conexao.prepareStatement(sql)) {
             comando.setString(1, nome);
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             comando.setBytes(2, conteudo);
-            comando.setString(3, conta);
+            comando.setString(3, conta.get());
             comando.executeUpdate();
         } catch (SQLException e) {
             throw new PersistenciaException("Nao foi possivel salvar a imagem no banco", e);
@@ -49,7 +53,7 @@ public class PostgresImagemRepository implements ImagemRepository {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("SELECT conteudo FROM imagens WHERE nome = ? AND conta = ?")) {
             comando.setString(1, nome);
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             try (ResultSet linhas = comando.executeQuery()) {
                 return linhas.next() ? Optional.of(linhas.getBytes("conteudo")) : Optional.empty();
             }
@@ -63,12 +67,33 @@ public class PostgresImagemRepository implements ImagemRepository {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("SELECT 1 FROM imagens WHERE nome = ? AND conta = ?")) {
             comando.setString(1, nome);
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             try (ResultSet linhas = comando.executeQuery()) {
                 return linhas.next();
             }
         } catch (SQLException e) {
             throw new PersistenciaException("Nao foi possivel consultar a imagem no banco", e);
+        }
+    }
+
+    @Override
+    public void excluirTodas() {
+        executar("DELETE FROM imagens WHERE conta = ?", conta.get());
+    }
+
+    @Override
+    public void trazerDe(String outraConta) {
+        executar("UPDATE imagens SET conta = ? WHERE conta = ?", conta.get(), outraConta);
+    }
+
+    private void executar(String sql, String... valores) {
+        try (Connection conexao = banco.getConnection(); PreparedStatement comando = conexao.prepareStatement(sql)) {
+            for (int i = 0; i < valores.length; i++) {
+                comando.setString(i + 1, valores[i]);
+            }
+            comando.executeUpdate();
+        } catch (SQLException e) {
+            throw new PersistenciaException("Nao foi possivel alterar as imagens no banco", e);
         }
     }
 
@@ -81,7 +106,7 @@ public class PostgresImagemRepository implements ImagemRepository {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("SELECT nome FROM imagens WHERE nome = ANY(?) AND conta = ?")) {
             comando.setArray(1, conexao.createArrayOf("text", nomes.toArray()));
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             java.util.Set<String> encontrados = new java.util.HashSet<>();
             try (ResultSet linhas = comando.executeQuery()) {
                 while (linhas.next()) {
@@ -99,7 +124,7 @@ public class PostgresImagemRepository implements ImagemRepository {
         try (Connection conexao = banco.getConnection();
              PreparedStatement comando = conexao.prepareStatement("DELETE FROM imagens WHERE nome = ? AND conta = ?")) {
             comando.setString(1, nome);
-            comando.setString(2, conta);
+            comando.setString(2, conta.get());
             comando.executeUpdate();
         } catch (SQLException e) {
             throw new PersistenciaException("Nao foi possivel excluir a imagem do banco", e);

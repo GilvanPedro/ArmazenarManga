@@ -20,8 +20,8 @@ import java.util.Map;
  * que ja tem dados. E a mesma estrutura que a versao do Vercel cria (api/index.js), porque as duas podem usar o
  * mesmo banco.
  *
- * Cada manga e cada capa pertencem a uma conta ("conta"). Hoje existe uma so, a {@link #CONTA_PRINCIPAL}; quando
- * houver cadastro de contas, a conta passa a vir da sessao.
+ * Cada manga e cada capa pertencem a uma conta ("conta"), a de quem esta usando ({@link ContaAtual}). A
+ * {@link #CONTA_PRINCIPAL} e a de antes do cadastro de contas: os mangas dela esperam ser trazidos para uma conta.
  */
 public final class EstruturaDoBanco {
     public static final String CONTA_PRINCIPAL = "principal";
@@ -38,6 +38,13 @@ public final class EstruturaDoBanco {
             "CREATE INDEX IF NOT EXISTS mangas_conta_status ON mangas (conta, (dados->>'readingStatus'))",
             "CREATE INDEX IF NOT EXISTS mangas_conta_imagem ON mangas (conta, (dados->>'imagePath'))",
             "CREATE INDEX IF NOT EXISTS mangas_tags_busca ON mangas USING GIN (tags_busca)",
+            "CREATE TABLE IF NOT EXISTS contas (id UUID PRIMARY KEY, email TEXT NOT NULL, nick TEXT NOT NULL, senha_hash TEXT NOT NULL, "
+                    + "admin BOOLEAN NOT NULL DEFAULT false, criada_em TIMESTAMPTZ NOT NULL DEFAULT now())",
+            "CREATE UNIQUE INDEX IF NOT EXISTS contas_email ON contas (email)",
+            "CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now())",
+            "ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT ''",
+            "CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando)",
     };
 
     private EstruturaDoBanco() {

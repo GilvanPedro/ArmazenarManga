@@ -84,7 +84,7 @@ async function chamar(metodo, caminho, corpo) {
     if (resposta.status === 204) return null;
     const dados = await resposta.json().catch(() => null);
     // o login venceu (30 dias) ou foi desfeito em outro lugar: volta para a tela de entrada
-    if (resposta.status === 401 && caminho !== '/api/sessao' && caminho !== '/api/inicio' && estado.sessao && estado.sessao.exigeLogin) {
+    if (resposta.status === 401 && !['/api/sessao', '/api/inicio', '/api/contas'].includes(caminho) && estado.sessao) {
         estado.sessao.logado = false;
         // varias chamadas podem voltar recusadas juntas: a tela de entrada aparece uma vez so
         if (!document.body.classList.contains('entrando')) telaLogin('Seu login venceu. Entre de novo para continuar.');
@@ -2316,6 +2316,7 @@ function rota() {
     if (partes[0] === 'hoje') return telaHoje();
     if (partes[0] === 'descobrir') return telaDescobrir();
     if (partes[0] === 'atalho') return telaAtalho();
+    if (partes[0] === 'conta') return telaConta();
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null, consulta);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
@@ -2324,20 +2325,10 @@ function rota() {
 
 // ------------------------------------------------------------------ login
 
-/**
- * Tela de entrada. O login vale por 30 dias neste navegador, mesmo fechando o navegador ou desligando o
- * computador. Ao entrar, o site abre na tela que estava no endereco (por exemplo, a de marcar capitulo lido).
- */
-function telaLogin(aviso) {
-    estado.render++;
-    for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
-    document.body.classList.add('entrando');
-    document.title = 'Entrar · Meus Mangás';
-
-    const usuario = h('input', {type: 'text', id: 'login-usuario', name: 'username', autocomplete: 'username', autocapitalize: 'none',
-        spellcheck: 'false', required: true, value: lembrado('usuario', '')});
-    const senha = h('input', {type: 'password', id: 'login-senha', name: 'password', autocomplete: 'current-password', required: true});
-    const mostrar = h('button', {type: 'button', class: 'mostrar-senha', 'aria-pressed': 'false', 'aria-controls': 'login-senha'}, 'Mostrar');
+/** Campo de senha com o botao "Mostrar". */
+function campoDeSenha(id, autocomplete, rotulo, dica) {
+    const senha = h('input', {type: 'password', id, name: id, autocomplete, required: true, minlength: '6'});
+    const mostrar = h('button', {type: 'button', class: 'mostrar-senha', 'aria-pressed': 'false', 'aria-controls': id}, 'Mostrar');
     mostrar.addEventListener('click', () => {
         const visivel = senha.type === 'password';
         senha.type = visivel ? 'text' : 'password';
@@ -2345,40 +2336,111 @@ function telaLogin(aviso) {
         mostrar.setAttribute('aria-pressed', String(visivel));
         senha.focus();
     });
+    return {
+        entrada: senha,
+        elemento: h('div', {class: 'campo'}, h('label', {for: id}, rotulo), h('div', {class: 'senha-com-botao'}, senha, mostrar),
+            dica ? h('small', null, dica) : null),
+    };
+}
+
+/**
+ * Tela de entrada, com duas formas: entrar (e-mail e senha) e criar conta (nick, e-mail e senha). O login vale por
+ * 30 dias neste navegador, mesmo fechando o navegador ou desligando o computador. Ao entrar, o site abre na tela
+ * que estava no endereco (por exemplo, a de marcar capitulo lido).
+ */
+function telaLogin(aviso, criando) {
+    estado.render++;
+    for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
+    document.body.classList.add('entrando');
+    mostrarConta(null);
+    document.title = (criando ? 'Criar conta' : 'Entrar') + ' · Meus Mangás';
+
+    const email = h('input', {type: 'email', id: 'login-email', name: 'email', autocomplete: 'email', autocapitalize: 'none',
+        spellcheck: 'false', required: true, value: lembrado('email', '')});
+    const nick = h('input', {type: 'text', id: 'login-nick', name: 'nick', autocomplete: 'nickname', required: true, maxlength: '40'});
+    const senha = campoDeSenha('login-senha', criando ? 'new-password' : 'current-password', 'Senha', criando ? 'Pelo menos 6 caracteres.' : null);
+    const confirmar = campoDeSenha('login-confirmar', 'new-password', 'Repita a senha');
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
-    const entrar = h('button', {type: 'submit', class: 'botao primario entrar'}, 'Entrar');
+    const enviar = h('button', {type: 'submit', class: 'botao primario entrar'}, criando ? 'Criar conta' : 'Entrar');
     if (aviso) erro.textContent = aviso;
+    const trocar = h('a', {href: '#', class: 'trocar-de-modo', onclick: evento => {
+        evento.preventDefault();
+        telaLogin(null, !criando);
+    }}, criando ? 'Já tenho conta: entrar' : 'Não tem conta? Criar uma');
 
     const formulario = h('form', {class: 'cartao-de-login', 'aria-labelledby': 'titulo-login'},
         h('img', {class: 'logo-de-login', src: 'favicon.svg', alt: '', width: '56', height: '56'}),
-        h('h1', {id: 'titulo-login'}, 'Meus Mangás'),
-        h('p', {class: 'chamada-de-login'}, 'Entre para ver sua lista, continuar de onde parou e marcar o que leu.'),
-        h('div', {class: 'campo'}, h('label', {for: 'login-usuario'}, 'Usuário'), usuario),
-        h('div', {class: 'campo'}, h('label', {for: 'login-senha'}, 'Senha'), h('div', {class: 'senha-com-botao'}, senha, mostrar)),
+        h('h1', {id: 'titulo-login'}, criando ? 'Criar conta' : 'Meus Mangás'),
+        h('p', {class: 'chamada-de-login'}, criando
+            ? 'Sua lista é só sua: cada conta vê apenas os mangás que ela mesma cadastrou.'
+            : 'Entre para ver sua lista, continuar de onde parou e marcar o que leu.'),
+        criando ? h('div', {class: 'campo'}, h('label', {for: 'login-nick'}, 'Nick'), nick, h('small', null, 'Como você quer ser chamado. Dá para mudar depois.')) : null,
+        h('div', {class: 'campo'}, h('label', {for: 'login-email'}, 'E-mail'), email),
+        senha.elemento,
+        criando ? confirmar.elemento : null,
         erro,
-        entrar,
+        enviar,
+        trocar,
         h('p', {class: 'nota-de-login'}, 'Você continua conectado por 30 dias neste navegador, mesmo desligando o computador.'));
     formulario.addEventListener('submit', async evento => {
         evento.preventDefault();
-        entrar.disabled = true;
-        entrar.textContent = 'Entrando…';
         erro.textContent = '';
+        if (criando && senha.entrada.value !== confirmar.entrada.value) {
+            erro.textContent = 'As duas senhas não são iguais';
+            confirmar.entrada.select();
+            return;
+        }
+        enviar.disabled = true;
+        enviar.textContent = criando ? 'Criando…' : 'Entrando…';
         try {
-            estado.sessao = await chamar('POST', '/api/sessao', {usuario: usuario.value, senha: senha.value});
-            lembrar('usuario', usuario.value.trim());
-            document.body.classList.remove('entrando');
-            app.replaceChildren();
-            await abrirSite();
+            const sessao = criando
+                ? await chamar('POST', '/api/contas', {nick: nick.value, email: email.value, senha: senha.entrada.value})
+                : await chamar('POST', '/api/sessao', {email: email.value, senha: senha.entrada.value});
+            lembrar('email', email.value.trim());
+            await comecarSessao(sessao);
+            if (criando) avisar('Conta criada. Bem-vindo, ' + sessao.conta.nick + '!');
         } catch (e) {
             erro.textContent = e.message;
-            entrar.disabled = false;
-            entrar.textContent = 'Entrar';
-            senha.select();
+            enviar.disabled = false;
+            enviar.textContent = criando ? 'Criar conta' : 'Entrar';
+            if (!criando) senha.entrada.select();
         }
     });
 
     app.replaceChildren(h('div', {class: 'fundo-de-login'}, formulario));
-    (usuario.value ? senha : usuario).focus();
+    (criando ? nick : email.value ? senha.entrada : email).focus();
+}
+
+/** Esquece tudo o que estava guardado da conta anterior: outra conta nao pode ver a lista dela. */
+function esquecerDadosDaConta() {
+    estado.listaCompleta = null;
+    paginasDoServidor.clear();
+    estado.ultimaPagina = null;
+    estado.busca = '';
+    estado.filtroStatus = '';
+    estado.filtroTag = '';
+    estado.pagina = 1;
+    estado.sorteado = null;
+}
+
+async function comecarSessao(sessao) {
+    esquecerDadosDaConta();
+    estado.sessao = sessao;
+    document.body.classList.remove('entrando');
+    app.replaceChildren();
+    mostrarConta(sessao.conta);
+    await abrirSite();
+}
+
+/** Nick no topo (leva a "Minha conta") e o botao Sair. */
+function mostrarConta(conta) {
+    const link = document.getElementById('minha-conta');
+    const sair = document.getElementById('sair');
+    link.hidden = sair.hidden = !conta;
+    if (conta) {
+        link.replaceChildren(h('span', {class: 'inicial', 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase()), h('span', {class: 'nick'}, conta.nick));
+        link.title = 'Minha conta (' + conta.email + ')';
+    }
 }
 
 async function sair() {
@@ -2388,8 +2450,140 @@ async function sair() {
         avisar(e.message, true);
         return;
     }
-    estado.sessao = {...estado.sessao, logado: false};
+    esquecerDadosDaConta();
+    estado.sessao = {...estado.sessao, logado: false, conta: null};
     telaLogin();
+}
+
+// ------------------------------------------------------------------ minha conta
+
+/** Pergunta de confirmacao em uma janela do site. Resolve true so com o clique em confirmar. */
+function confirmar(titulo, texto, botao) {
+    return new Promise(resolver => {
+        const dialogo = h('dialog', {class: 'confirmacao'},
+            h('form', {method: 'dialog'},
+                h('h2', null, titulo),
+                h('p', null, texto),
+                h('div', {class: 'acoes'},
+                    h('button', {value: 'nao', class: 'botao'}, 'Cancelar'),
+                    h('button', {value: 'sim', class: 'botao perigo cheio'}, botao))));
+        dialogo.addEventListener('close', () => {
+            resolver(dialogo.returnValue === 'sim');
+            dialogo.remove();
+        });
+        document.body.append(dialogo);
+        dialogo.showModal();
+    });
+}
+
+/** Formulario de uma secao da conta: mostra o erro embaixo e trava o botao enquanto salva. */
+function secaoDaConta(titulo, descricao, campos, textoDoBotao, aoEnviar, perigo) {
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const botao = h('button', {type: 'submit', class: 'botao ' + (perigo ? 'perigo cheio' : 'primario')}, textoDoBotao);
+    const formulario = h('form', {class: 'secao-da-conta' + (perigo ? ' perigo' : '')},
+        h('h2', null, titulo), descricao ? h('p', {class: 'subtitulo'}, descricao) : null, ...campos, erro, h('div', null, botao));
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        erro.textContent = '';
+        botao.disabled = true;
+        try {
+            await aoEnviar(mensagem => { erro.textContent = mensagem; });
+        } catch (e) {
+            erro.textContent = e.message;
+        }
+        botao.disabled = false;
+    });
+    return formulario;
+}
+
+async function telaConta() {
+    const vez = ++estado.render;
+    document.title = 'Minha conta · Meus Mangás';
+    let conta;
+    try {
+        conta = await chamar('GET', '/api/conta');
+    } catch (e) {
+        if (vez === estado.render) app.replaceChildren(vazio('Algo deu errado', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    // o que mudou passa a valer na pagina toda (o topo e a pergunta antes de excluir usam o nick e o e-mail)
+    const atualizar = sessao => {
+        estado.sessao = sessao;
+        Object.assign(conta, sessao.conta);
+        mostrarConta(sessao.conta);
+    };
+
+    const nick = h('input', {type: 'text', id: 'conta-nick', value: conta.nick, maxlength: '40', required: true});
+    const secaoNick = secaoDaConta('Nick', 'Como você aparece no site.', [h('div', {class: 'campo'}, h('label', {for: 'conta-nick'}, 'Nick'), nick)],
+        'Salvar nick', async () => {
+            atualizar(await chamar('PUT', '/api/conta', {nick: nick.value}));
+            avisar('Nick salvo');
+        });
+
+    const email = h('input', {type: 'email', id: 'conta-email', value: conta.email, required: true, autocomplete: 'email'});
+    const senhaDoEmail = campoDeSenha('conta-senha-email', 'current-password', 'Senha atual');
+    const secaoEmail = secaoDaConta('E-mail', 'É com ele que você entra. Cada e-mail só pode ter uma conta.',
+        [h('div', {class: 'campo'}, h('label', {for: 'conta-email'}, 'E-mail'), email), senhaDoEmail.elemento], 'Salvar e-mail', async () => {
+            atualizar(await chamar('PUT', '/api/conta', {email: email.value, senhaAtual: senhaDoEmail.entrada.value}));
+            lembrar('email', email.value.trim());
+            senhaDoEmail.entrada.value = '';
+            avisar('E-mail salvo');
+        });
+
+    const senhaAtual = campoDeSenha('conta-senha-atual', 'current-password', 'Senha atual');
+    const senhaNova = campoDeSenha('conta-senha-nova', 'new-password', 'Senha nova', 'Pelo menos 6 caracteres.');
+    const senhaRepetida = campoDeSenha('conta-senha-repetida', 'new-password', 'Repita a senha nova');
+    const secaoSenha = secaoDaConta('Senha', 'Trocar a senha desconecta a conta dos outros aparelhos.',
+        [senhaAtual.elemento, senhaNova.elemento, senhaRepetida.elemento], 'Trocar senha', async mostrarErro => {
+            if (senhaNova.entrada.value !== senhaRepetida.entrada.value) {
+                mostrarErro('As duas senhas novas não são iguais');
+                return;
+            }
+            atualizar(await chamar('PUT', '/api/conta', {senhaAtual: senhaAtual.entrada.value, senhaNova: senhaNova.entrada.value}));
+            for (const campo of [senhaAtual, senhaNova, senhaRepetida]) campo.entrada.value = '';
+            avisar('Senha trocada');
+        });
+
+    const senhaAntiga = campoDeSenha('conta-senha-antiga', 'off', 'Senha antiga do site');
+    const secaoAntigos = conta.mangasAntigos > 0 ? secaoDaConta('Mangás de antes das contas',
+        `Há ${conta.mangasAntigos === 1 ? '1 mangá cadastrado' : conta.mangasAntigos + ' mangás cadastrados'} antes de o site ter contas. `
+        + 'Quem souber a senha antiga do site pode trazê-los para esta conta, com as capas. Esta conta passa a ser a de administração.',
+        [senhaAntiga.elemento], 'Trazer para esta conta', async () => {
+            const resposta = await chamar('POST', '/api/conta/mangas-antigos', {senha: senhaAntiga.entrada.value});
+            avisar(resposta.trazidos === 1 ? '1 mangá trazido para a sua conta' : resposta.trazidos + ' mangás trazidos para a sua conta');
+            atualizar(await chamar('GET', '/api/sessao'));
+            telaConta();
+        }) : null;
+
+    const senhaParaExcluir = campoDeSenha('conta-senha-excluir', 'current-password', 'Senha atual');
+    const secaoExcluir = secaoDaConta('Excluir conta',
+        'Apaga a conta, todos os mangás dela e as capas enviadas. Não tem volta.', [senhaParaExcluir.elemento], 'Excluir minha conta', async () => {
+            const quantos = conta.mangas === 1 ? '1 mangá' : conta.mangas + ' mangás';
+            const certeza = await confirmar('Excluir a conta?',
+                `A conta ${conta.email} e ${quantos} serão apagados para sempre. Você tem certeza?`, 'Sim, excluir tudo');
+            if (!certeza) return;
+            await chamar('DELETE', '/api/conta', {senha: senhaParaExcluir.entrada.value});
+            esquecerDadosDaConta();
+            estado.sessao = {...estado.sessao, logado: false, conta: null};
+            lembrar('email', '');
+            history.replaceState(null, '', '#/');
+            telaLogin('Sua conta foi excluída.');
+        }, true);
+
+    app.replaceChildren(h('div', {class: 'pagina-da-conta'},
+        h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
+        h('div', {class: 'cabecalho-da-conta'},
+            h('span', {class: 'inicial grande', 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase()),
+            h('div', null,
+                h('h1', null, conta.nick, conta.admin ? h('span', {class: 'selo-admin'}, 'Admin') : null),
+                h('p', {class: 'subtitulo'}, conta.email, ' · ', conta.mangas === 1 ? '1 mangá' : conta.mangas + ' mangás', ' · conta criada em ',
+                    new Date(conta.criadaEm).toLocaleDateString('pt-BR')))),
+        secaoAntigos,
+        secaoNick,
+        secaoEmail,
+        secaoSenha,
+        secaoExcluir));
 }
 
 async function iniciar() {
@@ -2408,13 +2602,12 @@ async function iniciar() {
     }
     estado.sessao = inicio.sessao;
     estado.inicio = inicio;
-    const botaoSair = document.getElementById('sair');
-    botaoSair.hidden = !estado.sessao.exigeLogin;
-    botaoSair.addEventListener('click', sair);
-    if (estado.sessao.exigeLogin && !estado.sessao.logado) {
+    document.getElementById('sair').addEventListener('click', sair);
+    if (!estado.sessao.logado) {
         telaLogin();
         return;
     }
+    mostrarConta(estado.sessao.conta);
     await abrirSite();
 }
 

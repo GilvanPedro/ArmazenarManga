@@ -100,6 +100,16 @@ public class MangaService implements MangaServiceInterface{
     }
 
     @Override
+    public synchronized void excluirTodos() {
+        repository.excluirTodos();
+    }
+
+    @Override
+    public synchronized int trazerDe(String outraConta) {
+        return repository.trazerDe(outraConta);
+    }
+
+    @Override
     public List<TagEmUso> listarTags() {
         // conta por nome sem diferenciar maiusculas nem acentos; o nome mostrado e o primeiro que apareceu
         Map<String, String> nomes = new LinkedHashMap<>();

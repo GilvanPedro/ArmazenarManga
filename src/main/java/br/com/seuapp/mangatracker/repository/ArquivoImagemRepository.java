@@ -45,6 +45,40 @@ public class ArquivoImagemRepository implements ImagemRepository {
     }
 
     @Override
+    public void excluirTodas() {
+        if (!Files.isDirectory(pasta)) {
+            return;
+        }
+        try (var arquivos = Files.list(pasta)) {
+            for (Path arquivo : arquivos.toList()) {
+                Files.deleteIfExists(arquivo);
+            }
+        } catch (IOException e) {
+            throw new PersistenciaException("Nao foi possivel apagar as imagens em " + pasta, e);
+        }
+    }
+
+    /** Uma pasta so: nao ha de onde trazer. */
+    @Override
+    public void trazerDe(String outraConta) {
+    }
+
+    /** Move todas as capas desta pasta para outra (usado ao trazer as capas de uma conta para outra). */
+    void moverPara(ArquivoImagemRepository destino) {
+        if (!Files.isDirectory(pasta)) {
+            return;
+        }
+        try (var arquivos = Files.list(pasta)) {
+            Files.createDirectories(destino.pasta);
+            for (Path arquivo : arquivos.toList()) {
+                Files.move(arquivo, destino.pasta.resolve(arquivo.getFileName()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            throw new PersistenciaException("Nao foi possivel mover as imagens de " + pasta, e);
+        }
+    }
+
+    @Override
     public void excluir(String nome) {
         try {
             Files.deleteIfExists(pasta.resolve(nome));

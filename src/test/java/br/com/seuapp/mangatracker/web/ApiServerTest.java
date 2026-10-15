@@ -1,6 +1,10 @@
 package br.com.seuapp.mangatracker.web;
 
+import br.com.seuapp.mangatracker.repository.ArquivoContaRepository;
+import br.com.seuapp.mangatracker.repository.ArquivoImagemRepositoryPorConta;
 import br.com.seuapp.mangatracker.repository.JsonMangaRepository;
+import br.com.seuapp.mangatracker.repository.JsonMangaRepositoryPorConta;
+import br.com.seuapp.mangatracker.service.ContaService;
 import br.com.seuapp.mangatracker.service.BuscadorDePaginas;
 import br.com.seuapp.mangatracker.service.ImagemService;
 import br.com.seuapp.mangatracker.service.ImagemServiceTest;
@@ -49,7 +53,11 @@ class ApiServerTest {
     Path pasta;
     Javalin app;
     String base;
-    final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
+    // guarda o cookie de login, como o navegador: depois de entrar, todas as chamadas vao com ele
+    final HttpClient http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER)
+            .cookieHandler(new java.net.CookieManager(null, java.net.CookiePolicy.ACCEPT_ALL)).build();
+    // sem cookie nenhum: para conferir o que acontece sem login
+    final HttpClient semLogin = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build();
     final ObjectMapper mapper = new ObjectMapper();
 
     @BeforeEach
@@ -58,6 +66,7 @@ class ApiServerTest {
         MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
         app = new ApiServer(mangaService, imagemService, List.of(SITE), null).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
+        entrarComContaDeTeste();
     }
 
     @AfterEach
@@ -66,6 +75,16 @@ class ApiServerTest {
     }
 
     // ------------------------------------------------------------------ ajudantes
+
+    /** Cria uma conta e entra nela: o cookie fica guardado no cliente http. */
+    private void entrarComContaDeTeste() {
+        try {
+            HttpResponse<String> criada = enviar("POST", "/api/contas", "{\"email\": \"teste@exemplo.com\", \"nick\": \"Teste\", \"senha\": \"123456\"}");
+            assertEquals(201, criada.statusCode(), criada.body());
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
     private HttpResponse<String> enviar(String metodo, String caminho, String corpo) throws Exception {
         HttpRequest.Builder requisicao = HttpRequest.newBuilder(URI.create(base + caminho))
@@ -333,6 +352,7 @@ class ApiServerTest {
                 new VerificadorDeLink(site));
         app = new ApiServer(mangaService, imagemService, List.of(SITE), null).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
+        entrarComContaDeTeste();
     }
 
     private static final String CAP = "https://site-a.com/manga/solo-leveling/capitulo-";
@@ -490,6 +510,7 @@ class ApiServerTest {
         app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(new SinopseServiceTest.InternetFalsa()),
                 new RecomendacaoService(anilist)).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
+        entrarComContaDeTeste();
         cadastrar("Solo Leveling", "1", "LENDO");
 
         HttpResponse<String> resposta = enviar("GET", "/api/recomendacoes?busca=level&tags=Action,%20Fantasy,,Inventada&ordem=nota&pagina=2", null);
@@ -598,6 +619,7 @@ class ApiServerTest {
         app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(new SinopseServiceTest.InternetFalsa()),
                 new RecomendacaoService(anilist)).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
+        entrarComContaDeTeste();
         String id = cadastrar("Solo Leveling", "1", "LENDO").get("id").asText();
         cadastrar("Tower of God", "1", "LER"); // ja esta na lista: nao pode ser sugerido
 
@@ -628,6 +650,7 @@ class ApiServerTest {
         app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(new SinopseServiceTest.InternetFalsa()),
                 new RecomendacaoService(anilist)).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
+        entrarComContaDeTeste();
         String id = cadastrar("Solo Leveling", "1", "LENDO").get("id").asText();
         String outro = cadastrar("Ranker que Vive Duas Vezes", "7", "DROPADO").get("id").asText();
 
@@ -674,6 +697,7 @@ class ApiServerTest {
         MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
         app = new ApiServer(mangaService, imagemService, List.of(), null, new SinopseService(internet)).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
+        entrarComContaDeTeste();
 
         HttpResponse<String> resposta = enviar("GET", "/api/sinopse?titulo=Solo%20Leveling", null);
 
@@ -986,17 +1010,36 @@ class ApiServerTest {
         assertEquals(200, enviar("GET", "/favicon.svg", null).statusCode());
     }
 
-    private void subirComSenha(byte[] segredo) throws Exception {
+    /** Sobe o servidor com contas guardadas em arquivo e uma pasta de dados por conta, como o programa de verdade. */
+    private void subirComContas(byte[] segredo, String senhaAntiga) throws Exception {
         app.stop();
-        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
-        MangaService mangaService = new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService);
-        app = new ApiServer(mangaService, imagemService, List.of(), new ApiServer.Credenciais("manga", "sênha secreta", segredo))
-                .criar().start("127.0.0.1", 0);
+        ImagemService imagemService = new ImagemService(new ArquivoImagemRepositoryPorConta(pasta));
+        MangaService mangaService = new MangaService(new JsonMangaRepositoryPorConta(pasta), imagemService);
+        ContaService contas = new ContaService(new ArquivoContaRepository(pasta.resolve("contas.json")), mangaService, imagemService, senhaAntiga,
+                1_000, java.time.Clock.systemUTC());
+        app = new ApiServer(mangaService, imagemService, List.of(), new ApiServer.Acesso(contas, segredo)).criar().start("127.0.0.1", 0);
         base = "http://127.0.0.1:" + app.port();
     }
 
-    private HttpResponse<String> entrar(String usuario, String senha) throws Exception {
-        return enviar("POST", "/api/sessao", mapper.writeValueAsString(Map.of("usuario", usuario, "senha", senha)));
+    /** Chamada com um cookie escolhido (ou nenhum), fora do cliente que guarda o login. */
+    private HttpResponse<String> comCookie(String metodo, String caminho, String cookie, String corpo) throws Exception {
+        HttpRequest.Builder requisicao = HttpRequest.newBuilder(URI.create(base + caminho))
+                .method(metodo, corpo == null ? BodyPublishers.noBody() : BodyPublishers.ofString(corpo));
+        if (cookie != null) {
+            requisicao.header("Cookie", "outro=1; mangas_sessao=" + cookie);
+        }
+        if (corpo != null) {
+            requisicao.header("Content-Type", "application/json");
+        }
+        return semLogin.send(requisicao.build(), BodyHandlers.ofString());
+    }
+
+    private static String conta(String email, String nick, String senha) {
+        return "{\"email\": \"" + email + "\", \"nick\": \"" + nick + "\", \"senha\": \"" + senha + "\"}";
+    }
+
+    private static String login(String email, String senha) {
+        return "{\"email\": \"" + email + "\", \"senha\": \"" + senha + "\"}";
     }
 
     /** O valor do cookie de login que a resposta mandou gravar. */
@@ -1005,136 +1048,238 @@ class ApiServerTest {
         return cabecalho.substring(cabecalho.indexOf('=') + 1, cabecalho.indexOf(';'));
     }
 
-    private HttpResponse<String> comCookie(String metodo, String caminho, String cookie, String corpo) throws Exception {
-        HttpRequest.Builder requisicao = HttpRequest.newBuilder(URI.create(base + caminho))
-                .method(metodo, corpo == null ? BodyPublishers.noBody() : BodyPublishers.ofString(corpo))
-                .header("Cookie", "outro=1; mangas_sessao=" + cookie);
-        if (corpo != null) {
-            requisicao.header("Content-Type", "application/json");
-        }
-        return http.send(requisicao.build(), BodyHandlers.ofString());
-    }
-
     @Test
-    void comSenhaConfiguradaOsDadosPedemLogin() throws Exception {
-        subirComSenha(new byte[32]);
-
-        for (String caminho : List.of("/api/mangas", "/api/status", "/api/imagens/x.png", "/api/tags")) {
-            HttpResponse<String> semLogin = enviar("GET", caminho, null);
-            assertEquals(401, semLogin.statusCode(), caminho);
+    void semLoginOsDadosNaoSaem() throws Exception {
+        for (String caminho : List.of("/api/mangas", "/api/status", "/api/imagens/x.png", "/api/tags", "/api/conta")) {
+            HttpResponse<String> sem = comCookie("GET", caminho, null, null);
+            assertEquals(401, sem.statusCode(), caminho);
             // sem a janela de senha do navegador: quem pede o login e a tela do site
-            assertTrue(semLogin.headers().firstValue("WWW-Authenticate").isEmpty(), caminho);
-            assertEquals("Entre com seu usuário e senha", json(semLogin).get("mensagem").asText());
+            assertTrue(sem.headers().firstValue("WWW-Authenticate").isEmpty(), caminho);
+            assertEquals("Entre na sua conta", json(sem).get("mensagem").asText());
         }
-        assertEquals(401, enviar("POST", "/api/mangas", manga("T", "1", "LENDO")).statusCode());
+        assertEquals(401, comCookie("POST", "/api/mangas", null, manga("T", "1", "LENDO")).statusCode());
         // os arquivos do site nao tem dados: abrem sem login, para a tela de login aparecer
-        for (String caminho : List.of("/", "/app.js", "/app.css", "/favicon.svg", "/icones/nota-bom.svg")) {
-            assertEquals(200, enviar("GET", caminho, null).statusCode(), caminho);
+        for (String caminho : List.of("/", "/app.js", "/app.css", "/favicon.svg", "/icones/nota-bom.svg", "/healthz")) {
+            assertEquals(200, comCookie("GET", caminho, null, null).statusCode(), caminho);
         }
-        assertEquals(200, enviar("GET", "/healthz", null).statusCode());
-        // a senha do jeito antigo (janela do navegador) nao vale mais
-        String basico = java.util.Base64.getEncoder().encodeToString("manga:sênha secreta".getBytes(StandardCharsets.UTF_8));
-        assertEquals(401, http.send(HttpRequest.newBuilder(URI.create(base + "/api/mangas")).header("Authorization", "Basic " + basico).build(),
-                BodyHandlers.ofString()).statusCode());
-
-        JsonNode antes = json(enviar("GET", "/api/sessao", null));
-        assertTrue(antes.get("exigeLogin").asBoolean());
-        assertFalse(antes.get("logado").asBoolean());
-        assertTrue(antes.get("usuario").isNull());
-    }
-
-    @Test
-    void entrarGuardaOLoginPorTrintaDiasESairApaga() throws Exception {
-        subirComSenha(new byte[32]);
-
-        HttpResponse<String> entrou = entrar(" manga ", "sênha secreta");
-        assertEquals(200, entrou.statusCode(), entrou.body());
-        String cabecalho = entrou.headers().firstValue("Set-Cookie").orElseThrow();
-        assertTrue(cabecalho.startsWith("mangas_sessao=v1."), cabecalho);
-        assertTrue(cabecalho.contains("; Max-Age=2592000;") && cabecalho.contains("HttpOnly") && cabecalho.contains("SameSite=Lax"), cabecalho);
-        assertFalse(cabecalho.contains("Secure"), "endereco http: o navegador recusaria um cookie Secure");
-        assertEquals("manga", json(entrou).get("usuario").asText());
-        java.time.Instant expira = java.time.Instant.parse(json(entrou).get("expiraEm").asText());
-        assertTrue(Math.abs(java.time.Duration.between(java.time.Instant.now().plus(java.time.Duration.ofDays(30)), expira).toSeconds()) < 60, expira.toString());
-
-        String cookie = cookieDe(entrou);
-        assertEquals(200, comCookie("GET", "/api/mangas", cookie, null).statusCode());
-        assertEquals(201, comCookie("POST", "/api/mangas", cookie, manga("Com login", "1", "LENDO")).statusCode());
-        JsonNode sessao = json(comCookie("GET", "/api/sessao", cookie, null));
-        assertTrue(sessao.get("logado").asBoolean());
-        assertEquals("no-store", comCookie("GET", "/api/sessao", cookie, null).headers().firstValue("Cache-Control").orElse(""));
-
-        // cookie alterado ou inventado nao entra
-        String alterado = cookie.substring(0, cookie.length() - 2) + (cookie.endsWith("A") ? "BB" : "AA");
-        for (String falso : List.of(alterado, "v1.9999999999.x.y", "qualquer-coisa", "")) {
+        JsonNode inicio = json(comCookie("GET", "/api/inicio", null, null));
+        assertFalse(inicio.get("sessao").get("logado").asBoolean());
+        assertTrue(inicio.get("sessao").get("conta").isNull());
+        // cookie inventado ou de outro formato nao entra
+        for (String falso : List.of("qualquer-coisa", "v1.9999999999.x.y", "v2." + UUID.randomUUID() + ".9999999999.x.y", "")) {
             assertEquals(401, comCookie("GET", "/api/mangas", falso, null).statusCode(), falso);
         }
+    }
 
+    @Test
+    void criarContaJaEntraNelaPorTrintaDias() throws Exception {
+        HttpResponse<String> criada = comCookie("POST", "/api/contas", null, conta("  Gilvan@Exemplo.COM ", "  Leitor   de Manhwa ", "sênha6"));
+        assertEquals(201, criada.statusCode(), criada.body());
+        JsonNode sessao = json(criada);
+        assertTrue(sessao.get("logado").asBoolean());
+        assertEquals("gilvan@exemplo.com", sessao.get("conta").get("email").asText());
+        assertEquals("Leitor de Manhwa", sessao.get("conta").get("nick").asText());
+        assertFalse(sessao.get("conta").get("admin").asBoolean());
+        assertFalse(criada.body().contains("pbkdf2") || criada.body().contains("sênha6"), "a senha nunca sai do servidor");
+        String cabecalho = criada.headers().firstValue("Set-Cookie").orElseThrow();
+        assertTrue(cabecalho.startsWith("mangas_sessao=v2.") && cabecalho.contains("; Max-Age=2592000;") && cabecalho.contains("HttpOnly")
+                && cabecalho.contains("SameSite=Lax") && !cabecalho.contains("Secure"), cabecalho);
+        java.time.Instant expira = java.time.Instant.parse(sessao.get("expiraEm").asText());
+        assertTrue(Math.abs(java.time.Duration.between(java.time.Instant.now().plus(java.time.Duration.ofDays(30)), expira).toSeconds()) < 60);
+
+        String cookie = cookieDe(criada);
+        assertEquals("Leitor de Manhwa", json(comCookie("GET", "/api/sessao", cookie, null)).get("conta").get("nick").asText());
+        assertEquals(200, comCookie("GET", "/api/mangas", cookie, null).statusCode());
+        // entrar de novo, com o e-mail escrito de outro jeito
+        assertEquals(200, comCookie("POST", "/api/sessao", null, login("GILVAN@exemplo.com", "sênha6")).statusCode());
         HttpResponse<String> saiu = comCookie("DELETE", "/api/sessao", cookie, null);
         assertEquals(204, saiu.statusCode());
         assertTrue(saiu.headers().firstValue("Set-Cookie").orElseThrow().startsWith("mangas_sessao=; Path=/; Max-Age=0;"));
     }
 
     @Test
-    void oLoginContinuaDepoisDeReiniciarETrocarASenhaDesfaz() throws Exception {
+    void cadastroRecusaDadosInvalidosEEmailRepetido() throws Exception {
+        record Caso(String corpo, int status, String mensagem) {
+        }
+        for (Caso caso : List.of(
+                new Caso(conta("sem-arroba", "Nick", "123456"), 400, "E-mail inválido"),
+                new Caso(conta("", "Nick", "123456"), 400, "Informe o e-mail"),
+                new Caso(conta("a@b.com", "   ", "123456"), 400, "Escolha um nick"),
+                new Caso(conta("a@b.com", "x".repeat(41), "123456"), 400, "O nick pode ter no máximo 40 caracteres"),
+                new Caso(conta("a@b.com", "Nick", "12345"), 400, "A senha precisa ter pelo menos 6 caracteres"),
+                new Caso(conta("TESTE@exemplo.com", "Outro", "123456"), 409, "Já existe uma conta com esse e-mail"))) {
+            HttpResponse<String> resposta = comCookie("POST", "/api/contas", null, caso.corpo());
+            assertEquals(caso.status(), resposta.statusCode(), caso.corpo());
+            assertEquals(caso.mensagem(), json(resposta).get("mensagem").asText());
+            assertTrue(resposta.headers().firstValue("Set-Cookie").isEmpty());
+        }
+        // outro site nao consegue criar conta nem entrar pelo navegador de quem visita
+        HttpRequest deFora = HttpRequest.newBuilder(URI.create(base + "/api/contas")).POST(BodyPublishers.ofString(conta("c@d.com", "N", "123456")))
+                .header("Content-Type", "application/json").header("Origin", "http://site-malicioso.com").build();
+        assertEquals(403, semLogin.send(deFora, BodyHandlers.ofString()).statusCode());
+    }
+
+    @Test
+    void loginErradoNaoEntraEMuitosErrosFreiamAqueleEmail() throws Exception {
+        HttpResponse<String> senhaErrada = comCookie("POST", "/api/sessao", null, login("teste@exemplo.com", "errada"));
+        HttpResponse<String> emailQueNaoExiste = comCookie("POST", "/api/sessao", null, login("ninguem@exemplo.com", "123456"));
+        // a mesma resposta: nao da para descobrir quais e-mails tem conta
+        assertEquals(401, senhaErrada.statusCode());
+        assertEquals(senhaErrada.body(), emailQueNaoExiste.body());
+        assertEquals("E-mail ou senha incorretos", json(senhaErrada).get("mensagem").asText());
+        assertEquals(400, comCookie("POST", "/api/sessao", null, "{\"email\": \"teste@exemplo.com\"}").statusCode());
+
+        for (int i = 0; i < 9; i++) {
+            comCookie("POST", "/api/sessao", null, login("teste@exemplo.com", "chute " + i));
+        }
+        // 10 erros: o e-mail espera, mesmo com a senha certa; os outros e-mails continuam entrando
+        HttpResponse<String> freado = comCookie("POST", "/api/sessao", null, login("teste@exemplo.com", "123456"));
+        assertEquals(429, freado.statusCode());
+        assertTrue(json(freado).get("mensagem").asText().startsWith("Muitas tentativas. Tente de novo em 15 minutos"), freado.body());
+        assertEquals(201, comCookie("POST", "/api/contas", null, conta("outra@exemplo.com", "Outra", "abcdef")).statusCode());
+        assertEquals(200, comCookie("POST", "/api/sessao", null, login("outra@exemplo.com", "abcdef")).statusCode());
+        // quem ja estava dentro continua
+        assertEquals(200, enviar("GET", "/api/mangas", null).statusCode());
+    }
+
+    @Test
+    void cadaContaSoVeOsPropriosMangasECapas() throws Exception {
+        subirComContas(new byte[32], null);
+        String cookieA = cookieDe(comCookie("POST", "/api/contas", null, conta("a@exemplo.com", "A", "123456")));
+        String cookieB = cookieDe(comCookie("POST", "/api/contas", null, conta("b@exemplo.com", "B", "123456")));
+        String limite = "----limite";
+        String corpoDaCapa = "--" + limite + "\r\nContent-Disposition: form-data; name=\"arquivo\"; filename=\"c.png\"\r\nContent-Type: image/png\r\n\r\n";
+        byte[] envio = java.util.Arrays.copyOf(corpoDaCapa.getBytes(StandardCharsets.UTF_8), corpoDaCapa.length() + ImagemServiceTest.PNG.length + limite.length() + 8);
+        System.arraycopy(ImagemServiceTest.PNG, 0, envio, corpoDaCapa.length(), ImagemServiceTest.PNG.length);
+        byte[] fim = ("\r\n--" + limite + "--\r\n").getBytes(StandardCharsets.UTF_8);
+        System.arraycopy(fim, 0, envio, corpoDaCapa.length() + ImagemServiceTest.PNG.length, fim.length);
+        HttpResponse<String> capa = semLogin.send(HttpRequest.newBuilder(URI.create(base + "/api/imagens"))
+                .header("Content-Type", "multipart/form-data; boundary=" + limite).header("Cookie", "mangas_sessao=" + cookieA)
+                .POST(BodyPublishers.ofByteArray(envio)).build(), BodyHandlers.ofString());
+        assertEquals(201, capa.statusCode(), capa.body());
+        String nomeDaCapa = json(capa).get("imagePath").asText();
+        HttpResponse<String> criado = comCookie("POST", "/api/mangas", cookieA, manga("Só da A", "1", "LENDO").replace("https://site.com/capa.png", nomeDaCapa));
+        assertEquals(201, criado.statusCode(), criado.body());
+        String id = json(criado).get("id").asText();
+
+        assertEquals(1, json(comCookie("GET", "/api/mangas?pagina=1", cookieA, null)).get("total").asInt());
+        assertEquals(0, json(comCookie("GET", "/api/mangas?pagina=1", cookieB, null)).get("total").asInt());
+        assertEquals(404, comCookie("GET", "/api/mangas/" + id, cookieB, null).statusCode());
+        assertEquals(404, comCookie("PUT", "/api/mangas/" + id, cookieB, manga("Tomado", "9", "LENDO")).statusCode());
+        assertEquals(404, comCookie("PATCH", "/api/mangas/" + id + "/progresso", cookieB, "{\"lastChapter\": 9}").statusCode());
+        assertEquals(404, comCookie("DELETE", "/api/mangas/" + id, cookieB, null).statusCode());
+        assertEquals(404, comCookie("GET", "/api/imagens/" + nomeDaCapa, cookieB, null).statusCode());
+        assertEquals(200, comCookie("GET", "/api/imagens/" + nomeDaCapa, cookieA, null).statusCode());
+        // B nao consegue usar a capa da A no manga dele
+        assertEquals(400, comCookie("POST", "/api/mangas", cookieB, manga("Capa alheia", "1", "LENDO").replace("https://site.com/capa.png", nomeDaCapa)).statusCode());
+        assertEquals("Só da A", json(comCookie("GET", "/api/mangas/" + id, cookieA, null)).get("title").asText());
+        assertEquals(1, json(comCookie("GET", "/api/conta", cookieA, null)).get("mangas").asInt());
+        assertEquals(0, json(comCookie("GET", "/api/conta", cookieB, null)).get("mangas").asInt());
+    }
+
+    @Test
+    void editarAContaPedeASenhaSoParaEmailESenha() throws Exception {
+        String cookie = cookieDe(comCookie("POST", "/api/sessao", null, login("teste@exemplo.com", "123456")));
+        comCookie("POST", "/api/contas", null, conta("ocupado@exemplo.com", "Outro", "123456"));
+
+        JsonNode nick = json(comCookie("PUT", "/api/conta", cookie, "{\"nick\": \"  Nick   Novo \"}"));
+        assertEquals("Nick Novo", nick.get("conta").get("nick").asText());
+        assertEquals("Nick Novo", json(comCookie("GET", "/api/conta", cookie, null)).get("nick").asText());
+
+        assertEquals(400, comCookie("PUT", "/api/conta", cookie, "{\"email\": \"novo@exemplo.com\"}").statusCode());
+        assertEquals(403, comCookie("PUT", "/api/conta", cookie, "{\"email\": \"novo@exemplo.com\", \"senhaAtual\": \"errada\"}").statusCode());
+        assertEquals(409, comCookie("PUT", "/api/conta", cookie, "{\"email\": \"OCUPADO@exemplo.com\", \"senhaAtual\": \"123456\"}").statusCode());
+        assertEquals(400, comCookie("PUT", "/api/conta", cookie, "{\"email\": \"invalido\", \"senhaAtual\": \"123456\"}").statusCode());
+        HttpResponse<String> email = comCookie("PUT", "/api/conta", cookie, "{\"email\": \"Novo@Exemplo.com\", \"senhaAtual\": \"123456\"}");
+        assertEquals("novo@exemplo.com", json(email).get("conta").get("email").asText());
+        assertEquals(200, comCookie("POST", "/api/sessao", null, login("novo@exemplo.com", "123456")).statusCode());
+        assertEquals(401, comCookie("POST", "/api/sessao", null, login("teste@exemplo.com", "123456")).statusCode());
+
+        // senha nova: este aparelho ganha um cookie novo; o cookie antigo (outro aparelho) para de valer
+        assertEquals(400, comCookie("PUT", "/api/conta", cookie, "{\"senhaNova\": \"12345\", \"senhaAtual\": \"123456\"}").statusCode());
+        HttpResponse<String> senha = comCookie("PUT", "/api/conta", cookie, "{\"senhaNova\": \"senha-nova\", \"senhaAtual\": \"123456\"}");
+        assertEquals(200, senha.statusCode(), senha.body());
+        String cookieNovo = cookieDe(senha);
+        assertEquals(401, comCookie("GET", "/api/conta", cookie, null).statusCode());
+        assertEquals(200, comCookie("GET", "/api/conta", cookieNovo, null).statusCode());
+        assertEquals(401, comCookie("POST", "/api/sessao", null, login("novo@exemplo.com", "123456")).statusCode());
+        assertEquals(200, comCookie("POST", "/api/sessao", null, login("novo@exemplo.com", "senha-nova")).statusCode());
+    }
+
+    @Test
+    void excluirAContaPedeASenhaEApagaTudoDela() throws Exception {
+        subirComContas(new byte[32], null);
+        String cookie = cookieDe(comCookie("POST", "/api/contas", null, conta("sai@exemplo.com", "Vai Sair", "123456")));
+        String outra = cookieDe(comCookie("POST", "/api/contas", null, conta("fica@exemplo.com", "Fica", "123456")));
+        comCookie("POST", "/api/mangas", cookie, manga("Dela", "1", "LENDO"));
+        comCookie("POST", "/api/mangas", outra, manga("Da outra", "1", "LENDO"));
+
+        assertEquals(400, comCookie("DELETE", "/api/conta", cookie, "{}").statusCode());
+        assertEquals(403, comCookie("DELETE", "/api/conta", cookie, "{\"senha\": \"errada\"}").statusCode());
+        assertEquals(1, json(comCookie("GET", "/api/conta", cookie, null)).get("mangas").asInt());
+
+        HttpResponse<String> excluida = comCookie("DELETE", "/api/conta", cookie, "{\"senha\": \"123456\"}");
+        assertEquals(204, excluida.statusCode());
+        assertTrue(excluida.headers().firstValue("Set-Cookie").orElseThrow().contains("Max-Age=0"));
+        assertEquals(401, comCookie("GET", "/api/mangas", cookie, null).statusCode());
+        assertEquals(401, comCookie("POST", "/api/sessao", null, login("sai@exemplo.com", "123456")).statusCode());
+        // a outra conta nao perdeu nada; o e-mail ficou livre
+        assertEquals(1, json(comCookie("GET", "/api/mangas?pagina=1", outra, null)).get("total").asInt());
+        String deNovo = cookieDe(comCookie("POST", "/api/contas", null, conta("sai@exemplo.com", "Voltou", "123456")));
+        assertEquals(0, json(comCookie("GET", "/api/mangas?pagina=1", deNovo, null)).get("total").asInt());
+    }
+
+    @Test
+    void mangasAntigosVaoParaQuemSabeASenhaAntigaEssaContaViraAdmin() throws Exception {
+        subirComContas(new byte[32], "senha antiga do site");
+        // um manga de antes das contas, gravado direto na conta antiga
+        new JsonMangaRepositoryPorConta(pasta).salvar(new br.com.seuapp.mangatracker.domain.Manga("Antigo", "https://site.com/c.png",
+                new java.util.ArrayList<>(), "https://site.com/{cap}", null, java.math.BigDecimal.ONE, br.com.seuapp.mangatracker.domain.ReadingStatus.LENDO, ""));
+        String cookie = cookieDe(comCookie("POST", "/api/contas", null, conta("dono@exemplo.com", "Dono", "123456")));
+        String outra = cookieDe(comCookie("POST", "/api/contas", null, conta("visita@exemplo.com", "Visita", "123456")));
+
+        JsonNode antes = json(comCookie("GET", "/api/conta", cookie, null));
+        assertEquals(1, antes.get("mangasAntigos").asInt());
+        assertEquals(0, antes.get("mangas").asInt());
+        assertEquals(403, comCookie("POST", "/api/conta/mangas-antigos", outra, "{\"senha\": \"chute\"}").statusCode());
+
+        HttpResponse<String> trazidos = comCookie("POST", "/api/conta/mangas-antigos", cookie, "{\"senha\": \"senha antiga do site\"}");
+        assertEquals(200, trazidos.statusCode(), trazidos.body());
+        assertEquals(1, json(trazidos).get("trazidos").asInt());
+        JsonNode depois = json(comCookie("GET", "/api/conta", cookie, null));
+        assertTrue(depois.get("admin").asBoolean());
+        assertEquals(1, depois.get("mangas").asInt());
+        assertEquals(0, depois.get("mangasAntigos").asInt());
+        assertTrue(json(comCookie("GET", "/api/sessao", cookie, null)).get("conta").get("admin").asBoolean());
+        assertEquals(List.of("Antigo"), json(comCookie("GET", "/api/mangas", cookie, null)).findValuesAsText("title"));
+        assertEquals(0, json(comCookie("GET", "/api/mangas?pagina=1", outra, null)).get("total").asInt());
+        // sem senha antiga configurada, nao ha o que trazer
+        subirComContas(new byte[32], null);
+        String semAntiga = cookieDe(comCookie("POST", "/api/sessao", null, login("dono@exemplo.com", "123456")));
+        assertEquals(0, json(comCookie("GET", "/api/conta", semAntiga, null)).get("mangasAntigos").asInt());
+        assertEquals(404, comCookie("POST", "/api/conta/mangas-antigos", semAntiga, "{\"senha\": \"senha antiga do site\"}").statusCode());
+    }
+
+    @Test
+    void oLoginContinuaDepoisDeReiniciarComOMesmoSegredo() throws Exception {
         byte[] segredo = new byte[32];
         segredo[0] = 7;
-        subirComSenha(segredo);
-        String cookie = cookieDe(entrar("manga", "sênha secreta"));
+        subirComContas(segredo, null);
+        String cookie = cookieDe(comCookie("POST", "/api/contas", null, conta("fica@exemplo.com", "Fica", "123456")));
 
-        subirComSenha(segredo); // mesmo segredo guardado: o login de antes continua valendo
+        subirComContas(segredo, null); // mesmo segredo guardado: o login de antes continua valendo
         assertEquals(200, comCookie("GET", "/api/mangas", cookie, null).statusCode());
 
-        subirComSenha(new byte[32]); // segredo apagado: todos os logins acabam
+        subirComContas(new byte[32], null); // segredo apagado: todos os logins acabam
         assertEquals(401, comCookie("GET", "/api/mangas", cookie, null).statusCode());
-
-        // mesmo segredo, outra senha: o cookie da senha antiga nao vale
-        app.stop();
-        ImagemService imagemService = new ImagemService(pasta.resolve("imagens"));
-        app = new ApiServer(new MangaService(new JsonMangaRepository(pasta.resolve("mangas.json")), imagemService), imagemService, List.of(),
-                new ApiServer.Credenciais("manga", "senha nova bem longa", segredo)).criar().start("127.0.0.1", 0);
-        base = "http://127.0.0.1:" + app.port();
-        assertEquals(401, comCookie("GET", "/api/mangas", cookie, null).statusCode());
-    }
-
-    @Test
-    void loginErradoNaoEntraEMuitosErrosFreiamNovasTentativas() throws Exception {
-        subirComSenha(new byte[32]);
-
-        HttpResponse<String> errado = entrar("manga", "errada");
-        assertEquals(401, errado.statusCode());
-        assertEquals("Usuário ou senha incorretos", json(errado).get("mensagem").asText());
-        assertTrue(errado.headers().firstValue("Set-Cookie").isEmpty());
-        assertEquals(401, entrar("outro", "sênha secreta").statusCode());
-        assertEquals(400, enviar("POST", "/api/sessao", "{\"usuario\": \"manga\"}").statusCode());
-        assertEquals(400, enviar("POST", "/api/sessao", "nao e json").statusCode());
-        // outro site nao consegue fazer o navegador entrar
-        assertEquals(403, comOrigem("POST", "/api/sessao", "http://site-malicioso.com", "{\"usuario\": \"manga\", \"senha\": \"sênha secreta\"}").statusCode());
-
-        for (int i = 0; i < 8; i++) {
-            entrar("manga", "chute " + i);
-        }
-        // 10 erros: a proxima tentativa espera, mesmo com a senha certa
-        HttpResponse<String> freado = entrar("manga", "sênha secreta");
-        assertEquals(429, freado.statusCode());
-        assertTrue(json(freado).get("mensagem").asText().startsWith("Muitas tentativas erradas. Tente de novo em 15 minutos"), freado.body());
-    }
-
-    @Test
-    void semSenhaNaoHaLogin() throws Exception {
-        JsonNode sessao = json(enviar("GET", "/api/sessao", null));
-        assertFalse(sessao.get("exigeLogin").asBoolean());
-        assertTrue(sessao.get("logado").asBoolean());
-        assertEquals(200, enviar("GET", "/api/mangas", null).statusCode());
     }
 
     // ------------------------------------------------------------------ desempenho
 
     @Test
     void inicioTrazASessaoEAsListasFixasEmUmaChamadaSo() throws Exception {
-        subirComSenha(new byte[32]);
         // abre sem login: a tela de entrada precisa saber que o login falta
-        HttpResponse<String> semLogin = enviar("GET", "/api/inicio", null);
+        HttpResponse<String> semLogin = comCookie("GET", "/api/inicio", null, null);
         assertEquals(200, semLogin.statusCode());
         JsonNode inicio = json(semLogin);
         assertFalse(inicio.get("sessao").get("logado").asBoolean());
@@ -1147,8 +1292,9 @@ class ApiServerTest {
         assertTrue(inicio.get("ordensDeRecomendacao").size() > 0);
         assertEquals("no-store", semLogin.headers().firstValue("Cache-Control").orElse(""));
 
-        String cookie = cookieDe(entrar("manga", "sênha secreta"));
-        assertTrue(json(comCookie("GET", "/api/inicio", cookie, null)).get("sessao").get("logado").asBoolean());
+        JsonNode comLogin = json(enviar("GET", "/api/inicio", null));
+        assertTrue(comLogin.get("sessao").get("logado").asBoolean());
+        assertEquals("Teste", comLogin.get("sessao").get("conta").get("nick").asText());
     }
 
     @Test

@@ -17,9 +17,14 @@ biblioteca nem etapa de build: o que está no repositório é o que o navegador 
 
 ### Entrar
 
-Quando o site tem senha e o navegador não está conectado, aparece a tela de entrada no lugar de qualquer outra:
-usuário, senha com botão "Mostrar" e "Entrar". O login vale 30 dias, e o botão "Sair" fica no topo. Veja
-[Tela de login de 30 dias](20-tela-de-login.md).
+Quando o navegador não está conectado, aparece a tela de entrada no lugar de qualquer outra: e-mail, senha com
+botão "Mostrar" e "Entrar", e o link para criar uma conta (nick, e-mail, senha e a senha repetida). O login vale
+30 dias. Veja [Tela de login de 30 dias](20-tela-de-login.md) e [Contas de usuário](23-contas.md).
+
+### Minha conta (`#/conta`)
+
+Aberta pelo nick, no topo (ao lado do botão "Sair"). Edita o nick, o e-mail e a senha, traz os mangás de antes das
+contas e exclui a conta, com uma janela de confirmação.
 
 ### Todos os mangás (`#/`)
 

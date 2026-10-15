@@ -1,7 +1,12 @@
 package br.com.seuapp.mangatracker.web;
 
 import br.com.seuapp.mangatracker.domain.ChapterDecimalFormat;
+import br.com.seuapp.mangatracker.domain.Conta;
 import br.com.seuapp.mangatracker.domain.Manga;
+import br.com.seuapp.mangatracker.domain.exceptions.ContaException;
+import br.com.seuapp.mangatracker.repository.ContaAtual;
+import br.com.seuapp.mangatracker.repository.ContaRepositoryEmMemoria;
+import br.com.seuapp.mangatracker.service.ContaService;
 import br.com.seuapp.mangatracker.domain.OrdemDaLista;
 import br.com.seuapp.mangatracker.repository.ConsultaDeMangas;
 import br.com.seuapp.mangatracker.repository.PaginaDeMangas;
@@ -40,7 +45,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.math.BigDecimal;
-import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
@@ -62,7 +66,7 @@ public class ApiServer {
     private final MangaServiceInterface mangaService;
     private final ImagemService imagemService;
     private final List<String> origensPermitidas;
-    private final Credenciais credenciais;
+    private final ContaService contas;
     private final SinopseService sinopseService;
     private final RecomendacaoService recomendacaoService;
     private final ObjectMapper mapper = JsonMapper.builder()
@@ -75,54 +79,71 @@ public class ApiServer {
     /**
      * @param origensPermitidas enderecos do site que podem chamar a API pelo navegador (CORS),
      *                          ex.: http://localhost:5173. "*" libera qualquer um.
-     * @param credenciais       usuario e senha da tela de login, ou null para nao pedir login
+     * @param acesso            as contas e o segredo que assina os cookies de login. null = contas so na memoria,
+     *                          com senhas de hash rapido (para testes)
      */
-    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais) {
-        this(mangaService, imagemService, origensPermitidas, credenciais, new SinopseService(SEM_INTERNET));
+    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Acesso acesso) {
+        this(mangaService, imagemService, origensPermitidas, acesso, new SinopseService(SEM_INTERNET));
     }
 
     /** @param sinopseService busca na internet a descricao dos mangas para preencher o cadastro */
-    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais, SinopseService sinopseService) {
-        this(mangaService, imagemService, origensPermitidas, credenciais, sinopseService, new RecomendacaoService(SEM_INTERNET));
+    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Acesso acesso, SinopseService sinopseService) {
+        this(mangaService, imagemService, origensPermitidas, acesso, sinopseService, new RecomendacaoService(SEM_INTERNET));
     }
 
     /** @param recomendacaoService busca na internet mangas parecidos com os da lista */
-    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Credenciais credenciais,
+    public ApiServer(MangaServiceInterface mangaService, ImagemService imagemService, List<String> origensPermitidas, Acesso acesso,
                      SinopseService sinopseService, RecomendacaoService recomendacaoService) {
         this.recomendacaoService = recomendacaoService;
         this.sinopseService = sinopseService;
         this.mangaService = mangaService;
         this.imagemService = imagemService;
         this.origensPermitidas = origensPermitidas;
-        this.credenciais = credenciais;
-        this.sessoes = credenciais == null ? null : new Sessoes(credenciais.usuario(), credenciais.senha(), credenciais.segredo(), Clock.systemUTC());
+        Acesso efetivo = acesso != null ? acesso : new Acesso(new ContaService(new ContaRepositoryEmMemoria(), mangaService, imagemService,
+                null, 1_000, Clock.systemUTC()), segredoNovo());
+        this.contas = efetivo.contas();
+        this.sessoes = new Sessoes(efetivo.segredo(), Clock.systemUTC());
     }
 
     /**
      * @param segredo assina os cookies de login (veja {@link Sessoes}); guardado junto dos dados para os logins
      *                continuarem valendo quando o servidor reinicia
      */
-    public record Credenciais(String usuario, String senha, byte[] segredo) {
-        /** Com um segredo novo: os logins deixam de valer quando o servidor reinicia. */
-        public Credenciais(String usuario, String senha) {
-            this(usuario, senha, segredoNovo());
-        }
+    public record Acesso(ContaService contas, byte[] segredo) {
+    }
 
-        private static byte[] segredoNovo() {
-            byte[] segredo = new byte[32];
-            new SecureRandom().nextBytes(segredo);
-            return segredo;
-        }
+    private static byte[] segredoNovo() {
+        byte[] segredo = new byte[32];
+        new SecureRandom().nextBytes(segredo);
+        return segredo;
     }
 
     private final Sessoes sessoes;
-    private final LimiteDeTentativas tentativas = new LimiteDeTentativas(Clock.systemUTC());
 
-    private record LoginRequest(String usuario, String senha) {
+    private record LoginRequest(String email, String senha) {
     }
 
-    /** exigeLogin false = site sem senha (uso so neste computador). expiraEm no formato ISO 8601. */
-    private record SessaoResponse(boolean exigeLogin, boolean logado, String usuario, String expiraEm) {
+    private record CadastroRequest(String email, String nick, String senha) {
+    }
+
+    private record EdicaoDaContaRequest(String nick, String email, String senhaNova, String senhaAtual) {
+    }
+
+    private record SenhaRequest(String senha) {
+    }
+
+    /** A conta como o site ve: nunca leva a senha guardada. */
+    private record ContaResponse(UUID id, String email, String nick, boolean admin) {
+        static ContaResponse de(Conta conta) {
+            return new ContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin());
+        }
+    }
+
+    /** expiraEm no formato ISO 8601. exigeLogin e sempre true (fica por compatibilidade com o site). */
+    private record SessaoResponse(boolean exigeLogin, boolean logado, ContaResponse conta, String expiraEm) {
+    }
+
+    private record DadosDaContaResponse(UUID id, String email, String nick, boolean admin, String criadaEm, int mangas, int mangasAntigos) {
     }
 
     /** Cliente que nunca encontra nada: usado quando a API e criada sem acesso a outros sites (testes). */
@@ -159,11 +180,18 @@ public class ApiServer {
             config.routes.before(this::protegerResposta);
             config.routes.before(this::exigirLogin);
             config.routes.before("/api/*", this::recusarOutrosSites);
+            // a conta da requisicao nao pode sobrar para a proxima que usar esta mesma linha de execucao
+            config.routes.after(ctx -> ContaAtual.limpar());
 
             config.routes.get("/api/inicio", this::inicio);
             config.routes.get("/api/sessao", this::verSessao);
             config.routes.post("/api/sessao", this::entrar);
             config.routes.delete("/api/sessao", this::sair);
+            config.routes.post("/api/contas", this::criarConta);
+            config.routes.get("/api/conta", this::verConta);
+            config.routes.put("/api/conta", this::editarConta);
+            config.routes.delete("/api/conta", this::excluirConta);
+            config.routes.post("/api/conta/mangas-antigos", this::trazerMangasAntigos);
 
             config.routes.get("/api/mangas", this::listar);
             config.routes.post("/api/mangas", this::cadastrar);
@@ -203,6 +231,7 @@ public class ApiServer {
             config.routes.exception(InvalidChapterException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidReleaseDayException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(InvalidRatingException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
+            config.routes.exception(ContaException.class, (e, ctx) -> erro(ctx, HttpStatus.forStatus(e.getStatus()), e.getMessage()));
             config.routes.exception(InvalidImageException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(RequisicaoInvalidaException.class, (e, ctx) -> erro(ctx, HttpStatus.BAD_REQUEST, e.getMessage()));
             config.routes.exception(NotFoundException.class, (e, ctx) -> erro(ctx, HttpStatus.NOT_FOUND, e.getMessage()));
@@ -227,35 +256,58 @@ public class ApiServer {
         ctx.header("Referrer-Policy", "no-referrer");
     }
 
+    /** Atributo do Context com a conta e a validade do login de quem esta usando. */
+    private static final String SESSAO = "sessao";
+
+    private record Sessao(Conta conta, Instant expira) {
+    }
+
     /**
-     * Os dados (tudo em /api) so saem para quem entrou. Os arquivos do site (HTML, CSS, JS, icones) nao tem
-     * dado nenhum e ficam abertos, para a tela de login poder aparecer.
+     * Os dados (tudo em /api) so saem para quem entrou, e so os da conta dele. Os arquivos do site (HTML, CSS, JS,
+     * icones) nao tem dado nenhum e ficam abertos, para a tela de login poder aparecer. Entrar, criar conta e o inicio
+     * tambem nao pedem login.
      */
     private void exigirLogin(Context ctx) {
-        if (credenciais == null || ctx.method() == HandlerType.OPTIONS || !ctx.path().startsWith("/api/")
-                || ctx.path().equals("/api/sessao") || ctx.path().equals("/api/inicio") || sessaoValida(ctx).isPresent()) {
+        // sem login, nenhuma consulta acha dado nenhum; com login, so os da conta
+        ContaAtual.definir(ContaAtual.NENHUMA);
+        Optional<Sessao> sessao = sessaoValida(ctx);
+        sessao.ifPresent(valida -> {
+            ctx.attribute(SESSAO, valida);
+            ContaAtual.definir(valida.conta().id().toString());
+        });
+        boolean aberta = ctx.method() == HandlerType.OPTIONS || !ctx.path().startsWith("/api/")
+                || ctx.path().equals("/api/sessao") || ctx.path().equals("/api/inicio")
+                || (ctx.path().equals("/api/contas") && ctx.method() == HandlerType.POST);
+        if (aberta || sessao.isPresent()) {
             return;
         }
-        erro(ctx, HttpStatus.UNAUTHORIZED, "Entre com seu usuário e senha");
+        erro(ctx, HttpStatus.UNAUTHORIZED, "Entre na sua conta");
         ctx.skipRemainingHandlers();
     }
 
-    private Optional<Instant> sessaoValida(Context ctx) {
-        return sessoes == null ? Optional.empty() : sessoes.validar(ctx.cookie(Sessoes.COOKIE));
+    private Optional<Sessao> sessaoValida(Context ctx) {
+        String cookie = ctx.cookie(Sessoes.COOKIE);
+        return Sessoes.contaDoCookie(cookie)
+                .flatMap(contas::buscar)
+                .flatMap(conta -> sessoes.validar(cookie, conta).map(expira -> new Sessao(conta, expira)));
+    }
+
+    private Sessao sessaoExigida(Context ctx) {
+        Sessao sessao = ctx.attribute(SESSAO);
+        if (sessao == null) {
+            throw new ContaException(401, "Entre na sua conta");
+        }
+        return sessao;
+    }
+
+    private static SessaoResponse resposta(Sessao sessao) {
+        return sessao == null ? new SessaoResponse(true, false, null, null)
+                : new SessaoResponse(true, true, ContaResponse.de(sessao.conta()), sessao.expira().toString());
     }
 
     private void verSessao(Context ctx) throws JsonProcessingException {
         ctx.header("Cache-Control", "no-store");
-        json(ctx, HttpStatus.OK, sessao(ctx));
-    }
-
-    private SessaoResponse sessao(Context ctx) {
-        if (credenciais == null) {
-            return new SessaoResponse(false, true, null, null);
-        }
-        Optional<Instant> expira = sessaoValida(ctx);
-        return new SessaoResponse(true, expira.isPresent(), expira.isPresent() ? credenciais.usuario() : null,
-                expira.map(Instant::toString).orElse(null));
+        json(ctx, HttpStatus.OK, resposta(ctx.attribute(SESSAO)));
     }
 
     /** Tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista). */
@@ -265,43 +317,64 @@ public class ApiServer {
 
     private void inicio(Context ctx) throws JsonProcessingException {
         ctx.header("Cache-Control", "no-store");
-        json(ctx, HttpStatus.OK, new InicioResponse(sessao(ctx), status(), formatos(), dias(), ordensDaLista(), ordensDeRecomendacao()));
+        json(ctx, HttpStatus.OK, new InicioResponse(resposta(ctx.attribute(SESSAO)), status(), formatos(), dias(), ordensDaLista(), ordensDeRecomendacao()));
+    }
+
+    /** Entra na conta: grava o cookie de 30 dias e responde como GET /api/sessao. */
+    private void entrarNaConta(Context ctx, Conta conta, HttpStatus status) throws JsonProcessingException {
+        ctx.header("Cache-Control", "no-store");
+        String cookie = sessoes.criar(conta);
+        gravarCookie(ctx, cookie, Sessoes.DURACAO.toSeconds());
+        json(ctx, status, resposta(new Sessao(conta, sessoes.validar(cookie, conta).orElseThrow())));
     }
 
     private void entrar(Context ctx) throws JsonProcessingException {
-        ctx.header("Cache-Control", "no-store");
-        if (credenciais == null) {
-            json(ctx, HttpStatus.OK, new SessaoResponse(false, true, null, null));
-            return;
-        }
-        Duration espera = tentativas.espera();
-        if (!espera.isZero()) {
-            long minutos = Math.max(1, (espera.toSeconds() + 59) / 60);
-            erro(ctx, HttpStatus.TOO_MANY_REQUESTS, "Muitas tentativas erradas. Tente de novo em " + minutos + (minutos == 1 ? " minuto" : " minutos"));
-            return;
-        }
         LoginRequest login = lerCorpo(ctx, LoginRequest.class);
-        if (login.usuario() == null || login.usuario().isBlank() || login.senha() == null || login.senha().isEmpty()) {
-            throw new RequisicaoInvalidaException("Informe o usuário e a senha");
-        }
-        // compara os resumos, para o tempo da comparacao nao dizer onde os textos diferem
-        boolean certo = MessageDigest.isEqual(Sessoes.sha256(login.usuario().trim()), Sessoes.sha256(credenciais.usuario()))
-                & MessageDigest.isEqual(Sessoes.sha256(login.senha()), Sessoes.sha256(credenciais.senha()));
-        if (!certo) {
-            tentativas.registrarErro();
-            erro(ctx, HttpStatus.UNAUTHORIZED, "Usuário ou senha incorretos");
-            return;
-        }
-        String cookie = sessoes.criar();
-        gravarCookie(ctx, cookie, Sessoes.DURACAO.toSeconds());
-        json(ctx, HttpStatus.OK, new SessaoResponse(true, true, credenciais.usuario(), sessoes.validar(cookie).orElseThrow().toString()));
+        entrarNaConta(ctx, contas.entrar(login.email(), login.senha()), HttpStatus.OK);
     }
 
-    /** Sai so neste navegador. Para sair de todos os aparelhos, troque a senha. */
+    private void criarConta(Context ctx) throws JsonProcessingException {
+        CadastroRequest cadastro = lerCorpo(ctx, CadastroRequest.class);
+        entrarNaConta(ctx, contas.criar(cadastro.email(), cadastro.nick(), cadastro.senha()), HttpStatus.CREATED);
+    }
+
+    /** Sai so neste navegador. Trocar a senha desconecta os outros aparelhos. */
     private void sair(Context ctx) {
         ctx.header("Cache-Control", "no-store");
         gravarCookie(ctx, "", 0);
         ctx.status(HttpStatus.NO_CONTENT);
+    }
+
+    private void verConta(Context ctx) throws JsonProcessingException {
+        ctx.header("Cache-Control", "no-store");
+        ContaService.Dados dados = contas.dados(sessaoExigida(ctx).conta().id());
+        Conta conta = dados.conta();
+        json(ctx, HttpStatus.OK, new DadosDaContaResponse(conta.id(), conta.email(), conta.nick(), conta.admin(), conta.criadaEm().toString(),
+                dados.mangas(), dados.mangasAntigos()));
+    }
+
+    private void editarConta(Context ctx) throws JsonProcessingException {
+        Sessao sessao = sessaoExigida(ctx);
+        EdicaoDaContaRequest edicao = lerCorpo(ctx, EdicaoDaContaRequest.class);
+        Conta editada = contas.atualizar(sessao.conta().id(), edicao.nick(), edicao.email(), edicao.senhaNova(), edicao.senhaAtual());
+        boolean trocouSenha = !editada.senhaHash().equals(sessao.conta().senhaHash());
+        if (trocouSenha) {
+            // senha nova desfaz os logins dos outros aparelhos; este ganha um cookie novo
+            entrarNaConta(ctx, editada, HttpStatus.OK);
+        } else {
+            ctx.header("Cache-Control", "no-store");
+            json(ctx, HttpStatus.OK, resposta(new Sessao(editada, sessao.expira())));
+        }
+    }
+
+    private void excluirConta(Context ctx) {
+        contas.excluir(sessaoExigida(ctx).conta().id(), lerCorpo(ctx, SenhaRequest.class).senha());
+        sair(ctx);
+    }
+
+    private void trazerMangasAntigos(Context ctx) throws JsonProcessingException {
+        int trazidos = contas.trazerMangasAntigos(sessaoExigida(ctx).conta().id(), lerCorpo(ctx, SenhaRequest.class).senha());
+        json(ctx, HttpStatus.OK, Map.of("trazidos", trazidos, "admin", true));
     }
 
     /** HttpOnly: os scripts da pagina nao leem o cookie. SameSite=Lax: outros sites nao o usam para alterar dados. */

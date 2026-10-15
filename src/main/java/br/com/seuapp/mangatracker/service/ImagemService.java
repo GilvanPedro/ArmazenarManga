@@ -126,6 +126,16 @@ public class ImagemService {
         return nome == null ? null : "/api/imagens/" + nome;
     }
 
+    /** Apaga todas as capas da conta atual (ao excluir a conta). */
+    public void excluirTodas() {
+        repository.excluirTodas();
+    }
+
+    /** Traz para a conta atual as capas de outra conta. */
+    public void trazerDe(String outraConta) {
+        repository.trazerDe(outraConta);
+    }
+
     public byte[] carregar(String nome) {
         if (!nomeValido(nome)) {
             throw new NotFoundException("Imagem não encontrada");

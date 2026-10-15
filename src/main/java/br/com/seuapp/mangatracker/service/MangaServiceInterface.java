@@ -22,6 +22,10 @@ public interface MangaServiceInterface {
     br.com.seuapp.mangatracker.repository.PaginaDeMangas consultar(br.com.seuapp.mangatracker.repository.ConsultaDeMangas consulta);
     /** Quantos mangas passam nos filtros da consulta. */
     int contar(br.com.seuapp.mangatracker.repository.ConsultaDeMangas consulta);
+    /** Apaga todos os mangas da conta atual (ao excluir a conta). */
+    void excluirTodos();
+    /** Traz para a conta atual os mangas de outra conta. @return quantos vieram */
+    int trazerDe(String outraConta);
     /** Lista geral de tags: as que estao em uso (as mais usadas primeiro) e depois as sugeridas ainda sem uso. */
     List<TagEmUso> listarTags();
     /** Mangas da lista que dividem tags com este, comecando pelos que dividem mais. */

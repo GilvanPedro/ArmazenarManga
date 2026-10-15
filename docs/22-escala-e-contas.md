@@ -4,8 +4,8 @@ Mudança feita em outubro de 2026 para o site aguentar 5 mil mangás ou mais, ca
 e para deixar o banco pronto para o cadastro de contas, que virá depois: cada pessoa com os próprios mangás, sem
 ver os das outras.
 
-O cadastro de contas em si **não foi feito**. Continua existindo uma conta só, mas tudo o que é guardado já tem
-dono, e toda consulta já filtra pelo dono.
+O cadastro de contas em si veio depois, em [Contas de usuário](23-contas.md). Esta mudança deixou tudo o que é
+guardado com dono, e toda consulta filtrando pelo dono.
 
 ## O que impedia a escala
 
@@ -143,13 +143,10 @@ banco de verdade, vale criar antes uma cópia do banco no painel do Neon (*Branc
 - No navegador, com 5 mil mangás: login, busca, filtro, página 2, ordem, voltar e recarregar pela aba, sempre
   iguais ao que o servidor devolve.
 
-## O que falta para as contas
+## O que faltava para as contas
 
-- Tela e rota de cadastro, e a tabela de contas (nome, senha guardada com hash).
-- A sessão passar a dizer de qual conta é, e `contaAtual()` ler isso dela.
-- O limite de tentativas de login por conta.
-- Decidir o que fazer com as variáveis `MANGATRACKER_USUARIO` e `MANGATRACKER_SENHA`, que hoje são o login da
-  conta `principal`.
+Tudo foi feito em [Contas de usuário](23-contas.md): cadastro, tabela de contas com senha em hash, sessão por conta
+e limite de tentativas por e-mail.
 
 ## Para crescer ainda mais
 

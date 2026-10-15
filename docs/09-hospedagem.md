@@ -22,11 +22,10 @@ próprio computador.
 ### Abrir para a rede local
 
 ```bash
-MANGATRACKER_HOST=0.0.0.0 MANGATRACKER_SENHA='uma senha longa' java -jar target/mangatracker.jar
+MANGATRACKER_HOST=0.0.0.0 java -jar target/mangatracker.jar
 ```
 
-O terminal mostra o endereço para os outros aparelhos. Sem uma senha de pelo menos 12 caracteres, o programa
-se recusa a abrir para a rede.
+O terminal mostra o endereço para os outros aparelhos. Cada pessoa cria a sua conta na tela de entrada.
 
 ## Variáveis de configuração
 
@@ -36,8 +35,7 @@ se recusa a abrir para a rede.
 | `MANGATRACKER_DIR` | `~/.mangatracker` | Pasta do `mangas.json` e das capas |
 | `DATABASE_URL` | vazio | Endereço de um Postgres. Com ele, os dados vão para o banco |
 | `MANGATRACKER_HOST` | `127.0.0.1` | `0.0.0.0` aceita conexões de outros computadores |
-| `MANGATRACKER_USUARIO` | `manga` | Usuário do login |
-| `MANGATRACKER_SENHA` | vazio | Senha do login. Trocar a senha desconecta todos os aparelhos |
+| `MANGATRACKER_SENHA` | vazio | Opcional. A senha antiga do site, de antes das contas: quem a souber traz os mangás antigos para a própria conta. Pode ser apagada depois |
 | `MANGATRACKER_SEGREDO` | criado sozinho | Opcional (32+ caracteres): assina os cookies de login. Sem ele, um segredo é criado e guardado no banco ou na pasta de dados |
 | `MANGATRACKER_CORS` | vazio | Outros sites que podem chamar a API (só na versão Java) |
 
@@ -59,7 +57,8 @@ O Vercel, o Render e o computador local podem apontar para o mesmo banco e ver o
 É onde o site está publicado. O Vercel não roda Java, então lá a API é a versão JavaScript (`api/`).
 
 1. Importar o repositório no Vercel. O `vercel.json` já traz a configuração.
-2. Em *Settings > Environment Variables*, definir `DATABASE_URL` e `MANGATRACKER_SENHA` (mínimo de 12 caracteres).
+2. Em *Settings > Environment Variables*, definir `DATABASE_URL`. A `MANGATRACKER_SENHA` só é preciso enquanto
+   houver mangás de antes das contas para trazer.
 3. Publicar de novo para as variáveis valerem.
 
 A cada `git push` na `main`, o Vercel publica sozinho. Se faltar alguma variável, a própria página mostra qual.
@@ -69,7 +68,7 @@ A cada `git push` na `main`, o Vercel publica sozinho. Se faltar alguma variáve
 Alternativa que roda a versão Java, usando o `Dockerfile` e o `render.yaml`.
 
 1. Em *New > Blueprint*, selecionar o repositório.
-2. Informar `DATABASE_URL` e `MANGATRACKER_SENHA`.
+2. Informar `DATABASE_URL` (e, se houver mangás antigos para trazer, `MANGATRACKER_SENHA`).
 
 No plano gratuito, o site dorme após 15 minutos sem uso e leva cerca de um minuto para acordar.
 

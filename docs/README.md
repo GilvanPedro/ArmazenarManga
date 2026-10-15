@@ -26,6 +26,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [20 · Tela de login de 30 dias](20-tela-de-login.md) | A tela de entrada própria, o login que dura 30 dias, o botão de sair e a proteção contra tentativas |
 | [21 · Desempenho](21-desempenho.md) | Lista, busca e capas em menos de 2 segundos: início em uma chamada, lista guardada no navegador, miniaturas e recarregar a aba |
 | [22 · Escala e preparação para contas](22-escala-e-contas.md) | Lista feita pelo banco, índices, dono em cada registro e o que falta para o cadastro de contas |
+| [23 · Contas de usuário](23-contas.md) | Cadastro, login por e-mail, página da conta, exclusão e como trazer os mangás de antes das contas |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

@@ -101,6 +101,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Escala e contas.** A lista passou a ser feita pelo banco, com índices, e cada registro ganhou um dono (a conta
   `principal`, por enquanto), filtrado em toda consulta. Acima de 2 mil mangás, o site passa a buscar pelo
   servidor. Detalhes em [Escala e preparação para contas](22-escala-e-contas.md).
+- **Contas de usuário.** Cadastro com e-mail único, nick e senha; login por e-mail; página da conta para editar e
+  excluir; e a transferência dos mangás antigos para a conta de quem sabe a senha antiga do site, que vira admin.
+  Detalhes em [Contas de usuário](23-contas.md).
 
 ## O que foi removido ou abandonado
 
