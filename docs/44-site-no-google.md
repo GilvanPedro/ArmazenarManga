@@ -38,6 +38,8 @@ Isso precisa ser feito com a conta Google do dono do site:
    `<meta name="google-site-verification" content="...">`, que vai no `<head>` do `index.html`. Depois de publicar,
    clicar em **Verificar** no Search Console. Outra opção é o **Arquivo HTML**: baixar o arquivo do Google, colocar em
    `src/main/resources/public/` e publicar.
+   **Feito com o arquivo HTML:** `src/main/resources/public/googledc43e32b7713b5d9.html`. **Não apague esse
+   arquivo**: o Google confere de tempos em tempos, e sem ele o site deixa de estar verificado.
 5. No menu **Sitemaps**, enviar `sitemap.xml`.
 6. Em **Inspeção de URL**, colar o endereço do site e clicar em **Solicitar indexação**.
 
@@ -54,6 +56,7 @@ O Google costuma levar de alguns dias a algumas semanas para mostrar o site. Par
 | `public/sitemap.xml` | Novo: mapa do site com a página inicial |
 | `public/compartilhar.png` | Nova: imagem de prévia ao compartilhar o link |
 | `public/icone-180.png` | Novo: ícone da tela de início do iPhone |
+| `public/googledc43e32b7713b5d9.html` | Novo: arquivo de verificação do Google Search Console (não apagar) |
 
 ## Testes
 
