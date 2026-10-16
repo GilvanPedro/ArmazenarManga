@@ -154,8 +154,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes, e os passos no Google Search Console, em [Site no Google](44-site-no-google.md).
 - **Extensão no Firefox.** O manifesto passou a declarar os dados que a extensão envia ao site, como a Mozilla exige
   para publicar. Detalhes em [Extensão no Firefox](45-extensao-no-firefox.md).
-- **Novo nome: Viracap.** O site e a extensão deixaram de se chamar "Meus Mangás". Detalhes em
-  [Novo nome: Viracap](46-nome-viracap.md).
+- **Novo nome: Viracap.** O site e a extensão deixaram de se chamar "Meus Mangás", e o site passou para
+  https://viracap.vercel.app. Detalhes em [Novo nome: Viracap](46-nome-viracap.md).
 
 ## O que foi removido ou abandonado
 

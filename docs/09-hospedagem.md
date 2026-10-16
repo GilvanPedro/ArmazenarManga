@@ -57,9 +57,10 @@ do servidor): ele aguenta milhares de conexões. Veja [Escala da Comunidade](33-
 
 ## Vercel
 
-É onde o site está publicado, em https://registrar-manga.vercel.app. O Vercel não roda Java, então lá a API é a versão
-JavaScript (`api/`). Para o site aparecer no Google, veja [Site no Google](44-site-no-google.md). Se o endereço
-mudar, troque-o no `index.html`, no `robots.txt` e no `sitemap.xml`.
+É onde o site está publicado, em https://viracap.vercel.app (antes, https://registrar-manga.vercel.app). O Vercel
+não roda Java, então lá a API é a versão JavaScript (`api/`). Para o site aparecer no Google, veja
+[Site no Google](44-site-no-google.md). Se o endereço mudar, troque-o no `index.html`, no `robots.txt` e no
+`sitemap.xml`.
 
 1. Importar o repositório no Vercel. O `vercel.json` já traz a configuração.
 2. Em *Settings > Environment Variables*, definir `DATABASE_URL` e, para ter uma conta admin,

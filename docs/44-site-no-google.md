@@ -1,6 +1,6 @@
 # 44 · Site no Google
 
-Preparação feita em outubro de 2026 para o site (https://registrar-manga.vercel.app) aparecer na busca do Google e
+Preparação feita em outubro de 2026 para o site (https://viracap.vercel.app; antes, https://registrar-manga.vercel.app) aparecer na busca do Google e
 ter uma prévia bonita quando o link é compartilhado.
 
 ## O que dá para aparecer no Google
@@ -15,7 +15,7 @@ entrou na conta. Para quem procura o site, isso basta: o resultado leva à pági
   - título completo (`Viracap · sua lista de mangás, manhwas e manhuas`; era "Meus Mangás" antes da
     [troca de nome](46-nome-viracap.md));
   - **descrição** (o texto embaixo do título no resultado da busca);
-  - endereço **canônico**, para o Google tratar `registrar-manga.vercel.app/` como o endereço oficial;
+  - endereço **canônico**, para o Google tratar `viracap.vercel.app/` como o endereço oficial;
   - marcações **Open Graph** e do Twitter/X, usadas no WhatsApp, Discord, X e outros ao compartilhar o link: título,
     descrição e a imagem `compartilhar.png`;
   - cor do tema (barra do navegador no celular) e ícone para a tela de início do iPhone (`icone-180.png`).
@@ -32,7 +32,7 @@ Isso precisa ser feito com a conta Google do dono do site:
 
 1. Publicar estas mudanças (commit e push; o Vercel publica sozinho).
 2. Abrir https://search.google.com/search-console e clicar em **Adicionar propriedade**.
-3. Escolher **Prefixo do URL** e digitar `https://registrar-manga.vercel.app/`. A opção "Domínio" não serve, porque o
+3. Escolher **Prefixo do URL** e digitar `https://viracap.vercel.app/`. A opção "Domínio" não serve, porque o
    domínio `vercel.app` é do Vercel.
 4. Confirmar que o site é seu pelo método **Tag HTML**. O Google mostra uma linha
    `<meta name="google-site-verification" content="...">`, que vai no `<head>` do `index.html`. Depois de publicar,
@@ -42,7 +42,7 @@ Isso precisa ser feito com a conta Google do dono do site:
 6. Em **Inspeção de URL**, colar o endereço do site e clicar em **Solicitar indexação**.
 
 O Google costuma levar de alguns dias a algumas semanas para mostrar o site. Para conferir, pesquise
-`site:registrar-manga.vercel.app`.
+`site:viracap.vercel.app`.
 
 ## Arquivos alterados
 

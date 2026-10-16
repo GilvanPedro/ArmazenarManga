@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://registrar-manga.vercel.app/sitemap.xml
+Sitemap: https://viracap.vercel.app/sitemap.xml

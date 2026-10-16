@@ -35,14 +35,22 @@ São nomes internos, que ninguém vê e que, se mudassem, quebrariam coisas que 
   dois (`meus-mangas-site` e `meus-mangas-extensao`). Assim, extensões já instaladas continuam funcionando;
 - as preferências guardadas no navegador (`meus-mangas-ordem` e outras), para ninguém perder filtros e ordem;
 - o nome do serviço no `render.yaml`, que trocado criaria um serviço novo no Render;
-- o endereço do site (`registrar-manga.vercel.app`) e o nome do repositório.
+- o nome do repositório.
 
 ## Endereço
 
-O endereço `viracap.vercel.app` estava livre quando o nome foi escolhido. Para usá-lo: no Vercel, em
-*Settings > Domains*, adicionar `viracap.vercel.app`. Depois, trocar o endereço no `index.html` (canônico e Open
-Graph), no `robots.txt` e no `sitemap.xml`, e cadastrar o endereço novo no Google Search Console (veja
+O site passou de `registrar-manga.vercel.app` para **https://viracap.vercel.app**, adicionado no Vercel em
+*Settings > Domains*, e o endereço antigo foi tirado. O endereço novo está no `index.html` (canônico e Open Graph), no
+`robots.txt` e no `sitemap.xml`. O cadastro no Google Search Console usa o endereço novo (veja
 [Site no Google](44-site-no-google.md)).
+
+Com a troca de endereço:
+
+- **Quem usa precisa entrar de novo.** O login fica guardado por endereço, então o do antigo não vale no novo. As contas,
+  mangás e posts continuam todos lá, porque o banco é o mesmo.
+- **A extensão precisa liberar o site de novo.** Ela guarda os endereços liberados, e o antigo não existe mais. É só
+  abrir o site novo, clicar no ícone da extensão e liberar.
+- As preferências salvas no navegador (filtros, ordem) também ficam por endereço e voltam ao padrão uma vez.
 
 ## Arquivos alterados
 

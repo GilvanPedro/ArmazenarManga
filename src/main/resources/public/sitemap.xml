@@ -2,6 +2,6 @@
 <!-- So a pagina inicial: as outras telas do site ficam depois do # (que o Google ignora) e atras do login -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://registrar-manga.vercel.app/</loc>
+    <loc>https://viracap.vercel.app/</loc>
   </url>
 </urlset>
