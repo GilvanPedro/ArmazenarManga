@@ -37,7 +37,7 @@ public class ContaService {
     // senha errada de um e-mail: 10 em 15 minutos; no site inteiro: 100 em 15 minutos
     private final LimiteDeTentativas errosPorEmail;
     private final LimiteDeTentativas errosNoSite;
-    // contas criadas no site inteiro: 20 por hora
+    // contas criadas no site inteiro: 20 em 10 minutos
     private final LimiteDeTentativas cadastros;
 
     /**
@@ -55,7 +55,7 @@ public class ContaService {
         this.hashDeMentira = Senhas.gerar("senha que ninguem usa", iteracoes);
         this.errosPorEmail = new LimiteDeTentativas(10, Duration.ofMinutes(15), relogio);
         this.errosNoSite = new LimiteDeTentativas(100, Duration.ofMinutes(15), relogio);
-        this.cadastros = new LimiteDeTentativas(20, Duration.ofHours(1), relogio);
+        this.cadastros = new LimiteDeTentativas(20, Duration.ofMinutes(10), relogio);
     }
 
     public ContaService(ContaRepository contas, MangaServiceInterface mangas, ImagemService imagens, java.util.Collection<String> emailsAdmin) {

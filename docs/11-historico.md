@@ -166,6 +166,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   ganhou busca por pessoas, texto e #tags. Detalhes em [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).
 - **Empacotar a extensão.** Uma ferramenta monta os zips do Firefox e do Chrome, cada um com o seu manifesto, e a
   Mozilla parou de mostrar avisos. Detalhes em [Empacotar a extensão](50-empacotar-a-extensao.md).
+- **Sugestões e ordem do feed.** A barra de pesquisa sugere até 3 itens (pessoas, #tags e posts); no "Para você", os
+  seus posts não ficam mais embaixo de posts mais antigos dos outros ao recarregar; e o limite de cadastro passou para
+  20 em 10 minutos. Detalhes em [Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md).
 
 ## O que foi removido ou abandonado
 

@@ -742,8 +742,8 @@ const LIMITES = {
     login: { maximo: 10, minutos: 15 },
     // senha errada no site inteiro, somando todos os e-mails: 100 em 15 minutos
     loginGeral: { maximo: 100, minutos: 15 },
-    // contas criadas no site inteiro: 20 por hora
-    cadastro: { maximo: 20, minutos: 60 },
+    // contas criadas no site inteiro: 20 em 10 minutos
+    cadastro: { maximo: 20, minutos: 10 },
 };
 
 /** Minutos de espera antes de poder tentar de novo (0 = pode agora). chave com % no fim conta todas que comecam assim. */

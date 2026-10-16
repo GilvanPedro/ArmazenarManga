@@ -95,3 +95,6 @@ No banco, a tabela `contas` ganhou a coluna `descricao` (texto, vazio por padrã
   - o "Quem seguir" aparece no feed e na busca e não aparece no perfil, com o perfil no meio da tela;
   - no celular, sem rolagem para o lado.
 - Os testes da versão Java continuam passando.
+
+> Depois, a barra de pesquisa passou a sugerir até 3 itens enquanto se digita: veja
+> [Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md).

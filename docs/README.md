@@ -54,6 +54,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [48 · Moderação e robô de imagens](48-moderacao-da-comunidade.md) | Suspender e banir contas, a aba Gerenciar e o robô que barra fotos explícitas |
 | [49 · Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md) | Mangás e descrição no perfil, Editar perfil, Configurações separadas, Seguir no post aberto e busca por pessoas e #tags |
 | [50 · Empacotar a extensão](50-empacotar-a-extensao.md) | Os zips para o Firefox e o Chrome sem os avisos da Mozilla, e o Firefox para Android |
+| [51 · Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md) | Até 3 sugestões enquanto se digita, seus posts nunca abaixo de posts mais antigos dos outros, e o limite de cadastro |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

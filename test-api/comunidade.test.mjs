@@ -1,7 +1,7 @@
 // Testes das regras da Comunidade (posts, comentarios e a ordem do feed "Para voce").
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DadoInvalidoNaComunidade, escaparLike, hashtagsDo, lerBusca, limparTexto, pontosDoPost, validarComentario, validarDescricao, validarLista, validarPost } from '../api/_comunidade.js';
+import { DadoInvalidoNaComunidade, escaparLike, hashtagsDo, hashtagsQueComecamCom, lerBusca, limparTexto, meusPostsAcimaDosMaisAntigos, pontosDoPost, validarComentario, validarDescricao, validarLista, validarPost } from '../api/_comunidade.js';
 
 const IMAGEM = '0a1b2c3d-1111-4222-8333-444455556666.webp';
 
@@ -78,4 +78,27 @@ test('busca: "#tag" procura a hashtag; o resto, pessoas e texto (sem o @)', () =
     for (const vazia of ['', '   ', '#', '##', '@', null, 42]) assert.equal(lerBusca(vazia), null, String(vazia));
     assert.equal(lerBusca('x'.repeat(100)).texto.length, 60);
     assert.equal(escaparLike('50%_a\\'), '50\\%\\_a\\\\');
+});
+
+test('sugestao de #tags: as que comecam com o digitado, das mais usadas para as menos usadas', () => {
+    const textos = ['#Frieren lindo #fantasia', 'amo #frieren #Frieren', '#frio hoje', 'a#frieren nao conta', '#Fate'];
+    assert.deepEqual(hashtagsQueComecamCom(textos, '#fr'), [{ tag: 'frieren', posts: 2 }, { tag: 'frio', posts: 1 }]);
+    // a mais usada primeiro; empatadas, em ordem alfabetica; no maximo o pedido
+    assert.deepEqual(hashtagsQueComecamCom(textos, 'f', 2), [{ tag: 'frieren', posts: 2 }, { tag: 'fantasia', posts: 1 }]);
+    assert.deepEqual(hashtagsQueComecamCom(textos, '#'), []);
+    assert.deepEqual(hashtagsQueComecamCom(textos, 'xyz'), []);
+});
+
+test('para voce: post seu nunca fica embaixo de post mais antigo de outra pessoa, e so sobe', () => {
+    const p = (id, autor, hora) => ({ id, autor, criado_em: `2026-10-16T${String(hora).padStart(2, '0')}:00:00Z` });
+    const ids = linhas => meusPostsAcimaDosMaisAntigos(linhas, 'eu').map(linha => linha.id);
+    // ordem por pontos: dois posts antigos de quem eu sigo, depois o meu (mais novo que eles)
+    assert.deepEqual(ids([p('a', 'bia', 8), p('b', 'caio', 9), p('meu', 'eu', 12)]), ['meu', 'a', 'b']);
+    // um post mais novo que o meu, com mais pontos, continua na frente
+    assert.deepEqual(ids([p('novo', 'bia', 13), p('a', 'bia', 8), p('meu', 'eu', 12)]), ['novo', 'meu', 'a']);
+    // o meu post que ja estava bem colocado nao desce, mesmo sendo mais antigo
+    assert.deepEqual(ids([p('meu', 'eu', 5), p('a', 'bia', 8), p('b', 'caio', 3)]), ['meu', 'a', 'b']);
+    // dois posts meus: o mais novo fica antes do mais antigo
+    assert.deepEqual(ids([p('a', 'bia', 6), p('velho', 'eu', 7), p('b', 'caio', 9), p('recente', 'eu', 11)]), ['recente', 'velho', 'a', 'b']);
+    assert.deepEqual(ids([]), []);
 });

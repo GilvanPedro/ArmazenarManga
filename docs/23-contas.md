@@ -77,7 +77,7 @@ Hoje o selo Admin só marca a conta; ele ainda não dá nenhuma ferramenta a mai
 |-------|--------|
 | Senha errada de um e-mail (login, ou senha atual na conta) | 10 em 15 minutos para aquele e-mail |
 | Senha errada no site inteiro | 100 em 15 minutos |
-| Contas criadas no site inteiro | 20 por hora |
+| Contas criadas no site inteiro | 20 em 10 minutos (era 20 por hora; veja [doc 51](51-sugestoes-e-ordem-do-feed.md)) |
 | Senha antiga errada ao trazer os mangás antigos | 10 em 15 minutos |
 
   O limite por e-mail não atrapalha as outras contas, e quem já está dentro continua dentro. Na versão do Vercel

@@ -1140,7 +1140,16 @@ dialog.janela-do-perfil { width: min(460px, calc(100vw - 24px)); }
 /* #hashtags nos posts e a busca da Comunidade */
 a.hashtag { color: var(--destaque-forte); font-weight: 600; text-decoration: none; }
 a.hashtag:hover { text-decoration: underline; }
-.busca-da-comunidade { width: min(100%, 380px); }
+.busca-da-comunidade { position: relative; z-index: 4; width: min(100%, 380px); }
+/* as sugestoes enquanto se digita: flutuam embaixo da barra, por cima do campo de escrever */
+.sugestoes-da-busca { position: absolute; top: calc(100% + 6px); left: 0; right: 0; margin: 0; padding: 6px; list-style: none; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); box-shadow: var(--sombra); }
+.sugestao-da-busca { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; cursor: pointer; }
+.sugestao-da-busca:hover, .sugestao-da-busca[aria-selected=true] { background: color-mix(in srgb, var(--destaque) 12%, transparent); }
+.sugestao-da-busca .inicial { flex: none; }
+.icone-da-sugestao { display: inline-grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--superficie-2); color: var(--texto-fraco); font-weight: 800; }
+.texto-da-sugestao { display: flex; flex-direction: column; min-width: 0; }
+.texto-da-sugestao b, .texto-da-sugestao small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.texto-da-sugestao small { color: var(--texto-fraco); font-size: 12.5px; }
 .busca-da-comunidade .campo-de-busca { min-height: 40px; padding: 8px 16px; border-radius: 999px; }
 .barra-de-busca { margin: 12px 0 16px; }
 .barra-de-busca .campo-de-busca { min-height: 46px; padding: 10px 16px; border-radius: 999px; font-size: 16px; }

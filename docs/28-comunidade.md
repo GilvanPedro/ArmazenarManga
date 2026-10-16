@@ -138,3 +138,6 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 
 > Depois, o perfil ganhou a quantidade de mangás e uma descrição, o post aberto passou a mostrar o Seguir e a
 > Comunidade ganhou busca por pessoas e #tags: veja [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).
+
+> Depois, no "Para você", os seus posts passaram a nunca ficar embaixo de posts mais antigos de outras pessoas: veja
+> [Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md).

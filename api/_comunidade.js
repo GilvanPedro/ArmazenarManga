@@ -121,3 +121,42 @@ export function lerBusca(consulta) {
 export function escaparLike(texto) {
     return texto.replace(/[\\%_]/g, letra => '\\' + letra);
 }
+
+/**
+ * As hashtags destes textos que comecam com o que foi digitado (sem o #), das mais usadas para as menos usadas: cada
+ * post conta uma vez por tag. [{ tag, posts }], ate o maximo pedido.
+ */
+export function hashtagsQueComecamCom(textos, comeco, maximo = 3) {
+    const procurada = (comeco || '').replace(/^#+/, '').toLocaleLowerCase('pt-BR');
+    if (!procurada) return [];
+    const contagem = new Map();
+    for (const texto of textos) {
+        for (const tag of hashtagsDo(texto)) {
+            if (tag.startsWith(procurada)) contagem.set(tag, (contagem.get(tag) || 0) + 1);
+        }
+    }
+    return [...contagem].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
+        .slice(0, maximo).map(([tag, posts]) => ({ tag, posts }));
+}
+
+/**
+ * No "Para voce", um post seu nunca fica embaixo de um post mais antigo de outra pessoa: depois da ordem por pontos,
+ * cada post seu sobe (nunca desce) ate ficar acima do primeiro post de outra pessoa que seja mais antigo que ele.
+ * Posts de outras pessoas mais novos que o seu continuam podendo vir antes, se tiverem mais pontos. linhas: na ordem
+ * dos pontos, cada uma com { autor, criado_em }.
+ */
+export function meusPostsAcimaDosMaisAntigos(linhas, euId) {
+    const ordem = [...linhas];
+    const quando = linha => new Date(linha.criado_em).getTime();
+    // os mais novos primeiro: assim um post seu mais antigo nunca passa na frente de um seu mais novo
+    const meus = ordem.filter(linha => linha.autor === euId).sort((a, b) => quando(b) - quando(a));
+    for (const meu of meus) {
+        const atual = ordem.indexOf(meu);
+        const alvo = ordem.findIndex(linha => linha.autor !== euId && quando(linha) < quando(meu));
+        if (alvo !== -1 && alvo < atual) {
+            ordem.splice(atual, 1);
+            ordem.splice(alvo, 0, meu);
+        }
+    }
+    return ordem;
+}

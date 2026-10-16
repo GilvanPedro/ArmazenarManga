@@ -2795,15 +2795,105 @@ function botaoDeSeguir(contaId, sigo, aoMudar) {
     return botao;
 }
 
-/** A barra de pesquisa em cima do campo de escrever: Enter abre a busca com o que foi digitado. */
+/**
+ * A barra de pesquisa em cima do campo de escrever. Enquanto se digita, sugere ate 3 itens (pessoas, depois #tags,
+ * depois posts); setas escolhem, Enter abre o escolhido, Esc fecha. Enter sem nada escolhido abre a busca completa.
+ */
 function barraDeBuscaDaComunidade() {
     const campo = h('input', {type: 'search', class: 'campo-de-busca', placeholder: 'Buscar pessoas, posts ou #tags',
-        'aria-label': 'Buscar pessoas, posts ou #tags', autocomplete: 'off', enterkeyhint: 'search'});
+        'aria-label': 'Buscar pessoas, posts ou #tags', autocomplete: 'off', enterkeyhint: 'search',
+        role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': 'sugestoes-da-busca'});
+    const lista = h('ul', {class: 'sugestoes-da-busca', id: 'sugestoes-da-busca', role: 'listbox', 'aria-label': 'Sugestões', hidden: true});
+    let itens = [];
+    let ativo = -1;
+    let pedido = 0;
+    let espera;
+
+    const destino = item => item.tipo === 'pessoa' ? '#/comunidade/perfil/' + item.id
+        : item.tipo === 'hashtag' ? '#/comunidade/busca?q=' + encodeURIComponent('#' + item.tag)
+        : '#/comunidade/post/' + item.id;
+    const fechar = () => {
+        lista.hidden = true;
+        campo.setAttribute('aria-expanded', 'false');
+        campo.removeAttribute('aria-activedescendant');
+        ativo = -1;
+    };
+    const abrir = item => {
+        fechar();
+        // o post abre guardando o feed, para voltar ao mesmo ponto
+        if (item.tipo === 'post') abrirPost(item.id);
+        else location.hash = destino(item);
+    };
+    const marcar = indice => {
+        ativo = indice;
+        [...lista.children].forEach((opcao, i) => opcao.setAttribute('aria-selected', String(i === ativo)));
+        if (ativo >= 0) campo.setAttribute('aria-activedescendant', 'sugestao-da-busca-' + ativo);
+        else campo.removeAttribute('aria-activedescendant');
+    };
+    const desenhar = () => {
+        lista.replaceChildren(...itens.map((item, i) => {
+            const conteudo = item.tipo === 'pessoa'
+                ? [avatar(item), h('span', {class: 'texto-da-sugestao'}, h('b', null, item.nick), h('small', null, 'Pessoa'))]
+                : item.tipo === 'hashtag'
+                    ? [h('span', {class: 'icone-da-sugestao', 'aria-hidden': 'true'}, '#'),
+                        h('span', {class: 'texto-da-sugestao'}, h('b', null, '#' + item.tag), h('small', null, item.posts === 1 ? '1 post recente' : item.posts + ' posts recentes'))]
+                    : [h('span', {class: 'icone-da-sugestao', 'aria-hidden': 'true'}, '“'),
+                        h('span', {class: 'texto-da-sugestao'}, h('b', null, item.texto), h('small', null, 'Post de ' + item.autor))];
+            // pointerdown (e nao click): o campo nao perde o foco antes de a escolha valer
+            return h('li', {class: 'sugestao-da-busca', id: 'sugestao-da-busca-' + i, role: 'option', 'aria-selected': 'false',
+                onpointerdown: evento => { evento.preventDefault(); abrir(item); }}, ...conteudo);
+        }));
+        lista.hidden = itens.length === 0;
+        campo.setAttribute('aria-expanded', String(itens.length > 0));
+        marcar(-1);
+    };
+    const sugerir = async () => {
+        const meu = ++pedido;
+        const texto = campo.value.trim();
+        if (!texto.replace(/^[#@]+/, '')) {
+            itens = [];
+            desenhar();
+            return;
+        }
+        try {
+            const achados = await chamar('GET', '/api/comunidade/busca-rapida?q=' + encodeURIComponent(texto));
+            if (meu !== pedido || document.activeElement !== campo) return;
+            itens = achados;
+            desenhar();
+        } catch (e) {
+            // sem sugestoes: Enter continua fazendo a busca completa
+        }
+    };
+    campo.addEventListener('input', () => {
+        clearTimeout(espera);
+        espera = setTimeout(sugerir, 180);
+    });
+    campo.addEventListener('focus', () => { if (itens.length) desenhar(); });
+    campo.addEventListener('blur', fechar);
+    campo.addEventListener('keydown', evento => {
+        if (lista.hidden) return;
+        if (evento.key === 'ArrowDown' || evento.key === 'ArrowUp') {
+            evento.preventDefault();
+            const passo = evento.key === 'ArrowDown' ? 1 : -1;
+            // depois do ultimo (ou antes do primeiro) volta para o campo, sem nada escolhido
+            let proximo = ativo + passo;
+            if (proximo >= itens.length) proximo = -1;
+            else if (proximo < -1) proximo = itens.length - 1;
+            marcar(proximo);
+        } else if (evento.key === 'Enter' && ativo >= 0) {
+            evento.preventDefault();
+            abrir(itens[ativo]);
+        } else if (evento.key === 'Escape') {
+            evento.preventDefault();
+            fechar();
+        }
+    });
     return h('form', {class: 'busca-da-comunidade', role: 'search', onsubmit: evento => {
         evento.preventDefault();
+        fechar();
         const texto = campo.value.trim();
         location.hash = '#/comunidade/busca' + (texto ? '?q=' + encodeURIComponent(texto) : '');
-    }}, campo);
+    }}, campo, lista);
 }
 
 /**

@@ -1,7 +1,7 @@
 // Rotas da Comunidade: feed, posts (com imagens e listas anexadas), curtidas, comentarios, seguir e perfis.
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
-import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, lerBusca, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
+import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, hashtagsQueComecamCom, lerBusca, meusPostsAcimaDosMaisAntigos, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
 
@@ -195,6 +195,41 @@ export function criarComunidade(f) {
         }));
     }
 
+    /**
+     * Sugestoes enquanto se digita na barra de pesquisa: ate 3, primeiro pessoas (pelo nick), depois #tags (as que
+     * comecam com o texto, das mais usadas nos posts recentes) e depois posts (os mais novos com o texto). Com "#",
+     * so tags e posts; com "@", pessoas primeiro do mesmo jeito.
+     */
+    async function buscaRapida(consulta) {
+        const texto = (typeof consulta === 'string' ? consulta : '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        const semSinal = texto.replace(/^[#@]+/, '');
+        if (!semSinal) return [];
+        const db = await banco();
+        const MAXIMO = 3;
+        const itens = [];
+        if (!texto.startsWith('#')) {
+            const { rows } = await db.query(`
+                SELECT id, nick, foto FROM contas WHERE nick ILIKE $1
+                ORDER BY lower(nick) = lower($2) DESC, nick ILIKE $3 DESC, nick LIMIT ${MAXIMO}`,
+                ['%' + escaparLike(semSinal) + '%', semSinal, escaparLike(semSinal) + '%']);
+            itens.push(...rows.map(linha => ({ tipo: 'pessoa', id: linha.id, nick: linha.nick, foto: urlDaFoto(linha.id, linha.foto) })));
+        }
+        // so palavras que podem ser uma tag (letras, numeros e _)
+        if (itens.length < MAXIMO && /^[\p{L}\p{N}_]+$/u.test(semSinal)) {
+            const { rows } = await db.query(`SELECT texto FROM posts WHERE texto ILIKE $1 ORDER BY criado_em DESC LIMIT 1000`,
+                ['%#' + escaparLike(semSinal) + '%']);
+            itens.push(...hashtagsQueComecamCom(rows.map(linha => linha.texto), semSinal, MAXIMO - itens.length)
+                .map(achada => ({ tipo: 'hashtag', tag: achada.tag, posts: achada.posts })));
+        }
+        if (itens.length < MAXIMO) {
+            const { rows } = await db.query(`
+                SELECT p.id, p.texto, c.nick FROM posts p JOIN contas c ON c.id = p.autor
+                WHERE p.texto ILIKE $1 ORDER BY p.criado_em DESC LIMIT ${MAXIMO - itens.length}`, ['%' + escaparLike(texto) + '%']);
+            itens.push(...rows.map(linha => ({ tipo: 'post', id: linha.id, texto: linha.texto.slice(0, 120), autor: linha.nick })));
+        }
+        return itens.slice(0, MAXIMO);
+    }
+
     async function idsDoPerfil(contaId) {
         const { rows } = await (await banco()).query(`SELECT id FROM posts WHERE autor = $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [contaId]);
         return rows.map(linha => linha.id);
@@ -217,7 +252,8 @@ export function criarComunidade(f) {
             // ?novosDesde=: a pessoa clicou em "N posts novos": os novos vem primeiro (na ordem de relevancia), depois o resto
             const desde = Date.parse(url.searchParams.get('novosDesde') || '');
             const novo = linha => !Number.isNaN(desde) && new Date(linha.criado_em).getTime() > desde && linha.autor !== eu.id;
-            ids = [...ranking.filter(novo), ...ranking.filter(linha => !novo(linha))].map(linha => linha.id);
+            // e os seus posts nunca ficam embaixo de posts mais antigos dos outros (ao recarregar, continuam em cima)
+            ids = meusPostsAcimaDosMaisAntigos([...ranking.filter(novo), ...ranking.filter(linha => !novo(linha))], eu.id).map(linha => linha.id);
         }
         return { ids, itens: await postsPorIds(ids.slice(0, POSTS_POR_PAGINA), eu), geradoEm };
     }
@@ -603,6 +639,7 @@ export function criarComunidade(f) {
             return servirImagem(rows[0].conteudo, id, 'public, max-age=31536000, s-maxage=31536000, immutable');
         }
         if (recurso === 'sugestoes' && !id && metodo === 'GET') return f.semCache(json(200, await sugestoes(eu)));
+        if (recurso === 'busca-rapida' && !id && metodo === 'GET') return f.semCache(json(200, await buscaRapida(url.searchParams.get('q'))));
         if (recurso === 'pessoas' && !id && metodo === 'GET') return f.semCache(json(200, await pessoas(url.searchParams.get('q'), eu)));
         // a descricao do proprio perfil (o nick e a foto continuam em PUT /api/conta)
         if (recurso === 'perfil' && !id && metodo === 'PUT') {
