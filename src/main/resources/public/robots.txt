@@ -1,0 +1,6 @@
+# O Google e os outros buscadores podem ler o site; a API (dados de cada conta) fica de fora.
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://registrar-manga.vercel.app/sitemap.xml

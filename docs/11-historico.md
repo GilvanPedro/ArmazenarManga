@@ -150,6 +150,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Feed no meio da tela.** O feed da Comunidade voltou a ficar exatamente no meio da tela, com o "Quem seguir" no
   espaço da direita e a Comunidade usando a largura toda. Detalhes em
   [Feed da Comunidade no meio da tela](43-feed-no-meio-da-tela.md).
+- **Site no Google.** A página inicial ganhou descrição, prévia ao compartilhar o link, `robots.txt` e `sitemap.xml`.
+  Detalhes, e os passos no Google Search Console, em [Site no Google](44-site-no-google.md).
 
 ## O que foi removido ou abandonado
 

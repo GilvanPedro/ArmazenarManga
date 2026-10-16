@@ -2443,7 +2443,8 @@ function telaLogin(aviso, criando) {
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
     document.body.classList.add('entrando');
     mostrarConta(null);
-    document.title = (criando ? 'Criar conta' : 'Entrar') + ' · Meus Mangás';
+    // a tela de entrar e a pagina inicial que o Google mostra: fica com o titulo completo do site
+    document.title = criando ? 'Criar conta · Meus Mangás' : 'Meus Mangás · sua lista de mangás, manhwas e manhuas';
 
     const email = h('input', {type: 'email', id: 'login-email', name: 'email', autocomplete: 'email', autocapitalize: 'none',
         spellcheck: 'false', required: true, value: lembrado('email', '')});

@@ -47,6 +47,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [41 · Comunidade mais larga](41-comunidade-mais-larga.md) | O feed com até 860 px, as abas sem barra de rolagem e "Lista" sem emoji |
 | [42 · Responsividade](42-responsividade.md) | Análise em 14 tamanhos de tela e as correções para celular, tablet, telas baixas, toque e monitores grandes |
 | [43 · Feed no meio da tela](43-feed-no-meio-da-tela.md) | O feed da Comunidade exatamente no meio da tela, com o "Quem seguir" à direita |
+| [44 · Site no Google](44-site-no-google.md) | Descrição, prévia ao compartilhar, robots.txt, sitemap.xml e os passos no Google Search Console |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
