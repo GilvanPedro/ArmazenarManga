@@ -48,7 +48,9 @@ Instalada assim, ela permanece. Depois de atualizar os arquivos, é preciso clic
 2. Escolher `extensao/manifest.json`.
 
 Carregada assim, ela sai ao fechar o Firefox. Para ficar permanente, a extensão precisa ser assinada pela
-Mozilla, o que é gratuito mas exige uma conta no site de complementos deles. Esse passo ainda não foi feito.
+Mozilla, o que é gratuito mas exige uma conta no site de complementos deles (addons.mozilla.org). O manifesto já
+declara os dados que a extensão envia ao site, como a Mozilla exige: veja
+[Extensão no Firefox](45-extensao-no-firefox.md).
 
 ## O favorito
 

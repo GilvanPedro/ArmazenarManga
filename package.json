@@ -1,5 +1,5 @@
 {
-  "name": "meus-mangas",
+  "name": "viracap",
   "private": true,
   "type": "module",
   "description": "API em JavaScript usada so na hospedagem do Vercel (pasta api/). O programa principal e o Java.",

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Inicia o Meus Mangás. Uso: ./iniciar.sh
+# Inicia o Viracap. Uso: ./iniciar.sh
 # Se existir um arquivo .env nesta pasta, as configuracoes dele sao carregadas (ex.: DATABASE_URL).
 cd "$(dirname "$0")" || exit 1
 

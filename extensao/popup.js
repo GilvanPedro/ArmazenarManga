@@ -46,7 +46,7 @@ async function mostrar() {
         };
         acao.hidden = false;
     } else if (origem && ehOSite) {
-        situacao.textContent = 'Este é o seu site Meus Mangás (' + origem + ')?';
+        situacao.textContent = 'Este é o seu site Viracap (' + origem + ')?';
         acao.textContent = 'Permitir que este site use a extensão';
         acao.className = '';
         acao.onclick = async () => {
@@ -57,8 +57,8 @@ async function mostrar() {
         acao.hidden = false;
     } else {
         situacao.textContent = origens.length
-            ? 'Liberado para: ' + origens.join(', ') + '. Abra o seu site Meus Mangás para usar.'
-            : 'Abra o seu site Meus Mangás (e recarregue a página) e clique aqui de novo para liberar.';
+            ? 'Liberado para: ' + origens.join(', ') + '. Abra o seu site Viracap para usar.'
+            : 'Abra o seu site Viracap (e recarregue a página) e clique aqui de novo para liberar.';
     }
 }
 

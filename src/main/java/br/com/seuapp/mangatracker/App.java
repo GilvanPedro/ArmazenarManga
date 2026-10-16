@@ -88,7 +88,7 @@ public class App {
 
         ClienteHttpPadrao internet = new ClienteHttpPadrao();
         new ApiServer(mangaService, imagemService, origens, acesso, new SinopseService(internet), new RecomendacaoService(internet)).criar().start(host, porta);
-        System.out.println("Meus Mangás aberto em http://localhost:" + porta + " (crie uma conta na primeira vez)");
+        System.out.println("Viracap aberto em http://localhost:" + porta + " (crie uma conta na primeira vez)");
         if (!soEsteComputador) {
             enderecosNaRede().forEach(endereco ->
                     System.out.println("Em outros computadores da rede: http://" + endereco + ":" + porta));

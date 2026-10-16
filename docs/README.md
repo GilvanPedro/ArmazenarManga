@@ -1,4 +1,4 @@
-# Documentação do Meus Mangás
+# Documentação do Viracap
 
 Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projeto, ou vá direto ao que precisa.
 
@@ -48,6 +48,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [42 · Responsividade](42-responsividade.md) | Análise em 14 tamanhos de tela e as correções para celular, tablet, telas baixas, toque e monitores grandes |
 | [43 · Feed no meio da tela](43-feed-no-meio-da-tela.md) | O feed da Comunidade exatamente no meio da tela, com o "Quem seguir" à direita |
 | [44 · Site no Google](44-site-no-google.md) | Descrição, prévia ao compartilhar, robots.txt, sitemap.xml e os passos no Google Search Console |
+| [45 · Extensão no Firefox](45-extensao-no-firefox.md) | A declaração de dados que a Mozilla exige e como enviar a extensão |
+| [46 · Novo nome: Viracap](46-nome-viracap.md) | O site e a extensão passaram de "Meus Mangás" para "Viracap" |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

@@ -152,6 +152,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Feed da Comunidade no meio da tela](43-feed-no-meio-da-tela.md).
 - **Site no Google.** A página inicial ganhou descrição, prévia ao compartilhar o link, `robots.txt` e `sitemap.xml`.
   Detalhes, e os passos no Google Search Console, em [Site no Google](44-site-no-google.md).
+- **Extensão no Firefox.** O manifesto passou a declarar os dados que a extensão envia ao site, como a Mozilla exige
+  para publicar. Detalhes em [Extensão no Firefox](45-extensao-no-firefox.md).
+- **Novo nome: Viracap.** O site e a extensão deixaram de se chamar "Meus Mangás". Detalhes em
+  [Novo nome: Viracap](46-nome-viracap.md).
 
 ## O que foi removido ou abandonado
 

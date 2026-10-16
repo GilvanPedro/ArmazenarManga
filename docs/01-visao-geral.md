@@ -2,7 +2,7 @@
 
 ## O que é
 
-O Meus Mangás é um site pessoal para acompanhar mangás, manhwas e webtoons. Ele guarda o que está sendo lido,
+O Viracap (antes chamado Meus Mangás) é um site pessoal para acompanhar mangás, manhwas e webtoons. Ele guarda o que está sendo lido,
 em que capítulo a leitura parou e em qual site cada obra é lida, e leva direto ao próximo capítulo.
 
 A ideia que o diferencia de catálogos como MyAnimeList e AniList é partir do **lugar onde a leitura acontece**:

@@ -1,5 +1,5 @@
 // Parte da extensao que fica em segundo plano.
-// O site Meus Mangas nao consegue ler paginas de outros sites, e o servidor dele e barrado por protecoes contra
+// O site Viracap nao consegue ler paginas de outros sites, e o servidor dele e barrado por protecoes contra
 // robos. O navegador de quem esta lendo consegue. Entao, quando o site pede, a extensao abre a pagina do ultimo
 // capitulo lido em uma aba, acha nela o link do proximo capitulo, leva a aba ate ele e conta ao site qual era.
 const ext = globalThis.browser || globalThis.chrome;
@@ -144,12 +144,12 @@ function capturarPagina() {
     } catch (erro) {
         imagem = '';
     }
-    // os dois titulos: o da aba e o "og:title". Cada site capricha em um, e o Meus Mangas escolhe o que serve
+    // os dois titulos: o da aba e o "og:title". Cada site capricha em um, e o Viracap escolhe o que serve
     return { atual, proximo, titulo: (document.title || '').slice(0, 200), tituloOg: meta('og:title').slice(0, 200), imagem };
 }
 
 /**
- * "Marcar como lido": abre o site Meus Mangas na tela de confirmacao, ja com o endereco do capitulo
+ * "Marcar como lido": abre o site Viracap na tela de confirmacao, ja com o endereco do capitulo
  * que esta aberto na aba. Faz o mesmo que o favorito do site, sem precisar da barra de favoritos.
  */
 async function marcarComoLido(aba) {

@@ -7,7 +7,7 @@ const TAMANHO_MAXIMO = 1500;
 const MAXIMO_POR_TRADUCAO = 450; // o MyMemory aceita ate 500 bytes por pedido
 const MAXIMO_DE_TRADUCOES = 8;
 // esses servicos pedem que cada programa se identifique
-const IDENTIFICACAO = 'MeusMangas/1.0 (rastreador pessoal de leitura; github.com/GilvanPedro/ArmazenarManga)';
+const IDENTIFICACAO = 'Viracap/1.0 (rastreador pessoal de leitura; github.com/GilvanPedro/ArmazenarManga)';
 
 async function pedir(endereco, opcoes = {}) {
     try {

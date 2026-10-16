@@ -12,14 +12,15 @@ entrou na conta. Para quem procura o site, isso basta: o resultado leva à pági
 ## O que mudou
 
 - **`index.html`**:
-  - título completo (`Meus Mangás · sua lista de mangás, manhwas e manhuas`);
+  - título completo (`Viracap · sua lista de mangás, manhwas e manhuas`; era "Meus Mangás" antes da
+    [troca de nome](46-nome-viracap.md));
   - **descrição** (o texto embaixo do título no resultado da busca);
   - endereço **canônico**, para o Google tratar `registrar-manga.vercel.app/` como o endereço oficial;
   - marcações **Open Graph** e do Twitter/X, usadas no WhatsApp, Discord, X e outros ao compartilhar o link: título,
     descrição e a imagem `compartilhar.png`;
   - cor do tema (barra do navegador no celular) e ícone para a tela de início do iPhone (`icone-180.png`).
-- **Tela de entrar**: o título da aba continua o completo, em vez de "Entrar · Meus Mangás". O Google executa o
-  JavaScript da página, então esse é o título que ele vê. A tela de criar conta continua "Criar conta · Meus Mangás".
+- **Tela de entrar**: o título da aba continua o completo, em vez de "Entrar · Viracap". O Google executa o
+  JavaScript da página, então esse é o título que ele vê. A tela de criar conta continua "Criar conta · Viracap".
 - **`robots.txt`**: libera o site para os buscadores, deixa a API (`/api/`, os dados de cada conta) de fora e aponta
   para o mapa do site.
 - **`sitemap.xml`**: o mapa do site, com a página inicial.

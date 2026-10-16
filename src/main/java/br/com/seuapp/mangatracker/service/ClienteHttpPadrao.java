@@ -11,7 +11,7 @@ import java.time.Duration;
 public class ClienteHttpPadrao implements SinopseService.ClienteHttp {
 
     // esses servicos pedem que cada programa se identifique
-    private static final String IDENTIFICACAO = "MeusMangas/1.0 (rastreador pessoal de leitura; github.com/GilvanPedro/ArmazenarManga)";
+    private static final String IDENTIFICACAO = "Viracap/1.0 (rastreador pessoal de leitura; github.com/GilvanPedro/ArmazenarManga)";
 
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 

@@ -1,5 +1,5 @@
 // Roda em todas as paginas, mas so faz alguma coisa em dois lugares:
-// - no site Meus Mangas (que se identifica com uma tag <meta>): repassa os pedidos do site para a extensao;
+// - no site Viracap (que se identifica com uma tag <meta>): repassa os pedidos do site para a extensao;
 // - nos sites de leitura onde estao os seus mangas: mostra o botao "Lido" no canto da pagina.
 (() => {
     const ext = globalThis.browser || globalThis.chrome;
@@ -56,7 +56,7 @@
         const marcar = document.createElement('button');
         marcar.type = 'button';
         marcar.textContent = '✓ Lido';
-        marcar.title = 'Meus Mangás: marcar este capítulo como lido';
+        marcar.title = 'Viracap: marcar este capítulo como lido';
         marcar.addEventListener('click', async () => {
             marcar.textContent = 'Abrindo…';
             try {
@@ -81,7 +81,7 @@
         document.documentElement.append(caixa);
     }
 
-    // so aparece em sites onde ha manga cadastrado (a lista vem do site Meus Mangas) e fora de paginas embutidas
+    // so aparece em sites onde ha manga cadastrado (a lista vem do site Viracap) e fora de paginas embutidas
     if (window.top !== window) return;
     ext.storage.local.get({ sites: [], origens: [] }).then(guardado => {
         if (guardado.origens.length > 0 && guardado.sites.includes(location.host)) mostrarBotao();

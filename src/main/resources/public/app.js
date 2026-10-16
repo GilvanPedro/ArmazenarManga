@@ -529,7 +529,7 @@ function recarregarAba() {
 function telaHoje() {
     const lista = h('div', {class: 'grade'});
     const hoje = diaDeHoje();
-    document.title = 'Lançam hoje · Meus Mangás';
+    document.title = 'Lançam hoje · Viracap';
     app.replaceChildren(
         abas('hoje'),
         h('p', {class: 'subtitulo'}, descricaoDia(hoje), ' · mangás que você está lendo e que lançam capítulo hoje. Ao marcar o capítulo novo, ele sai daqui.'),
@@ -1038,7 +1038,7 @@ async function telaDetalhes(id, aviso) {
         return;
     }
     if (vez !== estado.render) return;
-    document.title = manga.title + ' · Meus Mangás';
+    document.title = manga.title + ' · Viracap';
     const semelhantes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
     const recomendacoes = h('section', {class: 'recomendacoes', 'aria-live': 'polite'});
 
@@ -1170,7 +1170,7 @@ async function carregarSemelhantes(manga, secao, vez) {
 async function telaDescobrir() {
     const vez = ++estado.render;
     const escolhas = estado.descobrir;
-    document.title = 'Descobrir · Meus Mangás';
+    document.title = 'Descobrir · Viracap';
     let todasAsTags = [];
     try {
         // as que ja uso vem primeiro; as outras tambem entram, porque o que nao quero ler quase nunca esta na lista
@@ -1921,7 +1921,7 @@ async function telaFormulario(id, consulta) {
         }
     });
 
-    document.title = (manga ? 'Editar ' + manga.title : 'Novo mangá') + ' · Meus Mangás';
+    document.title = (manga ? 'Editar ' + manga.title : 'Novo mangá') + ' · Viracap';
     app.replaceChildren(h('div', {class: 'formulario'},
         h('a', {class: 'voltar', href: voltarPara}, '← Voltar'),
         h('h1', null, manga ? 'Edição geral' : 'Novo mangá'),
@@ -1998,7 +1998,7 @@ function codigoDoAtalho() {
         if (!aba) { try { aba = window.open(destino, '_blank'); } catch (erro) { aba = null; } }
         if (!aba) location.href = destino;
         } catch (falha) {
-            alert('Meus Mangas: nao consegui ler esta pagina. ' + falha);
+            alert('Viracap: nao consegui ler esta pagina. ' + falha);
         }
     };
     return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
@@ -2017,7 +2017,7 @@ async function telaAtalho() {
     const codigo = codigoDoAtalho();
     await conferirExtensao();
     if (vez !== estado.render) return;
-    document.title = 'Extensão e atalho · Meus Mangás';
+    document.title = 'Extensão e atalho · Viracap';
     app.replaceChildren(
         abas('atalho'),
         h('div', {class: 'texto'},
@@ -2275,7 +2275,7 @@ async function telaCapturar(consulta) {
     const parametros = new URLSearchParams(consulta);
     const endereco = (parametros.get('u') || '').trim();
     const proximo = (parametros.get('p') || '').trim();
-    document.title = 'Marcar capítulo lido · Meus Mangás';
+    document.title = 'Marcar capítulo lido · Viracap';
     if (!ehLinkHttp(endereco)) {
         app.replaceChildren(vazio('Nada para marcar', 'Use o atalho estando na página de um capítulo.',
             h('a', {class: 'botao', href: '#/atalho'}, 'Ver como funciona')));
@@ -2381,7 +2381,7 @@ function marcarSecao(parte) {
 function rota() {
     const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
     const partes = caminho.split('/');
-    document.title = 'Meus Mangás';
+    document.title = 'Viracap';
     marcarSecao(partes[0] === 'comunidade' ? 'comunidade' : partes[0] === 'conta' ? null : 'biblioteca');
     clearInterval(estado.vigiaDoFeed);
     // voltando de um post para a tela da Comunidade de onde ele foi aberto: ela volta como estava
@@ -2444,7 +2444,7 @@ function telaLogin(aviso, criando) {
     document.body.classList.add('entrando');
     mostrarConta(null);
     // a tela de entrar e a pagina inicial que o Google mostra: fica com o titulo completo do site
-    document.title = criando ? 'Criar conta · Meus Mangás' : 'Meus Mangás · sua lista de mangás, manhwas e manhuas';
+    document.title = criando ? 'Criar conta · Viracap' : 'Viracap · sua lista de mangás, manhwas e manhuas';
 
     const email = h('input', {type: 'email', id: 'login-email', name: 'email', autocomplete: 'email', autocapitalize: 'none',
         spellcheck: 'false', required: true, value: lembrado('email', '')});
@@ -2461,7 +2461,7 @@ function telaLogin(aviso, criando) {
 
     const formulario = h('form', {class: 'cartao-de-login', 'aria-labelledby': 'titulo-login'},
         h('img', {class: 'logo-de-login', src: 'favicon.svg', alt: '', width: '56', height: '56'}),
-        h('h1', {id: 'titulo-login'}, criando ? 'Criar conta' : 'Meus Mangás'),
+        h('h1', {id: 'titulo-login'}, criando ? 'Criar conta' : 'Viracap'),
         h('p', {class: 'chamada-de-login'}, criando
             ? 'Sua lista é só sua: cada conta vê apenas os mangás que ela mesma cadastrou.'
             : 'Entre para ver sua lista, continuar de onde parou e marcar o que leu.'),
@@ -2602,7 +2602,7 @@ async function telaComunidade(partes) {
 
     if (qual === 'perfil' && id) return telaPerfil(principal, id, vez);
     if (qual === 'post' && id) {
-        document.title = 'Post · Comunidade · Meus Mangás';
+        document.title = 'Post · Comunidade · Viracap';
         principal.append(h('div', {class: 'topo-do-post-aberto'},
             h('button', {type: 'button', class: 'voltar-do-post', onclick: voltarDoPost, 'aria-label': 'Voltar'}, '←'),
             h('h1', null, 'Post')));
@@ -2615,7 +2615,7 @@ async function telaComunidade(partes) {
         return;
     }
     const feed = qual === 'seguindo' ? 'seguindo' : 'para-voce';
-    document.title = 'Comunidade · Meus Mangás';
+    document.title = 'Comunidade · Viracap';
     const aba = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': feed === nome ? 'page' : null,
         onclick: feed === nome ? evento => { evento.preventDefault(); recarregarAba(); } : null}, texto);
     const lista = h('div', {class: 'feed'});
@@ -2780,7 +2780,7 @@ async function telaPerfil(principal, id, vez) {
         return;
     }
     if (vez !== estado.render) return;
-    document.title = perfil.nick + ' · Comunidade · Meus Mangás';
+    document.title = perfil.nick + ' · Comunidade · Viracap';
     const numeros = h('p', {class: 'numeros-do-perfil'});
     const mostrarNumeros = dados => numeros.replaceChildren(
         h('span', null, h('b', null, String(dados.posts)), dados.posts === 1 ? ' post' : ' posts'),
@@ -3390,7 +3390,7 @@ function secaoDaConta(titulo, descricao, campos, textoDoBotao, aoEnviar, perigo)
 
 async function telaConta() {
     const vez = ++estado.render;
-    document.title = 'Minha conta · Meus Mangás';
+    document.title = 'Minha conta · Viracap';
     let conta;
     try {
         conta = await chamar('GET', '/api/conta');
