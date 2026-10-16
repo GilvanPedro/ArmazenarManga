@@ -156,6 +156,11 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   para publicar. Detalhes em [Extensão no Firefox](45-extensao-no-firefox.md).
 - **Novo nome: Viracap.** O site e a extensão deixaram de se chamar "Meus Mangás", e o site passou para
   https://viracap.vercel.app. Detalhes em [Novo nome: Viracap](46-nome-viracap.md).
+- **Botões de seguir.** Seguir já era salvo, mas os outros botões da mesma pessoa não mudavam, e parecia que não.
+  Agora todos andam juntos. Detalhes em [Botões de seguir sincronizados](47-botoes-de-seguir-sincronizados.md).
+- **Moderação.** Admins podem suspender e banir contas e têm a aba Gerenciar (contas e registro), e um robô barra
+  fotos explícitas nos posts e nas fotos de perfil, deixando arte e capas de mangá passarem. Detalhes em
+  [Moderação e robô de imagens](48-moderacao-da-comunidade.md).
 
 ## O que foi removido ou abandonado
 

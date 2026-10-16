@@ -22,6 +22,7 @@ indisponível.
 - **Curtir** (♥) e **comentar** (💬). Os comentários abrem embaixo do post. Depois, clicar no post ou no 💬 passou a
   abrir o post em tela própria: veja [Post aberto em tela própria](36-post-aberto.md).
 - **Seguir** leitores: pelo botão "Seguir" ao lado do nome nos posts, nas sugestões "Quem seguir" ou no perfil.
+  Todos os botões da mesma pessoa mudam juntos: veja [Botões de seguir sincronizados](47-botoes-de-seguir-sincronizados.md).
 - **Perfil** de cada leitor (`#/comunidade/perfil/{id}`): foto, nick, desde quando está na Comunidade, número de
   posts, seguidores e seguindo, e os posts dele. No próprio perfil, dá para postar e há o link "Editar perfil".
 - **Apagar:** o próprio post; comentários no próprio post ou escritos por você. Admins podem apagar qualquer post e
@@ -131,3 +132,6 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 - Editar um post depois de publicado.
 - Denunciar e bloquear contas, e ferramentas de moderação para admins.
 - A Comunidade na versão Java.
+
+> Depois, os admins ganharam suspensão, banimento e a aba Gerenciar, e as imagens passaram por um robô: veja
+> [Moderação e robô de imagens](48-moderacao-da-comunidade.md).

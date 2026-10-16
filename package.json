@@ -10,7 +10,11 @@
     "test": "node --test test-api/*.test.mjs"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "4.22.0",
     "node-html-parser": "^9.0.4",
-    "pg": "^8.13.0"
+    "nsfwjs": "^4.4.0",
+    "pg": "^8.13.0",
+    "sharp": "^0.35.5"
   }
 }

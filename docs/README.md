@@ -50,6 +50,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [44 · Site no Google](44-site-no-google.md) | Descrição, prévia ao compartilhar, robots.txt, sitemap.xml e os passos no Google Search Console |
 | [45 · Extensão no Firefox](45-extensao-no-firefox.md) | A declaração de dados que a Mozilla exige e como enviar a extensão |
 | [46 · Novo nome: Viracap](46-nome-viracap.md) | O site e a extensão passaram de "Meus Mangás" para "Viracap" |
+| [47 · Botões de seguir sincronizados](47-botoes-de-seguir-sincronizados.md) | Seguir alguém atualiza todos os botões daquela pessoa na tela |
+| [48 · Moderação e robô de imagens](48-moderacao-da-comunidade.md) | Suspender e banir contas, a aba Gerenciar e o robô que barra fotos explícitas |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

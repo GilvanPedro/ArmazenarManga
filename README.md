@@ -91,6 +91,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Comunidade mais larga](docs/41-comunidade-mais-larga.md) | [Responsividade em celulares, tablets e monitores](docs/42-responsividade.md) |
 | [Feed da Comunidade no meio da tela](docs/43-feed-no-meio-da-tela.md) | [Site no Google](docs/44-site-no-google.md) |
 | [Extensão no Firefox](docs/45-extensao-no-firefox.md) | [Novo nome: Viracap](docs/46-nome-viracap.md) |
+| [Botões de seguir sincronizados](docs/47-botoes-de-seguir-sincronizados.md) | [Moderação e robô de imagens](docs/48-moderacao-da-comunidade.md) |
 
 ## Testes
 

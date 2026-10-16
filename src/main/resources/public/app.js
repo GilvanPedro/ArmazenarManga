@@ -2370,7 +2370,7 @@ async function telaCapturar(consulta) {
  * conta, que nao e de nenhuma das duas). O "+ Adicionar" so faz sentido na Biblioteca.
  */
 function marcarSecao(parte) {
-    for (const [nome, link] of [['biblioteca', 'secao-biblioteca'], ['comunidade', 'secao-comunidade']]) {
+    for (const [nome, link] of [['biblioteca', 'secao-biblioteca'], ['comunidade', 'secao-comunidade'], ['gerenciar', 'secao-gerenciar']]) {
         const elemento = document.getElementById(link);
         if (nome === parte) elemento.setAttribute('aria-current', 'page');
         else elemento.removeAttribute('aria-current');
@@ -2382,7 +2382,7 @@ function rota() {
     const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
     const partes = caminho.split('/');
     document.title = 'Viracap';
-    marcarSecao(partes[0] === 'comunidade' ? 'comunidade' : partes[0] === 'conta' ? null : 'biblioteca');
+    marcarSecao(['comunidade', 'gerenciar'].includes(partes[0]) ? partes[0] : partes[0] === 'conta' ? null : 'biblioteca');
     clearInterval(estado.vigiaDoFeed);
     // voltando de um post para a tela da Comunidade de onde ele foi aberto: ela volta como estava
     const guardada = estado.comunidadeGuardada;
@@ -2407,6 +2407,7 @@ function rota() {
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'conta') return telaConta();
     if (partes[0] === 'comunidade') return telaComunidade(partes.slice(1));
+    if (partes[0] === 'gerenciar') return telaGerenciar(partes.slice(1));
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null, consulta);
     if (partes[0] === 'editar' && partes[1]) return telaFormulario(partes[1]);
@@ -2536,6 +2537,7 @@ function mostrarConta(conta) {
     const sair = document.getElementById('sair');
     link.hidden = sair.hidden = !conta;
     document.querySelector('.secoes').hidden = !conta;
+    document.getElementById('secao-gerenciar').hidden = !conta?.admin;
     if (conta) {
         link.replaceChildren(avatar(conta), h('span', {class: 'nick'}, conta.nick));
         link.title = 'Minha conta (' + conta.email + ')';
@@ -2628,7 +2630,7 @@ async function telaComunidade(partes) {
     }});
     principal.append(
         h('h1', {class: 'so-leitor'}, 'Comunidade'),
-        editorDePost(post => porNoFeed(lista, post)),
+        avisarSePunido(editorDePost(post => porNoFeed(lista, post))),
         h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
         avisoDeNovos,
         lista);
@@ -2745,22 +2747,37 @@ async function carregarSugestoes(lateral, vez) {
             botaoDeSeguir(conta.id, false)))));
 }
 
+/**
+ * Todos os botoes de seguir criados, de qualquer conta (fracos: os que sairam da tela vao embora sozinhos). Seguir
+ * alguem por um botao atualiza os outros da mesma pessoa: os outros posts dela, o "Quem seguir", o perfil e tambem o
+ * feed guardado ao abrir um post, que volta como estava.
+ */
+const botoesDeSeguir = new Set();
+function avisarBotoesDeSeguir(contaId, sigo) {
+    for (const referencia of botoesDeSeguir) {
+        const botao = referencia.deref();
+        if (!botao) botoesDeSeguir.delete(referencia);
+        else if (botao.dataset.conta === contaId) botao.mostrarSigo(sigo);
+    }
+}
+
 /** Seguir / Seguindo (passar o mouse mostra "Deixar de seguir"). */
 function botaoDeSeguir(contaId, sigo, aoMudar) {
-    const botao = h('button', {type: 'button', class: 'botao pequeno seguir'});
+    const botao = h('button', {type: 'button', class: 'botao pequeno seguir', 'data-conta': contaId});
     const mostrar = valor => {
         sigo = valor;
         botao.classList.toggle('seguindo', sigo);
         botao.textContent = sigo ? 'Seguindo' : 'Seguir';
         botao.setAttribute('aria-pressed', String(sigo));
     };
+    botao.mostrarSigo = mostrar;
     botao.addEventListener('mouseenter', () => { if (sigo) botao.textContent = 'Deixar de seguir'; });
     botao.addEventListener('mouseleave', () => mostrar(sigo));
     botao.addEventListener('click', async () => {
         botao.disabled = true;
         try {
             const perfil = await chamar(sigo ? 'DELETE' : 'POST', '/api/comunidade/contas/' + contaId + '/seguir');
-            mostrar(perfil.sigo);
+            avisarBotoesDeSeguir(contaId, perfil.sigo);
             if (aoMudar) aoMudar(perfil);
         } catch (e) {
             avisar(e.message, true);
@@ -2768,6 +2785,7 @@ function botaoDeSeguir(contaId, sigo, aoMudar) {
         botao.disabled = false;
     });
     mostrar(sigo);
+    botoesDeSeguir.add(new WeakRef(botao));
     return botao;
 }
 
@@ -2796,11 +2814,302 @@ async function telaPerfil(principal, id, vez) {
             h('p', {class: 'subtitulo'}, 'Na Comunidade desde ' + new Date(perfil.criadaEm).toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'})),
             numeros,
             perfil.euMesmo ? h('a', {class: 'botao pequeno', href: '#/conta'}, 'Editar perfil') : botaoDeSeguir(perfil.id, perfil.sigo, mostrarNumeros)),
-        perfil.euMesmo ? editorDePost(post => porNoFeed(lista, post)) : null,
+        perfil.moderacao ? caixaDeModeracao(perfil) : null,
+        perfil.euMesmo ? avisarSePunido(editorDePost(post => porNoFeed(lista, post))) : null,
         lista);
     estado.recarregar = () => telaComunidade(['perfil', id]);
     await carregarFeed(lista, 'feed=perfil&conta=' + perfil.id, vez,
         vazio(perfil.euMesmo ? 'Você ainda não postou' : perfil.nick + ' ainda não postou', perfil.euMesmo ? 'Escreva o primeiro post aqui em cima.' : ''));
+}
+
+// ------------------------------------------------------------------ moderacao
+
+/** "18/10/2026, 14:30", no horario de quem esta vendo. */
+function dataEHora(quando) {
+    return new Date(quando).toLocaleString('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
+}
+
+/** "Suspensa até 18/10/2026, 14:30" ou "Banida". */
+function descricaoDaPunicao(punicao) {
+    return punicao.tipo === 'banida' ? 'Banida' : 'Suspensa até ' + dataEHora(punicao.ate);
+}
+
+/**
+ * Quem esta suspenso ou banido ve um aviso no lugar do campo de escrever (o servidor recusa de qualquer jeito, mas
+ * assim a pessoa sabe antes de tentar).
+ */
+function avisarSePunido(editor) {
+    chamar('GET', '/api/comunidade/situacao').then(({punicao}) => {
+        if (!punicao || !editor.isConnected) return;
+        const banida = punicao.tipo === 'banida';
+        editor.replaceWith(h('div', {class: 'aviso-de-punicao', role: 'status'},
+            h('b', null, banida ? 'Sua conta foi banida da Comunidade' : 'Sua conta está suspensa até ' + dataEHora(punicao.ate)),
+            h('p', null, banida
+                ? 'Você não pode publicar nem comentar até um administrador tirar o banimento. Ainda dá para ler, curtir e seguir.'
+                : 'Até lá, você não pode publicar nem comentar. Ainda dá para ler, curtir e seguir.'),
+            punicao.motivo ? h('p', null, h('b', null, 'Motivo: '), punicao.motivo) : null));
+    }).catch(() => {});
+    return editor;
+}
+
+const DURACOES_DE_SUSPENSAO = [['1 hora', 1], ['6 horas', 6], ['1 dia', 24], ['3 dias', 72], ['7 dias', 168], ['30 dias', 720], ['90 dias', 2160], ['1 ano', 8760]];
+
+/** "3 dias", "6 horas"... para o registro. */
+function descricaoDeHoras(horas) {
+    const conhecida = DURACOES_DE_SUSPENSAO.find(([, valor]) => valor === horas);
+    if (conhecida) return conhecida[0];
+    return horas % 24 === 0 ? horas / 24 + ' dias' : horas + ' horas';
+}
+
+/**
+ * Janela para suspender (com a duracao) ou banir: devolve {horas, motivo}, ou null se cancelar. O motivo e opcional
+ * e aparece para quem foi punido.
+ */
+function janelaDePunicao(conta, banir) {
+    return new Promise(resolver => {
+        const duracao = h('select', {id: 'duracao-da-suspensao'},
+            ...DURACOES_DE_SUSPENSAO.map(([texto, horas]) => h('option', {value: String(horas), selected: horas === 24}, texto)));
+        const motivo = h('textarea', {id: 'motivo-da-punicao', maxlength: '300', rows: '3', placeholder: 'Ex.: imagens impróprias, ofensas nos comentários…'});
+        const dialogo = h('dialog', {class: 'confirmacao janela-de-punir'},
+            h('form', {method: 'dialog'},
+                h('h2', null, (banir ? 'Banir ' : 'Suspender ') + conta.nick + '?'),
+                h('p', null, banir
+                    ? 'A conta não poderá publicar nem comentar na Comunidade até um administrador tirar o banimento.'
+                    : 'A conta não poderá publicar nem comentar na Comunidade até o fim da suspensão.'),
+                banir ? null : h('label', {class: 'campo-da-punicao'}, h('span', null, 'Por quanto tempo'), duracao),
+                h('label', {class: 'campo-da-punicao'}, h('span', null, 'Motivo (opcional, aparece para a pessoa)'), motivo),
+                h('div', {class: 'acoes'},
+                    h('button', {value: 'nao', class: 'botao'}, 'Cancelar'),
+                    h('button', {value: 'sim', class: 'botao perigo cheio'}, banir ? 'Banir' : 'Suspender'))));
+        dialogo.addEventListener('close', () => {
+            resolver(dialogo.returnValue === 'sim' ? {horas: Number(duracao.value), motivo: motivo.value.trim()} : null);
+            dialogo.remove();
+        });
+        document.body.append(dialogo);
+        dialogo.showModal();
+    });
+}
+
+/**
+ * Os botoes de moderacao de uma conta: suspender e banir, ou tirar a punicao. aoMudar recebe a punicao nova (ou
+ * null) depois que o servidor confirma.
+ */
+function botoesDeModeracao(conta, aoMudar) {
+    const base = '/api/comunidade/gerenciamento/contas/' + conta.id;
+    const agir = async (fazer, botao) => {
+        botao.disabled = true;
+        try {
+            const resposta = await fazer();
+            if (resposta) aoMudar(resposta.punicao);
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        botao.disabled = false;
+    };
+    if (conta.punicao) {
+        const banida = conta.punicao.tipo === 'banida';
+        const tirar = h('button', {type: 'button', class: 'botao pequeno'}, banida ? 'Desbanir' : 'Tirar suspensão');
+        tirar.addEventListener('click', () => agir(async () => {
+            if (!(await confirmar(banida ? 'Desbanir ' + conta.nick + '?' : 'Tirar a suspensão de ' + conta.nick + '?',
+                'A conta volta a poder publicar e comentar na Comunidade.', banida ? 'Desbanir' : 'Tirar suspensão', false))) return null;
+            const resposta = await chamar('DELETE', base + '/punicao');
+            avisar(banida ? 'A conta de ' + conta.nick + ' foi desbanida' : 'A suspensão de ' + conta.nick + ' foi tirada');
+            return resposta;
+        }, tirar));
+        // suspensa ainda pode virar banida
+        const banirAgora = banida ? null : h('button', {type: 'button', class: 'botao pequeno perigo'}, 'Banir');
+        banirAgora?.addEventListener('click', () => agir(async () => {
+            const escolha = await janelaDePunicao(conta, true);
+            if (!escolha) return null;
+            const resposta = await chamar('POST', base + '/banimento', {motivo: escolha.motivo});
+            avisar('A conta de ' + conta.nick + ' foi banida');
+            return resposta;
+        }, banirAgora));
+        return [tirar, banirAgora];
+    }
+    const suspender = h('button', {type: 'button', class: 'botao pequeno'}, 'Suspender');
+    suspender.addEventListener('click', () => agir(async () => {
+        const escolha = await janelaDePunicao(conta, false);
+        if (!escolha) return null;
+        const resposta = await chamar('POST', base + '/suspensao', escolha);
+        avisar('A conta de ' + conta.nick + ' foi suspensa por ' + descricaoDeHoras(escolha.horas));
+        return resposta;
+    }, suspender));
+    const banir = h('button', {type: 'button', class: 'botao pequeno perigo'}, 'Banir');
+    banir.addEventListener('click', () => agir(async () => {
+        const escolha = await janelaDePunicao(conta, true);
+        if (!escolha) return null;
+        const resposta = await chamar('POST', base + '/banimento', {motivo: escolha.motivo});
+        avisar('A conta de ' + conta.nick + ' foi banida');
+        return resposta;
+    }, banir));
+    return [suspender, banir];
+}
+
+/** No perfil, para admins: a situacao da conta e os botoes de moderacao. */
+function caixaDeModeracao(perfil) {
+    const caixa = h('section', {class: 'caixa-de-moderacao', 'aria-label': 'Moderação'});
+    const desenhar = punicao => {
+        const conta = {id: perfil.id, nick: perfil.nick, punicao};
+        // replaceChildren escreveria "null" como texto: o que nao vale fica de fora
+        caixa.replaceChildren(...[
+            h('div', {class: 'situacao-da-moderacao'},
+                h('b', null, 'Moderação'),
+                h('span', {class: 'selo-de-punicao' + (punicao ? ' ' + punicao.tipo : '')}, punicao ? descricaoDaPunicao(punicao) : 'Sem punição'),
+                punicao?.motivo ? h('small', null, 'Motivo: ' + punicao.motivo) : null),
+            perfil.moderacao.podePunir
+                ? h('div', {class: 'acoes-de-moderacao'}, ...botoesDeModeracao(conta, desenhar))
+                : h('small', null, 'Administradores não podem ser suspensos nem banidos.')].filter(Boolean));
+    };
+    desenhar(perfil.moderacao.punicao);
+    return caixa;
+}
+
+/** O que cada linha do registro conta, em uma frase. */
+function frasesDoRegistro(item) {
+    const quem = item.conta ? h('a', {href: '#/comunidade/perfil/' + item.conta.id}, item.conta.nick) : 'uma conta apagada';
+    const admin = h('b', null, item.admin || 'Um admin');
+    const detalhes = item.detalhes || {};
+    switch (item.acao) {
+    case 'suspender': return [admin, ' suspendeu ', quem, ' por ' + descricaoDeHoras(detalhes.horas)];
+    case 'banir': return [admin, ' baniu ', quem];
+    case 'tirar_suspensao': return [admin, ' tirou a suspensão de ', quem];
+    case 'desbanir': return [admin, ' tirou o banimento de ', quem];
+    case 'apagar_post': return [admin, ' apagou um post de ', quem, detalhes.texto ? ': “' + detalhes.texto + '”' : ''];
+    case 'apagar_comentario': return [admin, ' apagou um comentário de ', quem, detalhes.texto ? ': “' + detalhes.texto + '”' : ''];
+    case 'imagem_barrada': {
+        const foto = Math.round((detalhes.probabilidades?.Porn || 0) * 100);
+        return [h('b', null, 'O robô'), ' barrou uma imagem de ', quem, ' (' + (detalhes.onde === 'foto' ? 'foto de perfil' : 'post') + '; foto explícita: ' + foto + '%)'];
+    }
+    default: return [admin, ' ' + item.acao + ' ', quem];
+    }
+}
+
+/** Tela de gerenciamento (so admins): as contas, com busca e filtro, e o registro da moderacao. */
+async function telaGerenciar(partes) {
+    const vez = ++estado.render;
+    document.title = 'Gerenciar · Viracap';
+    if (!estado.sessao?.conta?.admin) {
+        app.replaceChildren(vazio('Só para administradores', 'Esta página é usada pelos administradores para moderar a Comunidade.',
+            h('a', {class: 'botao', href: '#/comunidade'}, 'Ir para a Comunidade')));
+        return;
+    }
+    const aba = partes[0] === 'registro' ? 'registro' : 'contas';
+    const conteudo = h('div', {class: 'conteudo-do-gerenciamento'});
+    app.replaceChildren(h('div', {class: 'pagina-de-gerenciamento'},
+        h('h1', null, 'Gerenciar'),
+        h('p', {class: 'subtitulo'}, 'Suspenda ou bana contas da Comunidade e veja o que os administradores e o robô de imagens fizeram.'),
+        rolagemDasAbas(h('nav', {class: 'abas', 'aria-label': 'Gerenciamento'},
+            h('a', {class: 'aba', href: '#/gerenciar', 'aria-current': aba === 'contas' ? 'page' : null}, 'Contas'),
+            h('a', {class: 'aba', href: '#/gerenciar/registro', 'aria-current': aba === 'registro' ? 'page' : null}, 'Registro'))),
+        conteudo));
+    estado.recarregar = () => telaGerenciar(partes);
+    if (aba === 'registro') return registroDoGerenciamento(conteudo, vez);
+    return contasDoGerenciamento(conteudo, vez);
+}
+
+async function contasDoGerenciamento(conteudo, vez) {
+    const busca = h('input', {type: 'search', placeholder: 'Buscar por nick ou e-mail…', 'aria-label': 'Buscar por nick ou e-mail', value: estado.buscaNoGerenciamento || ''});
+    let filtro = estado.filtroNoGerenciamento || 'todas';
+    const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Mostrar'});
+    const lista = h('div', {class: 'lista-de-contas'});
+    const mais = h('button', {type: 'button', class: 'botao', hidden: true}, 'Mais contas');
+    const total = h('p', {class: 'subtitulo total-de-contas'});
+    conteudo.replaceChildren(h('div', {class: 'ferramentas'}, busca), filtros, total, lista, h('div', {class: 'paginacao'}, mais));
+
+    const linhaDaConta = conta => {
+        const linha = h('article', {class: 'linha-de-conta'});
+        const desenhar = punicao => {
+            conta.punicao = punicao;
+            linha.replaceChildren(...[
+                h('a', {class: 'quem', href: '#/comunidade/perfil/' + conta.id}, avatar(conta)),
+                h('div', {class: 'dados-da-conta'},
+                    h('div', {class: 'nome-da-conta'},
+                        h('a', {href: '#/comunidade/perfil/' + conta.id}, h('b', null, conta.nick)),
+                        conta.admin ? h('span', {class: 'selo-admin'}, 'Admin') : null,
+                        punicao ? h('span', {class: 'selo-de-punicao ' + punicao.tipo}, descricaoDaPunicao(punicao)) : null),
+                    h('small', null, conta.email + ' · ' + (conta.posts === 1 ? '1 post' : conta.posts + ' posts')
+                        + (conta.imagensBarradas ? ' · ' + conta.imagensBarradas + (conta.imagensBarradas === 1 ? ' imagem barrada' : ' imagens barradas') : '')
+                        + ' · conta de ' + new Date(conta.criadaEm).toLocaleDateString('pt-BR')),
+                    punicao ? h('small', {class: 'detalhe-da-punicao'},
+                        (punicao.motivo ? 'Motivo: ' + punicao.motivo + '. ' : 'Sem motivo informado. ')
+                        + (conta.punidaPor ? 'Por ' + conta.punidaPor : '') + (conta.punidaEm ? ' em ' + dataEHora(conta.punidaEm) : '')) : null),
+                conta.admin ? null : h('div', {class: 'acoes-de-moderacao'}, ...botoesDeModeracao(conta, nova => {
+                    conta.punidaPor = estado.sessao.conta.nick;
+                    conta.punidaEm = new Date().toISOString();
+                    desenhar(nova);
+                }))].filter(Boolean));
+        };
+        desenhar(conta.punicao);
+        return linha;
+    };
+
+    let pagina = 1;
+    let pedido = 0;
+    const carregar = async (deNovo) => {
+        const meu = ++pedido;
+        if (deNovo) pagina = 1;
+        mais.disabled = true;
+        try {
+            const resposta = await chamar('GET', '/api/comunidade/gerenciamento/contas?' + new URLSearchParams({busca: busca.value.trim(), filtro, pagina: String(pagina)}));
+            if (meu !== pedido || vez !== estado.render) return;
+            const linhas = resposta.contas.map(linhaDaConta);
+            if (deNovo) lista.replaceChildren(...linhas);
+            else lista.append(...linhas);
+            if (deNovo && linhas.length === 0) lista.append(vazio('Nenhuma conta encontrada', busca.value.trim() ? 'Tente outro nick ou e-mail.' : ''));
+            total.textContent = resposta.total === 1 ? '1 conta' : resposta.total + ' contas';
+            mais.hidden = resposta.pagina >= resposta.paginas;
+        } catch (e) {
+            if (meu === pedido) lista.replaceChildren(vazio('Não deu para carregar as contas', e.message));
+        }
+        mais.disabled = false;
+    };
+    const desenharFiltros = () => filtros.replaceChildren(...[['todas', 'Todas'], ['punidas', 'Punidas'], ['suspensas', 'Suspensas'], ['banidas', 'Banidas']]
+        .map(([valor, texto]) => h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(filtro === valor), onclick: () => {
+            filtro = estado.filtroNoGerenciamento = valor;
+            desenharFiltros();
+            carregar(true);
+        }}, texto)));
+    desenharFiltros();
+    let espera;
+    busca.addEventListener('input', () => {
+        estado.buscaNoGerenciamento = busca.value;
+        clearTimeout(espera);
+        espera = setTimeout(() => carregar(true), 250);
+    });
+    mais.addEventListener('click', () => {
+        pagina++;
+        carregar(false);
+    });
+    await carregar(true);
+}
+
+async function registroDoGerenciamento(conteudo, vez) {
+    const lista = h('ol', {class: 'registro-da-moderacao'});
+    const mais = h('button', {type: 'button', class: 'botao', hidden: true}, 'Ver mais');
+    conteudo.replaceChildren(lista, h('div', {class: 'paginacao'}, mais));
+    let pagina = 1;
+    const carregar = async () => {
+        mais.disabled = true;
+        try {
+            const resposta = await chamar('GET', '/api/comunidade/gerenciamento/registro?pagina=' + pagina);
+            if (vez !== estado.render) return;
+            lista.append(...resposta.itens.map(item => h('li', {class: 'item-do-registro acao-' + item.acao},
+                h('time', {datetime: item.criadaEm}, dataEHora(item.criadaEm)),
+                h('p', null, ...frasesDoRegistro(item)),
+                item.motivo ? h('small', null, 'Motivo: ' + item.motivo) : null)));
+            if (pagina === 1 && resposta.itens.length === 0) conteudo.replaceChildren(vazio('Nada no registro ainda', 'Suspensões, banimentos, posts apagados por admins e imagens barradas pelo robô aparecem aqui.'));
+            mais.hidden = !resposta.temMais;
+        } catch (e) {
+            conteudo.replaceChildren(vazio('Não deu para carregar o registro', e.message));
+        }
+        mais.disabled = false;
+    };
+    mais.addEventListener('click', () => {
+        pagina++;
+        carregar();
+    });
+    await carregar();
 }
 
 /** Uma imagem grande, por cima da pagina. */

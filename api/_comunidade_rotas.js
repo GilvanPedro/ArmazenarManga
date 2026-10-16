@@ -2,6 +2,8 @@
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
 import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, validarComentario, validarPost } from './_comunidade.js';
+import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
+import { verificarImagem } from './_robo_de_imagens.js';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOME = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
@@ -49,7 +51,26 @@ export const ESTRUTURA_DA_COMUNIDADE = `
     END $$;
     CREATE OR REPLACE TRIGGER contar_curtidas AFTER INSERT OR DELETE ON curtidas FOR EACH ROW EXECUTE FUNCTION contar_curtida();
     CREATE OR REPLACE TRIGGER contar_comentarios AFTER INSERT OR DELETE ON comentarios FOR EACH ROW EXECUTE FUNCTION contar_comentario();
-`;
+` + ESTRUTURA_DA_MODERACAO;
+
+/**
+ * Passa a imagem pelo robo (api/_robo_de_imagens.js). Barrada, fica no registro da moderacao (sem a imagem) e quem
+ * enviou recebe o aviso. Se o robo nao conseguir conferir, a imagem nao entra: melhor pedir para tentar de novo do
+ * que deixar passar sem olhar. onde: 'post' ou 'foto'.
+ */
+export async function exigirImagemPermitida(db, bytes, contaId, onde, Recusa) {
+    let resultado;
+    try {
+        resultado = await verificarImagem(bytes);
+    } catch (erro) {
+        console.error('Robo de imagens: nao deu para conferir', erro);
+        throw new Recusa(503, 'Não deu para verificar a imagem agora. Tente de novo em instantes ou use outra imagem');
+    }
+    if (resultado.permitida) return;
+    await registrarNaModeracao(db, { conta: contaId, acao: 'imagem_barrada', motivo: 'Foto com conteúdo sexual explícito',
+        detalhes: { onde, probabilidades: resultado.probabilidades } });
+    throw new Recusa(400, MENSAGEM_DE_IMAGEM_BARRADA);
+}
 
 // limites por conta: posts, comentarios e imagens enviadas por hora
 const LIMITES = {
@@ -196,6 +217,18 @@ export function criarComunidade(f) {
         return rows[0];
     }
 
+    /** A punicao que vale agora para esta conta (null se estiver livre). */
+    async function situacao(contaId) {
+        const { rows } = await (await banco()).query('SELECT punicao, punida_ate, punicao_motivo FROM contas WHERE id = $1', [contaId]);
+        return situacaoDaConta(rows[0]);
+    }
+
+    /** Suspensa ou banida nao publica, nao comenta e nao envia imagem (curtir e seguir continuam). */
+    async function exigirQuePossaParticipar(eu) {
+        const punicao = await situacao(eu.id);
+        if (punicao) throw new Recusa(403, mensagemDaPunicao(punicao));
+    }
+
     async function umPost(id, eu) {
         const [achado] = await postsPorIds([id], eu);
         if (!achado) throw new Recusa(404, 'Post não encontrado');
@@ -204,6 +237,7 @@ export function criarComunidade(f) {
 
     /** Envia uma imagem para um post: fica solta ate o post ser publicado (as soltas de mais de um dia sao apagadas). */
     async function enviarImagem(request, eu) {
+        await exigirQuePossaParticipar(eu);
         await f.exigirQueNaoEstejaFreado('imagem:' + eu.id, LIMITES.imagem);
         let formulario;
         try {
@@ -217,6 +251,7 @@ export function criarComunidade(f) {
         const bytes = Buffer.from(await arquivo.arrayBuffer());
         const nome = randomUUID() + '.' + f.descobrirExtensao(bytes);
         const db = await banco();
+        await exigirImagemPermitida(db, bytes, eu.id, 'post', Recusa);
         await db.query("DELETE FROM imagens_da_comunidade WHERE conta = $1 AND post IS NULL AND criada_em < now() - interval '1 day'", [eu.id]);
         await db.query('INSERT INTO imagens_da_comunidade (nome, conteudo, conta) VALUES ($1, $2, $3)', [nome, bytes, eu.id]);
         await f.registrarTentativa('imagem:' + eu.id);
@@ -269,6 +304,7 @@ export function criarComunidade(f) {
 
     async function publicar(request, eu) {
         const dados = validarPost(await f.lerCorpo(request));
+        await exigirQuePossaParticipar(eu);
         await f.exigirQueNaoEstejaFreado('post:' + eu.id, LIMITES.post);
         const id = randomUUID();
         const cliente = await (await banco()).connect();
@@ -303,7 +339,124 @@ export function criarComunidade(f) {
                    (SELECT count(*) FROM seguindo WHERE seguido = $2)::int AS seguidores,
                    (SELECT count(*) FROM seguindo WHERE seguidor = $2)::int AS seguindo,
                    EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = $2) AS sigo`, [eu.id, conta.id]);
-        return { id: conta.id, nick: conta.nick, foto: urlDaFoto(conta.id, conta.foto), criadaEm: conta.criada_em, ...rows[0], euMesmo: conta.id === eu.id };
+        const resposta = { id: conta.id, nick: conta.nick, foto: urlDaFoto(conta.id, conta.foto), criadaEm: conta.criada_em, ...rows[0], euMesmo: conta.id === eu.id };
+        // para os admins: a punicao da conta e se ela pode ser punida (admins nao podem)
+        if (f.ehAdmin(eu) && conta.id !== eu.id) {
+            const { rows: completa } = await (await banco()).query('SELECT email, admin, punicao, punida_ate, punicao_motivo FROM contas WHERE id = $1', [conta.id]);
+            resposta.moderacao = { punicao: situacaoDaConta(completa[0]), podePunir: !f.ehAdmin(completa[0]) };
+        }
+        return resposta;
+    }
+
+    // ------------------------------------------------------------------ gerenciamento (so admins)
+
+    const POR_PAGINA_NO_GERENCIAMENTO = 30;
+
+    /** Contas para o gerenciamento: busca por nick ou e-mail e filtro (todas, punidas, suspensas, banidas). */
+    async function contasParaGerenciar(url) {
+        const busca = (url.searchParams.get('busca') || '').trim().slice(0, 100);
+        const filtro = url.searchParams.get('filtro') || 'todas';
+        const pagina = Math.max(1, Number.parseInt(url.searchParams.get('pagina'), 10) || 1);
+        const condicoes = [];
+        const valores = [];
+        if (busca) {
+            valores.push('%' + busca.replace(/[\\%_]/g, letra => '\\' + letra) + '%');
+            condicoes.push(`(c.nick ILIKE $${valores.length} OR c.email ILIKE $${valores.length})`);
+        }
+        const suspensa = "(c.punicao = 'suspensa' AND c.punida_ate > now())";
+        if (filtro === 'suspensas') condicoes.push(suspensa);
+        else if (filtro === 'banidas') condicoes.push("c.punicao = 'banida'");
+        else if (filtro === 'punidas') condicoes.push(`(${suspensa} OR c.punicao = 'banida')`);
+        const onde = condicoes.length ? 'WHERE ' + condicoes.join(' AND ') : '';
+        const db = await banco();
+        const { rows: [{ total }] } = await db.query(`SELECT count(*)::int AS total FROM contas c ${onde}`, valores);
+        const { rows } = await db.query(`
+            SELECT c.id, c.nick, c.email, c.foto, c.admin, c.criada_em, c.punicao, c.punida_ate, c.punicao_motivo, c.punida_em,
+                   a.nick AS punida_por,
+                   (SELECT count(*) FROM posts WHERE autor = c.id)::int AS posts,
+                   (SELECT count(*) FROM moderacao m WHERE m.conta = c.id AND m.acao = 'imagem_barrada')::int AS imagens_barradas
+            FROM contas c LEFT JOIN contas a ON a.id = c.punida_por ${onde}
+            -- quem esta punido primeiro, depois as contas mais novas
+            ORDER BY coalesce(c.punicao = 'banida' OR ${suspensa}, false) DESC, c.criada_em DESC, c.id
+            LIMIT ${POR_PAGINA_NO_GERENCIAMENTO} OFFSET ${(pagina - 1) * POR_PAGINA_NO_GERENCIAMENTO}`, valores);
+        return {
+            pagina, paginas: Math.max(1, Math.ceil(total / POR_PAGINA_NO_GERENCIAMENTO)), total,
+            contas: rows.map(linha => ({
+                id: linha.id, nick: linha.nick, email: linha.email, foto: urlDaFoto(linha.id, linha.foto), criadaEm: linha.criada_em,
+                admin: f.ehAdmin(linha), posts: linha.posts, imagensBarradas: linha.imagens_barradas,
+                punicao: situacaoDaConta(linha), punidaPor: linha.punida_por, punidaEm: linha.punida_em,
+            })),
+        };
+    }
+
+    /** O registro da moderacao, do mais novo para o mais antigo (de uma conta, se ?conta= vier). */
+    async function registroDaModeracao(url) {
+        const pagina = Math.max(1, Number.parseInt(url.searchParams.get('pagina'), 10) || 1);
+        const conta = url.searchParams.get('conta');
+        const valores = [];
+        let onde = '';
+        if (conta) {
+            if (!ID.test(conta)) throw new Recusa(400, 'Conta inválida');
+            valores.push(conta);
+            onde = 'WHERE m.conta = $1';
+        }
+        const { rows } = await (await banco()).query(`
+            SELECT m.id, m.acao, m.motivo, m.detalhes, m.criada_em, c.id AS conta_id, c.nick AS conta_nick, a.nick AS admin_nick
+            FROM moderacao m LEFT JOIN contas c ON c.id = m.conta LEFT JOIN contas a ON a.id = m.admin ${onde}
+            ORDER BY m.criada_em DESC, m.id
+            LIMIT ${POR_PAGINA_NO_GERENCIAMENTO + 1} OFFSET ${(pagina - 1) * POR_PAGINA_NO_GERENCIAMENTO}`, valores);
+        return {
+            pagina, temMais: rows.length > POR_PAGINA_NO_GERENCIAMENTO,
+            itens: rows.slice(0, POR_PAGINA_NO_GERENCIAMENTO).map(linha => ({
+                id: linha.id, acao: linha.acao, motivo: linha.motivo, detalhes: linha.detalhes, criadaEm: linha.criada_em,
+                conta: linha.conta_id ? { id: linha.conta_id, nick: linha.conta_nick } : null, admin: linha.admin_nick,
+            })),
+        };
+    }
+
+    /** Suspende, bane ou tira a punicao de uma conta. Admins nao punem a si mesmos nem outros admins. */
+    async function punir(request, eu, id, acao, metodo) {
+        const db = await banco();
+        if (!ID.test(id || '')) throw new Recusa(404, 'Conta não encontrada');
+        const { rows } = await db.query('SELECT id, email, admin, punicao, punida_ate, punicao_motivo FROM contas WHERE id = $1', [id]);
+        if (rows.length === 0) throw new Recusa(404, 'Conta não encontrada');
+        const alvo = rows[0];
+        if (alvo.id === eu.id) throw new Recusa(400, 'Você não pode punir a si mesmo');
+        if (f.ehAdmin(alvo)) throw new Recusa(400, 'Administradores não podem ser suspensos nem banidos');
+        if (acao === 'suspensao' && metodo === 'POST') {
+            const { horas, motivo } = validarSuspensao(await f.lerCorpo(request));
+            await db.query(`UPDATE contas SET punicao = 'suspensa', punida_ate = now() + make_interval(hours => $2), punicao_motivo = $3,
+                            punida_por = $4, punida_em = now() WHERE id = $1`, [alvo.id, horas, motivo, eu.id]);
+            await registrarNaModeracao(db, { conta: alvo.id, admin: eu.id, acao: 'suspender', motivo, detalhes: { horas } });
+        } else if (acao === 'banimento' && metodo === 'POST') {
+            const motivo = validarMotivo((await f.lerCorpo(request)).motivo);
+            await db.query(`UPDATE contas SET punicao = 'banida', punida_ate = NULL, punicao_motivo = $2, punida_por = $3, punida_em = now()
+                            WHERE id = $1`, [alvo.id, motivo, eu.id]);
+            await registrarNaModeracao(db, { conta: alvo.id, admin: eu.id, acao: 'banir', motivo });
+        } else if (acao === 'punicao' && metodo === 'DELETE') {
+            const antes = situacaoDaConta(alvo);
+            await db.query('UPDATE contas SET punicao = NULL, punida_ate = NULL, punicao_motivo = NULL, punida_por = NULL, punida_em = NULL WHERE id = $1', [alvo.id]);
+            if (antes) await registrarNaModeracao(db, { conta: alvo.id, admin: eu.id, acao: antes.tipo === 'banida' ? 'desbanir' : 'tirar_suspensao' });
+        } else {
+            throw new Recusa(404, 'Rota não encontrada');
+        }
+        const { rows: depois } = await db.query('SELECT punicao, punida_ate, punicao_motivo FROM contas WHERE id = $1', [alvo.id]);
+        return json(200, { punicao: situacaoDaConta(depois[0]) });
+    }
+
+    async function tratarGerenciamento(request, url, partes, eu) {
+        if (!f.ehAdmin(eu)) throw new Recusa(403, 'Só administradores podem usar o gerenciamento');
+        const [recurso, id, acao] = partes;
+        const metodo = request.method;
+        try {
+            if (recurso === 'contas' && !id && metodo === 'GET') return f.semCache(json(200, await contasParaGerenciar(url)));
+            if (recurso === 'contas' && id && acao) return await punir(request, eu, id, acao, metodo);
+            if (recurso === 'registro' && !id && metodo === 'GET') return f.semCache(json(200, await registroDaModeracao(url)));
+        } catch (erro) {
+            if (erro instanceof DadoInvalidoNaModeracao) throw new Recusa(400, erro.message);
+            throw erro;
+        }
+        throw new Recusa(404, 'Rota não encontrada');
     }
 
     // quem mais postou no ultimo mes vale para todo mundo: e guardado por um minuto em cada instancia da funcao
@@ -347,6 +500,9 @@ export function criarComunidade(f) {
         const [recurso, id, acao] = partes;
         const db = await banco();
 
+        if (recurso === 'gerenciamento') return tratarGerenciamento(request, url, partes.slice(1), eu);
+        // a punicao de quem esta usando, para o site avisar antes de a pessoa tentar publicar
+        if (recurso === 'situacao' && !id && metodo === 'GET') return f.semCache(json(200, { punicao: await situacao(eu.id) }));
         if (recurso === 'feed' && !id && metodo === 'GET') return f.semCache(json(200, await abrirFeed(url, eu)));
         if (recurso === 'novidades' && !id && metodo === 'GET') return f.semCache(json(200, await novidades(url, eu)));
         // as proximas paginas do feed: ?ids=a,b,c (ate 50), na ordem pedida
@@ -360,6 +516,11 @@ export function criarComunidade(f) {
         if (recurso === 'posts' && id && !acao && metodo === 'DELETE') {
             const alvo = await exigirPost(id);
             if (alvo.autor !== eu.id && !f.ehAdmin(eu)) throw new Recusa(403, 'Só quem escreveu pode apagar o post');
+            if (alvo.autor !== eu.id) {
+                const { rows } = await db.query('SELECT texto, cardinality(imagens) AS imagens FROM posts WHERE id = $1', [alvo.id]);
+                await registrarNaModeracao(db, { conta: alvo.autor, admin: eu.id, acao: 'apagar_post',
+                    detalhes: { texto: (rows[0]?.texto || '').slice(0, 200), imagens: rows[0]?.imagens || 0 } });
+            }
             await db.query('DELETE FROM posts WHERE id = $1', [alvo.id]);
             return new Response(null, { status: 204 });
         }
@@ -374,6 +535,7 @@ export function criarComunidade(f) {
         if (recurso === 'posts' && id && acao === 'comentarios' && metodo === 'POST') {
             const alvo = await exigirPost(id);
             const texto = validarComentario(await f.lerCorpo(request));
+            await exigirQuePossaParticipar(eu);
             await f.exigirQueNaoEstejaFreado('comentario:' + eu.id, LIMITES.comentario);
             await db.query('INSERT INTO comentarios (id, post, autor, texto) VALUES ($1, $2, $3, $4)', [randomUUID(), alvo.id, eu.id, texto]);
             await f.registrarTentativa('comentario:' + eu.id);
@@ -381,9 +543,13 @@ export function criarComunidade(f) {
         }
         if (recurso === 'comentarios' && id && !acao && metodo === 'DELETE') {
             if (!ID.test(id)) throw new Recusa(404, 'Comentário não encontrado');
-            const { rows } = await db.query('SELECT k.id, k.autor, p.autor AS dono_do_post FROM comentarios k JOIN posts p ON p.id = k.post WHERE k.id = $1', [id]);
+            const { rows } = await db.query('SELECT k.id, k.autor, k.texto, p.autor AS dono_do_post FROM comentarios k JOIN posts p ON p.id = k.post WHERE k.id = $1', [id]);
             if (rows.length === 0) throw new Recusa(404, 'Comentário não encontrado');
             if (rows[0].autor !== eu.id && rows[0].dono_do_post !== eu.id && !f.ehAdmin(eu)) throw new Recusa(403, 'Você não pode apagar este comentário');
+            // so quando o admin apaga como admin (nem o comentario nem o post sao dele)
+            if (rows[0].autor !== eu.id && rows[0].dono_do_post !== eu.id) {
+                await registrarNaModeracao(db, { conta: rows[0].autor, admin: eu.id, acao: 'apagar_comentario', detalhes: { texto: rows[0].texto.slice(0, 200) } });
+            }
             await db.query('DELETE FROM comentarios WHERE id = $1', [id]);
             return new Response(null, { status: 204 });
         }

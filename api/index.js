@@ -7,7 +7,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
-import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade } from './_comunidade_rotas.js';
+import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
@@ -848,6 +848,17 @@ async function tratarConta(request, sessao, acao) {
         if (dados.foto !== undefined) {
             if (dados.foto !== null && (typeof dados.foto !== 'string' || !NOME_DE_CAPA.test(dados.foto) || !(await imagemExiste(dados.foto)))) {
                 throw new Recusa(400, 'A foto informada não existe. Envie a imagem antes');
+            }
+            // a foto aparece para todos na Comunidade: uma foto nova passa pelo robo de imagens
+            if (dados.foto !== null && dados.foto !== conta.foto) {
+                const { rows: imagem } = await db.query('SELECT conteudo FROM imagens WHERE nome = $1 AND conta = $2', [dados.foto, conta.id]);
+                try {
+                    await exigirImagemPermitida(db, imagem[0].conteudo, conta.id, 'foto', Recusa);
+                } catch (erro) {
+                    // a imagem enviada para ser a foto nao fica guardada a toa (se nenhum manga usar a mesma)
+                    await excluirImagemSemUso(dados.foto);
+                    throw erro;
+                }
             }
             foto = dados.foto;
         }
