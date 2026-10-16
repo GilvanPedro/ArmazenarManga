@@ -135,3 +135,6 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 
 > Depois, os admins ganharam suspensão, banimento e a aba Gerenciar, e as imagens passaram por um robô: veja
 > [Moderação e robô de imagens](48-moderacao-da-comunidade.md).
+
+> Depois, o perfil ganhou a quantidade de mangás e uma descrição, o post aberto passou a mostrar o Seguir e a
+> Comunidade ganhou busca por pessoas e #tags: veja [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).

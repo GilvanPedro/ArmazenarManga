@@ -67,3 +67,6 @@ node ferramentas/passar-mangas-para-conta.mjs email@exemplo.com --confirmar  # f
 
 A conta precisa existir antes. A transferência acontece de uma vez (tudo ou nada) e marca a conta como admin.
 Rodar de novo não muda nada.
+
+> Depois, na versão do Vercel, a página "Minha conta" virou "Configurações" e a foto e o nick passaram a ser
+> editados no próprio perfil: veja [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).

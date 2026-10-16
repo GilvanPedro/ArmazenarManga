@@ -49,3 +49,6 @@ lado.
 
 > Depois, com a [troca de nome para Viracap](46-nome-viracap.md), a extensão passou para a versão 1.4.0 e o id
 > `viracap@gilvanpedro`.
+
+> Depois, os zips passaram a ser montados por `ferramentas/empacotar-extensao.mjs`, sem os avisos da Mozilla: veja
+> [Empacotar a extensão](50-empacotar-a-extensao.md).

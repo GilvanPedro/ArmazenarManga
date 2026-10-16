@@ -161,6 +161,11 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Moderação.** Admins podem suspender e banir contas e têm a aba Gerenciar (contas e registro), e um robô barra
   fotos explícitas nos posts e nas fotos de perfil, deixando arte e capas de mangá passarem. Detalhes em
   [Moderação e robô de imagens](48-moderacao-da-comunidade.md).
+- **Perfil, busca e configurações.** O perfil ganhou a quantidade de mangás e uma descrição; o seu perfil fica como os
+  outros o veem, com "Editar perfil", e a conta virou "Configurações"; o post aberto mostra o Seguir; e a Comunidade
+  ganhou busca por pessoas, texto e #tags. Detalhes em [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).
+- **Empacotar a extensão.** Uma ferramenta monta os zips do Firefox e do Chrome, cada um com o seu manifesto, e a
+  Mozilla parou de mostrar avisos. Detalhes em [Empacotar a extensão](50-empacotar-a-extensao.md).
 
 ## O que foi removido ou abandonado
 

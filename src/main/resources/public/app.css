@@ -1123,6 +1123,35 @@ dialog.janela-da-lista-publicada[open] { display: flex; }
 .cabecalho-do-perfil h1 { margin: 0; overflow-wrap: anywhere; }
 .cabecalho-do-perfil .subtitulo { margin: 0; }
 .cabecalho-do-perfil .inicial.grande { width: 96px; height: 96px; font-size: 40px; }
+.descricao-do-perfil { max-width: 520px; margin: 2px 0 0; white-space: pre-line; overflow-wrap: anywhere; line-height: 1.5; }
+.acoes-do-perfil { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* editar o proprio perfil */
+dialog.janela-do-perfil { width: min(460px, calc(100vw - 24px)); }
+.formulario-do-perfil { display: flex; flex-direction: column; gap: 14px; }
+.formulario-do-perfil .linha-da-foto { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.formulario-do-perfil .linha-da-foto input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.formulario-do-perfil .linha-da-foto label:focus-within { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.formulario-do-perfil textarea { min-height: 96px; }
+.contador-da-descricao { align-self: flex-end; }
+.formulario-do-perfil .acoes { display: flex; justify-content: flex-end; gap: 8px; }
+.nick-nas-configuracoes { margin: 2px 0 0; font-weight: 700; }
+
+/* #hashtags nos posts e a busca da Comunidade */
+a.hashtag { color: var(--destaque-forte); font-weight: 600; text-decoration: none; }
+a.hashtag:hover { text-decoration: underline; }
+.abas .buscar-na-comunidade { margin-left: auto; }
+.barra-de-busca { margin: 12px 0 16px; }
+.barra-de-busca .campo-de-busca { min-height: 46px; padding: 10px 16px; border-radius: 999px; font-size: 16px; }
+.resultados-da-busca { display: flex; flex-direction: column; gap: 20px; }
+.secao-da-busca h2 { margin: 0 0 10px; font-size: 17px; }
+.dica-da-busca { margin: 0; }
+.pessoas-encontradas { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.pessoa-encontrada { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
+.pessoa-encontrada .quem { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; text-decoration: none; }
+.pessoa-encontrada .quem > span { display: flex; flex-direction: column; min-width: 0; }
+.pessoa-encontrada b, .pessoa-encontrada small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pessoa-encontrada small { color: var(--texto-fraco); font-size: 12.5px; }
 .numeros-do-perfil { display: flex; gap: 18px; margin: 4px 0; color: var(--texto-fraco); }
 .numeros-do-perfil b { color: var(--texto); }
 

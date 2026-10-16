@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Viracap - próximo capítulo",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Abre o próximo capítulo certo nos sites de leitura que mudam o link a cada capítulo e bloqueiam servidores. Funciona junto com o site Viracap.",
   "permissions": ["tabs", "scripting", "storage"],
   "host_permissions": ["<all_urls>"],
@@ -33,6 +33,9 @@
       "data_collection_permissions": {
         "required": ["browsingActivity", "websiteContent"]
       }
+    },
+    "gecko_android": {
+      "strict_min_version": "142.0"
     }
   }
 }

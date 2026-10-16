@@ -1,7 +1,7 @@
 // Testes das regras da Comunidade (posts, comentarios e a ordem do feed "Para voce").
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DadoInvalidoNaComunidade, limparTexto, pontosDoPost, validarComentario, validarLista, validarPost } from '../api/_comunidade.js';
+import { DadoInvalidoNaComunidade, escaparLike, hashtagsDo, lerBusca, limparTexto, pontosDoPost, validarComentario, validarDescricao, validarLista, validarPost } from '../api/_comunidade.js';
 
 const IMAGEM = '0a1b2c3d-1111-4222-8333-444455556666.webp';
 
@@ -53,4 +53,29 @@ test('lista anexada: titulo opcional e de 1 a 20 mangas, sem repetir', () => {
     for (const ruim of [{ mangas: ['nao-e-id'] }, { mangas: 'x' }, [id(1)], 'lista']) {
         assert.throws(() => validarLista(ruim), DadoInvalidoNaComunidade, JSON.stringify(ruim));
     }
+});
+
+test('descricao do perfil: ate 300 caracteres, limpa, e vazia apaga', () => {
+    assert.equal(validarDescricao({ descricao: '  Leio manhwa\r\n\n\n\nde ação ' }), 'Leio manhwa\n\nde ação');
+    assert.equal(validarDescricao({ descricao: '' }), '');
+    assert.equal(validarDescricao({}), '');
+    assert.equal(validarDescricao({ descricao: 'ñ'.repeat(300) }).length, 300);
+    assert.throws(() => validarDescricao({ descricao: 'x'.repeat(301) }), /no máximo 300/);
+    assert.throws(() => validarDescricao({ descricao: 42 }), DadoInvalidoNaComunidade);
+});
+
+test('hashtags: letras com acento, numeros e _, sem repetir e sem contar "a#b"', () => {
+    assert.deepEqual(hashtagsDo('Terminei #Frieren e #frieren, agora #Mangá_2026! (#Parênteses) a#b #'), ['frieren', 'mangá_2026', 'parênteses']);
+    assert.deepEqual(hashtagsDo(''), []);
+    assert.deepEqual(hashtagsDo(null), []);
+});
+
+test('busca: "#tag" procura a hashtag; o resto, pessoas e texto (sem o @)', () => {
+    assert.deepEqual(lerBusca('  #Frieren '), { tipo: 'hashtag', tag: 'frieren', texto: '#Frieren' });
+    assert.deepEqual(lerBusca('@gil'), { tipo: 'texto', texto: 'gil' });
+    assert.deepEqual(lerBusca('solo   leveling'), { tipo: 'texto', texto: 'solo leveling' });
+    assert.deepEqual(lerBusca('#frieren e mais'), { tipo: 'texto', texto: '#frieren e mais' }, 'com espaco, e texto');
+    for (const vazia of ['', '   ', '#', '##', '@', null, 42]) assert.equal(lerBusca(vazia), null, String(vazia));
+    assert.equal(lerBusca('x'.repeat(100)).texto.length, 60);
+    assert.equal(escaparLike('50%_a\\'), '50\\%\\_a\\\\');
 });

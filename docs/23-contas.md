@@ -154,3 +154,6 @@ conta tem uma pasta própria: `contas/{id}/mangas.json` e `contas/{id}/imagens/`
 - Recuperar a senha esquecida e confirmar o e-mail: precisam de envio de e-mail, que o site não tem.
 - Ferramentas de administração (ver contas, apagar abusos).
 - Sair de todos os aparelhos sem trocar a senha.
+
+> Depois, na versão do Vercel, a página "Minha conta" virou "Configurações" e a foto e o nick passaram a ser
+> editados no próprio perfil: veja [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).

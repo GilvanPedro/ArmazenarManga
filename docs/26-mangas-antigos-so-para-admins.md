@@ -66,3 +66,6 @@ mexer no banco para se tornar admin.
   as outras contas continuam recusadas.
 - No navegador, pela versão do Vercel: conta comum sem a parte e sem o selo; admin com o selo, a parte sem campo de
   senha, a confirmação (cancelando antes) e a transferência de 250 mangás.
+
+> A página "Minha conta" agora se chama "Configurações" (o botão do perfil "⚙ Configurações" leva até ela): veja
+> [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).

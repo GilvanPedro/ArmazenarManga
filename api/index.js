@@ -989,6 +989,8 @@ async function rotear(request) {
             sessao: respostaDaSessao(await sessaoValida(request)),
             status: listaDeStatus(), formatos: listaDeFormatos(), dias: listaDeDias(),
             ordensDaLista: listaDeOrdens(ORDENS_DA_LISTA), ordensDeRecomendacao: listaDeOrdens(ORDENS),
+            // so esta versao (a do Vercel) tem a Comunidade, e com ela o perfil; a versao Java nao manda este campo
+            comunidade: true,
         }));
     }
     // daqui em diante, so com login: a conta da sessao vale para todas as consultas desta requisicao

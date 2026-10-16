@@ -2406,7 +2406,7 @@ function rota() {
     if (partes[0] === 'descobrir') return telaDescobrir();
     if (partes[0] === 'atalho') return telaAtalho();
     if (partes[0] === 'conta') return telaConta();
-    if (partes[0] === 'comunidade') return telaComunidade(partes.slice(1));
+    if (partes[0] === 'comunidade') return telaComunidade(partes.slice(1), consulta);
     if (partes[0] === 'gerenciar') return telaGerenciar(partes.slice(1));
     if (partes[0] === 'capturar') return telaCapturar(consulta || '');
     if (partes[0] === 'novo') return telaFormulario(null, consulta);
@@ -2531,7 +2531,7 @@ function avatar(conta, grande) {
     return h('span', {class: classe, 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase());
 }
 
-/** Nick e foto no topo (levam a "Minha conta"), o botao Sair e as partes do site (so depois de entrar). */
+/** Nick e foto no topo (levam ao proprio perfil ou as configuracoes), o botao Sair e as partes do site (so depois de entrar). */
 function mostrarConta(conta) {
     const link = document.getElementById('minha-conta');
     const sair = document.getElementById('sair');
@@ -2540,7 +2540,10 @@ function mostrarConta(conta) {
     document.getElementById('secao-gerenciar').hidden = !conta?.admin;
     if (conta) {
         link.replaceChildren(avatar(conta), h('span', {class: 'nick'}, conta.nick));
-        link.title = 'Minha conta (' + conta.email + ')';
+        // com a Comunidade (versao do Vercel), o nick leva ao proprio perfil; sem ela (versao Java), as configuracoes
+        const comPerfil = estado.temComunidade === true;
+        link.href = comPerfil ? '#/comunidade/perfil/' + conta.id : '#/conta';
+        link.title = (comPerfil ? 'Meu perfil' : 'Configurações') + ' (' + conta.email + ')';
     }
 }
 
@@ -2594,7 +2597,7 @@ const IMAGENS_DO_POST_MAXIMO = 4;
 const MANGAS_DA_LISTA_MAXIMO = 20;
 
 /** A pagina da Comunidade: feeds "Para voce" e "Seguindo", o perfil de cada leitor e um post sozinho. */
-async function telaComunidade(partes) {
+async function telaComunidade(partes, consulta) {
     const vez = ++estado.render;
     const [qual, id] = partes;
     const principal = h('div', {class: 'coluna-da-comunidade'});
@@ -2603,6 +2606,7 @@ async function telaComunidade(partes) {
     carregarSugestoes(lateral, vez);
 
     if (qual === 'perfil' && id) return telaPerfil(principal, id, vez);
+    if (qual === 'busca') return telaBusca(principal, new URLSearchParams(consulta || '').get('q') || '', vez);
     if (qual === 'post' && id) {
         document.title = 'Post · Comunidade · Viracap';
         principal.append(h('div', {class: 'topo-do-post-aberto'},
@@ -2631,7 +2635,9 @@ async function telaComunidade(partes) {
     principal.append(
         h('h1', {class: 'so-leitor'}, 'Comunidade'),
         avisarSePunido(editorDePost(post => porNoFeed(lista, post))),
-        h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
+        h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo'),
+            h('a', {class: 'aba buscar-na-comunidade', href: '#/comunidade/busca', title: 'Buscar pessoas ou #tags'},
+                h('span', {'aria-hidden': 'true'}, '🔍 '), 'Buscar')),
         avisoDeNovos,
         lista);
     estado.recarregar = () => telaComunidade(partes);
@@ -2789,6 +2795,64 @@ function botaoDeSeguir(contaId, sigo, aoMudar) {
     return botao;
 }
 
+/**
+ * Busca da Comunidade: pessoas pelo nick e posts pelo texto, ou so posts com "#tag". O que foi digitado fica no
+ * endereco (#/comunidade/busca?q=...), para voltar e compartilhar.
+ */
+function telaBusca(principal, inicial, vez) {
+    document.title = 'Buscar · Comunidade · Viracap';
+    const campo = h('input', {type: 'search', class: 'campo-de-busca', value: inicial, placeholder: 'Buscar pessoas, posts ou #tags',
+        'aria-label': 'Buscar pessoas, posts ou #tags', autocomplete: 'off', enterkeyhint: 'search'});
+    const resultados = h('div', {class: 'resultados-da-busca'});
+    principal.append(
+        h('a', {class: 'voltar', href: '#/comunidade'}, '← Comunidade'),
+        h('h1', null, 'Buscar'),
+        h('form', {class: 'barra-de-busca', role: 'search', onsubmit: evento => { evento.preventDefault(); buscar(); }}, campo),
+        resultados);
+
+    let pedido = 0;
+    const buscar = async () => {
+        const meu = ++pedido;
+        const texto = campo.value.trim();
+        history.replaceState(null, '', '#/comunidade/busca' + (texto ? '?q=' + encodeURIComponent(texto) : ''));
+        if (!texto || /^#+$/.test(texto)) {
+            resultados.replaceChildren(h('p', {class: 'subtitulo dica-da-busca'},
+                'Procure pessoas pelo nick, posts por uma palavra, ou use # para ver os posts de uma tag, como #frieren.'));
+            return;
+        }
+        const soTag = /^#[\p{L}\p{N}_]+$/u.test(texto);
+        const secaoDePessoas = h('section', {class: 'secao-da-busca'}, h('h2', null, 'Pessoas'));
+        const feed = h('div', {class: 'feed'});
+        const secaoDePosts = h('section', {class: 'secao-da-busca'}, h('h2', null, soTag ? 'Posts com ' + texto : 'Posts'), feed);
+        resultados.replaceChildren(...(soTag ? [secaoDePosts] : [secaoDePessoas, secaoDePosts]));
+        if (!soTag) {
+            try {
+                const achadas = await chamar('GET', '/api/comunidade/pessoas?q=' + encodeURIComponent(texto));
+                if (meu !== pedido || vez !== estado.render) return;
+                secaoDePessoas.append(achadas.length === 0
+                    ? h('p', {class: 'subtitulo'}, 'Ninguém com esse nick.')
+                    : h('div', {class: 'pessoas-encontradas'}, ...achadas.map(pessoa => h('div', {class: 'pessoa-encontrada'},
+                        h('a', {class: 'quem', href: '#/comunidade/perfil/' + pessoa.id}, avatar(pessoa),
+                            h('span', null, h('b', null, pessoa.nick),
+                                h('small', null, pessoa.descricao || (pessoa.seguidores === 1 ? '1 seguidor' : pessoa.seguidores + ' seguidores')))),
+                        pessoa.euMesmo ? null : botaoDeSeguir(pessoa.id, pessoa.sigo)))));
+            } catch (e) {
+                if (meu === pedido) secaoDePessoas.append(h('p', {class: 'subtitulo'}, e.message));
+            }
+        }
+        if (meu !== pedido || vez !== estado.render) return;
+        await carregarFeed(feed, 'feed=busca&q=' + encodeURIComponent(texto), vez,
+            vazio(soTag ? 'Nenhum post com ' + texto : 'Nenhum post encontrado', soTag ? 'Seja o primeiro a usar essa tag.' : ''));
+    };
+    let espera;
+    campo.addEventListener('input', () => {
+        clearTimeout(espera);
+        espera = setTimeout(buscar, 350);
+    });
+    buscar();
+    requestAnimationFrame(() => campo.focus());
+}
+
 async function telaPerfil(principal, id, vez) {
     let perfil;
     try {
@@ -2801,25 +2865,128 @@ async function telaPerfil(principal, id, vez) {
     document.title = perfil.nick + ' · Comunidade · Viracap';
     const numeros = h('p', {class: 'numeros-do-perfil'});
     const mostrarNumeros = dados => numeros.replaceChildren(
+        h('span', null, h('b', null, String(perfil.mangas)), perfil.mangas === 1 ? ' mangá' : ' mangás'),
         h('span', null, h('b', null, String(dados.posts)), dados.posts === 1 ? ' post' : ' posts'),
         h('span', null, h('b', null, String(dados.seguidores)), dados.seguidores === 1 ? ' seguidor' : ' seguidores'),
         h('span', null, h('b', null, String(dados.seguindo)), ' seguindo'));
     mostrarNumeros(perfil);
     const lista = h('div', {class: 'feed'});
-    principal.append(
+    // append escreveria "null" como texto: o que nao vale fica de fora
+    principal.append(...[
         h('a', {class: 'voltar', href: '#/comunidade'}, '← Comunidade'),
         h('div', {class: 'cabecalho-do-perfil'},
             avatar(perfil, true),
             h('h1', null, perfil.nick),
+            perfil.descricao ? h('p', {class: 'descricao-do-perfil'}, textoComHashtags(perfil.descricao)) : null,
             h('p', {class: 'subtitulo'}, 'Na Comunidade desde ' + new Date(perfil.criadaEm).toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'})),
             numeros,
-            perfil.euMesmo ? h('a', {class: 'botao pequeno', href: '#/conta'}, 'Editar perfil') : botaoDeSeguir(perfil.id, perfil.sigo, mostrarNumeros)),
+            // o proprio perfil fica como os outros veem, com o que da para mudar nele e o caminho para as configuracoes
+            perfil.euMesmo
+                ? h('div', {class: 'acoes-do-perfil'},
+                    h('button', {type: 'button', class: 'botao pequeno primario', onclick: () => editarPerfil(perfil)}, 'Editar perfil'),
+                    h('a', {class: 'botao pequeno', href: '#/conta'}, h('span', {'aria-hidden': 'true'}, '⚙ '), 'Configurações'))
+                : botaoDeSeguir(perfil.id, perfil.sigo, mostrarNumeros)),
         perfil.moderacao ? caixaDeModeracao(perfil) : null,
         perfil.euMesmo ? avisarSePunido(editorDePost(post => porNoFeed(lista, post))) : null,
-        lista);
+        lista].filter(Boolean));
     estado.recarregar = () => telaComunidade(['perfil', id]);
     await carregarFeed(lista, 'feed=perfil&conta=' + perfil.id, vez,
         vazio(perfil.euMesmo ? 'Você ainda não postou' : perfil.nick + ' ainda não postou', perfil.euMesmo ? 'Escreva o primeiro post aqui em cima.' : ''));
+}
+
+/**
+ * Editar o proprio perfil, numa janela por cima dele: foto, nick e descricao (ate 300 caracteres). A foto e salva
+ * na hora em que e escolhida; o nick e a descricao, ao clicar em Salvar. Depois, o perfil e desenhado de novo.
+ */
+function editarPerfil(perfil) {
+    const conta = estado.sessao.conta;
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const previa = h('span', {class: 'previa-da-foto'}, avatar(conta, true));
+    const arquivo = h('input', {type: 'file', id: 'perfil-foto', accept: 'image/png,image/jpeg,image/webp,image/gif'});
+    const remover = h('button', {type: 'button', class: 'botao pequeno', hidden: !conta.foto}, 'Remover foto');
+    const textoDoEscolher = h('span', null, conta.foto ? 'Trocar foto' : 'Escolher foto');
+    const nick = h('input', {type: 'text', id: 'perfil-nick', value: conta.nick, maxlength: '40', required: true, autocomplete: 'nickname'});
+    const descricao = h('textarea', {id: 'perfil-descricao', maxlength: '300', rows: '4', placeholder: 'Conte o que você gosta de ler…'});
+    descricao.value = perfil.descricao || '';
+    const contador = h('small', {class: 'contador-da-descricao', 'aria-live': 'polite'});
+    const contar = () => { contador.textContent = [...descricao.value].length + '/300'; };
+    descricao.addEventListener('input', contar);
+    contar();
+    let mudou = false;
+    const trocarFoto = async foto => {
+        const sessao = await chamar('PUT', '/api/conta', {foto});
+        estado.sessao = sessao;
+        Object.assign(conta, sessao.conta);
+        mostrarConta(sessao.conta);
+        previa.replaceChildren(avatar(conta, true));
+        remover.hidden = !conta.foto;
+        textoDoEscolher.textContent = conta.foto ? 'Trocar foto' : 'Escolher foto';
+        mudou = true;
+    };
+    arquivo.addEventListener('change', async () => {
+        const escolhido = arquivo.files[0];
+        arquivo.value = '';
+        if (!escolhido) return;
+        erro.textContent = '';
+        try {
+            const recortada = await recortarQuadrado(escolhido, 256);
+            const envio = new FormData();
+            envio.append('arquivo', recortada, 'foto.' + (recortada.type === 'image/webp' ? 'webp' : 'jpg'));
+            await trocarFoto((await chamar('POST', '/api/imagens', envio)).imagePath);
+            avisar('Foto salva');
+        } catch (e) {
+            erro.textContent = e.message && !/decode|bitmap/i.test(e.message) ? e.message : 'Não foi possível ler essa imagem. Escolha outra.';
+        }
+    });
+    remover.addEventListener('click', async () => {
+        erro.textContent = '';
+        try {
+            await trocarFoto(null);
+            avisar('Foto removida');
+        } catch (e) {
+            erro.textContent = e.message;
+        }
+    });
+    const salvar = h('button', {type: 'submit', class: 'botao primario'}, 'Salvar');
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const formulario = h('form', {class: 'formulario-do-perfil'},
+        h('div', {class: 'linha-da-foto'}, previa,
+            h('label', {class: 'botao pequeno', for: 'perfil-foto'}, textoDoEscolher, arquivo),
+            remover),
+        h('div', {class: 'campo'}, h('label', {for: 'perfil-nick'}, 'Nick'), nick),
+        h('div', {class: 'campo'}, h('label', {for: 'perfil-descricao'}, 'Descrição'), descricao, contador),
+        erro,
+        h('div', {class: 'acoes'}, h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'), salvar));
+    const dialogo = h('dialog', {class: 'janela-do-perfil'},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, 'Editar perfil'), fechar),
+        formulario);
+    fechar.addEventListener('click', () => dialogo.close());
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        erro.textContent = '';
+        salvar.disabled = true;
+        try {
+            if (nick.value.trim() !== conta.nick) {
+                const sessao = await chamar('PUT', '/api/conta', {nick: nick.value});
+                estado.sessao = sessao;
+                Object.assign(conta, sessao.conta);
+                mostrarConta(sessao.conta);
+            }
+            if (descricao.value.trim() !== (perfil.descricao || '')) await chamar('PUT', '/api/comunidade/perfil', {descricao: descricao.value});
+            mudou = true;
+            avisar('Perfil salvo');
+            dialogo.close();
+        } catch (e) {
+            erro.textContent = e.message;
+        }
+        salvar.disabled = false;
+    });
+    dialogo.addEventListener('close', () => {
+        dialogo.remove();
+        if (mudou && location.hash.startsWith('#/comunidade/perfil/')) telaComunidade(['perfil', perfil.id]);
+    });
+    document.body.append(dialogo);
+    dialogo.showModal();
 }
 
 // ------------------------------------------------------------------ moderacao
@@ -3251,6 +3418,21 @@ function voltarDoPost() {
     else location.hash = '#/comunidade';
 }
 
+/** O texto de um post ou comentario, com cada #hashtag virando um link para a busca dela. */
+function textoComHashtags(texto) {
+    const partes = [];
+    let desde = 0;
+    for (const achado of texto.matchAll(/#([\p{L}\p{N}_]{1,50})/gu)) {
+        // "a#b" nao e hashtag: o # precisa estar no comeco ou depois de algo que nao seja letra ou numero
+        if (achado.index > 0 && /[\p{L}\p{N}_]/u.test(texto[achado.index - 1])) continue;
+        partes.push(texto.slice(desde, achado.index),
+            h('a', {class: 'hashtag', href: '#/comunidade/busca?q=' + encodeURIComponent(achado[0])}, achado[0]));
+        desde = achado.index + achado[0].length;
+    }
+    partes.push(texto.slice(desde));
+    return partes.filter(parte => parte !== '');
+}
+
 /**
  * Um post. No feed, clicar nele (fora dos botoes e links) ou no 💬 abre o post em tela propria. Maximizado (a tela do
  * post), o texto fica maior e os comentarios aparecem embaixo, com o campo de comentar no alto deles.
@@ -3320,8 +3502,9 @@ function cartaoDePost(post, {maximizado} = {}) {
                 h('a', {class: 'nick', href: perfil}, post.autor.nick),
                 h('a', {class: 'quando', href: '#/comunidade/post/' + post.id, title: new Date(post.criadoEm).toLocaleString('pt-BR'),
                     onclick: maximizado ? null : evento => { evento.preventDefault(); abrirPost(post.id); }}, quandoFoi(post.criadoEm)),
-                !post.meu && !post.sigoOAutor ? botaoDeSeguir(post.autor.id, false) : null),
-            post.texto ? h('p', {class: 'texto-do-post'}, post.texto) : null,
+                // no feed, so para quem ainda nao segue; no post aberto, sempre (Seguir ou Seguindo)
+                !post.meu && (maximizado || !post.sigoOAutor) ? botaoDeSeguir(post.autor.id, post.sigoOAutor) : null),
+            post.texto ? h('p', {class: 'texto-do-post'}, textoComHashtags(post.texto)) : null,
             post.imagens.length ? h('div', {class: 'imagens-do-post quantas-' + post.imagens.length},
                 post.imagens.map(endereco => h('button', {type: 'button', class: 'imagem-do-post', onclick: () => verImagem(endereco), 'aria-label': 'Ver imagem'},
                     h('img', {src: endereco, alt: '', loading: 'lazy', decoding: 'async'})))) : null,
@@ -3350,7 +3533,7 @@ async function carregarComentarios(post, area, aoContar, formularioAntes) {
                 h('div', null,
                     h('div', {class: 'cabecalho-do-post'}, h('a', {class: 'nick', href: '#/comunidade/perfil/' + comentario.autor.id}, comentario.autor.nick),
                         h('span', {class: 'quando'}, quandoFoi(comentario.criadoEm)), apagar),
-                    h('p', {class: 'texto-do-post'}, comentario.texto)));
+                    h('p', {class: 'texto-do-post'}, textoComHashtags(comentario.texto))));
             if (apagar) apagar.addEventListener('click', async () => {
                 if (!await confirmar('Apagar o comentário?', 'Ele some para sempre.', 'Apagar')) return;
                 try {
@@ -3656,7 +3839,7 @@ function escolherLista(atual, aoConfirmar) {
     busca.focus();
 }
 
-// ------------------------------------------------------------------ minha conta
+// ------------------------------------------------------------------ configuracoes da conta
 
 /** Pergunta de confirmacao em uma janela do site. Resolve true so com o clique em confirmar. */
 function confirmar(titulo, texto, botao, perigo = true) {
@@ -3699,7 +3882,9 @@ function secaoDaConta(titulo, descricao, campos, textoDoBotao, aoEnviar, perigo)
 
 async function telaConta() {
     const vez = ++estado.render;
-    document.title = 'Minha conta · Viracap';
+    document.title = 'Configurações · Viracap';
+    // com a Comunidade, foto, nick e descricao ficam no proprio perfil (Editar perfil); aqui, so a conta
+    const comPerfil = estado.temComunidade === true;
     let conta;
     try {
         conta = await chamar('GET', '/api/conta');
@@ -3822,15 +4007,21 @@ async function telaConta() {
     const cabecalho = h('div', {class: 'cabecalho-da-conta'},
             avatar(conta, true),
             h('div', null,
-                h('h1', null, conta.nick, conta.admin ? h('span', {class: 'selo-admin'}, 'Admin') : null),
+                h('h1', null, 'Configurações', conta.admin ? h('span', {class: 'selo-admin'}, 'Admin') : null),
+                h('p', {class: 'nick-nas-configuracoes'}, conta.nick),
                 h('p', {class: 'subtitulo'}, conta.email, ' · ', conta.mangas === 1 ? '1 mangá' : conta.mangas + ' mangás', ' · conta criada em ',
                     new Date(conta.criadaEm).toLocaleDateString('pt-BR'))));
+    const secaoPerfil = comPerfil ? h('section', {class: 'secao-da-conta'},
+        h('h2', null, 'Perfil'),
+        h('p', {class: 'subtitulo'}, 'Foto, nick e descrição são editados no seu perfil, do jeito que os outros o veem.'),
+        h('div', null, h('a', {class: 'botao primario', href: '#/comunidade/perfil/' + conta.id}, 'Ir para o meu perfil'))) : null;
     app.replaceChildren(h('div', {class: 'pagina-da-conta'},
-        h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
+        comPerfil ? h('a', {class: 'voltar', href: '#/comunidade/perfil/' + conta.id}, '← Meu perfil') : h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
         cabecalho,
         secaoAntigos,
-        secaoFoto,
-        secaoNick,
+        secaoPerfil,
+        comPerfil ? null : secaoFoto,
+        comPerfil ? null : secaoNick,
         secaoEmail,
         secaoSenha,
         secaoExcluir));
@@ -3852,6 +4043,8 @@ async function iniciar() {
     }
     estado.sessao = inicio.sessao;
     estado.inicio = inicio;
+    // so a versao do Vercel tem a Comunidade (e, com ela, o perfil): a Java nao manda este campo
+    estado.temComunidade = inicio.comunidade === true;
     document.getElementById('sair').addEventListener('click', sair);
     document.getElementById('secao-biblioteca').addEventListener('click', evento => {
         if (location.hash === '#/' || location.hash === '') {
@@ -3890,6 +4083,9 @@ async function abrirSite() {
         // vem junto do /api/inicio; depois de entrar pela tela de login, pede de novo
         const inicio = estado.inicio || await chamar('GET', '/api/inicio');
         estado.inicio = null;
+        estado.temComunidade = inicio.comunidade === true;
+        // depois de entrar pela tela de login, o link do topo (perfil ou configuracoes) so agora sabe para onde ir
+        if (estado.sessao?.conta) mostrarConta(estado.sessao.conta);
         [estado.status, estado.formatos, estado.dias, estado.ordens, estado.ordensDeDescoberta] =
             [inicio.status, inicio.formatos, inicio.dias, inicio.ordensDaLista || [], inicio.ordensDeRecomendacao || []];
         if (!estado.ordens.some(ordem => ordem.valor === estado.ordem)) estado.ordem = 'CADASTRO';

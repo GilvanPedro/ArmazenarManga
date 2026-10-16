@@ -9,6 +9,8 @@ export const POSTS_DO_FEED = 300;
 export const TAMANHO_MAXIMO_DA_IMAGEM = 2 * 1024 * 1024;
 export const MANGAS_POR_LISTA = 20;
 export const TITULO_DA_LISTA_MAXIMO = 80;
+/** A descricao do perfil, que todos veem. */
+export const DESCRICAO_MAXIMA = 300;
 
 /** Recusa de dados da Comunidade: vira uma resposta 400 com a mensagem. */
 export class DadoInvalidoNaComunidade extends Error {}
@@ -76,4 +78,46 @@ export const PESOS = { seguir: 10, curtida: 2, comentario: 3, maximo: 40, propri
 export function pontosDoPost({ proximidade = 0, curtidas = 0, comentarios = 0, horas = 0 }) {
     const interesse = 2 * Math.log(1 + curtidas + 2 * comentarios);
     return (1 + Math.min(proximidade, PESOS.maximo) + interesse) / Math.pow(horas + 2, PESOS.expoente);
+}
+
+/** Descricao do perfil: ate 300 caracteres, sem espacos sobrando e com no maximo uma linha em branco seguida. */
+export function validarDescricao(dados) {
+    const valor = dados?.descricao ?? '';
+    if (typeof valor !== 'string') throw new DadoInvalidoNaComunidade('Descrição inválida');
+    const texto = limparTexto(valor).replace(/\n{3,}/g, '\n\n');
+    if ([...texto].length > DESCRICAO_MAXIMA) throw new DadoInvalidoNaComunidade(`A descrição pode ter no máximo ${DESCRICAO_MAXIMA} caracteres`);
+    return texto;
+}
+
+/** Uma hashtag: # seguido de letras (com acento), numeros ou _, ate 50. */
+export const HASHTAG = /#([\p{L}\p{N}_]{1,50})/gu;
+
+/**
+ * As hashtags de um texto, sem o # e em minusculas, sem repetir. "a#b" nao conta: o # precisa estar no comeco ou
+ * depois de algo que nao seja letra, numero ou _ (a mesma regra dos links no site).
+ */
+export function hashtagsDo(texto) {
+    const valor = texto || '';
+    const tags = [...valor.matchAll(HASHTAG)]
+        .filter(achado => achado.index === 0 || !/[\p{L}\p{N}_]/u.test(valor[achado.index - 1]))
+        .map(achado => achado[1].toLocaleLowerCase('pt-BR'));
+    return [...new Set(tags)];
+}
+
+/**
+ * O que foi digitado na busca: "#tag" procura posts com essa hashtag; o resto procura pessoas pelo nick (o @ do
+ * comeco e ignorado) e posts pelo texto. null quando nao ha nada para procurar.
+ */
+export function lerBusca(consulta) {
+    const texto = (typeof consulta === 'string' ? consulta : '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (!texto || /^#+$/.test(texto)) return null;
+    const tag = texto.match(/^#([\p{L}\p{N}_]{1,50})$/u);
+    if (tag) return { tipo: 'hashtag', tag: tag[1].toLocaleLowerCase('pt-BR'), texto };
+    const semArroba = texto.replace(/^@+/, '').trim();
+    return semArroba ? { tipo: 'texto', texto: semArroba } : null;
+}
+
+/** Para usar o que foi digitado dentro de um LIKE/ILIKE sem que % e _ virem curingas. */
+export function escaparLike(texto) {
+    return texto.replace(/[\\%_]/g, letra => '\\' + letra);
 }

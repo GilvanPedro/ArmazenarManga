@@ -27,3 +27,6 @@ A página ficava encostada no canto esquerdo da tela, com o espaço da direita v
 
 Conferido em um navegador, no computador (1280 px, coluna com o mesmo espaço dos dois lados) e no celular
 (375 px, sem rolagem para o lado). Não há teste automático.
+
+> Depois, na versão do Vercel, a página "Minha conta" virou "Configurações" e a foto e o nick passaram a ser
+> editados no próprio perfil: veja [Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md).

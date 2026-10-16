@@ -65,6 +65,19 @@ também não entra, e a pessoa é convidada a tentar de novo.
 - As imagens publicadas antes do robô não foram conferidas.
 - A primeira imagem depois de a função "acordar" leva ~0,3 s a mais, para carregar o modelo.
 
+### Conferir o robô com as suas imagens
+
+O teste com fotos explícitas reais não foi feito aqui: isso exigiria buscar esse material na internet, sem como saber
+se as pessoas consentiram ou são maiores de idade. Para conferir com imagens que você já tem:
+
+```bash
+node ferramentas/testar-robo-de-imagens.mjs pasta/com/imagens
+```
+
+A ferramenta passa cada imagem pelo mesmo robô do site e mostra só o nome do arquivo, se seria barrada e as notas de
+cada classe. Nada é enviado, copiado ou guardado. Se alguma foto explícita passar ou alguma arte for barrada, o
+limite fica em `LIMITE_DE_FOTO_EXPLICITA`, em `api/_moderacao.js`.
+
 ## Banco de dados
 
 Na tabela `contas`: `punicao` ('suspensa' ou 'banida'), `punida_ate`, `punicao_motivo`, `punida_por` e `punida_em`.
@@ -99,6 +112,7 @@ admin.
 | `public/app.js` | Tela de gerenciamento (contas e registro), janelas de suspender e banir, caixa de moderação no perfil e aviso para quem está punido |
 | `public/app.css` | Estilos da moderação |
 | `test-api/moderacao.test.mjs` | Novo: regras de suspensão, punição que vale, mensagens, quando barrar e o robô lendo PNG, JPG, WEBP e GIF |
+| `ferramentas/testar-robo-de-imagens.mjs` | Novo: passa as imagens de uma pasta pelo robô e mostra a decisão e as notas |
 
 A função do Vercel fica com ~35 MB (o limite é 250 MB). Só o modelo usado entra; os outros dois do pacote ficam de
 fora.

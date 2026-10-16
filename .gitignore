@@ -43,3 +43,7 @@ build/
 ### Node (API do Vercel) ###
 node_modules/
 .vercel
+
+# pacotes da extensao, gerados por ferramentas/empacotar-extensao.mjs
+extensao-firefox.zip
+extensao-chrome.zip

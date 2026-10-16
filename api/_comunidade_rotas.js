@@ -1,7 +1,7 @@
 // Rotas da Comunidade: feed, posts (com imagens e listas anexadas), curtidas, comentarios, seguir e perfis.
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
-import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, validarComentario, validarPost } from './_comunidade.js';
+import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, lerBusca, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
 
@@ -30,6 +30,8 @@ export const ESTRUTURA_DA_COMUNIDADE = `
         conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, post UUID REFERENCES posts(id) ON DELETE CASCADE,
         criada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE INDEX IF NOT EXISTS imagens_da_comunidade_soltas ON imagens_da_comunidade (conta, criada_em) WHERE post IS NULL;
+    -- a descricao do perfil, que todos veem (ate 300 caracteres)
+    ALTER TABLE contas ADD COLUMN IF NOT EXISTS descricao TEXT NOT NULL DEFAULT '';
     -- contadores no proprio post, mantidos pelo banco: o feed ordena sem recontar curtidas e comentarios
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS curtidas_total INT;
     ALTER TABLE posts ADD COLUMN IF NOT EXISTS comentarios_total INT;
@@ -158,6 +160,41 @@ export function criarComunidade(f) {
         return rows.map(linha => linha.id);
     }
 
+    /**
+     * Ordem do feed de busca, do mais novo para o mais antigo: com "#tag", os posts com essa hashtag; com texto, os
+     * posts que o tem. A hashtag e conferida aqui (letras com acento contam como parte dela), entre os candidatos que
+     * o banco acha pelo texto.
+     */
+    async function idsDaBusca(consulta) {
+        const busca = lerBusca(consulta);
+        if (!busca) return [];
+        const db = await banco();
+        if (busca.tipo === 'hashtag') {
+            const { rows } = await db.query(`SELECT id, texto FROM posts WHERE texto ILIKE $1 ORDER BY criado_em DESC, id LIMIT 2000`,
+                ['%#' + escaparLike(busca.tag) + '%']);
+            return rows.filter(linha => hashtagsDo(linha.texto).includes(busca.tag)).slice(0, POSTS_DO_FEED).map(linha => linha.id);
+        }
+        const { rows } = await db.query(`SELECT id FROM posts WHERE texto ILIKE $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`,
+            ['%' + escaparLike(busca.texto) + '%']);
+        return rows.map(linha => linha.id);
+    }
+
+    /** Ate 20 pessoas pelo nick: o nick exato primeiro, depois quem tem mais seguidores. */
+    async function pessoas(consulta, eu) {
+        const busca = lerBusca(consulta);
+        if (!busca || busca.tipo !== 'texto') return [];
+        const { rows } = await (await banco()).query(`
+            SELECT c.id, c.nick, c.foto, c.descricao,
+                   (SELECT count(*) FROM seguindo WHERE seguido = c.id)::int AS seguidores,
+                   EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = c.id) AS sigo
+            FROM contas c WHERE c.nick ILIKE $2
+            ORDER BY lower(c.nick) = lower($3) DESC, seguidores DESC, c.nick LIMIT 20`, [eu.id, '%' + escaparLike(busca.texto) + '%', busca.texto]);
+        return rows.map(linha => ({
+            id: linha.id, nick: linha.nick, foto: urlDaFoto(linha.id, linha.foto), descricao: linha.descricao,
+            seguidores: linha.seguidores, sigo: linha.sigo, euMesmo: linha.id === eu.id,
+        }));
+    }
+
     async function idsDoPerfil(contaId) {
         const { rows } = await (await banco()).query(`SELECT id FROM posts WHERE autor = $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [contaId]);
         return rows.map(linha => linha.id);
@@ -174,6 +211,7 @@ export function criarComunidade(f) {
         let ids;
         if (qual === 'seguindo') ids = await idsSeguindo(eu);
         else if (qual === 'perfil') ids = await idsDoPerfil((await exigirConta(url.searchParams.get('conta'))).id);
+        else if (qual === 'busca') ids = await idsDaBusca(url.searchParams.get('q'));
         else {
             const ranking = await rankingParaVoce(eu);
             // ?novosDesde=: a pessoa clicou em "N posts novos": os novos vem primeiro (na ordem de relevancia), depois o resto
@@ -335,10 +373,12 @@ export function criarComunidade(f) {
     async function perfil(id, eu) {
         const conta = await exigirConta(id);
         const { rows } = await (await banco()).query(`
-            SELECT (SELECT count(*) FROM posts WHERE autor = $2)::int AS posts,
+            SELECT (SELECT descricao FROM contas WHERE id = $2) AS descricao,
+                   (SELECT count(*) FROM mangas WHERE conta = $3)::int AS mangas,
+                   (SELECT count(*) FROM posts WHERE autor = $2)::int AS posts,
                    (SELECT count(*) FROM seguindo WHERE seguido = $2)::int AS seguidores,
                    (SELECT count(*) FROM seguindo WHERE seguidor = $2)::int AS seguindo,
-                   EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = $2) AS sigo`, [eu.id, conta.id]);
+                   EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = $2) AS sigo`, [eu.id, conta.id, String(conta.id)]);
         const resposta = { id: conta.id, nick: conta.nick, foto: urlDaFoto(conta.id, conta.foto), criadaEm: conta.criada_em, ...rows[0], euMesmo: conta.id === eu.id };
         // para os admins: a punicao da conta e se ela pode ser punida (admins nao podem)
         if (f.ehAdmin(eu) && conta.id !== eu.id) {
@@ -563,6 +603,15 @@ export function criarComunidade(f) {
             return servirImagem(rows[0].conteudo, id, 'public, max-age=31536000, s-maxage=31536000, immutable');
         }
         if (recurso === 'sugestoes' && !id && metodo === 'GET') return f.semCache(json(200, await sugestoes(eu)));
+        if (recurso === 'pessoas' && !id && metodo === 'GET') return f.semCache(json(200, await pessoas(url.searchParams.get('q'), eu)));
+        // a descricao do proprio perfil (o nick e a foto continuam em PUT /api/conta)
+        if (recurso === 'perfil' && !id && metodo === 'PUT') {
+            const descricao = validarDescricao(await f.lerCorpo(request));
+            // quem esta punido nao troca a descricao, que todos veem
+            if (descricao) await exigirQuePossaParticipar(eu);
+            await db.query('UPDATE contas SET descricao = $2 WHERE id = $1', [eu.id, descricao]);
+            return json(200, await perfil(eu.id, eu));
+        }
         if (recurso === 'contas' && id && !acao && metodo === 'GET') return f.semCache(json(200, await perfil(id, eu)));
         if (recurso === 'contas' && id && acao === 'seguir' && (metodo === 'POST' || metodo === 'DELETE')) {
             const conta = await exigirConta(id);
