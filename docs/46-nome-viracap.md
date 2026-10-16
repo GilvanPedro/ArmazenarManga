@@ -20,8 +20,9 @@ Capiteca, Mangário e Vira-Página.
   - nome "Viracap - próximo capítulo", com o nome novo no botão da barra, na janelinha do ícone, nos avisos e na
     descrição;
   - versão **1.4.0**;
-  - id no Firefox **`viracap@gilvanpedro`** (era `meus-mangas@gilvanpedro`). Na Mozilla, o id não pode mudar depois da
-    primeira publicação, e a extensão ainda não tinha sido publicada lá;
+  - o id no Firefox chegou a ser trocado para `viracap@gilvanpedro`, mas voltou a ser **`meus-mangas@gilvanpedro`**:
+    a extensão já tinha sido enviada à Mozilla com esse id, e lá ele não pode mudar (veja
+    [Empacotar a extensão](50-empacotar-a-extensao.md)). O id não aparece para ninguém; o nome vem do campo `name`;
   - `extensao-firefox.zip` refeito.
 - **Avisos e identificação:** o alerta do favorito ("Viracap: nao consegui ler esta pagina…"), a mensagem da versão
   Java ao iniciar e a identificação enviada às fontes de sinopse e recomendações (`Viracap/1.0`).
@@ -59,7 +60,7 @@ Com a troca de endereço:
 | `public/index.html` | Título, `og:site_name`, `og:title`, texto da imagem e nome no topo |
 | `public/app.js` | Títulos das abas, nome na tela de entrar e alerta do favorito |
 | `public/compartilhar.png` | Imagem de prévia com o nome novo |
-| `extensao/manifest.json` | Nome, descrição, título do botão, versão 1.4.0 e id `viracap@gilvanpedro` |
+| `extensao/manifest.json` | Nome, descrição, título do botão e versão 1.4.0 (o id continua `meus-mangas@gilvanpedro`) |
 | `extensao/popup.html`, `popup.js`, `conteudo.js`, `fundo.js` | Nome nos textos e comentários |
 | `api/_sinopse.js`, `ClienteHttpPadrao.java` | Identificação `Viracap/1.0` |
 | `App.java`, `iniciar.sh` | Nome na mensagem de início |

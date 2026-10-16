@@ -16,6 +16,8 @@ só existem na versão do Vercel.
   - **Editar perfil:** abre uma janela por cima do perfil com a foto (salva na hora em que é escolhida), o nick e a
     descrição (com contador até 300). "Salvar" grava o nick e a descrição e redesenha o perfil.
   - **⚙ Configurações:** a página da conta.
+- **Sem "Quem seguir" no perfil.** No perfil (o seu e o dos outros), as sugestões do lado direito não aparecem: o
+  foco é a pessoa do perfil, que continua no meio da tela. No feed e na busca, continuam.
 
 ### Configurações
 
@@ -34,8 +36,8 @@ o botão só aparece para quem você ainda não segue.
 
 ### Busca
 
-- Um botão **🔍 Buscar** no fim da linha das abas da Comunidade ("Para você", "Seguindo") abre a busca
-  (`#/comunidade/busca`).
+- Uma **barra de pesquisa** fica em cima do campo de escrever post, no feed da Comunidade (até 380 px de largura; no
+  celular, a largura toda). Digitar e apertar Enter abre a busca (`#/comunidade/busca`) com o texto.
 - **Texto:** procura **pessoas** pelo nick (o nick exato primeiro, depois quem tem mais seguidores; o `@` do começo é
   ignorado) e **posts** que têm aquele texto, do mais novo para o mais antigo.
 - **`#tag`:** procura só os **posts com aquela hashtag**, sem diferenciar maiúsculas e minúsculas (`#frieren` acha
@@ -68,7 +70,7 @@ No banco, a tabela `contas` ganhou a coluna `descricao` (texto, vazio por padrã
 | `api/_comunidade.js` | `validarDescricao`, `hashtagsDo`, `lerBusca` e `escaparLike` |
 | `api/_comunidade_rotas.js` | Coluna `descricao`; perfil com descrição e mangás; rota da descrição; busca de pessoas e feed de busca |
 | `api/index.js` | `comunidade: true` no `/api/inicio` |
-| `public/app.js` | Tela de busca e botão Buscar; hashtags como links; Seguir no post aberto; perfil com descrição, mangás, Editar perfil e Configurações; janela de editar perfil; o nick do topo leva ao perfil; Configurações sem foto e nick |
+| `public/app.js` | Tela de busca e barra de pesquisa em cima do campo de escrever; sem "Quem seguir" no perfil; hashtags como links; Seguir no post aberto; perfil com descrição, mangás, Editar perfil e Configurações; janela de editar perfil; o nick do topo leva ao perfil; Configurações sem foto e nick |
 | `public/app.css` | Estilos do perfil, da janela de editar, das hashtags e da busca |
 | `test-api/comunidade.test.mjs` | Testes da descrição, das hashtags e do que a busca entende |
 
@@ -80,7 +82,8 @@ No banco, a tabela `contas` ganhou a coluna `descricao` (texto, vazio por padrã
   - descrição com 301 caracteres é recusada;
   - no post aberto, o botão aparece ("Seguir" e, depois de seguir e reabrir, "Seguindo");
   - a hashtag do post vira link;
-  - Buscar abre a busca com o campo focado;
+  - a barra de pesquisa fica em cima do campo de escrever (380 px no computador, a largura toda no celular), sem emoji,
+    e Enter abre a busca com o texto, já com os resultados;
   - buscar pelo nick acha a Bia;
   - buscar por texto acha o post certo;
   - `#frieren…` em minúsculas acha só o post com a tag (e não o "a#Frieren…");
@@ -89,5 +92,6 @@ No banco, a tabela `contas` ganhou a coluna `descricao` (texto, vazio por padrã
   - Editar perfil salva nick e descrição e atualiza o topo;
   - Configurações têm só Perfil, E-mail, Senha e Excluir conta, com "← Meu perfil";
   - nenhum texto "null" solto em seis telas;
+  - o "Quem seguir" aparece no feed e na busca e não aparece no perfil, com o perfil no meio da tela;
   - no celular, sem rolagem para o lado.
 - Os testes da versão Java continuam passando.

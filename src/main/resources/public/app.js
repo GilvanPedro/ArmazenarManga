@@ -2603,9 +2603,10 @@ async function telaComunidade(partes, consulta) {
     const principal = h('div', {class: 'coluna-da-comunidade'});
     const lateral = h('aside', {class: 'lateral-da-comunidade'});
     app.replaceChildren(h('div', {class: 'pagina-da-comunidade'}, principal, lateral), botaoDeEscrever());
-    carregarSugestoes(lateral, vez);
 
+    // no perfil, o "Quem seguir" nao aparece: o foco e a pessoa do perfil
     if (qual === 'perfil' && id) return telaPerfil(principal, id, vez);
+    carregarSugestoes(lateral, vez);
     if (qual === 'busca') return telaBusca(principal, new URLSearchParams(consulta || '').get('q') || '', vez);
     if (qual === 'post' && id) {
         document.title = 'Post · Comunidade · Viracap';
@@ -2634,10 +2635,9 @@ async function telaComunidade(partes, consulta) {
     }});
     principal.append(
         h('h1', {class: 'so-leitor'}, 'Comunidade'),
+        barraDeBuscaDaComunidade(),
         avisarSePunido(editorDePost(post => porNoFeed(lista, post))),
-        h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo'),
-            h('a', {class: 'aba buscar-na-comunidade', href: '#/comunidade/busca', title: 'Buscar pessoas ou #tags'},
-                h('span', {'aria-hidden': 'true'}, '🔍 '), 'Buscar')),
+        h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
         avisoDeNovos,
         lista);
     estado.recarregar = () => telaComunidade(partes);
@@ -2793,6 +2793,17 @@ function botaoDeSeguir(contaId, sigo, aoMudar) {
     mostrar(sigo);
     botoesDeSeguir.add(new WeakRef(botao));
     return botao;
+}
+
+/** A barra de pesquisa em cima do campo de escrever: Enter abre a busca com o que foi digitado. */
+function barraDeBuscaDaComunidade() {
+    const campo = h('input', {type: 'search', class: 'campo-de-busca', placeholder: 'Buscar pessoas, posts ou #tags',
+        'aria-label': 'Buscar pessoas, posts ou #tags', autocomplete: 'off', enterkeyhint: 'search'});
+    return h('form', {class: 'busca-da-comunidade', role: 'search', onsubmit: evento => {
+        evento.preventDefault();
+        const texto = campo.value.trim();
+        location.hash = '#/comunidade/busca' + (texto ? '?q=' + encodeURIComponent(texto) : '');
+    }}, campo);
 }
 
 /**

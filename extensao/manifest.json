@@ -28,7 +28,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "viracap@gilvanpedro",
+      "id": "meus-mangas@gilvanpedro",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": ["browsingActivity", "websiteContent"]

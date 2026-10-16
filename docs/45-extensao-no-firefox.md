@@ -47,8 +47,8 @@ O mesmo manifesto continua servindo para Chrome, Edge, Brave e Opera GX, que ign
 `background.service_worker`, que fica no manifesto para o Chrome. O Firefox usa o `background.scripts` que está ao
 lado.
 
-> Depois, com a [troca de nome para Viracap](46-nome-viracap.md), a extensão passou para a versão 1.4.0 e o id
-> `viracap@gilvanpedro`.
+> Depois, com a [troca de nome para Viracap](46-nome-viracap.md), a extensão passou para a versão 1.4.0. O id
+> continua `meus-mangas@gilvanpedro`, o mesmo do cadastro na Mozilla.
 
 > Depois, os zips passaram a ser montados por `ferramentas/empacotar-extensao.mjs`, sem os avisos da Mozilla: veja
 > [Empacotar a extensão](50-empacotar-a-extensao.md).

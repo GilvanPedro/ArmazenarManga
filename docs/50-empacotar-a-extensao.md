@@ -14,8 +14,8 @@ Ao enviar a extensão, a Mozilla mostrava dois avisos (não eram erros, o envio 
 
 ## O que mudou
 
-- **`extensao/manifest.json`:** ganhou `browser_specific_settings.gecko_android.strict_min_version: "142.0"` e foi
-  para a versão **1.4.1**.
+- **`extensao/manifest.json`:** ganhou `browser_specific_settings.gecko_android.strict_min_version: "142.0"`, foi
+  para a versão **1.4.1** e voltou ao id `meus-mangas@gilvanpedro` (veja abaixo).
 - **`ferramentas/empacotar-extensao.mjs`** (novo): monta os pacotes para as lojas, na raiz do projeto:
   - `extensao-firefox.zip`: o manifesto sem `background.service_worker`;
   - `extensao-chrome.zip`: o manifesto sem `background.scripts` e sem `browser_specific_settings` (só do Firefox),
@@ -24,6 +24,14 @@ Ao enviar a extensão, a Mozilla mostrava dois avisos (não eram erros, o envio 
   Os outros arquivos vão como estão. O `manifest.json` da pasta continua com tudo, para carregar a extensão direto da
   pasta em qualquer navegador. A ferramenta não usa nenhum pacote, mas pede o Node 22 ou mais novo, e o mesmo
   conteúdo sempre gera o mesmo zip.
+
+## O id da extensão
+
+O id no Firefox (`browser_specific_settings.gecko.id`) é **`meus-mangas@gilvanpedro`** e não pode mudar: a extensão
+foi enviada à Mozilla com ele antes da troca de nome, e a Mozilla recusa uma versão com outro id ("The add-on ID in
+your manifest.json (viracap@gilvanpedro) does not match the ID of your add-on on AMO (meus-mangas@gilvanpedro)").
+Ele tinha sido trocado para `viracap@gilvanpedro` junto com o nome e voltou ao original. O id não aparece para
+ninguém: o nome na loja e no navegador vem do campo `name` ("Viracap - próximo capítulo").
 
 ## Como enviar uma versão nova
 

@@ -1140,7 +1140,8 @@ dialog.janela-do-perfil { width: min(460px, calc(100vw - 24px)); }
 /* #hashtags nos posts e a busca da Comunidade */
 a.hashtag { color: var(--destaque-forte); font-weight: 600; text-decoration: none; }
 a.hashtag:hover { text-decoration: underline; }
-.abas .buscar-na-comunidade { margin-left: auto; }
+.busca-da-comunidade { width: min(100%, 380px); }
+.busca-da-comunidade .campo-de-busca { min-height: 40px; padding: 8px 16px; border-radius: 999px; }
 .barra-de-busca { margin: 12px 0 16px; }
 .barra-de-busca .campo-de-busca { min-height: 46px; padding: 10px 16px; border-radius: 999px; font-size: 16px; }
 .resultados-da-busca { display: flex; flex-direction: column; gap: 20px; }
