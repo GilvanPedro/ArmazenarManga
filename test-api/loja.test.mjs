@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { COLUNA_DO_TIPO, ITENS_DA_LOJA, PRECO_DA_BORDA, PRECO_DO_EFEITO, assinaturaValida, itemDaLoja, podeMudar, situacaoDoPagamento } from '../api/_loja.js';
+import { COLUNA_DO_TIPO, conferirImagemDaLoja, formatoDaImagem, ITENS_DA_LOJA, PRECO_DA_BORDA, PRECO_DO_EFEITO, assinaturaValida, itemDaLoja, podeMudar, situacaoDoPagamento } from '../api/_loja.js';
 
 test('a loja tem pelo menos 4 bordas, todas a R$ 4,50 e com ids que viram classes', () => {
     const bordas = ITENS_DA_LOJA.filter(item => item.tipo === 'borda');
@@ -70,4 +70,25 @@ test('a compra so anda para a frente: aprovada so vira reembolsada, e nada volta
     assert.equal(podeMudar('reembolsada', 'aprovada'), false);
     assert.equal(podeMudar('aprovada', 'aprovada'), false);
     assert.equal(podeMudar('divergente', 'aprovada'), false);
+});
+
+test('imagens da loja: o formato vem dos primeiros bytes e tem que bater com o nome', async () => {
+    const sharp = (await import('sharp')).default;
+    const base = sharp({ create: { width: 4, height: 6, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } });
+    const webp = await base.clone().webp().toBuffer();
+    const png = await base.clone().png().toBuffer();
+    const gif = await base.clone().gif().toBuffer();
+    assert.equal(formatoDaImagem(webp), 'image/webp');
+    assert.equal(formatoDaImagem(png), 'image/png');
+    assert.equal(formatoDaImagem(gif), 'image/gif');
+    assert.equal(formatoDaImagem(Buffer.from('<svg></svg>')), null);
+    assert.equal(conferirImagemDaLoja('celestial.webp', webp), 'image/webp');
+    assert.equal(conferirImagemDaLoja('moldura-2.png', png), 'image/png');
+    assert.throws(() => conferirImagemDaLoja('celestial.png', webp), /é WEBP, mas o nome termina em \.png/);
+    for (const ruim of ['Celestial.webp', 'a b.webp', '../x.webp', 'x.svg', 'x.webp.exe', '-x.webp', '']) {
+        assert.throws(() => conferirImagemDaLoja(ruim, webp), /Nome inválido/, ruim);
+    }
+    assert.throws(() => conferirImagemDaLoja('x.webp', Buffer.alloc(0)), /Envie o arquivo/);
+    assert.throws(() => conferirImagemDaLoja('x.webp', Buffer.from('nao e imagem')), /não é uma imagem/);
+    assert.throws(() => conferirImagemDaLoja('x.webp', Buffer.alloc(3 * 1024 * 1024 + 1)), /3 MB/);
 });

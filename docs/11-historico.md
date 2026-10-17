@@ -202,6 +202,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   sem comprar. Detalhes em [O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md).
 - **Borda Celestial.** A primeira borda feita a partir de uma imagem (moldura dourada com runas, estrela e lua).
   Detalhes em [Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md).
+- **Imagens da loja no banco.** As imagens das bordas e efeitos saíram do projeto e passaram a ficar no banco,
+  enviadas pelo dono numa aba nova do Gerenciar. Detalhes em [Imagens da loja no banco](63-imagens-da-loja-no-banco.md).
 
 ## O que foi removido ou abandonado
 

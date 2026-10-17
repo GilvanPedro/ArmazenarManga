@@ -47,3 +47,7 @@ de 600 × 900 px a partir de (60, 60), moldura de ~15 px e o meio transparente.
 Na loja e na Biblioteca, com a Celestial equipada: a moldura ficou centrada na capa (na primeira tentativa ela saiu
 deslocada para a direita e para baixo, porque a regra geral das bordas ornamentadas ganhava da posição; corrigido
 deixando a regra da Celestial mais específica). Os 85 testes da versão JavaScript passam.
+
+> Depois, a imagem da Celestial saiu de `public/bordas/` e passou a ficar no banco, enviada pela aba "Imagens da
+> loja" do Gerenciar: veja [Imagens da loja no banco](63-imagens-da-loja-no-banco.md). O caminho das próximas bordas
+> de imagem também mudou.
