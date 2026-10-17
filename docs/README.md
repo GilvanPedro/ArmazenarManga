@@ -72,6 +72,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [66 · Capturas da tela para o Google](66-capturas-da-tela-no-google.md) | Imagens da Biblioteca, da Comunidade e de um mangá na página inicial, nos dados estruturados e no sitemap |
 | [67 · Temas do site](67-temas-do-site.md) | Escuro e claro de graça, cinco temas de cor (R$ 5,00) e quatro de fundo animado (R$ 7,50) na loja |
 | [68 · Mais efeitos e o filtro da mochila](68-mais-efeitos-e-filtro-da-mochila.md) | Seis efeitos novos (Brasas, Chuva, Corações, Glitch, Tela CRT e Confete) e o filtro por tipo na mochila |
+| [69 · Temas animados Galáxia e Fazenda](69-temas-galaxia-e-fazenda.md) | Dois temas de fundo animado novos: nebulosas girando e uma fazenda com nuvens passando |
+| [70 · Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md) | Um tema com ilustração de fundo (do banco) e a janela dos mangás do perfil com o tema da pessoa |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

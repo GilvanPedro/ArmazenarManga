@@ -432,6 +432,8 @@ export function criarComunidade(f) {
                    -- a borda e o efeito da loja que a pessoa equipou: aparecem nos mangas dela abertos pelo perfil
                    (SELECT borda FROM contas WHERE id = $2) AS borda,
                    (SELECT efeito FROM contas WHERE id = $2) AS efeito,
+                   -- e o tema do site dela, que a janela dos mangas dela usa
+                   (SELECT tema FROM contas WHERE id = $2) AS tema,
                    (SELECT count(*) FROM mangas WHERE conta = $3)::int AS mangas,
                    (SELECT count(*) FROM posts WHERE autor = $2)::int AS posts,
                    (SELECT count(*) FROM seguindo WHERE seguido = $2)::int AS seguidores,

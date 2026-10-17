@@ -216,6 +216,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   de fundo animado (R$ 7,50). Detalhes em [Temas do site](67-temas-do-site.md).
 - **Mais efeitos e filtro da mochila.** Seis efeitos novos na loja e um filtro na mochila para ver só as bordas, os
   efeitos ou os temas. Detalhes em [Mais efeitos e o filtro da mochila](68-mais-efeitos-e-filtro-da-mochila.md).
+- **Temas Galáxia e Fazenda.** Dois temas de fundo animado novos na loja. Detalhes em
+  [Temas animados Galáxia e Fazenda](69-temas-galaxia-e-fazenda.md).
+- **Tema Silhueta e o tema no perfil.** Um tema com ilustração de fundo guardada no banco, e a janela dos mangás do
+  perfil passou a mostrar o tema da pessoa. Detalhes em [Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md).
 
 ## O que foi removido ou abandonado
 

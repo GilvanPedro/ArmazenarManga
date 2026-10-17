@@ -23,3 +23,5 @@ trazer `borda` e `efeito` (nulos quando são os de sempre), e a janela já usava
 Num banco local, com a Bia usando a borda Chamas e o efeito Faíscas, vendo o perfil dela com a conta da Ana: as capas
 dos dois favoritos ficaram com `borda-chamas efeito-faiscas`, na grade e no detalhe, e a capa que não é favorita
 ficou sem nada. Os 86 testes da versão JavaScript passam.
+
+> Depois, a janela também passou a usar o tema do site da pessoa: veja [Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md).

@@ -84,3 +84,8 @@ um id não pode servir para dois itens; os testes conferem isso).
   Comunidade com ele (Claro, Verde pastel, Rosa pastel, Vermelho, Roxo, Degradê cinza, Aurora, Noite estrelada,
   Sakura ao vento e Synthwave); o tema guardado no navegador; e o Automático tirando o atributo. No celular (390 px),
   com Sakura ao vento, Synthwave, Aurora e Claro, sem rolagem para o lado.
+
+> Depois, entraram os temas animados Galáxia e Fazenda: veja [Temas animados Galáxia e Fazenda](69-temas-galaxia-e-fazenda.md).
+
+> Depois, entrou o tema Silhueta (de imagem, do banco) e as regras dos temas passaram a valer para qualquer elemento
+> com `data-tema`: veja [Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md).

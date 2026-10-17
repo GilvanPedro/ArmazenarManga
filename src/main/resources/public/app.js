@@ -4529,7 +4529,10 @@ function janelaDosMangasDoPerfil(perfil) {
     const rolagem = h('div', {class: 'rolagem-da-escolha'}, grade, fim);
     const ferramentas = [h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar), filtros];
     const detalhe = h('div', {class: 'conteudo-da-lista', hidden: true});
-    const dialogo = h('dialog', {class: 'janela-da-lista janela-dos-mangas-do-perfil'},
+    // a janela usa o tema do site da pessoa (cores, fundo e animacao); sem tema, o de quem esta vendo
+    const tema = typeof perfil.tema === 'string' && /^[a-z]+$/.test(perfil.tema) ? perfil.tema : null;
+    const dialogo = h('dialog', {class: 'janela-da-lista janela-dos-mangas-do-perfil', 'data-tema': tema},
+        h('div', {class: 'fundo-da-previa', 'aria-hidden': 'true'}), h('div', {class: 'fundo-da-previa-2', 'aria-hidden': 'true'}),
         h('div', {class: 'topo-da-janela'}, titulo, fechar), ...ferramentas, rolagem, detalhe);
     let vendoManga = false;
     const mostrarCapas = () => {

@@ -59,6 +59,9 @@ export const ITENS_DA_LOJA = [
     { id: 'aurora', tipo: 'tema', nome: 'Aurora', descricao: 'Fundo animado: luzes verdes, azuis e roxas se mexendo devagar no escuro.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'estrelas', tipo: 'tema', nome: 'Noite estrelada', descricao: 'Fundo animado: um céu noturno com estrelas piscando.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'petalas', tipo: 'tema', nome: 'Sakura ao vento', descricao: 'Fundo animado: pétalas de cerejeira caindo sobre um rosa bem claro.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'cosmos', tipo: 'tema', nome: 'Galáxia', descricao: 'Fundo animado: nebulosas roxas, azuis e rosas girando devagar, com estrelas piscando.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'fazenda', tipo: 'tema', nome: 'Fazenda', descricao: 'Fundo animado: céu azul com nuvens passando, sol, morros verdes e uma cerca de madeira.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'silhueta', tipo: 'tema', nome: 'Silhueta', descricao: 'Fundo com uma personagem de mangá em traço preto e branco no canto da tela, que se aproxima devagar.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'synthwave', tipo: 'tema', nome: 'Synthwave', descricao: 'Fundo animado: sol retrô no horizonte e uma grade neon vindo na sua direção.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
 ];
 
