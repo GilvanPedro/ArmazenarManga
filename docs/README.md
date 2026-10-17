@@ -55,6 +55,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [49 · Perfil, busca e configurações](49-perfil-busca-e-configuracoes.md) | Mangás e descrição no perfil, Editar perfil, Configurações separadas, Seguir no post aberto e busca por pessoas e #tags |
 | [50 · Empacotar a extensão](50-empacotar-a-extensao.md) | Os zips para o Firefox e o Chrome sem os avisos da Mozilla, e o Firefox para Android |
 | [51 · Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md) | Até 3 sugestões enquanto se digita, seus posts nunca abaixo de posts mais antigos dos outros, e o limite de cadastro |
+| [52 · Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md) | O "Para você" do mais novo para o mais antigo, as abas na linha da busca e as listas de seguidores e seguindo no perfil |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

@@ -141,3 +141,7 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 
 > Depois, no "Para você", os seus posts passaram a nunca ficar embaixo de posts mais antigos de outras pessoas: veja
 > [Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md).
+
+> Depois, o "Para você" passou a mostrar os posts do mais novo para o mais antigo (os pontos só escolhem quais posts
+> entram), e no perfil os seguidores e o "seguindo" viraram listas clicáveis: veja
+> [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).

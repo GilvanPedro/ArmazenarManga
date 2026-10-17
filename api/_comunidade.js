@@ -140,23 +140,10 @@ export function hashtagsQueComecamCom(textos, comeco, maximo = 3) {
 }
 
 /**
- * No "Para voce", um post seu nunca fica embaixo de um post mais antigo de outra pessoa: depois da ordem por pontos,
- * cada post seu sobe (nunca desce) ate ficar acima do primeiro post de outra pessoa que seja mais antigo que ele.
- * Posts de outras pessoas mais novos que o seu continuam podendo vir antes, se tiverem mais pontos. linhas: na ordem
- * dos pontos, cada uma com { autor, criado_em }.
+ * O "Para voce" mostra os posts do mais novo para o mais antigo, de quem quer que sejam: os pontos so escolhem quais
+ * posts entram no feed, nao a ordem deles. linhas: cada uma com { id, criado_em }; empatados, pelo id (como no banco).
  */
-export function meusPostsAcimaDosMaisAntigos(linhas, euId) {
-    const ordem = [...linhas];
+export function doMaisNovoParaOMaisAntigo(linhas) {
     const quando = linha => new Date(linha.criado_em).getTime();
-    // os mais novos primeiro: assim um post seu mais antigo nunca passa na frente de um seu mais novo
-    const meus = ordem.filter(linha => linha.autor === euId).sort((a, b) => quando(b) - quando(a));
-    for (const meu of meus) {
-        const atual = ordem.indexOf(meu);
-        const alvo = ordem.findIndex(linha => linha.autor !== euId && quando(linha) < quando(meu));
-        if (alvo !== -1 && alvo < atual) {
-            ordem.splice(atual, 1);
-            ordem.splice(alvo, 0, meu);
-        }
-    }
-    return ordem;
+    return [...linhas].sort((a, b) => quando(b) - quando(a) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

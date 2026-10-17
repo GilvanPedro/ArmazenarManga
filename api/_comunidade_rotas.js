@@ -1,7 +1,7 @@
 // Rotas da Comunidade: feed, posts (com imagens e listas anexadas), curtidas, comentarios, seguir e perfis.
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
-import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, hashtagsQueComecamCom, lerBusca, meusPostsAcimaDosMaisAntigos, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
+import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, hashtagsQueComecamCom, doMaisNovoParaOMaisAntigo, lerBusca, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
 
@@ -127,7 +127,8 @@ export function criarComunidade(f) {
     /**
      * Ordem do feed "Para voce": entre os 1000 posts mais novos, os pontos de PESOS (veja api/_comunidade.js), com a
      * proximidade de quem le com cada autor (seguir, curtidas e comentarios dados a ele) e o interesse do post (os
-     * totais guardados no proprio post), divididos pelo tempo. So os ids saem: a ordem e calculada uma vez por abertura.
+     * totais guardados no proprio post), divididos pelo tempo. Os pontos escolhem os 300 posts do feed; na tela eles
+     * aparecem do mais novo para o mais antigo (abrirFeed). So os ids saem: a escolha e feita uma vez por abertura.
      */
     async function rankingParaVoce(eu) {
         const { rows } = await (await banco()).query(`
@@ -230,6 +231,24 @@ export function criarComunidade(f) {
         return itens.slice(0, MAXIMO);
     }
 
+    /**
+     * Quem segue esta conta (qual 'seguidores') ou quem ela segue (qual 'seguindo'), ate 500, de quem seguiu por
+     * ultimo para o primeiro. Cada pessoa como na busca, com o botao de seguir de quem esta vendo.
+     */
+    async function listaDeSeguir(contaId, qual, eu) {
+        const [minha, outra] = qual === 'seguidores' ? ['seguido', 'seguidor'] : ['seguidor', 'seguido'];
+        const { rows } = await (await banco()).query(`
+            SELECT c.id, c.nick, c.foto, c.descricao,
+                   (SELECT count(*) FROM seguindo WHERE seguido = c.id)::int AS seguidores,
+                   EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = c.id) AS sigo
+            FROM seguindo s JOIN contas c ON c.id = s.${outra}
+            WHERE s.${minha} = $2 ORDER BY s.criado_em DESC, c.nick LIMIT 500`, [eu.id, contaId]);
+        return rows.map(linha => ({
+            id: linha.id, nick: linha.nick, foto: urlDaFoto(linha.id, linha.foto), descricao: linha.descricao,
+            seguidores: linha.seguidores, sigo: linha.sigo, euMesmo: linha.id === eu.id,
+        }));
+    }
+
     async function idsDoPerfil(contaId) {
         const { rows } = await (await banco()).query(`SELECT id FROM posts WHERE autor = $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [contaId]);
         return rows.map(linha => linha.id);
@@ -248,12 +267,8 @@ export function criarComunidade(f) {
         else if (qual === 'perfil') ids = await idsDoPerfil((await exigirConta(url.searchParams.get('conta'))).id);
         else if (qual === 'busca') ids = await idsDaBusca(url.searchParams.get('q'));
         else {
-            const ranking = await rankingParaVoce(eu);
-            // ?novosDesde=: a pessoa clicou em "N posts novos": os novos vem primeiro (na ordem de relevancia), depois o resto
-            const desde = Date.parse(url.searchParams.get('novosDesde') || '');
-            const novo = linha => !Number.isNaN(desde) && new Date(linha.criado_em).getTime() > desde && linha.autor !== eu.id;
-            // e os seus posts nunca ficam embaixo de posts mais antigos dos outros (ao recarregar, continuam em cima)
-            ids = meusPostsAcimaDosMaisAntigos([...ranking.filter(novo), ...ranking.filter(linha => !novo(linha))], eu.id).map(linha => linha.id);
+            // do mais novo para o mais antigo, sejam seus ou de outra pessoa
+            ids = doMaisNovoParaOMaisAntigo(await rankingParaVoce(eu)).map(linha => linha.id);
         }
         return { ids, itens: await postsPorIds(ids.slice(0, POSTS_POR_PAGINA), eu), geradoEm };
     }
@@ -650,6 +665,9 @@ export function criarComunidade(f) {
             return json(200, await perfil(eu.id, eu));
         }
         if (recurso === 'contas' && id && !acao && metodo === 'GET') return f.semCache(json(200, await perfil(id, eu)));
+        if (recurso === 'contas' && id && (acao === 'seguidores' || acao === 'seguindo') && metodo === 'GET') {
+            return f.semCache(json(200, await listaDeSeguir((await exigirConta(id)).id, acao, eu)));
+        }
         if (recurso === 'contas' && id && acao === 'seguir' && (metodo === 'POST' || metodo === 'DELETE')) {
             const conta = await exigirConta(id);
             if (conta.id === eu.id) throw new Recusa(400, 'Você não pode seguir a si mesmo');

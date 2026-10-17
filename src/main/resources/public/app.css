@@ -863,6 +863,14 @@ main:has(> .pagina-da-comunidade) { max-width: none; }
 }
 .coluna-da-comunidade { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .coluna-da-comunidade > .abas { margin-bottom: 0; }
+/* as abas dos feeds e a barra de pesquisa na mesma linha; sem espaco para as duas, a barra desce */
+.topo-do-feed { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; box-shadow: inset 0 -1px var(--borda); }
+.topo-do-feed > .abas { margin-bottom: 0; box-shadow: none; flex: 0 1 auto; min-width: 0; }
+.topo-do-feed > .busca-da-comunidade { flex: 1 1 260px; max-width: 380px; padding-bottom: 6px; }
+@media (max-width: 560px) {
+    .topo-do-feed { flex-direction: column-reverse; align-items: stretch; }
+    .topo-do-feed > .busca-da-comunidade { max-width: none; flex-basis: auto; padding-bottom: 0; }
+}
 .lateral-da-comunidade { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 14px; }
 .caixa-da-comunidade { padding: 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); display: flex; flex-direction: column; gap: 12px; }
 .caixa-da-comunidade h2 { margin: 0; font-size: 17px; }
@@ -1164,6 +1172,13 @@ a.hashtag:hover { text-decoration: underline; }
 .pessoa-encontrada small { color: var(--texto-fraco); font-size: 12.5px; }
 .numeros-do-perfil { display: flex; gap: 18px; margin: 4px 0; color: var(--texto-fraco); }
 .numeros-do-perfil b { color: var(--texto); }
+/* seguidores e seguindo: abrem a lista de quem e */
+.numero-clicavel { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.numero-clicavel:hover { color: var(--texto); text-decoration: underline; }
+.numero-clicavel:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; border-radius: 4px; }
+dialog.janela-de-seguir { width: min(440px, calc(100vw - 24px)); }
+.lista-de-seguir { display: flex; flex-direction: column; gap: 4px; max-height: min(60vh, 520px); overflow-y: auto; }
+.lista-de-seguir > .subtitulo { margin: 8px 0; }
 
 /* imagem aberta grande */
 dialog.imagem-grande { width: auto; max-width: 96vw; padding: 0; background: transparent; border: 0; box-shadow: none; }

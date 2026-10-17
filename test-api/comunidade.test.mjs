@@ -1,7 +1,7 @@
 // Testes das regras da Comunidade (posts, comentarios e a ordem do feed "Para voce").
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DadoInvalidoNaComunidade, escaparLike, hashtagsDo, hashtagsQueComecamCom, lerBusca, limparTexto, meusPostsAcimaDosMaisAntigos, pontosDoPost, validarComentario, validarDescricao, validarLista, validarPost } from '../api/_comunidade.js';
+import { DadoInvalidoNaComunidade, escaparLike, hashtagsDo, hashtagsQueComecamCom, doMaisNovoParaOMaisAntigo, lerBusca, limparTexto, pontosDoPost, validarComentario, validarDescricao, validarLista, validarPost } from '../api/_comunidade.js';
 
 const IMAGEM = '0a1b2c3d-1111-4222-8333-444455556666.webp';
 
@@ -89,16 +89,15 @@ test('sugestao de #tags: as que comecam com o digitado, das mais usadas para as 
     assert.deepEqual(hashtagsQueComecamCom(textos, 'xyz'), []);
 });
 
-test('para voce: post seu nunca fica embaixo de post mais antigo de outra pessoa, e so sobe', () => {
+test('para voce: do mais novo para o mais antigo, sejam meus ou de outra pessoa', () => {
     const p = (id, autor, hora) => ({ id, autor, criado_em: `2026-10-16T${String(hora).padStart(2, '0')}:00:00Z` });
-    const ids = linhas => meusPostsAcimaDosMaisAntigos(linhas, 'eu').map(linha => linha.id);
-    // ordem por pontos: dois posts antigos de quem eu sigo, depois o meu (mais novo que eles)
-    assert.deepEqual(ids([p('a', 'bia', 8), p('b', 'caio', 9), p('meu', 'eu', 12)]), ['meu', 'a', 'b']);
-    // um post mais novo que o meu, com mais pontos, continua na frente
-    assert.deepEqual(ids([p('novo', 'bia', 13), p('a', 'bia', 8), p('meu', 'eu', 12)]), ['novo', 'meu', 'a']);
-    // o meu post que ja estava bem colocado nao desce, mesmo sendo mais antigo
-    assert.deepEqual(ids([p('meu', 'eu', 5), p('a', 'bia', 8), p('b', 'caio', 3)]), ['meu', 'a', 'b']);
-    // dois posts meus: o mais novo fica antes do mais antigo
-    assert.deepEqual(ids([p('a', 'bia', 6), p('velho', 'eu', 7), p('b', 'caio', 9), p('recente', 'eu', 11)]), ['recente', 'velho', 'a', 'b']);
+    const ids = linhas => doMaisNovoParaOMaisAntigo(linhas).map(linha => linha.id);
+    // na ordem dos pontos: o meu post com mais pontos vinha antes de posts mais novos dos outros
+    assert.deepEqual(ids([p('meu', 'eu', 8), p('a', 'bia', 12), p('b', 'caio', 9), p('velho', 'eu', 3)]), ['a', 'b', 'meu', 'velho']);
+    // empatados na hora, pelo id
+    assert.deepEqual(ids([p('d', 'bia', 10), p('c', 'eu', 10)]), ['c', 'd']);
+    const linhas = [p('x', 'eu', 1), p('y', 'bia', 2)];
+    ids(linhas);
+    assert.deepEqual(linhas.map(linha => linha.id), ['x', 'y'], 'nao muda a lista recebida');
     assert.deepEqual(ids([]), []);
 });

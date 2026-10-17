@@ -169,6 +169,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Sugestões e ordem do feed.** A barra de pesquisa sugere até 3 itens (pessoas, #tags e posts); no "Para você", os
   seus posts não ficam mais embaixo de posts mais antigos dos outros ao recarregar; e o limite de cadastro passou para
   20 em 10 minutos. Detalhes em [Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md).
+- **Feed por data e seguidores.** O "Para você" passou a mostrar os posts sempre do mais novo para o mais antigo (os
+  pontos só escolhem quais entram), as abas foram para a mesma linha da barra de pesquisa, e no perfil dá para clicar
+  nos seguidores e em "seguindo" para ver quem são. Detalhes em [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).
 
 ## O que foi removido ou abandonado
 

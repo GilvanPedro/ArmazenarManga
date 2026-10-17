@@ -72,3 +72,6 @@ O limite de contas criadas no site inteiro passou de **20 por hora** para **20 e
 - O caso relatado, refeito no navegador: o post antigo do Caio (seguido e curtido, cerca de 3,8 pontos) ficava acima
   do meu post novo (cerca de 2,6). Agora o meu fica em cima ao abrir, ao recarregar e ao entrar numa #tag e voltar. Um
   post da Bia mais novo que o meu continua podendo vir antes.
+
+> Depois, a regra dos seus posts saiu: o "Para você" passou a ser do mais novo para o mais antigo para todos os posts.
+> Veja [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).

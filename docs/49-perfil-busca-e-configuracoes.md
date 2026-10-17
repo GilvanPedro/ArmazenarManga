@@ -98,3 +98,6 @@ No banco, a tabela `contas` ganhou a coluna `descricao` (texto, vazio por padrã
 
 > Depois, a barra de pesquisa passou a sugerir até 3 itens enquanto se digita: veja
 > [Sugestões na busca e seus posts no topo](51-sugestoes-e-ordem-do-feed.md).
+
+> Depois, as abas "Para você" e "Seguindo" foram para a mesma linha da barra de pesquisa, e os números de seguidores e
+> "seguindo" do perfil passaram a abrir a lista de quem é: veja [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).

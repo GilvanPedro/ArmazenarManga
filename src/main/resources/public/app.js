@@ -2629,21 +2629,20 @@ async function telaComunidade(partes, consulta) {
     // aparece quando chegam posts novos suficientes; quem decide atualizar e a pessoa
     const avisoDeNovos = h('button', {type: 'button', class: 'posts-novos', hidden: true, onclick: () => {
         window.scrollTo({top: 0, behavior: 'smooth'});
-        // abre de novo com os posts novos primeiro
-        estado.novosDesde = avisoDeNovos.dataset.desde;
+        // abre de novo: os posts novos sao os mais recentes, entao vem primeiro
         telaComunidade(partes);
     }});
     principal.append(
         h('h1', {class: 'so-leitor'}, 'Comunidade'),
-        barraDeBuscaDaComunidade(),
+        // as abas dos feeds e a barra de pesquisa na mesma linha (em telas estreitas, a barra desce para baixo das abas)
+        h('div', {class: 'topo-do-feed'},
+            h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
+            barraDeBuscaDaComunidade()),
         avisarSePunido(editorDePost(post => porNoFeed(lista, post))),
-        h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
         avisoDeNovos,
         lista);
     estado.recarregar = () => telaComunidade(partes);
-    const novosDesde = estado.novosDesde;
-    estado.novosDesde = null;
-    const aberto = await carregarFeed(lista, 'feed=' + feed + (novosDesde ? '&novosDesde=' + encodeURIComponent(novosDesde) : ''), vez, feed === 'seguindo'
+    const aberto = await carregarFeed(lista, 'feed=' + feed, vez, feed === 'seguindo'
         ? vazio('Nada por aqui ainda', 'Os posts de quem você segue aparecem aqui. Siga leitores pela aba "Para você" ou pelas sugestões.')
         : vazio('A Comunidade está começando', 'Seja o primeiro a postar: conte o que está lendo ou compartilhe uma lista.'));
     if (aberto) {
@@ -2932,11 +2931,7 @@ function telaBusca(principal, inicial, vez) {
                 if (meu !== pedido || vez !== estado.render) return;
                 secaoDePessoas.append(achadas.length === 0
                     ? h('p', {class: 'subtitulo'}, 'Ninguém com esse nick.')
-                    : h('div', {class: 'pessoas-encontradas'}, ...achadas.map(pessoa => h('div', {class: 'pessoa-encontrada'},
-                        h('a', {class: 'quem', href: '#/comunidade/perfil/' + pessoa.id}, avatar(pessoa),
-                            h('span', null, h('b', null, pessoa.nick),
-                                h('small', null, pessoa.descricao || (pessoa.seguidores === 1 ? '1 seguidor' : pessoa.seguidores + ' seguidores')))),
-                        pessoa.euMesmo ? null : botaoDeSeguir(pessoa.id, pessoa.sigo)))));
+                    : h('div', {class: 'pessoas-encontradas'}, ...achadas.map(pessoa => linhaDePessoa(pessoa))));
             } catch (e) {
                 if (meu === pedido) secaoDePessoas.append(h('p', {class: 'subtitulo'}, e.message));
             }
@@ -2954,6 +2949,51 @@ function telaBusca(principal, inicial, vez) {
     requestAnimationFrame(() => campo.focus());
 }
 
+/** Uma pessoa numa lista (busca, seguidores, seguindo): foto, nick, descricao ou seguidores, e o botao de seguir. */
+function linhaDePessoa(pessoa, aoMudar) {
+    const linha = h('div', {class: 'pessoa-encontrada'},
+        h('a', {class: 'quem', href: '#/comunidade/perfil/' + pessoa.id}, avatar(pessoa),
+            h('span', null, h('b', null, pessoa.nick),
+                h('small', null, pessoa.descricao || (pessoa.seguidores === 1 ? '1 seguidor' : pessoa.seguidores + ' seguidores')))));
+    if (!pessoa.euMesmo) linha.append(botaoDeSeguir(pessoa.id, pessoa.sigo, aoMudar));
+    return linha;
+}
+
+/**
+ * Quem segue a pessoa do perfil (qual 'seguidores') ou quem ela segue (qual 'seguindo'), numa janela por cima do
+ * perfil. Clicar numa pessoa abre o perfil dela; ao fechar depois de seguir alguem, os numeros do perfil sao refeitos.
+ */
+async function janelaDeSeguir(perfil, qual) {
+    const titulo = qual === 'seguidores' ? 'Seguidores de ' + perfil.nick : perfil.nick + ' segue';
+    const conteudo = h('div', {class: 'lista-de-seguir'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const dialogo = h('dialog', {class: 'janela-de-seguir', 'aria-label': titulo},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, titulo), fechar),
+        conteudo);
+    let mudou = false;
+    fechar.addEventListener('click', () => dialogo.close());
+    // ir para outro perfil fecha a janela
+    dialogo.addEventListener('click', evento => {
+        if (evento.target.closest('a.quem')) dialogo.close();
+    });
+    dialogo.addEventListener('close', () => {
+        dialogo.remove();
+        if (mudou && location.hash === '#/comunidade/perfil/' + perfil.id) telaComunidade(['perfil', perfil.id]);
+    });
+    document.body.append(dialogo);
+    dialogo.showModal();
+    try {
+        const pessoas = await chamar('GET', '/api/comunidade/contas/' + encodeURIComponent(perfil.id) + '/' + qual);
+        conteudo.replaceChildren(...(pessoas.length === 0
+            ? [h('p', {class: 'subtitulo'}, qual === 'seguidores'
+                ? (perfil.euMesmo ? 'Ninguém segue você ainda.' : 'Ninguém segue ' + perfil.nick + ' ainda.')
+                : (perfil.euMesmo ? 'Você ainda não segue ninguém.' : perfil.nick + ' ainda não segue ninguém.'))]
+            : pessoas.map(pessoa => linhaDePessoa(pessoa, () => { mudou = true; }))));
+    } catch (e) {
+        conteudo.replaceChildren(h('p', {class: 'subtitulo'}, e.message));
+    }
+}
+
 async function telaPerfil(principal, id, vez) {
     let perfil;
     try {
@@ -2968,8 +3008,11 @@ async function telaPerfil(principal, id, vez) {
     const mostrarNumeros = dados => numeros.replaceChildren(
         h('span', null, h('b', null, String(perfil.mangas)), perfil.mangas === 1 ? ' mangá' : ' mangás'),
         h('span', null, h('b', null, String(dados.posts)), dados.posts === 1 ? ' post' : ' posts'),
-        h('span', null, h('b', null, String(dados.seguidores)), dados.seguidores === 1 ? ' seguidor' : ' seguidores'),
-        h('span', null, h('b', null, String(dados.seguindo)), ' seguindo'));
+        // clicar nos seguidores ou em "seguindo" mostra quem sao
+        h('button', {type: 'button', class: 'numero-clicavel', onclick: () => janelaDeSeguir(perfil, 'seguidores')},
+            h('b', null, String(dados.seguidores)), dados.seguidores === 1 ? ' seguidor' : ' seguidores'),
+        h('button', {type: 'button', class: 'numero-clicavel', onclick: () => janelaDeSeguir(perfil, 'seguindo')},
+            h('b', null, String(dados.seguindo)), ' seguindo'));
     mostrarNumeros(perfil);
     const lista = h('div', {class: 'feed'});
     // append escreveria "null" como texto: o que nao vale fica de fora

@@ -129,3 +129,6 @@ acima.
   "12 posts novos" apareceu sem mover o feed; ao clicar, os 12 vieram primeiro.
 - Os contadores dos 20 mil posts conferidos contra a contagem real.
 - Os 61 testes da versão JavaScript continuam passando. As rotas da Comunidade não têm teste automático.
+
+> Depois, o "Para você" passou a ser exibido do mais novo para o mais antigo, e o `novosDesde` deixou de ser usado:
+> veja [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).
