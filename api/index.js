@@ -1299,7 +1299,7 @@ function comunidade() {
 // a loja de bordas (api/_loja.js), com o pagamento pelo Mercado Pago
 let rotasDaLoja;
 function loja() {
-    rotasDaLoja ??= criarLoja({ banco, json, Recusa, lerCorpo, semCache });
+    rotasDaLoja ??= criarLoja({ banco, json, Recusa, lerCorpo, semCache, ehDono });
     return rotasDaLoja;
 }
 

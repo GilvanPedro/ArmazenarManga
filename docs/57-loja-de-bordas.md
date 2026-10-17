@@ -139,3 +139,6 @@ A sessão (`/api/inicio`, `/api/sessao`) passou a trazer `conta.borda`, e o auto
 > Efeitos e Mochila, com páginas: veja [Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md).
 
 > Depois, a loja ganhou mais sete bordas, com enfeites que saem da capa: veja [Bordas ornamentadas](60-bordas-ornamentadas.md).
+
+> Depois, a conta do dono do site passou a ter todos os itens sem comprar: veja
+> [O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md).

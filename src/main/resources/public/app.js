@@ -2748,6 +2748,7 @@ async function telaLoja(partes, consulta) {
         const minhas = dados.itens.filter(item => tenho(item.id));
         conteudo.replaceChildren(...[
             ...gradePaginada([...ITENS_DE_SEMPRE, ...minhas]),
+            dados.temTudo ? h('p', {class: 'nota-da-loja'}, 'Como dono do site, você tem todos os itens da loja, inclusive os que entrarem depois.') : null,
             minhas.length ? null : h('p', {class: 'nota-da-loja'}, 'Sua mochila só tem a borda roxa e o brilho de sempre por enquanto. ',
                 h('a', {href: '#/loja/bordas'}, 'Ver a loja'))].filter(Boolean));
     };

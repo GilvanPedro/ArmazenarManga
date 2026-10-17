@@ -198,6 +198,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Bordas ornamentadas.** A loja ganhou sete bordas com enfeites que saem da capa (Cristal, Cyberpunk, Abissal,
   Sombrio, Floresta, Elétrico e Arcano), e a Galáxia ganhou estrelas e um planeta em volta. Detalhes em
   [Bordas ornamentadas](60-bordas-ornamentadas.md).
+- **Itens do dono.** A conta do dono do site passou a ter todos os itens da loja, inclusive os que entrarem depois,
+  sem comprar. Detalhes em [O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md).
 
 ## O que foi removido ou abandonado
 

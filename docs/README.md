@@ -64,6 +64,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [58 · Finanças: ganho e perda do site](58-financas.md) | Gastos e receitas do site mês a mês, com pizzas, ganho e perda de 12 meses e o histórico das vendas da loja |
 | [59 · Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md) | Efeitos a R$ 2,50 para os favoritos, a Loja ao lado da Comunidade, centralizada e com páginas, e Painel e Finanças só para o dono |
 | [60 · Bordas ornamentadas](60-bordas-ornamentadas.md) | Sete bordas novas com enfeites que saem da capa: Cristal, Cyberpunk, Abissal, Sombrio, Floresta, Elétrico e Arcano |
+| [61 · O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md) | A conta do dono do site tem todas as bordas e efeitos, os de hoje e os futuros, sem comprar |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

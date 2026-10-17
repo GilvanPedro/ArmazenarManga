@@ -134,9 +134,12 @@ export function podeMudar(de, para) {
 }
 
 /**
- * @param f ferramentas do api/index.js: banco, json, Recusa, lerCorpo, semCache
+ * @param f ferramentas do api/index.js: banco, json, Recusa, lerCorpo, semCache, ehDono
  */
 export function criarLoja(f) {
+    // o dono do site tem todos os itens, os de hoje e os que entrarem na loja depois, sem comprar
+    const temTudo = eu => Boolean(f.ehDono?.(eu));
+
     const { banco, json } = f;
 
     /** Aplica o que o Mercado Pago diz de um pagamento a compra dele (pelo external_reference). Pode repetir. */
@@ -185,9 +188,11 @@ export function criarLoja(f) {
             db.query('SELECT item, obtido_em FROM mochila WHERE conta = $1 ORDER BY obtido_em', [eu.id]),
             db.query('SELECT borda, efeito FROM contas WHERE id = $1', [eu.id]),
         ]);
+        const comprados = meus.filter(linha => itemDaLoja(linha.item)).map(linha => ({ item: linha.item, obtidoEm: linha.obtido_em }));
         return {
             itens: ITENS_DA_LOJA,
-            mochila: meus.filter(linha => itemDaLoja(linha.item)).map(linha => ({ item: linha.item, obtidoEm: linha.obtido_em })),
+            mochila: temTudo(eu) ? ITENS_DA_LOJA.map(item => ({ item: item.id, obtidoEm: null })) : comprados,
+            temTudo: temTudo(eu),
             equipados: { borda: conta[0]?.borda || null, efeito: conta[0]?.efeito || null },
             pagamentoConfigurado: pagamentoConfigurado(),
         };
@@ -198,6 +203,7 @@ export function criarLoja(f) {
         const { item: id } = await f.lerCorpo(request);
         const item = itemDaLoja(id);
         if (!item) throw new ErroDaLoja(404, 'Item não encontrado na loja');
+        if (temTudo(eu)) throw new ErroDaLoja(409, 'Você é o dono do site: todos os itens já estão na sua mochila');
         const db = await banco();
         const { rows: tem } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item.id]);
         if (tem.length) throw new ErroDaLoja(409, 'Esse item já está na sua mochila');
@@ -268,8 +274,10 @@ export function criarLoja(f) {
         }
         const achado = itemDaLoja(item);
         if (!achado) throw new ErroDaLoja(404, 'Item não encontrado');
-        const { rows } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item]);
-        if (!rows.length) throw new ErroDaLoja(403, 'Esse item não está na sua mochila');
+        if (!temTudo(eu)) {
+            const { rows } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item]);
+            if (!rows.length) throw new ErroDaLoja(403, 'Esse item não está na sua mochila');
+        }
         await db.query(`UPDATE contas SET ${COLUNA_DO_TIPO[achado.tipo]} = $2 WHERE id = $1`, [eu.id, achado.id]);
         return equipados();
     }
