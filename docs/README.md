@@ -60,6 +60,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [54 · Nome do site no Google e apresentação](54-nome-do-site-e-apresentacao.md) | Dados estruturados com o nome Viracap e um texto sobre o site embaixo do formulário de entrar |
 | [55 · Link da extensão na loja do Firefox](55-link-da-extensao-no-firefox.md) | A aba Extensão e atalho leva à loja do Firefox, sem as instruções por arquivo |
 | [56 · Painel dos administradores](56-painel-dos-administradores.md) | Acessos, usuários ativos e contas criadas por dia e por mês, na aba Painel do Gerenciar |
+| [57 · Loja de bordas e mochila](57-loja-de-bordas.md) | Bordas para os favoritos a R$ 4,50, pagas pelo Mercado Pago, e a mochila para equipar |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

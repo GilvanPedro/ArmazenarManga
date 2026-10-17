@@ -90,11 +90,12 @@ export function criarComunidade(f) {
     const { banco, json, Recusa } = f;
 
     const urlDaFoto = (id, foto) => (foto ? `/api/comunidade/contas/${id}/foto?v=${encodeURIComponent(foto)}` : null);
-    const autor = linha => ({ id: linha.autor_id, nick: linha.nick, foto: urlDaFoto(linha.autor_id, linha.foto) });
+    // a borda da loja que o autor equipou: aparece nas capas dos favoritos das listas que ele publica
+    const autor = linha => ({ id: linha.autor_id, nick: linha.nick, foto: urlDaFoto(linha.autor_id, linha.foto), borda: linha.borda || null });
 
     // os campos que todo post devolvido leva; $1 e sempre quem esta usando. Os totais ja estao no post (gatilhos)
     const CAMPOS_DO_POST = `
-        p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto,
+        p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto, c.borda,
         p.curtidas_total AS curtidas, p.comentarios_total AS comentarios,
         EXISTS (SELECT 1 FROM curtidas WHERE post = p.id AND conta = $1) AS curti,
         EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = p.autor) AS sigo`;

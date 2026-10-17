@@ -417,6 +417,100 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
     a.capa:hover { transform: none; }
     .capa.favorita::after { animation: none; }
 }
+/*
+ * bordas da loja: trocam a moldura roxa dos favoritos (classe "borda-{id}", o id do item em api/_loja.js). A camada de
+ * dentro (padding-box) continua sendo o fundo da capa; a de fora (border-box) e a moldura, que em algumas anda.
+ */
+.capa.favorita[class*=" borda-"] { border-width: 4px; }
+.capa.favorita.borda-dourada {
+    --roxo: #e0a526;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(135deg, #fff3c4, #f5c542 22%, #a8740d 45%, #ffe58a 60%, #b8860b 80%, #fff1b8) border-box;
+}
+.capa.favorita.borda-dourada::after { background-image: linear-gradient(115deg, transparent 38%, rgba(255, 248, 220, .22) 48%, rgba(255, 236, 160, .35) 50%, rgba(255, 248, 220, .22) 52%, transparent 62%); animation-duration: 4.5s; }
+.borda-dourada .estrela-de-favorito { background: linear-gradient(145deg, #ffe58a, #e0a526 55%, #8a5a00); }
+
+.capa.favorita.borda-neon {
+    --roxo: #22d3ee;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(90deg, #22d3ee, #f0abfc, #ec4899, #22d3ee) border-box;
+    background-size: auto, 300% 100%;
+    animation: borda-andando 3s linear infinite, neon-pulsando 2.4s ease-in-out infinite;
+}
+@keyframes neon-pulsando {
+    0%, 100% { box-shadow: 0 0 6px rgba(34, 211, 238, .55), 0 0 18px rgba(236, 72, 153, .35); }
+    50% { box-shadow: 0 0 12px rgba(34, 211, 238, .8), 0 0 30px rgba(236, 72, 153, .55); }
+}
+.borda-neon .estrela-de-favorito { background: #0b1020; color: #67e8f9; border-color: #f0abfc; box-shadow: 0 0 10px rgba(240, 171, 252, .8); }
+
+.capa.favorita.borda-sakura {
+    --roxo: #f472b6;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(160deg, #fff1f6, #fbcfe8 25%, #f472b6 50%, #fbcfe8 75%, #fff1f6) border-box;
+}
+.capa.favorita.borda-sakura::after {
+    /* petalas que caem devagar sobre a capa */
+    background: radial-gradient(5px 3px at 20% 10%, rgba(251, 207, 232, .9), transparent 70%),
+        radial-gradient(4px 3px at 70% 0%, rgba(249, 168, 212, .85), transparent 70%),
+        radial-gradient(5px 3px at 45% -10%, rgba(253, 242, 248, .9), transparent 70%);
+    background-size: 100% 60%;
+    background-repeat: repeat;
+    animation: petalas-caindo 9s linear infinite;
+}
+@keyframes petalas-caindo {
+    from { background-position: 0 -60%; }
+    to { background-position: 18px 200%; }
+}
+.borda-sakura .estrela-de-favorito { font-size: 0; background: linear-gradient(145deg, #fff1f6, #f9a8d4 60%, #db2777); }
+.borda-sakura .estrela-de-favorito::before { content: "✿"; font-size: 17px; color: #fff; }
+
+.capa.favorita.borda-chamas {
+    --roxo: #f97316;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(0deg, #7f1d1d, #dc2626, #f97316, #facc15, #f97316, #dc2626, #7f1d1d) border-box;
+    background-size: auto, 100% 300%;
+    animation: chamas-subindo 1.8s linear infinite;
+    box-shadow: 0 0 14px rgba(249, 115, 22, .55), 0 -4px 22px rgba(250, 204, 21, .25);
+}
+@keyframes chamas-subindo {
+    from { background-position: 0 0, 0 0%; }
+    to { background-position: 0 0, 0 100%; }
+}
+.borda-chamas .estrela-de-favorito { background: linear-gradient(0deg, #b91c1c, #f97316 55%, #fde047); }
+
+.capa.favorita.borda-galaxia {
+    --roxo: #6366f1;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        radial-gradient(1.5px 1.5px at 15% 20%, #fff, transparent),
+        radial-gradient(1.5px 1.5px at 60% 8%, #fff, transparent),
+        radial-gradient(1px 1px at 85% 40%, #e0e7ff, transparent),
+        radial-gradient(1.5px 1.5px at 30% 75%, #fff, transparent),
+        radial-gradient(1px 1px at 75% 92%, #c7d2fe, transparent),
+        linear-gradient(135deg, #0f172a, #312e81 35%, #6d28d9 60%, #1e3a8a 85%, #0f172a) border-box;
+    background-origin: padding-box, border-box, border-box, border-box, border-box, border-box, border-box;
+    background-clip: padding-box, border-box, border-box, border-box, border-box, border-box, border-box;
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, .45), 0 6px 24px rgba(79, 70, 229, .5);
+    animation: estrelas-piscando 3s ease-in-out infinite;
+}
+@keyframes estrelas-piscando {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(99, 102, 241, .45), 0 6px 24px rgba(79, 70, 229, .5); }
+    50% { box-shadow: 0 0 0 1px rgba(165, 180, 252, .7), 0 6px 30px rgba(109, 40, 217, .65); }
+}
+.borda-galaxia .estrela-de-favorito { background: radial-gradient(circle at 30% 30%, #a5b4fc, #4338ca 55%, #1e1b4b); }
+
+@keyframes borda-andando {
+    from { background-position: 0 0, 0% 50%; }
+    to { background-position: 0 0, 300% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .capa.favorita[class*=" borda-"], .capa.favorita[class*=" borda-"]::after { animation: none; }
+}
+
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 select.seletor-de-nota { width: auto; }
 .faixa-da-nota:empty { display: none; }
@@ -1345,3 +1439,30 @@ dialog.janela-de-punir { max-width: 460px; }
     .trocar-de-modo { padding: 8px 4px; }
     .tag.escolhida button { display: inline-grid; place-items: center; min-width: 30px; min-height: 30px; }
 }
+
+/* ------------------------------------------------------------ loja e mochila */
+.pagina-da-loja { max-width: 1100px; }
+.pagina-da-loja > h1 { margin-bottom: 6px; }
+.pagina-da-loja > .subtitulo { margin: 0 0 16px; max-width: 70ch; }
+.abas-da-loja { margin-bottom: 16px; }
+.contador-da-mochila { color: var(--texto-fraco); font-weight: 600; }
+.grade-da-loja { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.item-da-loja { display: flex; flex-direction: column; gap: 14px; padding: 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.item-da-loja.equipado { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque); }
+.previa-da-borda { width: 150px; align-self: center; aspect-ratio: 2 / 3; }
+.previa-da-borda img, .previa-da-borda .capa-de-exemplo { width: 100%; height: 100%; object-fit: cover; }
+.capa-de-exemplo { display: grid; place-content: center; justify-items: center; gap: 6px; background: linear-gradient(160deg, #2b303b, #12141a); color: #e9ebf0; }
+.capa-de-exemplo span { font-size: 54px; font-weight: 800; line-height: 1; opacity: .9; }
+.capa-de-exemplo small { font-size: 12px; color: #9aa1b0; }
+.sobre-o-item { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.sobre-o-item h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
+.sobre-o-item p { margin: 0; color: var(--texto-fraco); font-size: 14px; line-height: 1.45; flex: 1; }
+.sobre-o-item .botao { align-self: stretch; }
+.selo-equipada, .selo-na-mochila { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.selo-equipada { background: var(--destaque); color: var(--sobre-destaque); }
+.selo-na-mochila { border: 1px solid var(--borda); color: var(--texto-fraco); }
+.nota-da-loja { margin: 18px 0 0; color: var(--texto-fraco); font-size: 13px; line-height: 1.5; }
+.aviso-da-compra { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.aviso-da-compra span { color: var(--texto-fraco); }
+.aviso-da-compra.aprovada { border-color: var(--lendo); background: color-mix(in srgb, var(--lendo) 10%, var(--superficie)); }
+.aviso-da-compra.recusada { border-color: var(--perigo); background: color-mix(in srgb, var(--perigo) 8%, var(--superficie)); }

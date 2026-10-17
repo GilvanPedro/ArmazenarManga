@@ -38,6 +38,8 @@ O terminal mostra o endereço para os outros aparelhos. Cada pessoa cria a sua c
 | `MANGATRACKER_ADMIN_EMAIL` | vazio | Opcional. E-mails das contas de administração, separados por vírgula. Só elas veem e trazem os mangás de antes das contas |
 | `MANGATRACKER_SEGREDO` | criado sozinho | Opcional (32+ caracteres): assina os cookies de login. Sem ele, um segredo é criado e guardado no banco ou na pasta de dados |
 | `MANGATRACKER_CORS` | vazio | Outros sites que podem chamar a API (só na versão Java) |
+| `MERCADOPAGO_ACCESS_TOKEN` | vazio | Só no Vercel. O token do Mercado Pago para a loja vender (veja [Loja de bordas](57-loja-de-bordas.md)) |
+| `MERCADOPAGO_WEBHOOK_SECRET` | vazio | Só no Vercel. A assinatura secreta dos avisos do Mercado Pago |
 
 O arquivo `.env`, na raiz, guarda essas variáveis para uso local. Ele contém a senha do banco e não vai para o
 GitHub; o `.env.exemplo` é o modelo.
@@ -90,3 +92,6 @@ No plano gratuito, o site dorme após 15 minutos sem uso e leva cerca de um minu
 
 Quem roda no próprio computador e quer acessar de fora precisa colocar o site atrás de HTTPS, com um túnel ou um
 proxy reverso. Abrir a porta direto expõe a senha sem criptografia.
+
+> Depois, a loja de bordas trouxe as variáveis `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET`: veja
+> [Loja de bordas e mochila](57-loja-de-bordas.md).

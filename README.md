@@ -96,6 +96,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Sugestões na busca e seus posts no topo](docs/51-sugestoes-e-ordem-do-feed.md) | [Feed por data, abas e seguidores](docs/52-feed-por-data-abas-e-seguidores.md) |
 | [Botão "Lido" maior e mais para cima](docs/53-botao-lido-maior-e-mais-alto.md) | [Nome do site no Google e apresentação](docs/54-nome-do-site-e-apresentacao.md) |
 | [Link da extensão na loja do Firefox](docs/55-link-da-extensao-no-firefox.md) | [Painel dos administradores](docs/56-painel-dos-administradores.md) |
+| [Loja de bordas e mochila](docs/57-loja-de-bordas.md) | |
 
 ## Testes
 

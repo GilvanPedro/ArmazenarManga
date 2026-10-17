@@ -185,6 +185,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   acessos e as contas criadas, em números, gráficos por dia e uma tabela por mês. O site passou a contar os acessos
   (sem IP nem navegador) e os dias em que cada conta usa o site. Detalhes em
   [Painel dos administradores](56-painel-dos-administradores.md).
+- **Loja de bordas.** A Biblioteca ganhou a Loja, com cinco bordas para as capas dos favoritos a R$ 4,50 cada,
+  pagas pelo Mercado Pago (Pix ou cartão), e a Mochila, para equipar a borda comprada. Detalhes em
+  [Loja de bordas e mochila](57-loja-de-bordas.md).
 
 ## O que foi removido ou abandonado
 

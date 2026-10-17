@@ -277,8 +277,8 @@ function seletorDeNota(nota) {
 }
 
 function capa(manga, comoLink) {
-    // favorito: borda dourada e estrela no canto, em toda capa do manga
-    const atributos = {class: 'capa' + (manga.favorite ? ' favorita' : '')};
+    // favorito: borda roxa (ou a da loja que a pessoa equipou) e estrela no canto, em toda capa do manga
+    const atributos = {class: 'capa' + (manga.favorite ? ' favorita' + classeDaBorda(minhaBorda()) : '')};
     if (comoLink) {
         atributos.href = '#/manga/' + manga.id;
         atributos['aria-label'] = manga.title + (manga.favorite ? ' (favorito)' : '');
@@ -487,7 +487,9 @@ function abas(atual) {
         aba('todos', '#/', 'Todos os mangás'),
         aba('hoje', '#/hoje', 'Lançam hoje'),
         aba('descobrir', '#/descobrir', 'Descobrir'),
-        aba('atalho', '#/atalho', 'Extensão e atalho')));
+        aba('atalho', '#/atalho', 'Extensão e atalho'),
+        // a loja so existe na versao do Vercel (a mesma que tem a Comunidade)
+        estado.temComunidade ? aba('loja', '#/loja', 'Loja') : null));
 }
 
 /**
@@ -1076,6 +1078,8 @@ async function telaDetalhes(id, aviso) {
         const naCapa = app.querySelector('.detalhes > .capa');
         if (!naCapa) return;
         naCapa.classList.toggle('favorita', manga.favorite);
+        const borda = minhaBorda();
+        if (borda) naCapa.classList.toggle('borda-' + borda, manga.favorite);
         naCapa.querySelectorAll('.estrela-de-favorito').forEach(estrela => estrela.remove());
         if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'));
     };
@@ -2404,6 +2408,7 @@ function rota() {
     if (partes[0] === 'hoje') return telaHoje();
     if (partes[0] === 'descobrir') return telaDescobrir();
     if (partes[0] === 'atalho') return telaAtalho();
+    if (partes[0] === 'loja') return telaLoja(partes.slice(1), consulta);
     if (partes[0] === 'conta') return telaConta();
     if (partes[0] === 'comunidade') return telaComunidade(partes.slice(1), consulta);
     if (partes[0] === 'gerenciar') return telaGerenciar(partes.slice(1));
@@ -2581,6 +2586,202 @@ async function sair() {
     esquecerDadosDaConta();
     estado.sessao = {...estado.sessao, logado: false, conta: null};
     telaLogin();
+}
+
+// ------------------------------------------------------------------ loja
+
+/** A borda da loja que a pessoa equipou (nula: a roxa de sempre). */
+const minhaBorda = () => estado.sessao?.conta?.borda || null;
+/** A classe que poe a borda numa capa de favorito (o id vem do servidor, mas so letras viram classe). */
+const classeDaBorda = borda => (borda && /^[a-z]+$/.test(borda) ? ' borda-' + borda : '');
+const PRECO_EM_REAIS = centavos => (centavos / 100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+
+/**
+ * Capa de exemplo para mostrar uma borda: a capa de um favorito da pessoa, se houver; se nao, uma capa desenhada.
+ * A estrela vai junto, como nas capas de verdade.
+ */
+function previaDaBorda(borda, exemplo) {
+    const imagem = exemplo
+        ? h('img', {src: exemplo, alt: '', loading: 'lazy', decoding: 'async', width: '300', height: '450'})
+        : h('div', {class: 'capa-de-exemplo', 'aria-hidden': 'true'}, h('span', null, '漫'), h('small', null, 'Seu favorito'));
+    return h('div', {class: 'capa favorita previa-da-borda' + classeDaBorda(borda)}, imagem,
+        h('span', {class: 'estrela-de-favorito', 'aria-hidden': 'true'}, '★'));
+}
+
+/**
+ * Loja (#/loja) e mochila (#/loja/mochila). Na loja, as bordas a venda; na mochila, as compradas, para equipar uma
+ * (ou voltar a roxa). Ao voltar do Mercado Pago (#/loja?compra=ID), confere o pagamento ate ele ser aprovado.
+ */
+async function telaLoja(partes, consulta) {
+    const vez = ++estado.render;
+    const aba = partes[0] === 'mochila' ? 'mochila' : 'loja';
+    document.title = (aba === 'mochila' ? 'Mochila' : 'Loja') + ' · Viracap';
+    const compraVoltando = new URLSearchParams(consulta || '').get('compra');
+    const aviso = h('div', {class: 'aviso-da-compra', role: 'status', hidden: true});
+    const conteudo = h('div', {class: 'conteudo-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+    const link = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, texto);
+    const contador = h('span', {class: 'contador-da-mochila'});
+    app.replaceChildren(
+        abas('loja'),
+        h('div', {class: 'pagina-da-loja'},
+            h('h1', null, 'Loja'),
+            h('p', {class: 'subtitulo'}, 'Bordas para as capas dos seus mangás favoritos. Cada uma custa ' + PRECO_EM_REAIS(450)
+                + ', você paga uma vez e ela fica na sua mochila para sempre. Quem vê suas listas na Comunidade também vê a borda.'),
+            aviso,
+            h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'}, link('loja', '#/loja', 'Bordas'), link('mochila', '#/loja/mochila', ['Mochila', contador])),
+            conteudo));
+    estado.recarregar = () => telaLoja(partes, consulta);
+
+    let dados;
+    let exemplo = null;
+    try {
+        const [vitrine, favoritos] = await Promise.all([
+            chamar('GET', '/api/loja'),
+            chamar('GET', '/api/mangas?ordem=FAVORITOS&resumo=1&pagina=1&tamanho=1').catch(() => null),
+        ]);
+        dados = vitrine;
+        const primeiro = favoritos?.itens?.[0];
+        if (primeiro?.favorite) exemplo = primeiro.thumbUrl || primeiro.imageUrl;
+    } catch (e) {
+        if (vez === estado.render) conteudo.replaceChildren(vazio('Não deu para abrir a loja', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    const tenho = id => dados.mochila.some(item => item.item === id);
+    contador.textContent = dados.mochila.length ? ' ' + dados.mochila.length : '';
+
+    const equipar = async (item, botao) => {
+        botao.disabled = true;
+        try {
+            const {equipada} = await chamar('PUT', '/api/loja/equipar', {item});
+            estado.sessao.conta.borda = equipada;
+            dados.equipada = equipada;
+            avisar(equipada ? 'Borda ' + dados.itens.find(i => i.id === equipada).nome + ' equipada' : 'Voltou para a borda roxa');
+            desenhar();
+        } catch (e) {
+            avisar(e.message, true);
+            botao.disabled = false;
+        }
+    };
+    const comprar = async (item, botao) => {
+        botao.disabled = true;
+        botao.textContent = 'Abrindo o pagamento…';
+        try {
+            const {endereco} = await chamar('POST', '/api/loja/comprar', {item: item.id});
+            // o pagamento acontece na pagina do Mercado Pago; depois ele traz a pessoa de volta para #/loja?compra=
+            location.href = endereco;
+        } catch (e) {
+            avisar(e.message, true);
+            botao.disabled = false;
+            botao.textContent = 'Comprar por ' + PRECO_EM_REAIS(item.preco);
+        }
+    };
+
+    const cartaoDoItem = item => {
+        const equipada = dados.equipada === item.id;
+        let acao;
+        if (aba === 'mochila' || tenho(item.id)) {
+            acao = equipada
+                ? h('button', {type: 'button', class: 'botao', onclick: evento => equipar(null, evento.currentTarget)}, 'Tirar')
+                : h('button', {type: 'button', class: 'botao primario', onclick: evento => equipar(item.id, evento.currentTarget)}, 'Equipar');
+        } else {
+            acao = h('button', {type: 'button', class: 'botao primario', disabled: !dados.pagamentoConfigurado,
+                onclick: evento => comprar(item, evento.currentTarget)}, 'Comprar por ' + PRECO_EM_REAIS(item.preco));
+        }
+        return h('article', {class: 'item-da-loja' + (equipada ? ' equipado' : '')},
+            previaDaBorda(item.id, exemplo),
+            h('div', {class: 'sobre-o-item'},
+                h('h2', null, item.nome, equipada ? h('span', {class: 'selo-equipada'}, 'Equipada') : null,
+                    aba === 'loja' && tenho(item.id) && !equipada ? h('span', {class: 'selo-na-mochila'}, 'Na mochila') : null),
+                h('p', null, item.descricao),
+                acao));
+    };
+
+    const desenhar = () => {
+        if (aba === 'loja') {
+            // replaceChildren escreveria "null" como texto: o que nao vale fica de fora
+            conteudo.replaceChildren(...[
+                dados.pagamentoConfigurado ? null : h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'),
+                h('div', {class: 'grade-da-loja'}, ...dados.itens.map(cartaoDoItem)),
+                h('p', {class: 'nota-da-loja'}, 'O pagamento é feito no Mercado Pago, por Pix ou cartão: o Viracap não vê os dados do seu cartão. '
+                    + 'A borda entra na mochila assim que o pagamento é aprovado (no Pix, em alguns segundos).')].filter(Boolean));
+            return;
+        }
+        const minhas = dados.itens.filter(item => tenho(item.id));
+        const padrao = h('article', {class: 'item-da-loja' + (dados.equipada ? '' : ' equipado')},
+            previaDaBorda(null, exemplo),
+            h('div', {class: 'sobre-o-item'},
+                h('h2', null, 'Roxa', dados.equipada ? null : h('span', {class: 'selo-equipada'}, 'Equipada')),
+                h('p', null, 'A borda de sempre dos favoritos. Vem com todas as contas.'),
+                dados.equipada ? h('button', {type: 'button', class: 'botao', onclick: evento => equipar(null, evento.currentTarget)}, 'Equipar') : null));
+        conteudo.replaceChildren(...[
+            h('div', {class: 'grade-da-loja'}, padrao, ...minhas.map(cartaoDoItem)),
+            minhas.length ? null : h('p', {class: 'nota-da-loja'}, 'Sua mochila só tem a borda roxa por enquanto. ',
+                h('a', {href: '#/loja'}, 'Ver as bordas da loja'))].filter(Boolean));
+    };
+    desenhar();
+    if (compraVoltando) acompanharCompra(compraVoltando, aviso, vez, dados, desenhar, contador);
+}
+
+/**
+ * Voltando do Mercado Pago: pergunta ao servidor (que confere no Mercado Pago) ate a compra sair de "pendente", por
+ * ate 2 minutos. Um Pix pago depois disso tambem vale: o aviso do Mercado Pago poe a borda na mochila sozinho.
+ */
+async function acompanharCompra(id, aviso, vez, dados, desenhar, contador) {
+    aviso.hidden = false;
+    aviso.className = 'aviso-da-compra';
+    aviso.replaceChildren(h('b', null, 'Confirmando o pagamento…'), h('span', null, 'Isso leva só alguns segundos.'));
+    // o endereco volta a ser so #/loja: recarregar a pagina nao repete o aviso
+    history.replaceState(null, '', '#/loja');
+    const inicio = Date.now();
+    while (vez === estado.render) {
+        let compra;
+        try {
+            compra = await chamar('GET', '/api/loja/compras/' + encodeURIComponent(id));
+        } catch (e) {
+            aviso.replaceChildren(h('b', null, 'Não deu para conferir a compra'), h('span', null, e.message));
+            return;
+        }
+        if (vez !== estado.render) return;
+        const item = dados.itens.find(i => i.id === compra.item);
+        if (compra.status === 'aprovada') {
+            aviso.className = 'aviso-da-compra aprovada';
+            if (!dados.mochila.some(m => m.item === compra.item)) dados.mochila.push({item: compra.item});
+            contador.textContent = ' ' + dados.mochila.length;
+            desenhar();
+            const botao = h('button', {type: 'button', class: 'botao primario pequeno'}, 'Equipar agora');
+            botao.addEventListener('click', async () => {
+                botao.disabled = true;
+                try {
+                    const {equipada} = await chamar('PUT', '/api/loja/equipar', {item: compra.item});
+                    estado.sessao.conta.borda = dados.equipada = equipada;
+                    desenhar();
+                    botao.replaceWith(h('span', null, '✓ Equipada'));
+                } catch (e) {
+                    avisar(e.message, true);
+                    botao.disabled = false;
+                }
+            });
+            aviso.replaceChildren(h('b', null, 'Pagamento aprovado!'), h('span', null, 'A borda ' + (item?.nome || '') + ' está na sua mochila.'), botao);
+            return;
+        }
+        if (compra.status === 'recusada') {
+            aviso.className = 'aviso-da-compra recusada';
+            aviso.replaceChildren(h('b', null, 'O pagamento não foi aprovado'), h('span', null, 'Nada foi cobrado. Você pode tentar de novo, com outro cartão ou por Pix.'));
+            return;
+        }
+        if (compra.status !== 'pendente') {
+            aviso.className = 'aviso-da-compra recusada';
+            aviso.replaceChildren(h('b', null, 'Houve um problema com essa compra'), h('span', null, 'Fale com um administrador do Viracap.'));
+            return;
+        }
+        if (Date.now() - inicio > 120_000) {
+            aviso.replaceChildren(h('b', null, 'Aguardando o pagamento'),
+                h('span', null, 'Assim que o Mercado Pago confirmar (no Pix, depois de você pagar), a borda aparece na sua mochila sozinha.'));
+            return;
+        }
+        await new Promise(pronto => setTimeout(pronto, 3000));
+    }
 }
 
 // ------------------------------------------------------------------ comunidade
@@ -3627,8 +3828,8 @@ function verImagem(endereco) {
 }
 
 /** Capa de um manga da lista anexada (a copia de quando foi publicada), com a nota por cima (o status nao aparece). */
-function capaDaLista(item, comNota) {
-    return h('div', {class: 'capa' + (item.favorito ? ' favorita' : '')},
+function capaDaLista(item, comNota, borda) {
+    return h('div', {class: 'capa' + (item.favorito ? ' favorita' + classeDaBorda(borda) : '')},
         item.capa ? h('img', {src: item.capa, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'})
             : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (item.titulo || '?').charAt(0).toUpperCase()),
         comNota ? etiquetaNota(item.nota) : null);
@@ -3642,7 +3843,7 @@ function listaDoPost(lista, autor) {
     const quantos = lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás';
     return h('button', {type: 'button', class: 'lista-do-post', 'aria-label': 'Ver a lista ' + (lista.titulo || 'de mangás') + ', ' + quantos,
         onclick: () => abrirListaDoPost(lista, autor)},
-    h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false)),
+    h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false, autor.borda)),
     h('div', {class: 'sobre-a-lista'},
         h('span', {class: 'tipo-da-lista'}, 'Lista'),
         h('b', null, lista.titulo || 'Lista de mangás'),
@@ -3678,7 +3879,7 @@ function abrirListaDoPost(lista, autor) {
         conteudo.replaceChildren(
             h('p', {class: 'subtitulo'}, 'Lista de ', h('b', null, autor.nick), ' · ', lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás'),
             h('div', {class: 'grade-da-lista'}, lista.itens.map(item => h('button', {type: 'button', class: 'item-da-lista', title: item.titulo,
-                onclick: () => mostrarManga(item)}, capaDaLista(item, true), h('span', {class: 'nome-do-item'}, item.titulo)))));
+                onclick: () => mostrarManga(item)}, capaDaLista(item, true, autor.borda), h('span', {class: 'nome-do-item'}, item.titulo)))));
     };
     const mostrarManga = item => {
         vendoManga = true;
@@ -3688,7 +3889,7 @@ function abrirListaDoPost(lista, autor) {
         conteudo.replaceChildren(
             h('button', {type: 'button', class: 'voltar-para-a-lista', onclick: mostrarLista}, '← Voltar para a lista'),
             h('div', {class: 'manga-da-lista'},
-                capaDaLista(item, false),
+                capaDaLista(item, false, autor.borda),
                 h('div', {class: 'sobre-o-manga'},
                     // o status (lendo, hiatus...) e de quem cadastrou: nao aparece aqui
                     h('div', {class: 'linha'},

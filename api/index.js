@@ -8,6 +8,7 @@ import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, 
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
+import { ESTRUTURA_DA_LOJA, criarLoja } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
@@ -109,7 +110,7 @@ const ESTRUTURA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
-` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL;
+` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA;
 
 async function banco() {
     if (!conexoes) {
@@ -680,7 +681,7 @@ async function sessaoValida(request) {
     const cookie = lerCookie(request.headers.get('cookie'), COOKIE);
     const id = contaDoCookie(cookie);
     if (!id) return null;
-    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto FROM contas WHERE id = $1', [id]);
+    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto, borda FROM contas WHERE id = $1', [id]);
     if (rows.length === 0) return null; // conta excluida
     const expira = validarSessao(cookie, await segredoDaSessao(), rows[0].id, rows[0].senha_hash);
     return expira ? { conta: rows[0], expira } : null;
@@ -709,6 +710,8 @@ const contaPublica = conta => ({
     id: conta.id, email: conta.email, nick: conta.nick, admin: ehAdmin(conta),
     // a foto e uma imagem da propria conta: so quem esta nela consegue abrir
     foto: conta.foto ? '/api/imagens/' + conta.foto : null,
+    // a borda da loja equipada nas capas dos favoritos (nula: a roxa de sempre)
+    borda: conta.borda || null,
 });
 
 const respostaDaSessao = sessao => ({
@@ -984,6 +987,11 @@ async function rotear(request) {
     if (vemDeOutroSite(request)) throw new Recusa(403, 'Requisição vinda de outro site');
     if (recurso === 'sessao' && partes.length === 1) return tratarSessao(request);
     if (recurso === 'contas' && partes.length === 1 && metodo === 'POST') return criarConta(request);
+    // o aviso do Mercado Pago e a volta da pagina de pagamento chegam sem login
+    if (recurso === 'loja') {
+        const resposta = await loja().semLogin(request, url, partes.slice(1));
+        if (resposta) return resposta;
+    }
     // tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista)
     if (recurso === 'inicio' && partes.length === 1 && metodo === 'GET') {
         const sessaoDoInicio = await sessaoValida(request);
@@ -1005,6 +1013,7 @@ async function rotear(request) {
     await marcarAtividade(await banco(), sessao.conta.id);
     if (recurso === 'conta' && partes.length <= 2) return tratarConta(request, sessao, id);
     if (recurso === 'comunidade') return comunidade()(request, url, partes.slice(1), sessao.conta);
+    if (recurso === 'loja') return loja().comLogin(request, url, partes.slice(1), sessao.conta);
 
     if (recurso === 'status' && partes.length === 1 && metodo === 'GET') {
         return json(200, listaDeStatus());
@@ -1268,6 +1277,13 @@ function comunidade() {
         miniaturasDe: miniaturas,
     });
     return rotasDaComunidade;
+}
+
+// a loja de bordas (api/_loja.js), com o pagamento pelo Mercado Pago
+let rotasDaLoja;
+function loja() {
+    rotasDaLoja ??= criarLoja({ banco, json, Recusa, lerCorpo, semCache });
+    return rotasDaLoja;
 }
 
 async function tratar(request) {
