@@ -278,7 +278,7 @@ function seletorDeNota(nota) {
 
 function capa(manga, comoLink) {
     // favorito: borda roxa (ou a da loja que a pessoa equipou) e estrela no canto, em toda capa do manga
-    const atributos = {class: 'capa' + (manga.favorite ? ' favorita' + classeDaBorda(minhaBorda()) : '')};
+    const atributos = {class: 'capa' + (manga.favorite ? ' favorita' + classesDaLoja(meusEquipados()) : '')};
     if (comoLink) {
         atributos.href = '#/manga/' + manga.id;
         atributos['aria-label'] = manga.title + (manga.favorite ? ' (favorito)' : '');
@@ -298,8 +298,15 @@ function capa(manga, comoLink) {
         img.replaceWith(h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (manga.title || '?').trim().charAt(0).toUpperCase()));
     });
     return h(comoLink ? 'a' : 'div', atributos, img, comoLink ? etiquetaStatus(manga.readingStatus) : null, etiquetaNota(manga.rating),
-        manga.favorite ? h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★') : null);
+        manga.favorite ? h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★') : null,
+        manga.favorite ? enfeiteDaBorda() : null);
 }
+
+/**
+ * Camada dos enfeites que algumas bordas da loja desenham em volta da capa (cristais, vinhas, raios, nevoa...). Fica
+ * vazia e escondida nas outras; o CSS de cada borda diz o que aparece nela.
+ */
+const enfeiteDaBorda = () => h('span', {class: 'enfeite-da-borda', 'aria-hidden': 'true'});
 
 /** Miniatura de um manga que veio na lista guardada (a pagina do manga nao traz a miniatura). */
 function miniaturaGuardada(id) {
@@ -487,9 +494,7 @@ function abas(atual) {
         aba('todos', '#/', 'Todos os mangás'),
         aba('hoje', '#/hoje', 'Lançam hoje'),
         aba('descobrir', '#/descobrir', 'Descobrir'),
-        aba('atalho', '#/atalho', 'Extensão e atalho'),
-        // a loja so existe na versao do Vercel (a mesma que tem a Comunidade)
-        estado.temComunidade ? aba('loja', '#/loja', 'Loja') : null));
+        aba('atalho', '#/atalho', 'Extensão e atalho')));
 }
 
 /**
@@ -1078,10 +1083,10 @@ async function telaDetalhes(id, aviso) {
         const naCapa = app.querySelector('.detalhes > .capa');
         if (!naCapa) return;
         naCapa.classList.toggle('favorita', manga.favorite);
-        const borda = minhaBorda();
-        if (borda) naCapa.classList.toggle('borda-' + borda, manga.favorite);
-        naCapa.querySelectorAll('.estrela-de-favorito').forEach(estrela => estrela.remove());
-        if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'));
+        // a borda e o efeito da loja so valem nos favoritos
+        for (const classe of classesDaLoja(meusEquipados()).trim().split(' ').filter(Boolean)) naCapa.classList.toggle(classe, manga.favorite);
+        naCapa.querySelectorAll('.estrela-de-favorito, .enfeite-da-borda').forEach(enfeite => enfeite.remove());
+        if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'), enfeiteDaBorda());
     };
     favoritar.addEventListener('click', async () => {
         favoritar.disabled = true;
@@ -2373,7 +2378,7 @@ async function telaCapturar(consulta) {
  * conta, que nao e de nenhuma das duas). O "+ Adicionar" so faz sentido na Biblioteca.
  */
 function marcarSecao(parte) {
-    for (const [nome, link] of [['biblioteca', 'secao-biblioteca'], ['comunidade', 'secao-comunidade'], ['gerenciar', 'secao-gerenciar']]) {
+    for (const [nome, link] of [['biblioteca', 'secao-biblioteca'], ['comunidade', 'secao-comunidade'], ['loja', 'secao-loja'], ['gerenciar', 'secao-gerenciar']]) {
         const elemento = document.getElementById(link);
         if (nome === parte) elemento.setAttribute('aria-current', 'page');
         else elemento.removeAttribute('aria-current');
@@ -2385,7 +2390,7 @@ function rota() {
     const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
     const partes = caminho.split('/');
     document.title = 'Viracap';
-    marcarSecao(['comunidade', 'gerenciar'].includes(partes[0]) ? partes[0] : partes[0] === 'conta' ? null : 'biblioteca');
+    marcarSecao(['comunidade', 'loja', 'gerenciar'].includes(partes[0]) ? partes[0] : partes[0] === 'conta' ? null : 'biblioteca');
     clearInterval(estado.vigiaDoFeed);
     // voltando de um post para a tela da Comunidade de onde ele foi aberto: ela volta como estava
     const guardada = estado.comunidadeGuardada;
@@ -2552,6 +2557,8 @@ function mostrarConta(conta) {
     link.hidden = sair.hidden = !conta;
     document.querySelector('.secoes').hidden = !conta;
     document.getElementById('secao-gerenciar').hidden = !conta?.admin;
+    // a loja so existe na versao do Vercel (a mesma que tem a Comunidade)
+    document.getElementById('secao-loja').hidden = !conta || estado.temComunidade !== true;
     if (conta) {
         link.replaceChildren(avatar(conta), h('span', {class: 'nick'}, conta.nick));
         // com a Comunidade (versao do Vercel), o nick leva ao proprio perfil; sem ela (versao Java), as configuracoes
@@ -2590,45 +2597,57 @@ async function sair() {
 
 // ------------------------------------------------------------------ loja
 
-/** A borda da loja que a pessoa equipou (nula: a roxa de sempre). */
-const minhaBorda = () => estado.sessao?.conta?.borda || null;
-/** A classe que poe a borda numa capa de favorito (o id vem do servidor, mas so letras viram classe). */
-const classeDaBorda = borda => (borda && /^[a-z]+$/.test(borda) ? ' borda-' + borda : '');
+/** A borda e o efeito da loja que a pessoa equipou (nulos: a borda roxa e o brilho de sempre). */
+const meusEquipados = () => ({borda: estado.sessao?.conta?.borda || null, efeito: estado.sessao?.conta?.efeito || null});
+/** As classes que poem a borda e o efeito numa capa de favorito (o id vem do servidor, mas so letras viram classe). */
+const classesDaLoja = ({borda, efeito} = {}) => (borda && /^[a-z]+$/.test(borda) ? ' borda-' + borda : '')
+    + (efeito && /^[a-z]+$/.test(efeito) ? ' efeito-' + efeito : '');
 const PRECO_EM_REAIS = centavos => (centavos / 100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+/** Os itens de sempre, que toda conta tem: aparecem na mochila para voltar a eles. */
+const ITENS_DE_SEMPRE = [
+    {id: null, tipo: 'borda', nome: 'Roxa', descricao: 'A borda de sempre dos favoritos. Vem com todas as contas.'},
+    {id: null, tipo: 'efeito', nome: 'Brilho', descricao: 'O reflexo de sempre que passa pela capa. Vem com todas as contas.'},
+];
+/** Na loja, cada pagina mostra ate 6 linhas de 5 itens. */
+const ITENS_POR_PAGINA_NA_LOJA = 30;
 
 /**
- * Capa de exemplo para mostrar uma borda: a capa de um favorito da pessoa, se houver; se nao, uma capa desenhada.
- * A estrela vai junto, como nas capas de verdade.
+ * Capa de exemplo para mostrar um item: a capa de um favorito da pessoa, se houver; se nao, uma capa desenhada. Uma
+ * borda aparece com o brilho de sempre; um efeito, com a borda roxa.
  */
-function previaDaBorda(borda, exemplo) {
+function previaDoItem(item, exemplo) {
     const imagem = exemplo
         ? h('img', {src: exemplo, alt: '', loading: 'lazy', decoding: 'async', width: '300', height: '450'})
         : h('div', {class: 'capa-de-exemplo', 'aria-hidden': 'true'}, h('span', null, '漫'), h('small', null, 'Seu favorito'));
-    return h('div', {class: 'capa favorita previa-da-borda' + classeDaBorda(borda)}, imagem,
-        h('span', {class: 'estrela-de-favorito', 'aria-hidden': 'true'}, '★'));
+    const equipados = item.tipo === 'efeito' ? {efeito: item.id} : {borda: item.id};
+    return h('div', {class: 'capa favorita previa-do-item' + classesDaLoja(equipados)}, imagem,
+        h('span', {class: 'estrela-de-favorito', 'aria-hidden': 'true'}, '★'), enfeiteDaBorda());
 }
 
 /**
- * Loja (#/loja) e mochila (#/loja/mochila). Na loja, as bordas a venda; na mochila, as compradas, para equipar uma
- * (ou voltar a roxa). Ao voltar do Mercado Pago (#/loja?compra=ID), confere o pagamento ate ele ser aprovado.
+ * Loja (#/loja/bordas e #/loja/efeitos, com ?pagina=N) e mochila (#/loja/mochila). Na loja, os itens a venda; na
+ * mochila, os comprados e os de sempre, para equipar uma borda e um efeito. Ao voltar do Mercado Pago
+ * (#/loja?compra=ID), confere o pagamento ate ele ser aprovado.
  */
 async function telaLoja(partes, consulta) {
     const vez = ++estado.render;
-    const aba = partes[0] === 'mochila' ? 'mochila' : 'loja';
+    const aba = ['efeitos', 'mochila'].includes(partes[0]) ? partes[0] : 'bordas';
+    const parametros = new URLSearchParams(consulta || '');
+    const compraVoltando = parametros.get('compra');
+    let pagina = Math.max(1, Number.parseInt(parametros.get('pagina'), 10) || 1);
     document.title = (aba === 'mochila' ? 'Mochila' : 'Loja') + ' · Viracap';
-    const compraVoltando = new URLSearchParams(consulta || '').get('compra');
     const aviso = h('div', {class: 'aviso-da-compra', role: 'status', hidden: true});
     const conteudo = h('div', {class: 'conteudo-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
-    const link = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, texto);
+    const link = (nome, endereco, ...texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, ...texto);
     const contador = h('span', {class: 'contador-da-mochila'});
     app.replaceChildren(
-        abas('loja'),
         h('div', {class: 'pagina-da-loja'},
             h('h1', null, 'Loja'),
-            h('p', {class: 'subtitulo'}, 'Bordas para as capas dos seus mangás favoritos. Cada uma custa ' + PRECO_EM_REAIS(450)
-                + ', você paga uma vez e ela fica na sua mochila para sempre. Quem vê suas listas na Comunidade também vê a borda.'),
+            h('p', {class: 'subtitulo'}, 'Bordas (' + PRECO_EM_REAIS(450) + ') e efeitos (' + PRECO_EM_REAIS(250) + ') para as capas dos seus mangás favoritos. '
+                + 'Você paga uma vez e o item fica na sua mochila para sempre. Quem vê suas listas na Comunidade também vê.'),
             aviso,
-            h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'}, link('loja', '#/loja', 'Bordas'), link('mochila', '#/loja/mochila', ['Mochila', contador])),
+            rolagemDasAbas(h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'},
+                link('bordas', '#/loja/bordas', 'Bordas'), link('efeitos', '#/loja/efeitos', 'Efeitos'), link('mochila', '#/loja/mochila', 'Mochila', contador))),
             conteudo));
     estado.recarregar = () => telaLoja(partes, consulta);
 
@@ -2648,15 +2667,16 @@ async function telaLoja(partes, consulta) {
     }
     if (vez !== estado.render) return;
     const tenho = id => dados.mochila.some(item => item.item === id);
-    contador.textContent = dados.mochila.length ? ' ' + dados.mochila.length : '';
+    const mostrarContador = () => { contador.textContent = dados.mochila.length ? ' ' + dados.mochila.length : ''; };
+    mostrarContador();
 
     const equipar = async (item, botao) => {
         botao.disabled = true;
         try {
-            const {equipada} = await chamar('PUT', '/api/loja/equipar', {item});
-            estado.sessao.conta.borda = equipada;
-            dados.equipada = equipada;
-            avisar(equipada ? 'Borda ' + dados.itens.find(i => i.id === equipada).nome + ' equipada' : 'Voltou para a borda roxa');
+            const {equipados} = await chamar('PUT', '/api/loja/equipar', item.id ? {item: item.id} : {tipo: item.tipo, item: null});
+            Object.assign(estado.sessao.conta, equipados);
+            dados.equipados = equipados;
+            avisar(item.nome + (item.tipo === 'efeito' ? ' equipado' : ' equipada'));
             desenhar();
         } catch (e) {
             avisar(e.message, true);
@@ -2678,60 +2698,72 @@ async function telaLoja(partes, consulta) {
     };
 
     const cartaoDoItem = item => {
-        const equipada = dados.equipada === item.id;
+        const equipado = dados.equipados[item.tipo] === item.id;
+        const meu = item.id === null || tenho(item.id);
         let acao;
-        if (aba === 'mochila' || tenho(item.id)) {
-            acao = equipada
-                ? h('button', {type: 'button', class: 'botao', onclick: evento => equipar(null, evento.currentTarget)}, 'Tirar')
-                : h('button', {type: 'button', class: 'botao primario', onclick: evento => equipar(item.id, evento.currentTarget)}, 'Equipar');
+        if (aba === 'mochila' || meu) {
+            acao = equipado
+                ? h('button', {type: 'button', class: 'botao', disabled: true}, '✓ Equipado')
+                : h('button', {type: 'button', class: 'botao primario', onclick: evento => equipar(item, evento.currentTarget)}, 'Equipar');
         } else {
             acao = h('button', {type: 'button', class: 'botao primario', disabled: !dados.pagamentoConfigurado,
                 onclick: evento => comprar(item, evento.currentTarget)}, 'Comprar por ' + PRECO_EM_REAIS(item.preco));
         }
-        return h('article', {class: 'item-da-loja' + (equipada ? ' equipado' : '')},
-            previaDaBorda(item.id, exemplo),
+        return h('article', {class: 'item-da-loja' + (equipado ? ' equipado' : '')},
+            previaDoItem(item, exemplo),
             h('div', {class: 'sobre-o-item'},
-                h('h2', null, item.nome, equipada ? h('span', {class: 'selo-equipada'}, 'Equipada') : null,
-                    aba === 'loja' && tenho(item.id) && !equipada ? h('span', {class: 'selo-na-mochila'}, 'Na mochila') : null),
+                h('span', {class: 'tipo-do-item'}, item.tipo === 'efeito' ? 'Efeito' : 'Borda'),
+                h('h2', null, item.nome),
                 h('p', null, item.descricao),
+                aba !== 'mochila' && meu && !equipado ? h('span', {class: 'selo-na-mochila'}, 'Na mochila') : null,
                 acao));
     };
 
+    /** A grade da pagina atual e, com mais de uma pagina, os botoes de anterior e proxima. */
+    const gradePaginada = itens => {
+        const paginas = Math.max(1, Math.ceil(itens.length / ITENS_POR_PAGINA_NA_LOJA));
+        pagina = Math.min(pagina, paginas);
+        const desta = itens.slice((pagina - 1) * ITENS_POR_PAGINA_NA_LOJA, pagina * ITENS_POR_PAGINA_NA_LOJA);
+        const irPara = numero => { location.hash = '#/loja/' + aba + (numero > 1 ? '?pagina=' + numero : ''); };
+        return [
+            h('div', {class: 'grade-da-loja'}, ...desta.map(cartaoDoItem)),
+            paginas > 1 ? h('nav', {class: 'paginacao-da-loja', 'aria-label': 'Páginas da loja'},
+                h('button', {type: 'button', class: 'botao', disabled: pagina <= 1, onclick: () => irPara(pagina - 1)}, '‹ Anterior'),
+                h('span', null, 'Página ' + pagina + ' de ' + paginas),
+                h('button', {type: 'button', class: 'botao', disabled: pagina >= paginas, onclick: () => irPara(pagina + 1)}, 'Próxima ›')) : null,
+        ];
+    };
+
     const desenhar = () => {
-        if (aba === 'loja') {
-            // replaceChildren escreveria "null" como texto: o que nao vale fica de fora
+        // replaceChildren escreveria "null" como texto: o que nao vale fica de fora
+        if (aba !== 'mochila') {
+            const tipo = aba === 'efeitos' ? 'efeito' : 'borda';
             conteudo.replaceChildren(...[
                 dados.pagamentoConfigurado ? null : h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'),
-                h('div', {class: 'grade-da-loja'}, ...dados.itens.map(cartaoDoItem)),
+                ...gradePaginada(dados.itens.filter(item => item.tipo === tipo)),
                 h('p', {class: 'nota-da-loja'}, 'O pagamento é feito no Mercado Pago, por Pix ou cartão: o Viracap não vê os dados do seu cartão. '
-                    + 'A borda entra na mochila assim que o pagamento é aprovado (no Pix, em alguns segundos).')].filter(Boolean));
+                    + 'O item entra na mochila assim que o pagamento é aprovado (no Pix, em alguns segundos).')].filter(Boolean));
             return;
         }
         const minhas = dados.itens.filter(item => tenho(item.id));
-        const padrao = h('article', {class: 'item-da-loja' + (dados.equipada ? '' : ' equipado')},
-            previaDaBorda(null, exemplo),
-            h('div', {class: 'sobre-o-item'},
-                h('h2', null, 'Roxa', dados.equipada ? null : h('span', {class: 'selo-equipada'}, 'Equipada')),
-                h('p', null, 'A borda de sempre dos favoritos. Vem com todas as contas.'),
-                dados.equipada ? h('button', {type: 'button', class: 'botao', onclick: evento => equipar(null, evento.currentTarget)}, 'Equipar') : null));
         conteudo.replaceChildren(...[
-            h('div', {class: 'grade-da-loja'}, padrao, ...minhas.map(cartaoDoItem)),
-            minhas.length ? null : h('p', {class: 'nota-da-loja'}, 'Sua mochila só tem a borda roxa por enquanto. ',
-                h('a', {href: '#/loja'}, 'Ver as bordas da loja'))].filter(Boolean));
+            ...gradePaginada([...ITENS_DE_SEMPRE, ...minhas]),
+            minhas.length ? null : h('p', {class: 'nota-da-loja'}, 'Sua mochila só tem a borda roxa e o brilho de sempre por enquanto. ',
+                h('a', {href: '#/loja/bordas'}, 'Ver a loja'))].filter(Boolean));
     };
     desenhar();
-    if (compraVoltando) acompanharCompra(compraVoltando, aviso, vez, dados, desenhar, contador);
+    if (compraVoltando) acompanharCompra(compraVoltando, aviso, vez, dados, () => { mostrarContador(); desenhar(); });
 }
 
 /**
  * Voltando do Mercado Pago: pergunta ao servidor (que confere no Mercado Pago) ate a compra sair de "pendente", por
- * ate 2 minutos. Um Pix pago depois disso tambem vale: o aviso do Mercado Pago poe a borda na mochila sozinho.
+ * ate 2 minutos. Um Pix pago depois disso tambem vale: o aviso do Mercado Pago poe o item na mochila sozinho.
  */
-async function acompanharCompra(id, aviso, vez, dados, desenhar, contador) {
+async function acompanharCompra(id, aviso, vez, dados, redesenhar) {
     aviso.hidden = false;
     aviso.className = 'aviso-da-compra';
     aviso.replaceChildren(h('b', null, 'Confirmando o pagamento…'), h('span', null, 'Isso leva só alguns segundos.'));
-    // o endereco volta a ser so #/loja: recarregar a pagina nao repete o aviso
+    // o endereco perde o ?compra=: recarregar a pagina nao repete o aviso
     history.replaceState(null, '', '#/loja');
     const inicio = Date.now();
     while (vez === estado.render) {
@@ -2744,25 +2776,26 @@ async function acompanharCompra(id, aviso, vez, dados, desenhar, contador) {
         }
         if (vez !== estado.render) return;
         const item = dados.itens.find(i => i.id === compra.item);
+        const nome = item ? (item.tipo === 'efeito' ? 'O efeito ' : 'A borda ') + item.nome : 'O item';
         if (compra.status === 'aprovada') {
             aviso.className = 'aviso-da-compra aprovada';
             if (!dados.mochila.some(m => m.item === compra.item)) dados.mochila.push({item: compra.item});
-            contador.textContent = ' ' + dados.mochila.length;
-            desenhar();
+            redesenhar();
             const botao = h('button', {type: 'button', class: 'botao primario pequeno'}, 'Equipar agora');
             botao.addEventListener('click', async () => {
                 botao.disabled = true;
                 try {
-                    const {equipada} = await chamar('PUT', '/api/loja/equipar', {item: compra.item});
-                    estado.sessao.conta.borda = dados.equipada = equipada;
-                    desenhar();
-                    botao.replaceWith(h('span', null, '✓ Equipada'));
+                    const {equipados} = await chamar('PUT', '/api/loja/equipar', {item: compra.item});
+                    Object.assign(estado.sessao.conta, equipados);
+                    dados.equipados = equipados;
+                    redesenhar();
+                    botao.replaceWith(h('span', null, '✓ Equipado'));
                 } catch (e) {
                     avisar(e.message, true);
                     botao.disabled = false;
                 }
             });
-            aviso.replaceChildren(h('b', null, 'Pagamento aprovado!'), h('span', null, 'A borda ' + (item?.nome || '') + ' está na sua mochila.'), botao);
+            aviso.replaceChildren(h('b', null, 'Pagamento aprovado!'), h('span', null, nome + ' está na sua mochila.'), botao);
             return;
         }
         if (compra.status === 'recusada') {
@@ -2777,7 +2810,7 @@ async function acompanharCompra(id, aviso, vez, dados, desenhar, contador) {
         }
         if (Date.now() - inicio > 120_000) {
             aviso.replaceChildren(h('b', null, 'Aguardando o pagamento'),
-                h('span', null, 'Assim que o Mercado Pago confirmar (no Pix, depois de você pagar), a borda aparece na sua mochila sozinha.'));
+                h('span', null, 'Assim que o Mercado Pago confirmar (no Pix, depois de você pagar), o item aparece na sua mochila sozinho.'));
             return;
         }
         await new Promise(pronto => setTimeout(pronto, 3000));
@@ -3515,21 +3548,27 @@ async function telaGerenciar(partes) {
             h('a', {class: 'botao', href: '#/comunidade'}, 'Ir para a Comunidade')));
         return;
     }
-    // o painel abre primeiro: e o resumo do site; contas e registro sao a moderacao
-    const aba = ['contas', 'registro'].includes(partes[0]) ? partes[0] : 'painel';
+    // o painel e as financas sao so do dono do site (e o painel abre primeiro para ele); os outros admins moderam
+    const dono = estado.sessao.conta.dono === true;
+    const permitidas = dono ? ['painel', 'financas', 'contas', 'registro'] : ['contas', 'registro'];
+    const aba = permitidas.includes(partes[0]) ? partes[0] : permitidas[0];
     const conteudo = h('div', {class: 'conteudo-do-gerenciamento'});
     const link = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, texto);
     app.replaceChildren(h('div', {class: 'pagina-de-gerenciamento'},
         h('h1', null, 'Gerenciar'),
-        h('p', {class: 'subtitulo'}, 'Acompanhe os acessos e as contas do site, suspenda ou bana contas da Comunidade e veja o que os administradores e o robô de imagens fizeram.'),
+        h('p', {class: 'subtitulo'}, dono
+            ? 'Acompanhe os acessos e o dinheiro do site, suspenda ou bana contas da Comunidade e veja o que os administradores e o robô de imagens fizeram.'
+            : 'Suspenda ou bana contas da Comunidade e veja o que os administradores e o robô de imagens fizeram.'),
         rolagemDasAbas(h('nav', {class: 'abas', 'aria-label': 'Gerenciamento'},
-            link('painel', '#/gerenciar', 'Painel'),
+            dono ? link('painel', '#/gerenciar/painel', 'Painel') : null,
+            dono ? link('financas', '#/gerenciar/financas', 'Finanças') : null,
             link('contas', '#/gerenciar/contas', 'Contas'),
             link('registro', '#/gerenciar/registro', 'Registro'))),
         conteudo));
     estado.recarregar = () => telaGerenciar(partes);
     if (aba === 'registro') return registroDoGerenciamento(conteudo, vez);
     if (aba === 'contas') return contasDoGerenciamento(conteudo, vez);
+    if (aba === 'financas') return financasDoGerenciamento(conteudo, vez, partes[1]);
     return painelDoGerenciamento(conteudo, vez);
 }
 
@@ -3712,6 +3751,380 @@ async function painelDoGerenciamento(conteudo, vez, periodo = estado.periodoDoPa
                     h('tbody', null, ...dados.porMes.slice().reverse().map(linhaDoMes))))));
 }
 
+// ------------------------------------------------------------------ financas (so admins)
+
+const reais = centavos => (centavos / 100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+const MESES_POR_EXTENSO = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const mesPorExtenso = mes => MESES_POR_EXTENSO[Number(mes.slice(5, 7)) - 1] + ' de ' + mes.slice(0, 4);
+const somarMesesNoSite = (mes, quantos) => {
+    const data = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 1 + quantos, 1));
+    return data.toISOString().slice(0, 7);
+};
+/** "1.234,56", "1234.56", "R$ 12" -> centavos (ou NaN). */
+function lerReais(texto) {
+    let limpo = String(texto).replace(/[R$\s]/g, '');
+    if (limpo.includes(',')) limpo = limpo.replace(/\./g, '').replace(',', '.');
+    if (!/^\d+(\.\d{1,2})?$/.test(limpo)) return NaN;
+    return Math.round(Number(limpo) * 100);
+}
+
+/**
+ * Pizza (rosca) das fatias [{ nome, valor }]: as cores seguem a ordem da paleta (a maior fatia leva a primeira), um
+ * espaco da cor do fundo separa as fatias, e o total fica no meio. A legenda ao lado tem o nome, o valor e a
+ * porcentagem de cada fatia (os numeros nao dependem da cor nem do mouse); passar o mouse numa fatia destaca a linha.
+ */
+function graficoDePizza(titulo, fatias, vazioTexto) {
+    const total = fatias.reduce((soma, fatia) => soma + fatia.valor, 0);
+    const caixa = h('section', {class: 'pizza-do-painel', 'aria-label': titulo}, h('h3', null, titulo));
+    if (!total) {
+        caixa.append(h('p', {class: 'subtitulo'}, vazioTexto));
+        return caixa;
+    }
+    const tamanho = 180;
+    const raio = 80;
+    const espessura = 30;
+    const grafico = svg('svg', {width: tamanho, height: tamanho, viewBox: `0 0 ${tamanho} ${tamanho}`, role: 'img',
+        'aria-label': titulo + ': ' + fatias.map(fatia => fatia.nome + ' ' + reais(fatia.valor)).join(', ')});
+    const legenda = h('ul', {class: 'legenda-da-pizza'});
+    const centro = tamanho / 2;
+    let angulo = -Math.PI / 2;
+    const ponto = (a, r) => `${centro + r * Math.cos(a)},${centro + r * Math.sin(a)}`;
+    const marcar = i => {
+        grafico.querySelectorAll('.fatia').forEach((fatia, j) => fatia.classList.toggle('apagada', i >= 0 && j !== i));
+        legenda.querySelectorAll('li').forEach((linha, j) => linha.classList.toggle('marcada', j === i));
+    };
+    fatias.forEach((fatia, i) => {
+        const parte = fatia.valor / total;
+        const fim = angulo + parte * Math.PI * 2;
+        const cor = 'var(--serie-' + (i + 1) + ')';
+        let forma;
+        if (fatias.length === 1) {
+            forma = svg('circle', {cx: centro, cy: centro, r: raio - espessura / 2, fill: 'none', stroke: cor, 'stroke-width': espessura, class: 'fatia'});
+        } else {
+            const grande = parte > 0.5 ? 1 : 0;
+            const dentro = raio - espessura;
+            forma = svg('path', {class: 'fatia', fill: cor, d: `M${ponto(angulo, raio)} A${raio},${raio} 0 ${grande} 1 ${ponto(fim, raio)} L${ponto(fim, dentro)} A${dentro},${dentro} 0 ${grande} 0 ${ponto(angulo, dentro)} Z`});
+        }
+        forma.addEventListener('pointerenter', () => marcar(i));
+        forma.addEventListener('pointerleave', () => marcar(-1));
+        grafico.append(forma);
+        const porcentagem = (parte * 100).toLocaleString('pt-BR', {maximumFractionDigits: parte < 0.1 ? 1 : 0}) + '%';
+        const linha = h('li', {tabindex: '0'},
+            h('span', {class: 'amostra', style: 'background:' + cor, 'aria-hidden': 'true'}),
+            h('span', {class: 'nome-da-fatia'}, fatia.nome),
+            h('b', null, reais(fatia.valor)),
+            h('small', null, porcentagem));
+        linha.addEventListener('pointerenter', () => marcar(i));
+        linha.addEventListener('pointerleave', () => marcar(-1));
+        linha.addEventListener('focus', () => marcar(i));
+        linha.addEventListener('blur', () => marcar(-1));
+        legenda.append(linha);
+        angulo = fim;
+    });
+    grafico.append(
+        svg('text', {x: centro, y: centro - 4, 'text-anchor': 'middle', class: 'total-da-pizza'}, reais(total)),
+        svg('text', {x: centro, y: centro + 16, 'text-anchor': 'middle', class: 'rotulo-da-pizza'}, 'no mês'));
+    caixa.append(h('div', {class: 'corpo-da-pizza'}, h('div', {class: 'desenho-da-pizza'}, grafico), legenda));
+    return caixa;
+}
+
+/**
+ * Ganho e perda dos 12 meses: duas colunas por mes, receitas e gastos, com legenda. O mes aberto fica destacado e
+ * clicar num mes abre ele. A dica mostra as receitas, os gastos e o resultado.
+ */
+function graficoDeGanhoEPerda(meses, mesAberto, abrirMes) {
+    const area = h('div', {class: 'area-do-grafico'});
+    const dica = h('div', {class: 'dica-do-grafico', role: 'status', hidden: true});
+    const caixa = h('section', {class: 'grafico-do-painel', 'aria-label': 'Receitas e gastos dos últimos 12 meses'},
+        h('div', {class: 'topo-do-grafico'}, h('h3', null, 'Ganho e perda nos últimos 12 meses'),
+            h('ul', {class: 'legenda-do-grafico'},
+                h('li', null, h('span', {class: 'amostra', style: 'background:var(--serie-1)'}), 'Receitas'),
+                h('li', null, h('span', {class: 'amostra', style: 'background:var(--serie-2)'}), 'Gastos'))),
+        area, dica);
+    let medidas = null;
+    const desenhar = () => {
+        const largura = Math.max(300, area.clientWidth);
+        const altura = 200;
+        const margem = {topo: 10, direita: 6, baixo: 24, esquerda: 56};
+        const fatia = (largura - margem.esquerda - margem.direita) / meses.length;
+        const coluna = Math.max(3, Math.min(20, (fatia - 10) / 2));
+        const topo = topoDoEixo(Math.max(1, ...meses.flatMap(item => [item.receitas, item.gastos])) / 100) * 100;
+        const y = valor => margem.topo + (altura - margem.topo - margem.baixo) * (1 - valor / topo);
+        const grafico = svg('svg', {width: largura, height: altura, viewBox: `0 0 ${largura} ${altura}`, role: 'img',
+            'aria-label': 'Receitas e gastos por mês. Os valores estão na tabela abaixo.'});
+        for (const parte of [0, 0.5, 1]) {
+            grafico.append(
+                svg('line', {x1: margem.esquerda, x2: largura - margem.direita, y1: y(topo * parte), y2: y(topo * parte), class: parte === 0 ? 'base' : 'grade'}),
+                svg('text', {x: margem.esquerda - 6, y: y(topo * parte) + 4, 'text-anchor': 'end', class: 'eixo'}, reais(topo * parte).replace(',00', '')));
+        }
+        const coluninha = (x, valor, classe) => {
+            const alto = y(0) - y(valor);
+            if (alto <= 0) return;
+            const r = Math.min(4, coluna / 2, alto);
+            const base = y(0);
+            grafico.append(svg('path', {class: classe, d: `M${x},${base} V${base - alto + r} Q${x},${base - alto} ${x + r},${base - alto} H${x + coluna - r} Q${x + coluna},${base - alto} ${x + coluna},${base - alto + r} V${base} Z`}));
+        };
+        meses.forEach((item, i) => {
+            const meio = margem.esquerda + fatia * (i + 0.5);
+            if (item.mes === mesAberto) grafico.append(svg('rect', {x: meio - fatia / 2 + 2, y: margem.topo, width: fatia - 4, height: altura - margem.topo - margem.baixo, rx: 6, class: 'mes-aberto'}));
+            // 2 px entre as duas colunas do mes
+            coluninha(meio - coluna - 1, item.receitas, 'coluna-receita');
+            coluninha(meio + 1, item.gastos, 'coluna-gasto');
+            if (meses.length <= 12 && (fatia > 44 || i % 2 === 0 || i === meses.length - 1)) {
+                grafico.append(svg('text', {x: meio, y: altura - 6, 'text-anchor': 'middle', class: 'eixo' + (item.mes === mesAberto ? ' forte' : '')}, mesCurto(item.mes).slice(0, 3) + (item.mes.endsWith('-01') ? ' ' + item.mes.slice(2, 4) : '')));
+            }
+        });
+        area.replaceChildren(grafico);
+        medidas = {margem, fatia, largura};
+    };
+    const mostrar = i => {
+        const item = meses[i];
+        const resultado = item.receitas - item.gastos;
+        dica.replaceChildren(h('b', null, mesCurto(item.mes)),
+            h('span', null, 'Receitas: ' + reais(item.receitas)), h('span', null, 'Gastos: ' + reais(item.gastos)),
+            h('span', null, (resultado >= 0 ? 'Lucro: ' : 'Prejuízo: ') + reais(Math.abs(resultado))));
+        dica.hidden = false;
+        dica.style.left = Math.min(Math.max(medidas.margem.esquerda + medidas.fatia * (i + 0.5), 80), medidas.largura - 80) + 'px';
+    };
+    const indice = evento => Math.max(0, Math.min(meses.length - 1, Math.floor((evento.clientX - area.getBoundingClientRect().left - medidas.margem.esquerda) / medidas.fatia)));
+    area.addEventListener('pointermove', evento => mostrar(indice(evento)));
+    area.addEventListener('pointerleave', () => { dica.hidden = true; });
+    area.addEventListener('click', evento => abrirMes(meses[indice(evento)].mes));
+    area.style.cursor = 'pointer';
+    let larguraDesenhada = 0;
+    new ResizeObserver(() => {
+        if (area.clientWidth === larguraDesenhada) return;
+        larguraDesenhada = area.clientWidth;
+        desenhar();
+    }).observe(area);
+    return caixa;
+}
+
+/**
+ * Janela para cadastrar (ou mudar o valor de) um gasto ou uma receita. Mensal: a partir de um mes, com um ultimo mes
+ * opcional; de uma vez so: o dia.
+ */
+function janelaDeLancamento(tipo, mesAberto, aoSalvar) {
+    const ehGasto = tipo === 'gasto';
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const nome = h('input', {type: 'text', id: 'lancamento-nome', maxlength: '60', required: true, list: 'sugestoes-de-lancamento',
+        placeholder: ehGasto ? 'Ex.: Vercel, Claude, Neon' : 'Ex.: Anúncio da loja X'});
+    const sugestoes = h('datalist', {id: 'sugestoes-de-lancamento'},
+        ...(ehGasto ? ['Claude', 'Vercel', 'Render', 'Neon', 'Domínio', 'Taxas do Mercado Pago'] : ['Anúncio', 'Patrocínio', 'Doação'])
+            .map(valor => h('option', {value: valor})));
+    const valor = h('input', {type: 'text', id: 'lancamento-valor', inputmode: 'decimal', required: true, placeholder: '0,00', autocomplete: 'off'});
+    let recorrencia = 'mensal';
+    const hoje = new Date();
+    const diaPadrao = mesAberto === hoje.toISOString().slice(0, 7) ? hoje.toISOString().slice(0, 10) : mesAberto + '-01';
+    const inicioMes = h('input', {type: 'month', id: 'lancamento-inicio', value: mesAberto, required: true});
+    const fimMes = h('input', {type: 'month', id: 'lancamento-fim'});
+    const dia = h('input', {type: 'date', id: 'lancamento-dia', value: diaPadrao});
+    const camposMensais = h('div', {class: 'campos-mensais'},
+        h('div', {class: 'campo'}, h('label', {for: 'lancamento-inicio'}, 'A partir de'), inicioMes),
+        h('div', {class: 'campo'}, h('label', {for: 'lancamento-fim'}, 'Último mês (opcional)'), fimMes,
+            h('small', null, ehGasto ? 'Deixe vazio se continua pagando.' : 'Deixe vazio se continua recebendo.')));
+    const campoUnico = h('div', {class: 'campo', hidden: true}, h('label', {for: 'lancamento-dia'}, ehGasto ? 'Dia do pagamento' : 'Dia em que recebeu'), dia);
+    const opcoes = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Frequência'});
+    const desenharOpcoes = () => opcoes.replaceChildren(...[['mensal', 'Todo mês'], ['unica', 'Uma vez só']].map(([qual, texto]) =>
+        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(recorrencia === qual), onclick: () => {
+            recorrencia = qual;
+            camposMensais.hidden = qual !== 'mensal';
+            campoUnico.hidden = qual === 'mensal';
+            desenharOpcoes();
+        }}, texto)));
+    desenharOpcoes();
+    const salvar = h('button', {type: 'submit', class: 'botao primario'}, 'Salvar');
+    const formulario = h('form', {class: 'formulario-de-lancamento'},
+        h('div', {class: 'campo'}, h('label', {for: 'lancamento-nome'}, 'Nome'), nome, sugestoes),
+        h('div', {class: 'campo'}, h('label', {for: 'lancamento-valor'}, 'Valor em reais'), valor),
+        h('div', {class: 'campo'}, h('span', {class: 'rotulo'}, 'Frequência'), opcoes),
+        camposMensais, campoUnico, erro,
+        h('div', {class: 'acoes'}, h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'), salvar));
+    const dialogo = h('dialog', {class: 'janela-de-lancamento'},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, ehGasto ? 'Novo gasto' : 'Nova receita'),
+            h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar', onclick: () => dialogo.close()}, '×')),
+        formulario);
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        erro.textContent = '';
+        const centavos = lerReais(valor.value);
+        if (Number.isNaN(centavos) || centavos <= 0) {
+            erro.textContent = 'Escreva o valor como 12,50';
+            valor.focus();
+            return;
+        }
+        salvar.disabled = true;
+        try {
+            await chamar('POST', '/api/comunidade/gerenciamento/financas', {tipo, nome: nome.value, valor: centavos, recorrencia,
+                inicio: recorrencia === 'mensal' ? inicioMes.value : dia.value, fim: recorrencia === 'mensal' ? fimMes.value || null : null});
+            dialogo.close();
+            avisar(ehGasto ? 'Gasto salvo' : 'Receita salva');
+            aoSalvar();
+        } catch (e) {
+            erro.textContent = e.message;
+            salvar.disabled = false;
+        }
+    });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    nome.focus();
+}
+
+/** Janela pequena com um campo: mudar o valor de um mensal a partir do mes aberto. */
+function janelaDeNovoValor(lancamento, mesAberto, aoSalvar) {
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const valor = h('input', {type: 'text', id: 'novo-valor', inputmode: 'decimal', required: true, value: (lancamento.valor / 100).toFixed(2).replace('.', ',')});
+    const salvar = h('button', {type: 'submit', class: 'botao primario'}, 'Salvar');
+    const mensal = lancamento.recorrencia === 'mensal';
+    const formulario = h('form', {class: 'formulario-de-lancamento'},
+        h('div', {class: 'campo'}, h('label', {for: 'novo-valor'}, 'Novo valor em reais'), valor,
+            mensal ? h('small', null, 'Vale a partir de ' + mesPorExtenso(mesAberto) + '. Os meses de antes continuam com o valor antigo.') : null),
+        erro,
+        h('div', {class: 'acoes'}, h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'), salvar));
+    const dialogo = h('dialog', {class: 'janela-de-lancamento'},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, 'Mudar o valor de ' + lancamento.nome),
+            h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar', onclick: () => dialogo.close()}, '×')),
+        formulario);
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        const centavos = lerReais(valor.value);
+        if (Number.isNaN(centavos) || centavos <= 0) {
+            erro.textContent = 'Escreva o valor como 12,50';
+            return;
+        }
+        salvar.disabled = true;
+        try {
+            await chamar('PUT', '/api/comunidade/gerenciamento/financas/' + lancamento.id + '/valor', {valor: centavos, aPartirDe: mesAberto});
+            dialogo.close();
+            avisar('Valor atualizado');
+            aoSalvar();
+        } catch (e) {
+            erro.textContent = e.message;
+            salvar.disabled = false;
+        }
+    });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    valor.select();
+}
+
+/**
+ * Financas do site, mes a mes (#/gerenciar/financas/AAAA-MM): receitas, gastos e o resultado; as pizzas de onde vem e
+ * para onde vai o dinheiro; ganho e perda dos 12 meses; os gastos e as receitas cadastrados (com os botoes para
+ * cadastrar, mudar o valor, encerrar e excluir) e o historico das vendas da loja.
+ */
+async function financasDoGerenciamento(conteudo, vez, mesPedido) {
+    let dados;
+    try {
+        dados = await chamar('GET', '/api/comunidade/gerenciamento/financas' + (/^\d{4}-\d{2}$/.test(mesPedido || '') ? '?mes=' + mesPedido : ''));
+    } catch (e) {
+        if (vez === estado.render) conteudo.replaceChildren(vazio('Não deu para carregar as finanças', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    const mes = dados.mes;
+    const abrirMes = qual => { location.hash = '#/gerenciar/financas/' + qual; };
+    const recarregar = () => financasDoGerenciamento(conteudo, vez, mes);
+    const r = dados.resumo;
+    const resultado = r.receitas - r.gastos;
+
+    const linhaDoLancamento = item => {
+        const mensal = item.recorrencia === 'mensal';
+        const periodo = mensal
+            ? 'Todo mês, desde ' + mesCurto(item.inicio.slice(0, 7)) + (item.fim ? ' até ' + mesCurto(item.fim.slice(0, 7)) : '')
+            : 'Uma vez, em ' + new Date(item.inicio + 'T12:00:00').toLocaleDateString('pt-BR');
+        const acoes = [
+            h('button', {type: 'button', class: 'botao pequeno', onclick: () => janelaDeNovoValor(item, mes, recarregar)}, 'Mudar valor'),
+            mensal && !item.fim ? h('button', {type: 'button', class: 'botao pequeno', onclick: async () => {
+                const tipo = item.tipo === 'gasto' ? 'pagar' : 'receber';
+                if (!await confirmar('Encerrar ' + item.nome + '?', mesPorExtenso(mes) + ' será o último mês em que ' + item.nome + ' conta. Os meses de antes não mudam.', 'Parar de ' + tipo, false)) return;
+                try {
+                    await chamar('PUT', '/api/comunidade/gerenciamento/financas/' + item.id + '/encerrar', {ultimoMes: mes});
+                    avisar(item.nome + ' encerrado');
+                    recarregar();
+                } catch (e) {
+                    avisar(e.message, true);
+                }
+            }}, 'Encerrar') : null,
+            h('button', {type: 'button', class: 'botao pequeno perigo', onclick: async () => {
+                if (!await confirmar('Excluir ' + item.nome + '?', mensal ? 'Ele sai de todos os meses, inclusive os anteriores. Para parar de contar só daqui para a frente, use Encerrar.' : 'Ele sai das finanças.', 'Excluir')) return;
+                try {
+                    await chamar('DELETE', '/api/comunidade/gerenciamento/financas/' + item.id);
+                    avisar(item.nome + ' excluído');
+                    recarregar();
+                } catch (e) {
+                    avisar(e.message, true);
+                }
+            }}, 'Excluir')].filter(Boolean);
+        return h('li', {class: 'lancamento'},
+            h('div', {class: 'sobre-o-lancamento'}, h('b', null, item.nome), h('small', null, periodo)),
+            h('b', {class: 'valor-do-lancamento'}, reais(item.valor) + (mensal ? '/mês' : '')),
+            h('div', {class: 'acoes-do-lancamento'}, ...acoes));
+    };
+    const listaDeLancamentos = (titulo, tipo, itens, extra) => h('section', {class: 'caixa-de-lancamentos'},
+        h('div', {class: 'topo-do-grafico'}, h('h3', null, titulo),
+            h('button', {type: 'button', class: 'botao pequeno primario', onclick: () => janelaDeLancamento(tipo, mes, recarregar)}, tipo === 'gasto' ? '+ Gasto' : '+ Receita')),
+        ...[extra,
+            itens.length || extra ? h('ul', {class: 'lista-de-lancamentos'}, ...itens.map(linhaDoLancamento)) : null,
+            itens.length || extra ? null : h('p', {class: 'subtitulo'}, tipo === 'gasto'
+                ? 'Nenhum gasto neste mês. Cadastre o que você paga, como Vercel, Claude ou Neon.'
+                : 'Nenhuma receita cadastrada neste mês. Anúncios entram aqui; as vendas da loja entram sozinhas.')].filter(Boolean));
+    const vendasDaLoja = r.vendas ? h('div', {class: 'lancamento automatico'},
+        h('div', {class: 'sobre-o-lancamento'}, h('b', null, 'Vendas da loja'),
+            h('small', null, (r.quantidadeDeVendas === 1 ? '1 venda' : r.quantidadeDeVendas + ' vendas') + ' · entra sozinho · valor antes da taxa do Mercado Pago')),
+        h('b', {class: 'valor-do-lancamento'}, reais(r.vendas))) : null;
+
+    const STATUS_DA_VENDA = {aprovada: 'Aprovada', reembolsada: 'Reembolsada', divergente: 'Valor errado'};
+    const historico = h('section', {class: 'meses-do-painel'},
+        h('h3', null, 'Vendas da loja em ' + mesPorExtenso(mes)),
+        dados.historico.length === 0
+            ? h('p', {class: 'subtitulo'}, 'Nenhuma venda neste mês.')
+            : h('div', {class: 'rolagem-da-tabela'}, h('table', {class: 'historico-de-vendas'},
+                h('thead', null, h('tr', null, ...['Quando', 'Comprador', 'Item', 'Valor', 'Situação', 'Pagamento no Mercado Pago'].map(texto => h('th', {scope: 'col'}, texto)))),
+                h('tbody', null, ...dados.historico.map(venda => h('tr', {class: 'venda-' + venda.status},
+                    h('td', null, dataEHora(venda.quando)),
+                    h('td', null, h('a', {href: '#/comunidade/perfil/' + venda.comprador.id}, venda.comprador.nick)),
+                    h('td', null, venda.nome || venda.item),
+                    h('td', null, reais(venda.valor)),
+                    h('td', null, STATUS_DA_VENDA[venda.status] || venda.status),
+                    h('td', null, venda.pagamento || '—')))))));
+
+    const navegacao = h('div', {class: 'navegacao-do-mes'},
+        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Mês anterior', onclick: () => abrirMes(somarMesesNoSite(mes, -1))}, '‹'),
+        h('h2', null, mesPorExtenso(mes)),
+        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Próximo mês', disabled: mes >= dados.atual, onclick: () => abrirMes(somarMesesNoSite(mes, 1))}, '›'),
+        h('input', {type: 'month', value: mes, max: dados.atual, 'aria-label': 'Escolher o mês', onchange: evento => { if (evento.target.value) abrirMes(evento.target.value); }}),
+        mes !== dados.atual ? h('button', {type: 'button', class: 'botao pequeno', onclick: () => abrirMes(dados.atual)}, 'Mês atual') : null);
+
+    conteudo.replaceChildren(
+        navegacao,
+        h('div', {class: 'numeros-das-financas'},
+            h('div', {class: 'quadro-do-painel'}, h('span', {class: 'rotulo-do-quadro'}, 'Receitas'), h('b', {class: 'valor-do-quadro'}, reais(r.receitas))),
+            h('div', {class: 'quadro-do-painel'}, h('span', {class: 'rotulo-do-quadro'}, 'Gastos'), h('b', {class: 'valor-do-quadro'}, reais(r.gastos))),
+            h('div', {class: 'quadro-do-painel resultado ' + (resultado >= 0 ? 'lucro' : 'prejuizo')},
+                h('span', {class: 'rotulo-do-quadro'}, 'Resultado do mês'),
+                h('b', {class: 'valor-do-quadro'}, h('span', {'aria-hidden': 'true'}, resultado >= 0 ? '▲ ' : '▼ '), reais(Math.abs(resultado))),
+                h('small', null, resultado > 0 ? 'Lucro' : resultado < 0 ? 'Prejuízo' : 'Empatou'))),
+        h('div', {class: 'pizzas-das-financas'},
+            graficoDePizza('De onde vem o dinheiro', dados.pizzaDasReceitas, 'Nenhuma receita neste mês.'),
+            graficoDePizza('Para onde vai o dinheiro', dados.pizzaDosGastos, 'Nenhum gasto neste mês.')),
+        graficoDeGanhoEPerda(dados.meses, mes, abrirMes),
+        h('div', {class: 'lancamentos-das-financas'},
+            listaDeLancamentos('Receitas de ' + mesPorExtenso(mes), 'receita', dados.receitas, vendasDaLoja),
+            listaDeLancamentos('Gastos de ' + mesPorExtenso(mes), 'gasto', dados.gastos)),
+        historico,
+        h('section', {class: 'meses-do-painel'},
+            h('h3', null, 'Últimos 12 meses'),
+            h('div', {class: 'rolagem-da-tabela'}, h('table', null,
+                h('thead', null, h('tr', null, ...['Mês', 'Receitas', 'Gastos', 'Resultado'].map(texto => h('th', {scope: 'col'}, texto)))),
+                h('tbody', null, ...dados.meses.slice().reverse().map(item => h('tr', {class: item.mes === mes ? 'mes-aberto' : null},
+                    h('th', {scope: 'row'}, h('a', {href: '#/gerenciar/financas/' + item.mes}, mesCurto(item.mes))),
+                    h('td', null, reais(item.receitas)), h('td', null, reais(item.gastos)),
+                    h('td', {class: item.receitas - item.gastos < 0 ? 'negativo' : null}, (item.receitas - item.gastos < 0 ? '−' : '') + reais(Math.abs(item.receitas - item.gastos))))))))));
+}
+
 async function contasDoGerenciamento(conteudo, vez) {
     const busca = h('input', {type: 'search', placeholder: 'Buscar por nick ou e-mail…', 'aria-label': 'Buscar por nick ou e-mail', value: estado.buscaNoGerenciamento || ''});
     let filtro = estado.filtroNoGerenciamento || 'todas';
@@ -3828,11 +4241,12 @@ function verImagem(endereco) {
 }
 
 /** Capa de um manga da lista anexada (a copia de quando foi publicada), com a nota por cima (o status nao aparece). */
-function capaDaLista(item, comNota, borda) {
-    return h('div', {class: 'capa' + (item.favorito ? ' favorita' + classeDaBorda(borda) : '')},
+function capaDaLista(item, comNota, autor) {
+    return h('div', {class: 'capa' + (item.favorito ? ' favorita' + classesDaLoja(autor) : '')},
         item.capa ? h('img', {src: item.capa, alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', width: '300', height: '450'})
             : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (item.titulo || '?').charAt(0).toUpperCase()),
-        comNota ? etiquetaNota(item.nota) : null);
+        comNota ? etiquetaNota(item.nota) : null,
+        item.favorito ? enfeiteDaBorda() : null);
 }
 
 /**
@@ -3843,7 +4257,7 @@ function listaDoPost(lista, autor) {
     const quantos = lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás';
     return h('button', {type: 'button', class: 'lista-do-post', 'aria-label': 'Ver a lista ' + (lista.titulo || 'de mangás') + ', ' + quantos,
         onclick: () => abrirListaDoPost(lista, autor)},
-    h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false, autor.borda)),
+    h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false, autor)),
     h('div', {class: 'sobre-a-lista'},
         h('span', {class: 'tipo-da-lista'}, 'Lista'),
         h('b', null, lista.titulo || 'Lista de mangás'),
@@ -3879,7 +4293,7 @@ function abrirListaDoPost(lista, autor) {
         conteudo.replaceChildren(
             h('p', {class: 'subtitulo'}, 'Lista de ', h('b', null, autor.nick), ' · ', lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás'),
             h('div', {class: 'grade-da-lista'}, lista.itens.map(item => h('button', {type: 'button', class: 'item-da-lista', title: item.titulo,
-                onclick: () => mostrarManga(item)}, capaDaLista(item, true, autor.borda), h('span', {class: 'nome-do-item'}, item.titulo)))));
+                onclick: () => mostrarManga(item)}, capaDaLista(item, true, autor), h('span', {class: 'nome-do-item'}, item.titulo)))));
     };
     const mostrarManga = item => {
         vendoManga = true;
@@ -3889,7 +4303,7 @@ function abrirListaDoPost(lista, autor) {
         conteudo.replaceChildren(
             h('button', {type: 'button', class: 'voltar-para-a-lista', onclick: mostrarLista}, '← Voltar para a lista'),
             h('div', {class: 'manga-da-lista'},
-                capaDaLista(item, false, autor.borda),
+                capaDaLista(item, false, autor),
                 h('div', {class: 'sobre-o-manga'},
                     // o status (lendo, hiatus...) e de quem cadastrou: nao aparece aqui
                     h('div', {class: 'linha'},

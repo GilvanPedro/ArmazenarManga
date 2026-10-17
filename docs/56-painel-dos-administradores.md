@@ -88,3 +88,9 @@ tipo de contagem por dia.
   contou. Com 120 dias de histórico falso, o painel mostrou os números do mês, os três gráficos (7, 30 e 90 dias) e
   a tabela dos meses; a dica dos acessos mostrou o dia com e sem conta.
 - No navegador, no computador (tema escuro) e no celular (390 px, tema claro), sem rolagem para o lado.
+
+> Depois, o Gerenciar ganhou a aba **Finanças**, com os gastos, as receitas e as vendas da loja: veja
+> [Finanças: ganho e perda do site](58-financas.md).
+
+> Depois, o Painel e as Finanças passaram a ser só do dono do site (os outros admins ficam com Contas e Registro):
+> veja [Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md).

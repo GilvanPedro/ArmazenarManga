@@ -131,3 +131,11 @@ A sessão (`/api/inicio`, `/api/sessao`) passou a trazer `conta.borda`, e o auto
 - No navegador, no computador (tema escuro) e no celular (390 px, tema claro), sem rolagem para o lado.
 - **Não testado com o Mercado Pago de verdade**: falta a conta e as credenciais. Faça o passo 5 acima antes de
   passar para produção.
+
+> Depois, as vendas da loja passaram a aparecer na aba Finanças do Gerenciar, com o histórico de cada mês: veja
+> [Finanças: ganho e perda do site](58-financas.md).
+
+> Depois, a loja ganhou os efeitos (R$ 2,50), foi para o topo ao lado da Comunidade e passou a ter as abas Bordas,
+> Efeitos e Mochila, com páginas: veja [Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md).
+
+> Depois, a loja ganhou mais sete bordas, com enfeites que saem da capa: veja [Bordas ornamentadas](60-bordas-ornamentadas.md).

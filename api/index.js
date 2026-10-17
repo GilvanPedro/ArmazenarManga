@@ -2,12 +2,13 @@
 // (src/main/java/.../web/ApiServer.java) e usa o mesmo banco Postgres, com as mesmas tabelas.
 // Uma mudanca de regra precisa ser feita nos dois lugares.
 import pg from 'pg';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
+import { ESTRUTURA_DAS_FINANCAS } from './_financas.js';
 import { ESTRUTURA_DA_LOJA, criarLoja } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
@@ -110,7 +111,7 @@ const ESTRUTURA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
-` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA;
+` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA + ESTRUTURA_DAS_FINANCAS;
 
 async function banco() {
     if (!conexoes) {
@@ -681,7 +682,7 @@ async function sessaoValida(request) {
     const cookie = lerCookie(request.headers.get('cookie'), COOKIE);
     const id = contaDoCookie(cookie);
     if (!id) return null;
-    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto, borda FROM contas WHERE id = $1', [id]);
+    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto, borda, efeito FROM contas WHERE id = $1', [id]);
     if (rows.length === 0) return null; // conta excluida
     const expira = validarSessao(cookie, await segredoDaSessao(), rows[0].id, rows[0].senha_hash);
     return expira ? { conta: rows[0], expira } : null;
@@ -702,16 +703,32 @@ function semCache(resposta) {
  */
 function ehAdmin(conta) {
     const emails = (process.env.MANGATRACKER_ADMIN_EMAIL || '').split(',').map(normalizarEmail).filter(Boolean);
-    return conta.admin === true || emails.includes(normalizarEmail(conta.email));
+    // o dono do site e sempre admin, mesmo sem estar na variavel
+    return conta.admin === true || emails.includes(normalizarEmail(conta.email)) || ehDono(conta);
+}
+
+/**
+ * O dono do site: so ele ve o Painel e as Financas do Gerenciar (os outros admins so moderam). Pelos e-mails em
+ * MANGATRACKER_DONO_EMAIL (separados por virgula) ou, sem ela, pelo e-mail do dono guardado so como hash SHA-256 (o
+ * repositorio e publico: o e-mail nao fica escrito no codigo).
+ */
+const HASH_DO_DONO = '11411fa1012edd29c4ea3d8e01dc0cfcbb38bb1f8accbccf55c2209161c35861';
+function ehDono(conta) {
+    if (!conta?.email) return false;
+    const email = normalizarEmail(conta.email);
+    const definidos = (process.env.MANGATRACKER_DONO_EMAIL || '').split(',').map(normalizarEmail).filter(Boolean);
+    if (definidos.length) return definidos.includes(email);
+    return createHash('sha256').update(email).digest('hex') === HASH_DO_DONO;
 }
 
 /** A conta como o site ve: nunca leva a senha guardada. */
 const contaPublica = conta => ({
-    id: conta.id, email: conta.email, nick: conta.nick, admin: ehAdmin(conta),
+    id: conta.id, email: conta.email, nick: conta.nick, admin: ehAdmin(conta), dono: ehDono(conta),
     // a foto e uma imagem da propria conta: so quem esta nela consegue abrir
     foto: conta.foto ? '/api/imagens/' + conta.foto : null,
-    // a borda da loja equipada nas capas dos favoritos (nula: a roxa de sempre)
+    // a borda e o efeito da loja equipados nas capas dos favoritos (nulos: a roxa e o brilho de sempre)
     borda: conta.borda || null,
+    efeito: conta.efeito || null,
 });
 
 const respostaDaSessao = sessao => ({
@@ -1273,7 +1290,7 @@ async function rotear(request) {
 let rotasDaComunidade;
 function comunidade() {
     rotasDaComunidade ??= criarComunidade({
-        banco, json, Recusa, lerCorpo, semCache, exigirQueNaoEstejaFreado, registrarTentativa, descobrirExtensao, ehAdmin,
+        banco, json, Recusa, lerCorpo, semCache, exigirQueNaoEstejaFreado, registrarTentativa, descobrirExtensao, ehAdmin, ehDono,
         miniaturasDe: miniaturas,
     });
     return rotasDaComunidade;

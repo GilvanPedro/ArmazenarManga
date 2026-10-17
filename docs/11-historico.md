@@ -188,6 +188,16 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Loja de bordas.** A Biblioteca ganhou a Loja, com cinco bordas para as capas dos favoritos a R$ 4,50 cada,
   pagas pelo Mercado Pago (Pix ou cartão), e a Mochila, para equipar a borda comprada. Detalhes em
   [Loja de bordas e mochila](57-loja-de-bordas.md).
+- **Finanças.** O Gerenciar ganhou a aba Finanças: gastos e receitas cadastrados (mensais ou de uma vez), as vendas da
+  loja entrando sozinhas, pizzas de onde vem e para onde vai o dinheiro, ganho e perda dos últimos 12 meses e o
+  histórico das vendas. Detalhes em [Finanças: ganho e perda do site](58-financas.md).
+- **Efeitos e Loja no topo.** A loja ganhou cinco efeitos para os favoritos a R$ 2,50 (o brilho continua o de
+  sempre), foi para o topo ao lado da Comunidade e ficou centralizada, com páginas de até 30 itens; o Painel e as
+  Finanças passaram a ser só do dono do site. Detalhes em
+  [Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md).
+- **Bordas ornamentadas.** A loja ganhou sete bordas com enfeites que saem da capa (Cristal, Cyberpunk, Abissal,
+  Sombrio, Floresta, Elétrico e Arcano), e a Galáxia ganhou estrelas e um planeta em volta. Detalhes em
+  [Bordas ornamentadas](60-bordas-ornamentadas.md).
 
 ## O que foi removido ou abandonado
 

@@ -1,4 +1,4 @@
-// Loja: bordas para as capas dos mangas favoritos, pagas com dinheiro de verdade pelo Mercado Pago (Checkout Pro:
+// Loja: bordas e efeitos para as capas dos mangas favoritos, pagas com dinheiro de verdade pelo Mercado Pago (Checkout Pro:
 // Pix ou cartao, na pagina do proprio Mercado Pago). O site nunca ve os dados do cartao.
 //
 // Como uma compra anda:
@@ -16,17 +16,36 @@
 // - MERCADOPAGO_WEBHOOK_SECRET: a "assinatura secreta" dos avisos (Webhooks), para conferir que o aviso veio dele.
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
-/** Preco de cada borda, em centavos. */
+/** Precos, em centavos: cada borda e cada efeito. */
 export const PRECO_DA_BORDA = 450;
+export const PRECO_DO_EFEITO = 250;
 
-/** O que a loja vende. O id vira a classe "borda-{id}" das capas (app.css). */
+/**
+ * O que a loja vende. O id vira a classe "borda-{id}" ou "efeito-{id}" das capas (app.css). A pessoa equipa uma borda
+ * e um efeito ao mesmo tempo; sem nenhum, a borda roxa e o brilho de sempre.
+ */
 export const ITENS_DA_LOJA = [
     { id: 'dourada', tipo: 'borda', nome: 'Ouro Lendário', descricao: 'Moldura de ouro polido com um brilho que passa de tempos em tempos.', preco: PRECO_DA_BORDA },
     { id: 'neon', tipo: 'borda', nome: 'Neon', descricao: 'Ciano e rosa elétrico, com um brilho que pulsa em volta da capa.', preco: PRECO_DA_BORDA },
     { id: 'sakura', tipo: 'borda', nome: 'Sakura', descricao: 'Rosa das cerejeiras, com uma flor no lugar da estrela.', preco: PRECO_DA_BORDA },
     { id: 'chamas', tipo: 'borda', nome: 'Chamas', descricao: 'Fogo que corre pela borda, do vermelho ao amarelo.', preco: PRECO_DA_BORDA },
     { id: 'galaxia', tipo: 'borda', nome: 'Galáxia', descricao: 'Azul e roxo do espaço, com estrelas piscando na moldura.', preco: PRECO_DA_BORDA },
+    { id: 'cristal', tipo: 'borda', nome: 'Cristal', descricao: 'Cristais de gelo e prismas congelados que reluzem com a luz.', preco: PRECO_DA_BORDA },
+    { id: 'cyberpunk', tipo: 'borda', nome: 'Cyberpunk', descricao: 'Moldura de circuitos com luzes em neon verde e roxo que correm pela borda.', preco: PRECO_DA_BORDA },
+    { id: 'abissal', tipo: 'borda', nome: 'Abissal', descricao: 'Correntes de água profunda e bolhas bioluminescentes subindo.', preco: PRECO_DA_BORDA },
+    { id: 'sombrio', tipo: 'borda', nome: 'Sombrio', descricao: 'Névoa mística e escuridão em volta, com fragmentos de energia.', preco: PRECO_DA_BORDA },
+    { id: 'floresta', tipo: 'borda', nome: 'Floresta', descricao: 'Vinhas com folhas balançando e vaga-lumes da mata.', preco: PRECO_DA_BORDA },
+    { id: 'eletrico', tipo: 'borda', nome: 'Elétrico', descricao: 'Descargas elétricas e raios de alta voltagem em volta da capa.', preco: PRECO_DA_BORDA },
+    { id: 'arcano', tipo: 'borda', nome: 'Arcano', descricao: 'Moldura de prata com cantos dourados e runas antigas que brilham.', preco: PRECO_DA_BORDA },
+    { id: 'holografico', tipo: 'efeito', nome: 'Holográfico', descricao: 'Um reflexo de arco-íris que atravessa a capa, como uma carta rara.', preco: PRECO_DO_EFEITO },
+    { id: 'faiscas', tipo: 'efeito', nome: 'Faíscas', descricao: 'Estrelinhas que acendem e apagam em cima da capa.', preco: PRECO_DO_EFEITO },
+    { id: 'neve', tipo: 'efeito', nome: 'Neve', descricao: 'Flocos de neve caindo devagar sobre a capa.', preco: PRECO_DO_EFEITO },
+    { id: 'raios', tipo: 'efeito', nome: 'Raios', descricao: 'Clarões elétricos azuis que piscam nas bordas da capa.', preco: PRECO_DO_EFEITO },
+    { id: 'aura', tipo: 'efeito', nome: 'Aura', descricao: 'Uma luz que pulsa de dentro da capa, mudando de cor.', preco: PRECO_DO_EFEITO },
 ];
+
+/** A coluna de "contas" onde fica o item equipado de cada tipo. */
+export const COLUNA_DO_TIPO = { borda: 'borda', efeito: 'efeito' };
 
 export const itemDaLoja = id => ITENS_DA_LOJA.find(item => item.id === id) || null;
 
@@ -40,8 +59,9 @@ export const ESTRUTURA_DA_LOJA = `
     CREATE TABLE IF NOT EXISTS mochila (conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, item TEXT NOT NULL,
         compra UUID REFERENCES compras(id) ON DELETE SET NULL, obtido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (conta, item));
-    -- a borda equipada (nula: a borda roxa de sempre)
+    -- a borda e o efeito equipados (nulos: a borda roxa e o brilho de sempre)
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS borda TEXT;
+    ALTER TABLE contas ADD COLUMN IF NOT EXISTS efeito TEXT;
 `;
 
 export class ErroDaLoja extends Error {
@@ -139,9 +159,10 @@ export function criarLoja(f) {
                 if (nova === 'aprovada') {
                     await cliente.query('INSERT INTO mochila (conta, item, compra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [compra.conta, compra.item, compra.id]);
                 } else if (nova === 'reembolsada') {
-                    // devolvido: a borda sai da mochila (e de cima das capas, se estava equipada)
+                    // devolvido: o item sai da mochila (e de cima das capas, se estava equipado)
                     await cliente.query('DELETE FROM mochila WHERE conta = $1 AND item = $2 AND compra = $3', [compra.conta, compra.item, compra.id]);
-                    await cliente.query('UPDATE contas SET borda = NULL WHERE id = $1 AND borda = $2', [compra.conta, compra.item]);
+                    await cliente.query(`UPDATE contas SET borda = CASE WHEN borda = $2 THEN NULL ELSE borda END,
+                        efeito = CASE WHEN efeito = $2 THEN NULL ELSE efeito END WHERE id = $1`, [compra.conta, compra.item]);
                 } else if (nova === 'divergente') {
                     console.error(`Compra ${compra.id}: pago ${pagamento.transaction_amount} ${pagamento.currency_id}, esperado ${compra.preco / 100} BRL`);
                 }
@@ -162,12 +183,12 @@ export function criarLoja(f) {
         const db = await banco();
         const [{ rows: meus }, { rows: conta }] = await Promise.all([
             db.query('SELECT item, obtido_em FROM mochila WHERE conta = $1 ORDER BY obtido_em', [eu.id]),
-            db.query('SELECT borda FROM contas WHERE id = $1', [eu.id]),
+            db.query('SELECT borda, efeito FROM contas WHERE id = $1', [eu.id]),
         ]);
         return {
             itens: ITENS_DA_LOJA,
             mochila: meus.filter(linha => itemDaLoja(linha.item)).map(linha => ({ item: linha.item, obtidoEm: linha.obtido_em })),
-            equipada: conta[0]?.borda || null,
+            equipados: { borda: conta[0]?.borda || null, efeito: conta[0]?.efeito || null },
             pagamentoConfigurado: pagamentoConfigurado(),
         };
     }
@@ -179,7 +200,7 @@ export function criarLoja(f) {
         if (!item) throw new ErroDaLoja(404, 'Item não encontrado na loja');
         const db = await banco();
         const { rows: tem } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item.id]);
-        if (tem.length) throw new ErroDaLoja(409, 'Essa borda já está na sua mochila');
+        if (tem.length) throw new ErroDaLoja(409, 'Esse item já está na sua mochila');
         // contra abuso: no maximo 10 compras abertas por hora
         const { rows: [{ abertas }] } = await db.query(
             `SELECT count(*)::int AS abertas FROM compras WHERE conta = $1 AND criada_em > now() - interval '1 hour'`, [eu.id]);
@@ -192,7 +213,7 @@ export function criarLoja(f) {
             metodo: 'POST',
             idempotencia: compraId,
             corpo: {
-                items: [{ id: item.id, title: `Borda ${item.nome} - Viracap`, description: item.descricao, category_id: 'virtual_goods',
+                items: [{ id: item.id, title: `${item.tipo === 'efeito' ? 'Efeito' : 'Borda'} ${item.nome} - Viracap`, description: item.descricao, category_id: 'virtual_goods',
                     quantity: 1, currency_id: 'BRL', unit_price: item.preco / 100 }],
                 external_reference: compraId,
                 back_urls: { success: retorno, pending: retorno, failure: retorno },
@@ -231,18 +252,26 @@ export function criarLoja(f) {
         return { compra: compra.id, item: compra.item, status: compra.status };
     }
 
+    /** { item } equipa um item da mochila; { tipo, item: null } volta ao de sempre daquele tipo. */
     async function equipar(request, eu) {
-        const { item } = await f.lerCorpo(request);
+        const { item, tipo } = await f.lerCorpo(request);
         const db = await banco();
+        const equipados = async () => {
+            const { rows } = await db.query('SELECT borda, efeito FROM contas WHERE id = $1', [eu.id]);
+            return { equipados: { borda: rows[0]?.borda || null, efeito: rows[0]?.efeito || null } };
+        };
         if (item === null) {
-            await db.query('UPDATE contas SET borda = NULL WHERE id = $1', [eu.id]);
-            return { equipada: null };
+            const coluna = Object.hasOwn(COLUNA_DO_TIPO, tipo) ? COLUNA_DO_TIPO[tipo] : null;
+            if (!coluna) throw new ErroDaLoja(400, 'Informe o tipo: borda ou efeito');
+            await db.query(`UPDATE contas SET ${coluna} = NULL WHERE id = $1`, [eu.id]);
+            return equipados();
         }
-        if (!itemDaLoja(item)) throw new ErroDaLoja(404, 'Item não encontrado');
+        const achado = itemDaLoja(item);
+        if (!achado) throw new ErroDaLoja(404, 'Item não encontrado');
         const { rows } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item]);
-        if (!rows.length) throw new ErroDaLoja(403, 'Essa borda não está na sua mochila');
-        await db.query('UPDATE contas SET borda = $2 WHERE id = $1', [eu.id, item]);
-        return { equipada: item };
+        if (!rows.length) throw new ErroDaLoja(403, 'Esse item não está na sua mochila');
+        await db.query(`UPDATE contas SET ${COLUNA_DO_TIPO[achado.tipo]} = $2 WHERE id = $1`, [eu.id, achado.id]);
+        return equipados();
     }
 
     return {

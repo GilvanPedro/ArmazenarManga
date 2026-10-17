@@ -2,6 +2,7 @@
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
 import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, hashtagsQueComecamCom, doMaisNovoParaOMaisAntigo, lerBusca, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
+import { criarFinancas } from './_financas.js';
 import { dadosDoPainel, lerPeriodo } from './_painel.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
@@ -84,18 +85,19 @@ const LIMITES = {
 
 /**
  * @param f ferramentas do api/index.js: banco, json, Recusa, lerCorpo, semCache, exigirQueNaoEstejaFreado,
- *          registrarTentativa, descobrirExtensao, ehAdmin, miniaturasDe (nome da capa -> nome da miniatura)
+ *          registrarTentativa, descobrirExtensao, ehAdmin, ehDono, miniaturasDe (nome da capa -> nome da miniatura)
  */
 export function criarComunidade(f) {
     const { banco, json, Recusa } = f;
 
     const urlDaFoto = (id, foto) => (foto ? `/api/comunidade/contas/${id}/foto?v=${encodeURIComponent(foto)}` : null);
-    // a borda da loja que o autor equipou: aparece nas capas dos favoritos das listas que ele publica
-    const autor = linha => ({ id: linha.autor_id, nick: linha.nick, foto: urlDaFoto(linha.autor_id, linha.foto), borda: linha.borda || null });
+    // a borda e o efeito da loja que o autor equipou: aparecem nas capas dos favoritos das listas que ele publica
+    const autor = linha => ({ id: linha.autor_id, nick: linha.nick, foto: urlDaFoto(linha.autor_id, linha.foto),
+        borda: linha.borda || null, efeito: linha.efeito || null });
 
     // os campos que todo post devolvido leva; $1 e sempre quem esta usando. Os totais ja estao no post (gatilhos)
     const CAMPOS_DO_POST = `
-        p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto, c.borda,
+        p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto, c.borda, c.efeito,
         p.curtidas_total AS curtidas, p.comentarios_total AS comentarios,
         EXISTS (SELECT 1 FROM curtidas WHERE post = p.id AND conta = $1) AS curti,
         EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = p.autor) AS sigo`;
@@ -537,6 +539,9 @@ export function criarComunidade(f) {
         return json(200, { punicao: situacaoDaConta(depois[0]) });
     }
 
+    // gastos e receitas do site (api/_financas.js), na aba Financas do Gerenciar
+    const financas = criarFinancas(f);
+
     async function tratarGerenciamento(request, url, partes, eu) {
         if (!f.ehAdmin(eu)) throw new Recusa(403, 'Só administradores podem usar o gerenciamento');
         const [recurso, id, acao] = partes;
@@ -545,6 +550,9 @@ export function criarComunidade(f) {
             if (recurso === 'contas' && !id && metodo === 'GET') return f.semCache(json(200, await contasParaGerenciar(url)));
             if (recurso === 'contas' && id && acao) return await punir(request, eu, id, acao, metodo);
             if (recurso === 'registro' && !id && metodo === 'GET') return f.semCache(json(200, await registroDaModeracao(url)));
+            // o painel e as financas sao so do dono do site; os outros admins so moderam
+            if ((recurso === 'financas' || recurso === 'painel') && !f.ehDono(eu)) throw new Recusa(403, 'Só o dono do site vê o painel e as finanças');
+            if (recurso === 'financas') return await financas(request, url, partes.slice(1));
             if (recurso === 'painel' && !id && metodo === 'GET') {
                 return f.semCache(json(200, await dadosDoPainel(await banco(), lerPeriodo(url.searchParams.get('periodo')))));
             }

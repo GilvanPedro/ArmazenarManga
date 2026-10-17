@@ -40,6 +40,7 @@ O terminal mostra o endereço para os outros aparelhos. Cada pessoa cria a sua c
 | `MANGATRACKER_CORS` | vazio | Outros sites que podem chamar a API (só na versão Java) |
 | `MERCADOPAGO_ACCESS_TOKEN` | vazio | Só no Vercel. O token do Mercado Pago para a loja vender (veja [Loja de bordas](57-loja-de-bordas.md)) |
 | `MERCADOPAGO_WEBHOOK_SECRET` | vazio | Só no Vercel. A assinatura secreta dos avisos do Mercado Pago |
+| `MANGATRACKER_DONO_EMAIL` | o dono de sempre | Opcional. E-mails de quem vê o Painel e as Finanças (veja [doc 59](59-efeitos-loja-no-topo-e-dono.md)) |
 
 O arquivo `.env`, na raiz, guarda essas variáveis para uso local. Ele contém a senha do banco e não vai para o
 GitHub; o `.env.exemplo` é o modelo.

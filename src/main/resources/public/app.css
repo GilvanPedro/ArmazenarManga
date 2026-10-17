@@ -18,6 +18,15 @@
     --hiatus: #f5b942;
     --dropado: #ef7a7a;
     --cancelado: #9aa1b0;
+    /* cores das series dos graficos (paleta categorica validada para daltonismo; a ordem importa) e o resultado */
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --serie-5: #d55181;
+    --serie-6: #9085e9;
+    --lucro: #0ca30c;
+    --prejuizo: #e66767;
 }
 
 @media (prefers-color-scheme: light) {
@@ -40,6 +49,14 @@
         --hiatus: #a56a00;
         --dropado: #c53030;
         --cancelado: #646a78;
+        --serie-1: #2a78d6;
+        --serie-2: #eb6834;
+        --serie-3: #1baf7a;
+        --serie-4: #eda100;
+        --serie-5: #e87ba4;
+        --serie-6: #6250d6;
+        --lucro: #0a7d0a;
+        --prejuizo: #c53030;
     }
 }
 
@@ -108,6 +125,11 @@ h1, h2 { line-height: 1.2; margin: 0; text-wrap: balance; }
     .topo { flex-wrap: wrap; row-gap: 8px; }
     .secoes { order: 3; flex-basis: 100%; margin-left: 0; }
     .secao { flex: 1; text-align: center; }
+}
+/* celular: com Biblioteca, Comunidade, Loja e Gerenciar, os botoes ficam mais estreitos para caberem os quatro */
+@media (max-width: 480px) {
+    .secoes { gap: 2px; }
+    .secao { min-width: 0; padding: 7px 6px; font-size: 13.5px; }
 }
 /* celular: so o icone do logo, para os botoes caberem na mesma linha */
 @media (max-width: 480px) {
@@ -502,6 +524,437 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
     50% { box-shadow: 0 0 0 1px rgba(165, 180, 252, .7), 0 6px 30px rgba(109, 40, 217, .65); }
 }
 .borda-galaxia .estrela-de-favorito { background: radial-gradient(circle at 30% 30%, #a5b4fc, #4338ca 55%, #1e1b4b); }
+
+/*
+ * bordas ornamentadas: os enfeites saem para fora da capa (cristais, vinhas, raios, nevoa), entao a capa deixa de
+ * cortar o que passa da borda, e a imagem e as camadas de dentro ganham o canto arredondado sozinhas. Os enfeites ficam
+ * na camada .enfeite-da-borda (e no ::before e ::after dela), que nas outras bordas nao aparece.
+ */
+.enfeite-da-borda { display: none; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia) {
+    overflow: visible;
+    isolation: isolate;
+    border-width: 5px;
+}
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia) > :is(img, .capa-vazia, .capa-de-exemplo) {
+    border-radius: calc(var(--raio) - 5px);
+}
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia)::after,
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia)::before {
+    border-radius: calc(var(--raio) - 5px);
+}
+/* a imagem nao cresce no hover: sem o corte da capa, ela passaria por cima da moldura */
+a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia):hover img { transform: none; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia) .enfeite-da-borda {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+.enfeite-da-borda::before, .enfeite-da-borda::after { content: ""; position: absolute; pointer-events: none; }
+/* troca a estrela do favorito por outro simbolo */
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano) .estrela-de-favorito { font-size: 0; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano) .estrela-de-favorito::before { font-size: 14px; line-height: 1; }
+
+/* Cristal: gelo que reluz, com cristais saindo dos cantos de baixo */
+.capa.favorita.borda-cristal {
+    --roxo: #7dd3fc;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(135deg, #f0fdff, #a5f3fc 18%, #38bdf8 36%, #e0f2fe 52%, #7dd3fc 70%, #0ea5e9 85%, #f0fdff) border-box;
+    background-size: auto, 260% 260%;
+    animation: cristal-reluz 4s ease-in-out infinite alternate, cristal-brilho 3s ease-in-out infinite;
+}
+@keyframes cristal-reluz {
+    from { background-position: 0 0, 0% 0%; }
+    to { background-position: 0 0, 100% 100%; }
+}
+@keyframes cristal-brilho {
+    0%, 100% { box-shadow: 0 0 10px rgba(125, 211, 252, .55), 0 0 26px rgba(56, 189, 248, .2); }
+    50% { box-shadow: 0 0 16px rgba(186, 230, 253, .85), 0 0 36px rgba(56, 189, 248, .4); }
+}
+.borda-cristal .enfeite-da-borda::before, .borda-cristal .enfeite-da-borda::after {
+    bottom: -7%;
+    width: 38%;
+    height: 24%;
+    background: linear-gradient(180deg, #ffffff, #bae6fd 35%, #38bdf8 75%, #0369a1);
+    clip-path: polygon(0% 100%, 8% 55%, 16% 100%, 20% 100%, 32% 8%, 45% 100%, 50% 100%, 60% 38%, 70% 100%, 74% 100%, 86% 62%, 100% 100%);
+    filter: drop-shadow(0 0 4px rgba(186, 230, 253, .9));
+    opacity: .95;
+}
+.borda-cristal .enfeite-da-borda::before { left: -9%; }
+.borda-cristal .enfeite-da-borda::after { right: -9%; transform: scaleX(-1); }
+.borda-cristal .enfeite-da-borda {
+    background:
+        radial-gradient(circle at 8% 6%, #fff 0 1.5px, transparent 3px),
+        radial-gradient(circle at 96% 30%, #e0f2fe 0 1.5px, transparent 3px),
+        radial-gradient(circle at 4% 58%, #fff 0 1px, transparent 2.5px);
+    animation: faiscas 2.6s ease-in-out infinite;
+}
+.borda-cristal .estrela-de-favorito { background: linear-gradient(145deg, #f0fdff, #7dd3fc 60%, #0284c7); }
+.borda-cristal .estrela-de-favorito::before { content: "❄"; color: #fff; }
+
+/* Cyberpunk: moldura de canto cortado, com circuitos e uma luz que corre pela borda */
+.capa.favorita.borda-cyberpunk {
+    --roxo: #a855f7;
+    border-radius: 6px;
+    background:
+        linear-gradient(#0b0f14, #0b0f14) padding-box,
+        linear-gradient(90deg, #22ff88, #0b0f14 20%, #a855f7 40%, #0b0f14 60%, #22ff88 80%, #0b0f14) border-box;
+    background-size: auto, 300% 100%;
+    animation: borda-andando 2.6s linear infinite;
+    box-shadow: 0 0 10px rgba(34, 255, 136, .35), 0 0 22px rgba(168, 85, 247, .35);
+}
+.capa.favorita.borda-cyberpunk > :is(img, .capa-vazia, .capa-de-exemplo) { border-radius: 2px; }
+.borda-cyberpunk .enfeite-da-borda {
+    inset: -8px;
+    border: 1.5px solid rgba(168, 85, 247, .8);
+    clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+    background:
+        linear-gradient(135deg, rgba(34, 255, 136, .9) 0 7px, transparent 7px) top left / 14px 14px no-repeat,
+        linear-gradient(-45deg, rgba(34, 255, 136, .9) 0 7px, transparent 7px) bottom right / 14px 14px no-repeat;
+}
+/* trilhas de circuito: tracinhos em cima e embaixo, e nos que piscam */
+.borda-cyberpunk .enfeite-da-borda::before {
+    left: 22%; right: 22%; top: -1.5px; height: 3px;
+    background: repeating-linear-gradient(90deg, #22ff88 0 10px, transparent 10px 16px);
+    box-shadow: 0 0 6px #22ff88;
+    animation: circuito 1.4s steps(4) infinite;
+}
+.borda-cyberpunk .enfeite-da-borda::after {
+    left: 30%; right: 30%; bottom: -1.5px; height: 3px;
+    background: repeating-linear-gradient(90deg, #a855f7 0 6px, transparent 6px 12px);
+    box-shadow: 0 0 6px #a855f7;
+    animation: circuito 1.8s steps(4) infinite reverse;
+}
+@keyframes circuito {
+    from { background-position: 0 0; }
+    to { background-position: 32px 0; }
+}
+.borda-cyberpunk .estrela-de-favorito { border-radius: 4px; background: #0b0f14; border-color: #22ff88; box-shadow: 0 0 8px rgba(34, 255, 136, .8); }
+.borda-cyberpunk .estrela-de-favorito::before { content: "⌬"; color: #22ff88; }
+
+/* Abissal: agua profunda que corre pela borda, e bolhas brilhantes subindo pela capa */
+.capa.favorita.borda-abissal {
+    --roxo: #14b8a6;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(180deg, #5eead4, #0d9488 25%, #0e7490 50%, #164e63 75%, #2dd4bf) border-box;
+    background-size: auto, 100% 300%;
+    animation: correnteza 4s linear infinite;
+    box-shadow: 0 0 14px rgba(45, 212, 191, .5), 0 0 30px rgba(14, 116, 144, .35);
+}
+@keyframes correnteza {
+    from { background-position: 0 0, 0 0%; }
+    to { background-position: 0 0, 0 300%; }
+}
+.borda-abissal .enfeite-da-borda { overflow: hidden; border-radius: calc(var(--raio) - 5px); }
+.borda-abissal .enfeite-da-borda::before {
+    inset: 0;
+    background:
+        radial-gradient(circle at 10% 50%, rgba(153, 246, 228, .9) 0 2px, rgba(94, 234, 212, .25) 3px, transparent 5px),
+        radial-gradient(circle at 88% 20%, rgba(153, 246, 228, .9) 0 3px, rgba(94, 234, 212, .25) 4px, transparent 6px),
+        radial-gradient(circle at 25% 85%, rgba(204, 251, 241, .9) 0 1.5px, transparent 3.5px),
+        radial-gradient(circle at 70% 65%, rgba(153, 246, 228, .8) 0 2px, rgba(94, 234, 212, .2) 3px, transparent 5px),
+        radial-gradient(circle at 50% 35%, rgba(204, 251, 241, .8) 0 1.5px, transparent 3px);
+    background-size: 100% 50%;
+    animation: bolhas 6s linear infinite;
+}
+@keyframes bolhas {
+    from { background-position: 0 200%; }
+    to { background-position: 0 0; }
+}
+/* o fundo do mar: uma luz azul que sobe de baixo */
+.borda-abissal .enfeite-da-borda::after {
+    left: 0; right: 0; bottom: 0; height: 35%;
+    background: linear-gradient(0deg, rgba(13, 148, 136, .4), transparent);
+    animation: fundo-do-mar 5s ease-in-out infinite;
+}
+@keyframes fundo-do-mar {
+    0%, 100% { opacity: .5; }
+    50% { opacity: 1; }
+}
+.borda-abissal .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #99f6e4, #0d9488 60%, #134e4a); }
+
+/* Sombrio: nevoa roxa em volta da capa, com fragmentos de energia flutuando */
+.capa.favorita.borda-sombrio {
+    --roxo: #7c3aed;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(160deg, #1e1b2e, #581c87 30%, #0f0a1a 50%, #6d28d9 70%, #1e1b2e) border-box;
+    background-size: auto, 200% 200%;
+    animation: cristal-reluz 6s ease-in-out infinite alternate, sombra-pulsando 4s ease-in-out infinite;
+}
+@keyframes sombra-pulsando {
+    0%, 100% { box-shadow: 0 0 18px rgba(88, 28, 135, .7), 0 0 40px rgba(46, 16, 101, .6); }
+    50% { box-shadow: 0 0 26px rgba(124, 58, 237, .8), 0 0 54px rgba(46, 16, 101, .8); }
+}
+.borda-sombrio .enfeite-da-borda::before {
+    inset: -14%;
+    z-index: -1;
+    background:
+        radial-gradient(ellipse 45% 30% at 12% 20%, rgba(91, 33, 182, .6), transparent 70%),
+        radial-gradient(ellipse 40% 35% at 90% 75%, rgba(76, 29, 149, .6), transparent 70%),
+        radial-gradient(ellipse 60% 22% at 50% 102%, rgba(30, 10, 60, .8), transparent 70%),
+        radial-gradient(ellipse 35% 25% at 85% 8%, rgba(109, 40, 217, .45), transparent 70%);
+    filter: blur(6px);
+    animation: nevoa 9s ease-in-out infinite alternate;
+}
+@keyframes nevoa {
+    from { transform: translate(-3%, 2%) rotate(-3deg) scale(1); opacity: .85; }
+    to { transform: translate(3%, -2%) rotate(3deg) scale(1.06); opacity: 1; }
+}
+.borda-sombrio .enfeite-da-borda::after {
+    inset: -8%;
+    background:
+        radial-gradient(circle at 6% 40%, #c4b5fd 0 1.5px, transparent 3px),
+        radial-gradient(circle at 96% 55%, #a78bfa 0 2px, transparent 3.5px),
+        radial-gradient(circle at 20% 98%, #ddd6fe 0 1.5px, transparent 3px),
+        radial-gradient(circle at 75% 2%, #c4b5fd 0 1.5px, transparent 3px);
+    animation: faiscas 3s ease-in-out infinite;
+}
+.borda-sombrio .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #a78bfa, #4c1d95 60%, #1e1b4b); }
+.borda-sombrio .estrela-de-favorito::before { content: "☾"; color: #ede9fe; }
+
+/* Floresta: vinhas com folhas balancando nos cantos, e vaga-lumes */
+.capa.favorita.borda-floresta {
+    --roxo: #22c55e;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(150deg, #86efac, #15803d 30%, #4ade80 50%, #14532d 75%, #65a30d) border-box;
+    box-shadow: 0 0 12px rgba(74, 222, 128, .45), 0 0 26px rgba(21, 128, 61, .3);
+}
+.borda-floresta .enfeite-da-borda::before, .borda-floresta .enfeite-da-borda::after {
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: -6px;
+    filter: drop-shadow(0 0 3px rgba(74, 222, 128, .7));
+    animation: folhas 4s ease-in-out infinite alternate;
+}
+/* folhas nos cantos (de cima, a esquerda; de baixo, a direita), balancando presas na moldura */
+.borda-floresta .enfeite-da-borda::before { content: "🌿🍃"; top: -12px; left: -12px; transform-origin: 20% 20%; }
+.borda-floresta .enfeite-da-borda::after { content: "🍃🌿"; bottom: -12px; right: -12px; transform-origin: 80% 80%; }
+@keyframes folhas {
+    from { rotate: -4deg; }
+    to { rotate: 4deg; }
+}
+.borda-floresta .enfeite-da-borda {
+    background:
+        radial-gradient(circle at 96% 18%, #fef08a 0 1.5px, rgba(253, 224, 71, .4) 2.5px, transparent 5px),
+        radial-gradient(circle at 4% 70%, #fef08a 0 1.5px, rgba(253, 224, 71, .4) 2.5px, transparent 5px),
+        radial-gradient(circle at 60% 98%, #fef9c3 0 1px, transparent 4px);
+    animation: faiscas 3.4s ease-in-out infinite;
+}
+.borda-floresta .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #bbf7d0, #16a34a 60%, #14532d); }
+.borda-floresta .estrela-de-favorito::before { content: "❦"; color: #fff; }
+
+/* Eletrico: alta voltagem, com raios que saem pelos lados e piscam */
+.capa.favorita.borda-eletrico {
+    --roxo: #60a5fa;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(90deg, #fde047, #60a5fa, #e0f2fe, #facc15, #3b82f6, #fde047) border-box;
+    background-size: auto, 300% 100%;
+    animation: borda-andando 1.2s linear infinite, voltagem 2.4s steps(1, end) infinite;
+}
+@keyframes voltagem {
+    0%, 100% { box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3); }
+    10% { box-shadow: 0 0 18px rgba(224, 242, 254, .95), 0 0 34px rgba(96, 165, 250, .7); }
+    14% { box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3); }
+    60% { box-shadow: 0 0 16px rgba(253, 224, 71, .9), 0 0 30px rgba(250, 204, 21, .5); }
+    64% { box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3); }
+}
+.borda-eletrico .enfeite-da-borda::before, .borda-eletrico .enfeite-da-borda::after {
+    width: 16%;
+    height: 34%;
+    background: linear-gradient(180deg, #fefce8, #fde047 40%, #60a5fa);
+    clip-path: polygon(55% 0%, 20% 45%, 48% 45%, 10% 100%, 85% 38%, 55% 38%, 90% 0%);
+    filter: drop-shadow(0 0 4px rgba(147, 197, 253, 1));
+    animation: relampago 2.4s steps(1, end) infinite;
+}
+.borda-eletrico .enfeite-da-borda::before { left: -10%; top: 12%; }
+.borda-eletrico .enfeite-da-borda::after { right: -10%; bottom: 14%; animation-delay: -1.2s; transform: scaleX(-1); }
+@keyframes relampago {
+    0%, 100% { opacity: .15; }
+    8% { opacity: 1; }
+    12% { opacity: .2; }
+    16% { opacity: 1; }
+    24% { opacity: .15; }
+}
+.borda-eletrico .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #fef9c3, #eab308 55%, #1d4ed8); }
+.borda-eletrico .estrela-de-favorito::before { content: "ϟ"; color: #fff; font-weight: 800; }
+
+/* Arcano: prata com cantos dourados e runas antigas que acendem */
+.capa.favorita.borda-arcano {
+    --roxo: #93c5fd;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(135deg, #f8fafc, #94a3b8 25%, #e2e8f0 45%, #64748b 65%, #cbd5e1 85%, #f1f5f9) border-box;
+    box-shadow: 0 0 12px rgba(147, 197, 253, .45), 0 0 26px rgba(30, 64, 175, .3);
+}
+/* cantos dourados em losango */
+.borda-arcano .enfeite-da-borda {
+    inset: -6px;
+    --canto: 16px;
+    background:
+        conic-gradient(from 45deg at 50% 50%, #fde68a, #b45309, #fde68a, #b45309, #fde68a) top left / var(--canto) var(--canto) no-repeat,
+        conic-gradient(from 45deg at 50% 50%, #fde68a, #b45309, #fde68a, #b45309, #fde68a) top right / var(--canto) var(--canto) no-repeat,
+        conic-gradient(from 45deg at 50% 50%, #fde68a, #b45309, #fde68a, #b45309, #fde68a) bottom left / var(--canto) var(--canto) no-repeat,
+        conic-gradient(from 45deg at 50% 50%, #fde68a, #b45309, #fde68a, #b45309, #fde68a) bottom right / var(--canto) var(--canto) no-repeat;
+    -webkit-mask:
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) top left / var(--canto) var(--canto) no-repeat,
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) top right / var(--canto) var(--canto) no-repeat,
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) bottom left / var(--canto) var(--canto) no-repeat,
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) bottom right / var(--canto) var(--canto) no-repeat;
+    mask:
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) top left / var(--canto) var(--canto) no-repeat,
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) top right / var(--canto) var(--canto) no-repeat,
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) bottom left / var(--canto) var(--canto) no-repeat,
+        linear-gradient(45deg, transparent 30%, #000 30% 70%, transparent 70%) bottom right / var(--canto) var(--canto) no-repeat;
+    filter: drop-shadow(0 0 3px rgba(253, 230, 138, .9));
+}
+.borda-arcano .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #fde68a, #b45309 65%, #78350f); }
+.borda-arcano .estrela-de-favorito::before { content: "✧"; color: #fff; }
+/* as runas: uma plaquinha de prata em cima da borda de baixo, com runas que acendem devagar */
+.capa.favorita.borda-arcano::after {
+    content: "ᚠᚱᚨᚾᛟᛉ";
+    inset: auto auto -9px 50%;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    padding: 1px 7px 2px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    background: #0f172a;
+    animation: runas 3.5s ease-in-out infinite;
+    color: #bfdbfe;
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: .2em;
+    text-shadow: 0 0 6px #60a5fa, 0 0 10px #3b82f6;
+    white-space: nowrap;
+    z-index: 4;
+}
+@keyframes runas {
+    0%, 100% { color: #93a3c4; text-shadow: none; }
+    50% { color: #dbeafe; text-shadow: 0 0 6px #60a5fa, 0 0 12px #3b82f6; }
+}
+
+/* Galaxia: estrelas e um planetinha flutuando por fora da moldura */
+.borda-galaxia .enfeite-da-borda::before {
+    inset: -9%;
+    background:
+        radial-gradient(circle at 4% 12%, #fff 0 1.5px, transparent 3px),
+        radial-gradient(circle at 97% 28%, #c7d2fe 0 2px, transparent 3.5px),
+        radial-gradient(circle at 2% 74%, #e0e7ff 0 1.5px, transparent 3px),
+        radial-gradient(circle at 92% 96%, #fff 0 1.5px, transparent 3px),
+        radial-gradient(circle at 50% 1%, #a5b4fc 0 1.5px, transparent 3px);
+    animation: faiscas 2.8s ease-in-out infinite;
+}
+.borda-galaxia .enfeite-da-borda::after {
+    width: 18%;
+    aspect-ratio: 1;
+    right: -9%;
+    bottom: 6%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #c4b5fd, #6d28d9 55%, #1e1b4b);
+    box-shadow: 0 0 8px rgba(167, 139, 250, .8);
+    outline: 1.5px solid rgba(196, 181, 253, .7);
+    outline-offset: -1px;
+    animation: orbita 8s ease-in-out infinite alternate;
+}
+@keyframes orbita {
+    from { transform: translateY(0) rotate(-12deg); }
+    to { transform: translateY(-40%) rotate(12deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-eletrico, .borda-arcano),
+    .enfeite-da-borda, .enfeite-da-borda::before, .enfeite-da-borda::after, .capa.favorita.borda-arcano::after { animation: none; }
+}
+
+/*
+ * efeitos da loja: uma camada (::before) por cima da imagem, que convive com qualquer borda. Com um efeito equipado,
+ * o brilho de sempre (o reflexo do ::after) sai; a Sakura continua com as petalas e a Arcano com as runas.
+ */
+.capa.favorita[class*=" efeito-"]:not(.borda-sakura, .borda-arcano)::after { content: none; }
+.capa.favorita[class*=" efeito-"]::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.capa .status, .capa .nota, .capa .estrela-de-favorito { z-index: 2; }
+/* holografico: arco-iris que atravessa a capa, como carta rara */
+.capa.favorita.efeito-holografico::before {
+    background: linear-gradient(115deg, transparent 15%, rgba(255, 64, 160, .45) 30%, rgba(255, 214, 64, .45) 40%, rgba(64, 255, 190, .45) 50%,
+        rgba(64, 170, 255, .45) 60%, rgba(180, 90, 255, .45) 70%, transparent 85%);
+    background-size: 300% 300%;
+    mix-blend-mode: screen;
+    opacity: .75;
+    animation: holografico 5s ease-in-out infinite alternate;
+}
+@keyframes holografico {
+    from { background-position: 100% 100%; }
+    to { background-position: 0% 0%; }
+}
+/* faiscas: estrelinhas que acendem e apagam em dois grupos */
+.capa.favorita.efeito-faiscas::before {
+    background:
+        radial-gradient(circle at 18% 22%, #fff 0 1.5px, rgba(255, 255, 255, .5) 2.5px, transparent 5px),
+        radial-gradient(circle at 78% 15%, #fff7c2 0 1.5px, rgba(255, 240, 160, .5) 2.5px, transparent 5px),
+        radial-gradient(circle at 62% 58%, #fff 0 1.5px, rgba(255, 255, 255, .5) 2.5px, transparent 5px),
+        radial-gradient(circle at 28% 78%, #fff7c2 0 1.5px, rgba(255, 240, 160, .5) 2.5px, transparent 5px),
+        radial-gradient(circle at 85% 85%, #fff 0 1.5px, rgba(255, 255, 255, .5) 2.5px, transparent 5px);
+    animation: faiscas 2.2s ease-in-out infinite;
+}
+.capa.favorita.efeito-faiscas .estrela-de-favorito { box-shadow: 0 0 10px rgba(255, 240, 160, .9); }
+@keyframes faiscas {
+    0%, 100% { opacity: .15; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.03); }
+}
+/* neve: flocos caindo devagar */
+.capa.favorita.efeito-neve::before {
+    background:
+        radial-gradient(2.5px 2.5px at 15% 10%, rgba(255, 255, 255, .95), transparent 70%),
+        radial-gradient(2px 2px at 45% 30%, rgba(255, 255, 255, .85), transparent 70%),
+        radial-gradient(3px 3px at 75% 5%, rgba(255, 255, 255, .9), transparent 70%),
+        radial-gradient(2px 2px at 30% 60%, rgba(240, 248, 255, .85), transparent 70%),
+        radial-gradient(2.5px 2.5px at 88% 45%, rgba(255, 255, 255, .9), transparent 70%),
+        radial-gradient(2px 2px at 60% 80%, rgba(240, 248, 255, .85), transparent 70%);
+    background-size: 100% 50%;
+    animation: neve 7s linear infinite;
+}
+@keyframes neve {
+    from { background-position: 0 0; }
+    to { background-position: 14px 200%; }
+}
+/* raios: claroes eletricos que piscam nas bordas */
+.capa.favorita.efeito-raios::before {
+    background: linear-gradient(160deg, transparent 46%, rgba(186, 230, 253, .9) 48%, transparent 50%) no-repeat,
+        linear-gradient(20deg, transparent 47%, rgba(147, 197, 253, .8) 49%, transparent 51%) no-repeat;
+    background-size: 40% 35%, 35% 30%;
+    background-position: 90% 8%, 10% 92%;
+    box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0);
+    animation: raios 3.2s steps(1, end) infinite;
+}
+@keyframes raios {
+    0%, 100% { opacity: 0; box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0); }
+    6% { opacity: 1; box-shadow: inset 0 0 22px 4px rgba(56, 189, 248, .85); }
+    9% { opacity: 0; }
+    12% { opacity: 1; box-shadow: inset 0 0 16px 3px rgba(125, 211, 252, .7); }
+    16% { opacity: 0; box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0); }
+    58% { opacity: .9; box-shadow: inset 0 0 18px 3px rgba(96, 165, 250, .75); }
+    61% { opacity: 0; box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0); }
+}
+/* aura: luz que pulsa de dentro da capa, mudando de cor */
+.capa.favorita.efeito-aura::before { animation: aura 6s ease-in-out infinite; }
+@keyframes aura {
+    0%, 100% { box-shadow: inset 0 0 26px 6px rgba(236, 72, 153, .6); }
+    33% { box-shadow: inset 0 0 34px 8px rgba(59, 130, 246, .6); }
+    66% { box-shadow: inset 0 0 26px 6px rgba(16, 185, 129, .6); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .capa.favorita[class*=" efeito-"]::before { animation: none; }
+    .capa.favorita.efeito-raios::before { opacity: 1; box-shadow: inset 0 0 18px 3px rgba(56, 189, 248, .7); }
+    .capa.favorita.efeito-faiscas::before { opacity: .8; }
+}
 
 @keyframes borda-andando {
     from { background-position: 0 0, 0% 50%; }
@@ -1441,28 +1894,101 @@ dialog.janela-de-punir { max-width: 460px; }
 }
 
 /* ------------------------------------------------------------ loja e mochila */
-.pagina-da-loja { max-width: 1100px; }
-.pagina-da-loja > h1 { margin-bottom: 6px; }
-.pagina-da-loja > .subtitulo { margin: 0 0 16px; max-width: 70ch; }
-.abas-da-loja { margin-bottom: 16px; }
+/* centralizada; a grade tem ate 5 colunas e cada pagina, ate 6 linhas (30 itens) */
+.pagina-da-loja { max-width: 1180px; margin: 0 auto; }
+.pagina-da-loja > h1 { margin-bottom: 6px; text-align: center; }
+.pagina-da-loja > .subtitulo { margin: 0 auto 16px; max-width: 70ch; text-align: center; }
+.abas-da-loja { justify-content: center; margin-bottom: 16px; }
 .contador-da-mochila { color: var(--texto-fraco); font-weight: 600; }
-.grade-da-loja { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-.item-da-loja { display: flex; flex-direction: column; gap: 14px; padding: 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+/* em linhas que se quebram e ficam centralizadas: uma linha com menos itens fica no meio, e nao encostada a esquerda */
+.grade-da-loja { --colunas: 5; --espaco: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--espaco); }
+.grade-da-loja > .item-da-loja { width: calc((100% - (var(--colunas) - 1) * var(--espaco)) / var(--colunas)); }
+@media (max-width: 1100px) { .grade-da-loja { --colunas: 4; } }
+@media (max-width: 860px) { .grade-da-loja { --colunas: 3; } }
+@media (max-width: 620px) { .grade-da-loja { --colunas: 2; --espaco: 10px; } }
+.item-da-loja { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
 .item-da-loja.equipado { border-color: var(--destaque); box-shadow: 0 0 0 1px var(--destaque); }
-.previa-da-borda { width: 150px; align-self: center; aspect-ratio: 2 / 3; }
-.previa-da-borda img, .previa-da-borda .capa-de-exemplo { width: 100%; height: 100%; object-fit: cover; }
+.previa-do-item { width: min(100%, 150px); align-self: center; aspect-ratio: 2 / 3; }
+.previa-do-item img, .previa-do-item .capa-de-exemplo { width: 100%; height: 100%; object-fit: cover; }
 .capa-de-exemplo { display: grid; place-content: center; justify-items: center; gap: 6px; background: linear-gradient(160deg, #2b303b, #12141a); color: #e9ebf0; }
 .capa-de-exemplo span { font-size: 54px; font-weight: 800; line-height: 1; opacity: .9; }
 .capa-de-exemplo small { font-size: 12px; color: #9aa1b0; }
-.sobre-o-item { display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.sobre-o-item h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; font-size: 18px; }
-.sobre-o-item p { margin: 0; color: var(--texto-fraco); font-size: 14px; line-height: 1.45; flex: 1; }
-.sobre-o-item .botao { align-self: stretch; }
-.selo-equipada, .selo-na-mochila { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-.selo-equipada { background: var(--destaque); color: var(--sobre-destaque); }
-.selo-na-mochila { border: 1px solid var(--borda); color: var(--texto-fraco); }
-.nota-da-loja { margin: 18px 0 0; color: var(--texto-fraco); font-size: 13px; line-height: 1.5; }
+.sobre-o-item { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.tipo-do-item { color: var(--texto-fraco); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.sobre-o-item h2 { margin: 0; font-size: 17px; }
+.sobre-o-item p { margin: 0; color: var(--texto-fraco); font-size: 13.5px; line-height: 1.45; flex: 1; }
+.sobre-o-item .botao { align-self: stretch; margin-top: 4px; }
+.selo-na-mochila { align-self: flex-start; padding: 2px 9px; border: 1px solid var(--borda); border-radius: 999px; color: var(--texto-fraco); font-size: 12px; font-weight: 700; }
+.paginacao-da-loja { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; color: var(--texto-fraco); }
+@media (max-width: 620px) {
+    .item-da-loja { padding: 10px; }
+    .sobre-o-item .botao { padding-left: 6px; padding-right: 6px; font-size: 13px; }
+}
+.nota-da-loja { margin: 18px 0 0; text-align: center; color: var(--texto-fraco); font-size: 13px; line-height: 1.5; }
 .aviso-da-compra { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
 .aviso-da-compra span { color: var(--texto-fraco); }
 .aviso-da-compra.aprovada { border-color: var(--lendo); background: color-mix(in srgb, var(--lendo) 10%, var(--superficie)); }
 .aviso-da-compra.recusada { border-color: var(--perigo); background: color-mix(in srgb, var(--perigo) 8%, var(--superficie)); }
+
+/* ------------------------------------------------------------ financas (gerenciar) */
+.navegacao-do-mes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 14px; }
+.navegacao-do-mes h2 { margin: 0 4px; min-width: 11ch; text-align: center; font-size: 20px; }
+.navegacao-do-mes input[type=month] { width: auto; min-height: 34px; padding: 4px 10px; }
+.numeros-das-financas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.quadro-do-painel.resultado.lucro .valor-do-quadro { color: var(--lucro); }
+.quadro-do-painel.resultado.prejuizo .valor-do-quadro { color: var(--prejuizo); }
+.pizzas-das-financas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+.pizza-do-painel { padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.pizza-do-painel h3 { margin: 0 0 10px; font-size: 15.5px; }
+.corpo-da-pizza { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; }
+.desenho-da-pizza { flex: none; }
+.desenho-da-pizza svg { display: block; }
+.fatia { stroke: var(--superficie); stroke-width: 2; transition: opacity .12s; }
+circle.fatia { stroke-width: 30; }
+.fatia.apagada { opacity: .3; }
+.total-da-pizza { fill: var(--texto); font-size: 17px; font-weight: 700; }
+.rotulo-da-pizza { fill: var(--texto-fraco); font-size: 12px; }
+.legenda-da-pizza { flex: 1; min-width: 200px; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.legenda-da-pizza li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 7px; font-size: 13.5px; outline: none; }
+.legenda-da-pizza li.marcada, .legenda-da-pizza li:focus-visible { background: var(--superficie-2); }
+.legenda-da-pizza .amostra, .legenda-do-grafico .amostra { width: 12px; height: 12px; border-radius: 3px; }
+.nome-da-fatia { overflow-wrap: anywhere; line-height: 1.3; }
+.legenda-da-pizza b { font-variant-numeric: tabular-nums; }
+.legenda-da-pizza small { min-width: 4ch; color: var(--texto-fraco); text-align: right; font-variant-numeric: tabular-nums; }
+.legenda-do-grafico { display: flex; gap: 14px; margin: 0; padding: 0; list-style: none; color: var(--texto-fraco); font-size: 13px; }
+.legenda-do-grafico li { display: flex; align-items: center; gap: 6px; }
+.area-do-grafico .coluna-receita { fill: var(--serie-1); }
+.area-do-grafico .coluna-gasto { fill: var(--serie-2); }
+.area-do-grafico .mes-aberto { fill: var(--superficie-2); }
+.area-do-grafico .eixo.forte { fill: var(--texto); font-weight: 700; }
+.lancamentos-das-financas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+.caixa-de-lancamentos { padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.caixa-de-lancamentos > .subtitulo { margin: 4px 0 0; font-size: 13.5px; }
+.lista-de-lancamentos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.lancamento { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 12px; padding: 10px 0; border-top: 1px solid var(--borda); }
+.caixa-de-lancamentos > .lancamento.automatico { border-top: 0; padding-top: 4px; }
+.sobre-o-lancamento { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sobre-o-lancamento small { color: var(--texto-fraco); font-size: 12.5px; }
+.valor-do-lancamento { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acoes-do-lancamento { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.meses-do-painel td.negativo { color: var(--prejuizo); }
+.meses-do-painel tr.mes-aberto { background: var(--superficie-2); }
+.meses-do-painel tr.venda-reembolsada td, .meses-do-painel tr.venda-divergente td { color: var(--texto-fraco); text-decoration: line-through; }
+.meses-do-painel tr.venda-reembolsada td:nth-child(5), .meses-do-painel tr.venda-divergente td:nth-child(5) { text-decoration: none; }
+dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
+.formulario-de-lancamento { display: flex; flex-direction: column; gap: 14px; }
+.formulario-de-lancamento .campos-mensais { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.formulario-de-lancamento .campos-mensais[hidden] { display: none; }
+.formulario-de-lancamento .filtros { margin: 0; }
+.formulario-de-lancamento .rotulo { font-weight: 600; font-size: 14px; }
+.formulario-de-lancamento small { color: var(--texto-fraco); font-size: 12.5px; }
+.formulario-de-lancamento .acoes { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 760px) {
+    .pizzas-das-financas, .lancamentos-das-financas { grid-template-columns: 1fr; }
+    .numeros-das-financas { grid-template-columns: 1fr 1fr; }
+    .numeros-das-financas .resultado { grid-column: 1 / -1; }
+    .formulario-de-lancamento .campos-mensais { grid-template-columns: 1fr; }
+}
+/* no historico de vendas, os textos ficam a esquerda; so o valor e o numero do pagamento a direita */
+.historico-de-vendas th, .historico-de-vendas td { text-align: left; white-space: nowrap; }
+.historico-de-vendas th:nth-child(4), .historico-de-vendas td:nth-child(4) { text-align: right; }

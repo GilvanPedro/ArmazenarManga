@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { ITENS_DA_LOJA, PRECO_DA_BORDA, assinaturaValida, itemDaLoja, podeMudar, situacaoDoPagamento } from '../api/_loja.js';
+import { COLUNA_DO_TIPO, ITENS_DA_LOJA, PRECO_DA_BORDA, PRECO_DO_EFEITO, assinaturaValida, itemDaLoja, podeMudar, situacaoDoPagamento } from '../api/_loja.js';
 
 test('a loja tem pelo menos 4 bordas, todas a R$ 4,50 e com ids que viram classes', () => {
     const bordas = ITENS_DA_LOJA.filter(item => item.tipo === 'borda');
@@ -17,6 +17,16 @@ test('a loja tem pelo menos 4 bordas, todas a R$ 4,50 e com ids que viram classe
     assert.equal(itemDaLoja('neon').nome, 'Neon');
     assert.equal(itemDaLoja('nao-existe'), null);
     assert.equal(itemDaLoja('__proto__'), null);
+});
+
+test('a loja tem pelo menos 4 efeitos a R$ 2,50, e cada tipo tem a sua coluna', () => {
+    const efeitos = ITENS_DA_LOJA.filter(item => item.tipo === 'efeito');
+    assert.ok(efeitos.length >= 4);
+    assert.equal(PRECO_DO_EFEITO, 250);
+    for (const item of efeitos) assert.equal(item.preco, 250, item.id);
+    assert.equal(new Set(ITENS_DA_LOJA.map(item => item.id)).size, ITENS_DA_LOJA.length, 'um id nao pode servir para dois itens');
+    for (const item of ITENS_DA_LOJA) assert.ok(Object.hasOwn(COLUNA_DO_TIPO, item.tipo), item.id);
+    assert.ok(!ITENS_DA_LOJA.some(item => item.id === 'brilho'), 'o brilho e o de sempre: nao se vende');
 });
 
 test('a assinatura do aviso confere so com o segredo, o id, o request-id e o ts certos', () => {
