@@ -2654,6 +2654,7 @@ try {
 function previaDoTema(tema) {
     return h('div', {class: 'previa-do-tema', 'data-tema': tema || null, 'aria-hidden': 'true'},
         h('div', {class: 'fundo-da-previa'}), h('div', {class: 'fundo-da-previa-2'}),
+        h('div', {class: 'fundo-da-previa-3'}), h('div', {class: 'fundo-da-previa-4'}),
         h('div', {class: 'janela-da-previa'},
             h('div', {class: 'previa-topo'}, h('span', {class: 'previa-logo'}), h('span', {class: 'previa-aba ativa'}), h('span', {class: 'previa-aba'})),
             h('div', {class: 'previa-capas'}, h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'})),
@@ -4533,6 +4534,7 @@ function janelaDosMangasDoPerfil(perfil) {
     const tema = typeof perfil.tema === 'string' && /^[a-z]+$/.test(perfil.tema) ? perfil.tema : null;
     const dialogo = h('dialog', {class: 'janela-da-lista janela-dos-mangas-do-perfil', 'data-tema': tema},
         h('div', {class: 'fundo-da-previa', 'aria-hidden': 'true'}), h('div', {class: 'fundo-da-previa-2', 'aria-hidden': 'true'}),
+        h('div', {class: 'fundo-da-previa-3', 'aria-hidden': 'true'}), h('div', {class: 'fundo-da-previa-4', 'aria-hidden': 'true'}),
         h('div', {class: 'topo-da-janela'}, titulo, fechar), ...ferramentas, rolagem, detalhe);
     let vendoManga = false;
     const mostrarCapas = () => {

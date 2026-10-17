@@ -2385,7 +2385,9 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 }
 .previa-do-tema { position: relative; overflow: hidden; isolation: isolate; background: var(--fundo-imagem, none), var(--fundo); }
 .previa-do-tema > .fundo-da-previa, .previa-do-tema > .fundo-da-previa-2,
-.janela-dos-mangas-do-perfil > .fundo-da-previa, .janela-dos-mangas-do-perfil > .fundo-da-previa-2 { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.janela-dos-mangas-do-perfil > .fundo-da-previa, .janela-dos-mangas-do-perfil > .fundo-da-previa-2,
+.previa-do-tema > .fundo-da-previa-3, .previa-do-tema > .fundo-da-previa-4,
+.janela-dos-mangas-do-perfil > .fundo-da-previa-3, .janela-dos-mangas-do-perfil > .fundo-da-previa-4 { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 /* a janela dos mangas de outra pessoa com o tema dela: as cores, o fundo e as camadas animadas */
 .janela-dos-mangas-do-perfil[data-tema] { isolation: isolate; overflow: hidden; color: var(--texto); background: var(--fundo-imagem, none), var(--fundo); }
 
@@ -2546,6 +2548,49 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(1.5px 1.5px at 210px 30px, #fbcfe8, transparent), radial-gradient(1px 1px at 150px 230px, #fff, transparent);
     background-size: 250px 250px;
     animation: estrelas-piscando-no-ceu 4s ease-in-out infinite;
+}
+
+/*
+ * Galaxia: meteoros. Duas camadas a mais (na pagina, as do <html>, porque as do <body> ja sao a nebulosa e as
+ * estrelas), cada uma com um risco de luz que cruza a tela de vez em quando, em angulos e tempos diferentes. O risco e
+ * o fundo da camada; quem anda e a camada inteira, girada, o que o navegador faz sem redesenhar a pagina.
+ */
+:root[data-tema="cosmos"]::before, :root[data-tema="cosmos"]::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+:root[data-tema="cosmos"]::before, [data-tema="cosmos"] > .fundo-da-previa-3 {
+    background:
+        radial-gradient(7px 7px at 29.8% 30%, #fff, rgba(224, 231, 255, .7) 35%, transparent 70%),
+        linear-gradient(90deg, transparent, rgba(196, 181, 253, .55) 55%, #fff) 10% 30% / 22% 3px no-repeat;
+    filter: drop-shadow(0 0 4px rgba(196, 181, 253, .9));
+    --angulo: 24deg;
+    opacity: 0;
+    animation: meteoro 11s linear infinite;
+    animation-delay: 2s;
+}
+:root[data-tema="cosmos"]::after, [data-tema="cosmos"] > .fundo-da-previa-4 {
+    background:
+        radial-gradient(5px 5px at 66% 18%, #fff, rgba(191, 219, 254, .7) 35%, transparent 70%),
+        linear-gradient(90deg, transparent, rgba(147, 197, 253, .5) 55%, #fff) 60% 18% / 15% 2px no-repeat;
+    filter: drop-shadow(0 0 3px rgba(147, 197, 253, .9));
+    opacity: 0;
+    --angulo: 34deg;
+    animation: meteoro 17s linear infinite;
+    animation-delay: 9s;
+}
+@keyframes meteoro {
+    /* parado e apagado a maior parte do tempo; de vez em quando cruza a tela, descendo na diagonal, e some */
+    0%, 70% { transform: rotate(var(--angulo, 25deg)) translateX(-45%); opacity: 0; }
+    72% { opacity: 1; }
+    82% { transform: rotate(var(--angulo, 25deg)) translateX(75%); opacity: 0; }
+    100% { transform: rotate(var(--angulo, 25deg)) translateX(75%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    :root[data-tema="cosmos"]::before, :root[data-tema="cosmos"]::after, .fundo-da-previa-3, .fundo-da-previa-4 { animation: none !important; opacity: 0 !important; }
 }
 
 /* Fazenda: ceu azul com nuvens passando, sol, morros verdes e uma cerca embaixo */

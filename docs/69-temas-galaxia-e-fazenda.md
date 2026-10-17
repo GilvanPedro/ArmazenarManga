@@ -29,3 +29,5 @@ um robô que barra imagens explícitas.
 
 Os 87 testes da versão JavaScript passam. No navegador, com a Galáxia equipada na Comunidade e a Fazenda na
 Biblioteca, e as duas prévias na aba Temas da loja.
+
+> Depois, a Galáxia ganhou meteoros passando de vez em quando: veja [Meteoros no tema Galáxia](71-meteoros-na-galaxia.md).

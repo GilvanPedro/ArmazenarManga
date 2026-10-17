@@ -74,6 +74,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [68 · Mais efeitos e o filtro da mochila](68-mais-efeitos-e-filtro-da-mochila.md) | Seis efeitos novos (Brasas, Chuva, Corações, Glitch, Tela CRT e Confete) e o filtro por tipo na mochila |
 | [69 · Temas animados Galáxia e Fazenda](69-temas-galaxia-e-fazenda.md) | Dois temas de fundo animado novos: nebulosas girando e uma fazenda com nuvens passando |
 | [70 · Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md) | Um tema com ilustração de fundo (do banco) e a janela dos mangás do perfil com o tema da pessoa |
+| [71 · Meteoros no tema Galáxia](71-meteoros-na-galaxia.md) | Meteoros cruzando a tela de vez em quando no tema animado Galáxia |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
