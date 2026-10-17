@@ -1286,12 +1286,55 @@ async function rotear(request) {
     throw new Recusa(404, 'Rota não encontrada');
 }
 
+/**
+ * Os mangas de outra conta, para o perfil da Comunidade: 48 por pagina, com a mesma busca, status e ordem da
+ * Biblioteca. So o que da para mostrar: titulo, capa, status, nota, favorito, capitulo, tags e descricao; os links de
+ * leitura ficam de fora. As capas enviadas saem pelo endereco do perfil (capaDeOutraConta), porque /api/imagens so
+ * abre as da propria conta.
+ */
+const MANGAS_DO_PERFIL_POR_PAGINA = 48;
+async function mangasDeOutraConta(contaId, url) {
+    return contexto.run({ conta: String(contaId) }, async () => {
+        const filtros = { titulo: url.searchParams.get('titulo'), status: lerStatusDaBusca(url), ordem: lerOrdem(url, ORDENS_DA_LISTA, 'CADASTRO') };
+        const pedida = lerInteiroPositivo(url, 'pagina', 1);
+        const { mangas, total } = await consultar({ ...filtros, limite: MANGAS_DO_PERFIL_POR_PAGINA, deslocamento: (pedida - 1) * MANGAS_DO_PERFIL_POR_PAGINA });
+        const guardadas = await miniaturas(mangas);
+        const capaDoPerfil = nome => `/api/comunidade/contas/${contaId}/capas/${nome}`;
+        const itens = mangas.map(manga => {
+            const enviada = NOME_DE_CAPA.test(manga.imagePath || '');
+            const miniatura = enviada ? guardadas.get(manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'))) : null;
+            const capa = isUrlHttp(manga.imagePath) ? manga.imagePath : enviada ? capaDoPerfil(manga.imagePath) : null;
+            return {
+                id: manga.id, titulo: manga.title, capa, miniatura: miniatura ? capaDoPerfil(miniatura) : capa,
+                status: manga.readingStatus, nota: notaDe(manga), favorito: manga.favorite === true, capitulo: manga.lastChapter ?? null,
+                tags: (manga.tags || []).slice(0, 20), descricao: typeof manga.description === 'string' ? manga.description.slice(0, 2000) : '',
+            };
+        });
+        return { itens, pagina: pedida, paginas: Math.max(1, Math.ceil(total / MANGAS_DO_PERFIL_POR_PAGINA)), total };
+    });
+}
+
+/**
+ * A capa (ou a miniatura dela) de um manga de outra conta, para o perfil. So sai se a imagem for a capa de um manga
+ * daquela conta: as outras imagens da conta (a foto de perfil, capas de mangas ja apagados) continuam privadas.
+ */
+async function capaDeOutraConta(contaId, nome) {
+    const miniatura = /^([0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12})-mini\.(webp|jpg)$/.exec(nome || '');
+    if (!miniatura && !NOME_DE_CAPA.test(nome || '')) return null;
+    const base = miniatura ? miniatura[1] : nome.slice(0, nome.lastIndexOf('.'));
+    const { rows } = await (await banco()).query(`
+        SELECT i.conteudo FROM imagens i WHERE i.nome = $1 AND i.conta = $2
+          AND EXISTS (SELECT 1 FROM mangas m WHERE m.conta = $2 AND m.dados->>'imagePath' = ANY($3))`,
+    [nome, String(contaId), ['png', 'jpg', 'gif', 'webp'].map(extensao => base + '.' + extensao)]);
+    return rows[0]?.conteudo || null;
+}
+
 // a Comunidade (api/_comunidade_rotas.js) usa as mesmas ferramentas do resto da API
 let rotasDaComunidade;
 function comunidade() {
     rotasDaComunidade ??= criarComunidade({
         banco, json, Recusa, lerCorpo, semCache, exigirQueNaoEstejaFreado, registrarTentativa, descobrirExtensao, ehAdmin, ehDono,
-        miniaturasDe: miniaturas,
+        miniaturasDe: miniaturas, mangasDeOutraConta, capaDeOutraConta,
     });
     return rotasDaComunidade;
 }

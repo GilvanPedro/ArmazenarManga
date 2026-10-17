@@ -3250,7 +3250,8 @@ async function telaPerfil(principal, id, vez) {
     document.title = perfil.nick + ' · Comunidade · Viracap';
     const numeros = h('p', {class: 'numeros-do-perfil'});
     const mostrarNumeros = dados => numeros.replaceChildren(
-        h('span', null, h('b', null, String(perfil.mangas)), perfil.mangas === 1 ? ' mangá' : ' mangás'),
+        h('button', {type: 'button', class: 'numero-clicavel', onclick: () => janelaDosMangasDoPerfil(perfil)},
+            h('b', null, String(perfil.mangas)), perfil.mangas === 1 ? ' mangá' : ' mangás'),
         h('span', null, h('b', null, String(dados.posts)), dados.posts === 1 ? ' post' : ' posts'),
         // clicar nos seguidores ou em "seguindo" mostra quem sao
         h('button', {type: 'button', class: 'numero-clicavel', onclick: () => janelaDeSeguir(perfil, 'seguidores')},
@@ -4339,6 +4340,17 @@ function capaDaLista(item, comNota, autor) {
  */
 function listaDoPost(lista, autor) {
     const quantos = lista.itens.length === 1 ? '1 mangá' : lista.itens.length + ' mangás';
+    // com um manga so, o post mostra ele, e clicar abre direto as informacoes dele
+    if (lista.itens.length === 1) {
+        const item = lista.itens[0];
+        return h('button', {type: 'button', class: 'lista-do-post', 'aria-label': 'Ver o mangá ' + item.titulo, onclick: () => abrirListaDoPost(lista, autor)},
+            h('div', {class: 'pilha-de-capas'}, capaDaLista(item, false, autor)),
+            h('div', {class: 'sobre-a-lista'},
+                h('span', {class: 'tipo-da-lista'}, 'Mangá'),
+                h('b', null, item.titulo),
+                lista.titulo ? h('small', null, lista.titulo) : null,
+                h('span', {class: 'ver-lista'}, 'Ver mangá →')));
+    }
     return h('button', {type: 'button', class: 'lista-do-post', 'aria-label': 'Ver a lista ' + (lista.titulo || 'de mangás') + ', ' + quantos,
         onclick: () => abrirListaDoPost(lista, autor)},
     h('div', {class: 'pilha-de-capas' + (lista.itens.length > 1 ? ' com-mais' : '')}, capaDaLista(lista.itens[0], false, autor)),
@@ -4350,8 +4362,29 @@ function listaDoPost(lista, autor) {
 }
 
 /**
+ * O que alguem cadastrou de um manga, so para ver: capa, nota, favorito, ultimo capitulo lido, tags e descricao (e o
+ * status, quando vem). Usado nas listas dos posts e nos mangas do perfil. item: { titulo, capa, status?, nota,
+ * favorito, capitulo, tags, descricao }.
+ */
+function detalheDoMangaDeOutro(item, autor, observacao) {
+    const capitulo = item.capitulo == null ? null : mostrarCapitulo(item.capitulo);
+    return h('div', {class: 'manga-da-lista'},
+        capaDaLista(item, false, autor),
+        h('div', {class: 'sobre-o-manga'},
+            h('div', {class: 'linha'},
+                item.status ? etiquetaStatus(item.status) : null,
+                item.nota != null ? etiquetaNota(item.nota, true) : h('span', {class: 'capitulo-atual'}, 'Sem nota'),
+                item.favorito ? h('span', {class: 'selo-favorito'}, '★ Favorito') : null),
+            capitulo != null ? h('p', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, capitulo)) : null,
+            item.tags && item.tags.length ? h('div', {class: 'linha'}, item.tags.map(tag => h('span', {class: 'tag'}, tag))) : null,
+            item.descricao ? h('p', {class: 'descricao'}, item.descricao) : h('p', {class: 'descricao sem'}, 'Sem descrição.'),
+            observacao ? h('p', {class: 'nota-de-login'}, observacao) : null));
+}
+
+/**
  * Janela com todos os mangas da lista; clicar em um mostra o que o autor tinha cadastrado dele. So para ver. Com um
- * manga aberto, fechar (× ou Esc) volta para a lista; com a lista aberta, fecha a janela.
+ * manga aberto, fechar (× ou Esc) volta para a lista; com a lista aberta, fecha a janela. Uma lista de um manga so
+ * abre direto nele, sem a volta para a lista.
  */
 function abrirListaDoPost(lista, autor) {
     const conteudo = h('div', {class: 'conteudo-da-lista'});
@@ -4359,13 +4392,14 @@ function abrirListaDoPost(lista, autor) {
     const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
     const dialogo = h('dialog', {class: 'janela-da-lista-publicada'}, h('div', {class: 'topo-da-janela'}, titulo, fechar), conteudo);
     let vendoManga = false;
+    const soUm = lista.itens.length === 1;
     fechar.addEventListener('click', () => {
-        if (vendoManga) mostrarLista();
+        if (vendoManga && !soUm) mostrarLista();
         else dialogo.close();
     });
     // o Esc do navegador tambem volta para a lista antes de fechar
     dialogo.addEventListener('cancel', evento => {
-        if (!vendoManga) return;
+        if (!vendoManga || soUm) return;
         evento.preventDefault();
         mostrarLista();
     });
@@ -4381,28 +4415,137 @@ function abrirListaDoPost(lista, autor) {
     };
     const mostrarManga = item => {
         vendoManga = true;
-        fechar.setAttribute('aria-label', 'Voltar para a lista');
+        fechar.setAttribute('aria-label', soUm ? 'Fechar' : 'Voltar para a lista');
         titulo.textContent = item.titulo;
-        const capitulo = item.capitulo == null ? null : mostrarCapitulo(item.capitulo);
-        conteudo.replaceChildren(
-            h('button', {type: 'button', class: 'voltar-para-a-lista', onclick: mostrarLista}, '← Voltar para a lista'),
-            h('div', {class: 'manga-da-lista'},
-                capaDaLista(item, false, autor),
-                h('div', {class: 'sobre-o-manga'},
-                    // o status (lendo, hiatus...) e de quem cadastrou: nao aparece aqui
-                    h('div', {class: 'linha'},
-                        item.nota != null ? etiquetaNota(item.nota, true) : h('span', {class: 'capitulo-atual'}, 'Sem nota'),
-                        item.favorito ? h('span', {class: 'selo-favorito'}, '★ Favorito') : null),
-                    capitulo != null ? h('p', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, capitulo)) : null,
-                    item.tags && item.tags.length ? h('div', {class: 'linha'}, item.tags.map(tag => h('span', {class: 'tag'}, tag))) : null,
-                    item.descricao ? h('p', {class: 'descricao'}, item.descricao) : h('p', {class: 'descricao sem'}, 'Sem descrição.'),
-                    h('p', {class: 'nota-de-login'}, 'Como estava na Biblioteca de ' + autor.nick + ' quando a lista foi publicada.'))));
+        // o status (lendo, hiatus...) e de quem cadastrou: nas listas dos posts nao aparece
+        conteudo.replaceChildren(...[
+            soUm ? null : h('button', {type: 'button', class: 'voltar-para-a-lista', onclick: mostrarLista}, '← Voltar para a lista'),
+            detalheDoMangaDeOutro(item, autor, 'Como estava na Biblioteca de ' + autor.nick + ' quando ' + (soUm ? 'o post foi publicado.' : 'a lista foi publicada.'))].filter(Boolean));
         conteudo.scrollTop = 0;
     };
     dialogo.addEventListener('close', () => dialogo.remove());
     document.body.append(dialogo);
-    mostrarLista();
+    if (soUm) mostrarManga(lista.itens[0]);
+    else mostrarLista();
     dialogo.showModal();
+}
+
+/**
+ * Os mangas da Biblioteca de alguem, abertos pelo numero de mangas do perfil: como a janela de montar lista (busca,
+ * status, ordem e as capas vindo aos poucos), mas so para ver. Clicar numa capa mostra o que a pessoa cadastrou dele;
+ * fechar (× ou Esc) volta para as capas.
+ */
+function janelaDosMangasDoPerfil(perfil) {
+    const filtro = {busca: '', status: '', ordem: 'CADASTRO'};
+    const busca = h('input', {type: 'search', placeholder: 'Buscar pelo nome…', 'aria-label': 'Buscar mangá'});
+    const ordenar = seletor(estado.ordens, filtro.ordem);
+    ordenar.setAttribute('aria-label', 'Ordenar por');
+    ordenar.className = 'ordenar';
+    const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Filtrar por status'});
+    for (const opcao of [{valor: '', descricao: 'Todos'}, ...estado.status]) {
+        filtros.append(h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(filtro.status === opcao.valor), onclick: evento => {
+            filtro.status = opcao.valor;
+            for (const botao of filtros.children) botao.setAttribute('aria-pressed', 'false');
+            evento.currentTarget.setAttribute('aria-pressed', 'true');
+            recomecar();
+        }}, opcao.descricao));
+    }
+    const grade = h('div', {class: 'grade-para-escolher'});
+    const fim = h('div', {class: 'fim-da-grade'});
+    const titulo = h('h2', null, 'Mangás de ' + perfil.nick);
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const rolagem = h('div', {class: 'rolagem-da-escolha'}, grade, fim);
+    const ferramentas = [h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar), filtros];
+    const detalhe = h('div', {class: 'conteudo-da-lista', hidden: true});
+    const dialogo = h('dialog', {class: 'janela-da-lista janela-dos-mangas-do-perfil'},
+        h('div', {class: 'topo-da-janela'}, titulo, fechar), ...ferramentas, rolagem, detalhe);
+    let vendoManga = false;
+    const mostrarCapas = () => {
+        vendoManga = false;
+        titulo.textContent = 'Mangás de ' + perfil.nick;
+        fechar.setAttribute('aria-label', 'Fechar');
+        detalhe.hidden = true;
+        for (const parte of [...ferramentas, rolagem]) parte.hidden = false;
+    };
+    const mostrarManga = item => {
+        vendoManga = true;
+        titulo.textContent = item.titulo;
+        fechar.setAttribute('aria-label', 'Voltar para os mangás');
+        for (const parte of [...ferramentas, rolagem]) parte.hidden = true;
+        detalhe.replaceChildren(
+            h('button', {type: 'button', class: 'voltar-para-a-lista', onclick: mostrarCapas}, '← Voltar para os mangás'),
+            detalheDoMangaDeOutro(item, perfil, perfil.euMesmo ? 'Como está na sua Biblioteca.' : 'Como está na Biblioteca de ' + perfil.nick + '.'));
+        detalhe.hidden = false;
+        detalhe.scrollTop = 0;
+    };
+    const cartao = item => h('button', {type: 'button', class: 'para-escolher', title: item.titulo, onclick: () => mostrarManga(item)},
+        capaDaLista({...item, capa: item.miniatura || item.capa}, true, perfil),
+        h('span', {class: 'nome-do-item'}, item.titulo));
+
+    // as capas vem do servidor aos poucos (48 por vez), ja buscadas, filtradas e ordenadas
+    let pagina = 0;
+    let temMais = true;
+    let pedido = 0;
+    const carregar = async () => {
+        if (!temMais) return;
+        const vez = pedido;
+        const parametros = new URLSearchParams({pagina: String(pagina + 1)});
+        if (filtro.busca.trim()) parametros.set('titulo', filtro.busca.trim());
+        if (filtro.status) parametros.set('status', filtro.status);
+        if (filtro.ordem && filtro.ordem !== 'CADASTRO') parametros.set('ordem', filtro.ordem);
+        fim.textContent = 'Carregando…';
+        let resposta;
+        try {
+            resposta = await chamar('GET', '/api/comunidade/contas/' + encodeURIComponent(perfil.id) + '/mangas?' + parametros);
+        } catch (e) {
+            if (vez === pedido) fim.textContent = e.message;
+            return;
+        }
+        if (vez !== pedido) return;
+        pagina = resposta.pagina;
+        temMais = resposta.pagina < resposta.paginas && resposta.total > 0;
+        grade.append(...resposta.itens.map(cartao));
+        fim.textContent = resposta.total === 0
+            ? (filtro.busca || filtro.status ? 'Nenhum mangá encontrado.' : (perfil.euMesmo ? 'Sua Biblioteca está vazia.' : perfil.nick + ' ainda não cadastrou mangás.'))
+            : '';
+        requestAnimationFrame(talvezCarregar);
+    };
+    const recomecar = () => {
+        pedido++;
+        pagina = 0;
+        temMais = true;
+        grade.replaceChildren();
+        carregar();
+    };
+    let espera;
+    busca.addEventListener('input', () => {
+        filtro.busca = busca.value;
+        clearTimeout(espera);
+        espera = setTimeout(recomecar, 220);
+    });
+    ordenar.addEventListener('change', () => {
+        filtro.ordem = ordenar.value;
+        recomecar();
+    });
+    const pertoDoFim = () => fim.getBoundingClientRect().top < Math.min(rolagem.getBoundingClientRect().bottom, dialogo.getBoundingClientRect().bottom) + 400;
+    const talvezCarregar = () => {
+        if (dialogo.open && !vendoManga && temMais && fim.textContent !== 'Carregando…' && pertoDoFim()) carregar();
+    };
+    dialogo.addEventListener('scroll', talvezCarregar, {capture: true, passive: true});
+    fechar.addEventListener('click', () => {
+        if (vendoManga) mostrarCapas();
+        else dialogo.close();
+    });
+    // o Esc volta para as capas antes de fechar
+    dialogo.addEventListener('cancel', evento => {
+        if (!vendoManga) return;
+        evento.preventDefault();
+        mostrarCapas();
+    });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    carregar();
 }
 
 /**

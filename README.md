@@ -99,7 +99,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Loja de bordas e mochila](docs/57-loja-de-bordas.md) | [Finanças: ganho e perda do site](docs/58-financas.md) |
 | [Efeitos, Loja no topo e painel do dono](docs/59-efeitos-loja-no-topo-e-dono.md) | [Bordas ornamentadas](docs/60-bordas-ornamentadas.md) |
 | [O dono tem todos os itens da loja](docs/61-dono-tem-todos-os-itens.md) | [Borda Celestial, feita de imagem](docs/62-borda-celestial-de-imagem.md) |
-| [Imagens da loja no banco](docs/63-imagens-da-loja-no-banco.md) | |
+| [Imagens da loja no banco](docs/63-imagens-da-loja-no-banco.md) | [Os mangás do perfil e a lista de um só](docs/64-mangas-do-perfil-e-lista-de-um.md) |
 
 ## Testes
 

@@ -67,6 +67,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [61 · O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md) | A conta do dono do site tem todas as bordas e efeitos, os de hoje e os futuros, sem comprar |
 | [62 · Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md) | A primeira borda feita a partir de uma imagem, e como fazer as próximas |
 | [63 · Imagens da loja no banco](63-imagens-da-loja-no-banco.md) | As imagens das bordas e efeitos ficam no banco, enviadas pela aba "Imagens da loja" do Gerenciar |
+| [64 · Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md) | Clicar no número de mangás do perfil mostra os mangás da pessoa; lista de um mangá abre direto nele |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

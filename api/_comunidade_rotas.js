@@ -688,6 +688,18 @@ export function criarComunidade(f) {
             else await db.query('DELETE FROM seguindo WHERE seguidor = $1 AND seguido = $2', [eu.id, conta.id]);
             return json(200, await perfil(conta.id, eu));
         }
+        // os mangas da Biblioteca de uma conta, abertos pelo numero de mangas do perfil (so para ver)
+        if (recurso === 'contas' && id && acao === 'mangas' && metodo === 'GET') {
+            const conta = await exigirConta(id);
+            return f.semCache(json(200, await f.mangasDeOutraConta(conta.id, url)));
+        }
+        // as capas desses mangas (o nome muda a cada envio: pode ficar guardada no navegador)
+        if (recurso === 'contas' && id && acao === 'capas' && partes[3] && metodo === 'GET') {
+            if (!ID.test(id)) throw new Recusa(404, 'Capa não encontrada');
+            const conteudo = await f.capaDeOutraConta(id, partes[3]);
+            if (!conteudo) throw new Recusa(404, 'Capa não encontrada');
+            return servirImagem(conteudo, partes[3], 'private, max-age=86400');
+        }
         // a foto de perfil e privada na conta; na Comunidade, quem esta logado pode ver a dos outros
         if (recurso === 'contas' && id && acao === 'foto' && metodo === 'GET') {
             if (!ID.test(id)) throw new Recusa(404, 'Foto não encontrada');

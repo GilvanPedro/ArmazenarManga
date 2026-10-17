@@ -204,6 +204,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes em [Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md).
 - **Imagens da loja no banco.** As imagens das bordas e efeitos saíram do projeto e passaram a ficar no banco,
   enviadas pelo dono numa aba nova do Gerenciar. Detalhes em [Imagens da loja no banco](63-imagens-da-loja-no-banco.md).
+- **Mangás do perfil.** O número de mangás do perfil passou a abrir os mangás da pessoa (só para ver, sem os links
+  de leitura), e uma lista de um mangá só passou a abrir direto nele. Detalhes em
+  [Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md).
 
 ## O que foi removido ou abandonado
 

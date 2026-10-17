@@ -2047,3 +2047,7 @@ dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
 .sobre-a-imagem { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .sobre-a-imagem small { color: var(--texto-fraco); font-size: 12.5px; }
 .sobre-a-imagem code { overflow-wrap: anywhere; color: var(--texto-fraco); font-size: 12px; }
+
+/* mangas do perfil: a mesma janela de montar lista, so para ver; as partes escondidas somem de verdade */
+.janela-dos-mangas-do-perfil [hidden] { display: none !important; }
+.janela-dos-mangas-do-perfil .conteudo-da-lista { flex: 1; min-height: 0; }

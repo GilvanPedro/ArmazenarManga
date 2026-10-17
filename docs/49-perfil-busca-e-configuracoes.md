@@ -101,3 +101,7 @@ No banco, a tabela `contas` ganhou a coluna `descricao` (texto, vazio por padrã
 
 > Depois, as abas "Para você" e "Seguindo" foram para a mesma linha da barra de pesquisa, e os números de seguidores e
 > "seguindo" do perfil passaram a abrir a lista de quem é: veja [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).
+
+> Depois, o número de mangás do perfil passou a abrir os mangás da pessoa (a Biblioteca deixou de ser só da pessoa,
+> sem os links de leitura), e uma lista de um mangá só passou a abrir direto nele: veja
+> [Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md).

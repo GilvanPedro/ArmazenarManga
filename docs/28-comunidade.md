@@ -145,3 +145,7 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 > Depois, o "Para você" passou a mostrar os posts do mais novo para o mais antigo (os pontos só escolhem quais posts
 > entram), e no perfil os seguidores e o "seguindo" viraram listas clicáveis: veja
 > [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).
+
+> Depois, o número de mangás do perfil passou a abrir os mangás da pessoa (a Biblioteca deixou de ser só da pessoa,
+> sem os links de leitura), e uma lista de um mangá só passou a abrir direto nele: veja
+> [Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md).
