@@ -65,6 +65,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [59 · Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md) | Efeitos a R$ 2,50 para os favoritos, a Loja ao lado da Comunidade, centralizada e com páginas, e Painel e Finanças só para o dono |
 | [60 · Bordas ornamentadas](60-bordas-ornamentadas.md) | Sete bordas novas com enfeites que saem da capa: Cristal, Cyberpunk, Abissal, Sombrio, Floresta, Elétrico e Arcano |
 | [61 · O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md) | A conta do dono do site tem todas as bordas e efeitos, os de hoje e os futuros, sem comprar |
+| [62 · Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md) | A primeira borda feita a partir de uma imagem, e como fazer as próximas |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

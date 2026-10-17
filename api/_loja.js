@@ -37,6 +37,7 @@ export const ITENS_DA_LOJA = [
     { id: 'floresta', tipo: 'borda', nome: 'Floresta', descricao: 'Vinhas com folhas balançando e vaga-lumes da mata.', preco: PRECO_DA_BORDA },
     { id: 'eletrico', tipo: 'borda', nome: 'Elétrico', descricao: 'Descargas elétricas e raios de alta voltagem em volta da capa.', preco: PRECO_DA_BORDA },
     { id: 'arcano', tipo: 'borda', nome: 'Arcano', descricao: 'Moldura de prata com cantos dourados e runas antigas que brilham.', preco: PRECO_DA_BORDA },
+    { id: 'celestial', tipo: 'borda', nome: 'Celestial', descricao: 'Moldura dourada com arabescos, runas azuis brilhando e uma estrela com a lua no canto.', preco: PRECO_DA_BORDA },
     { id: 'holografico', tipo: 'efeito', nome: 'Holográfico', descricao: 'Um reflexo de arco-íris que atravessa a capa, como uma carta rara.', preco: PRECO_DO_EFEITO },
     { id: 'faiscas', tipo: 'efeito', nome: 'Faíscas', descricao: 'Estrelinhas que acendem e apagam em cima da capa.', preco: PRECO_DO_EFEITO },
     { id: 'neve', tipo: 'efeito', nome: 'Neve', descricao: 'Flocos de neve caindo devagar sobre a capa.', preco: PRECO_DO_EFEITO },

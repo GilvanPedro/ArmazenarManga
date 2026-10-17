@@ -50,3 +50,5 @@ no lado direito.
   dos favoritos (e a capa que não é favorita sem nada). Ajustes feitos olhando as capturas: a luz do fundo da
   Abissal tinha virado um retângulo, as folhas de baixo da Floresta saíam do lugar e as runas da Arcano encostavam
   no título embaixo da capa.
+
+> Depois, entrou a Celestial, a primeira borda feita de imagem: veja [Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md).

@@ -531,21 +531,21 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
  * na camada .enfeite-da-borda (e no ::before e ::after dela), que nas outras bordas nao aparece.
  */
 .enfeite-da-borda { display: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial) {
     overflow: visible;
     isolation: isolate;
     border-width: 5px;
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia) > :is(img, .capa-vazia, .capa-de-exemplo) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial) > :is(img, .capa-vazia, .capa-de-exemplo) {
     border-radius: calc(var(--raio) - 5px);
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia)::after,
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia)::before {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial)::after,
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial)::before {
     border-radius: calc(var(--raio) - 5px);
 }
 /* a imagem nao cresce no hover: sem o corte da capa, ela passaria por cima da moldura */
-a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia):hover img { transform: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia) .enfeite-da-borda {
+a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial):hover img { transform: none; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial) .enfeite-da-borda {
     display: block;
     position: absolute;
     inset: 0;
@@ -840,6 +840,48 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     0%, 100% { color: #93a3c4; text-shadow: none; }
     50% { color: #dbeafe; text-shadow: 0 0 6px #60a5fa, 0 0 12px #3b82f6; }
 }
+
+/*
+ * Celestial: a moldura e uma imagem (bordas/celestial.webp, 401 x 573, com o meio transparente). Ela fica por cima da
+ * capa com o meio da faixa da moldura em cima da beira da capa: a capa ocupa, na imagem, de x 32,5 a 368,5 e de
+ * y 36,5 a 538,5 (336 x 502, quase 2:3). Dai as medidas abaixo, em porcentagem da capa. A estrela da imagem faz o
+ * papel da estrela do favorito, e um brilho pisca em cima dela.
+ */
+.capa.favorita.borda-celestial {
+    --roxo: #60a5fa;
+    border-width: 0;
+    background: var(--superficie-2);
+    box-shadow: 0 0 16px rgba(96, 165, 250, .35), 0 6px 22px rgba(0, 0, 0, .35);
+}
+.capa.favorita.borda-celestial > :is(img, .capa-vazia, .capa-de-exemplo) { border-radius: calc(var(--raio) - 2px); }
+.capa.favorita.borda-celestial .enfeite-da-borda {
+    inset: auto;
+    left: -9.67%;
+    top: -7.27%;
+    width: 119.35%;
+    height: 114.14%;
+    background: url("bordas/celestial.webp") 0 0 / 100% 100% no-repeat;
+    animation: celestial-brilho 4s ease-in-out infinite;
+}
+@keyframes celestial-brilho {
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(147, 197, 253, .5)); }
+    50% { filter: drop-shadow(0 0 7px rgba(147, 197, 253, .95)); }
+}
+/* o brilho da estrela (na imagem, perto do canto de cima a direita) */
+.capa.favorita.borda-celestial .enfeite-da-borda::after {
+    left: 79.8%;
+    top: 12.2%;
+    width: 9%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0 12%, rgba(191, 219, 254, .8) 25%, rgba(96, 165, 250, .3) 50%, transparent 70%);
+    animation: faiscas 2.4s ease-in-out infinite;
+}
+.capa.favorita.borda-celestial .estrela-de-favorito { display: none; }
+/* o status e a nota ficam por cima da moldura e um pouco para dentro, longe dos arabescos */
+.capa.favorita.borda-celestial .status { z-index: 4; top: 7%; left: 8%; }
+.capa.favorita.borda-celestial .nota { z-index: 4; right: 8%; bottom: 6%; }
 
 /* Galaxia: estrelas e um planetinha flutuando por fora da moldura */
 .borda-galaxia .enfeite-da-borda::before {

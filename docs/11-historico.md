@@ -200,6 +200,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Bordas ornamentadas](60-bordas-ornamentadas.md).
 - **Itens do dono.** A conta do dono do site passou a ter todos os itens da loja, inclusive os que entrarem depois,
   sem comprar. Detalhes em [O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md).
+- **Borda Celestial.** A primeira borda feita a partir de uma imagem (moldura dourada com runas, estrela e lua).
+  Detalhes em [Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md).
 
 ## O que foi removido ou abandonado
 
