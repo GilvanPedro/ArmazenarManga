@@ -74,3 +74,9 @@ montados por JavaScript e tela de "Just a moment…") e em uma página real de c
 Não testado: o Firefox, o Opera GX e os sites que bloqueiam acesso automático, porque só o navegador do próprio
 usuário consegue abri-los. Nesses, dois pontos podem falhar: o navegador não deixar o favorito rodar na página, e
 o botão de próximo do site não ser um link comum.
+
+> Depois, o botão "✓ Lido" ficou maior e saiu do canto inferior direito: agora fica na borda direita, a 40% da
+> altura da tela. Veja [Botão "Lido" maior e mais para cima](53-botao-lido-maior-e-mais-alto.md).
+
+> Depois, a aba Extensão e atalho do site trocou as instruções por arquivo pelo botão "Instalar no Firefox", que
+> leva à loja da Mozilla: veja [Link da extensão na loja do Firefox](55-link-da-extensao-no-firefox.md).

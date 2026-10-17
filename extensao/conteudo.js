@@ -41,14 +41,14 @@
         const raiz = caixa.attachShadow({ mode: 'closed' });
         const estilo = document.createElement('style');
         estilo.textContent = `
-            :host { all: initial; position: fixed; right: 14px; bottom: 14px; z-index: 2147483647; }
-            .grupo { display: flex; align-items: stretch; font: 600 13px/1 system-ui, sans-serif; border-radius: 999px; overflow: hidden;
+            :host { all: initial; position: fixed; right: 14px; bottom: 40vh; z-index: 2147483647; }
+            .grupo { display: flex; align-items: stretch; font: 700 16px/1 system-ui, sans-serif; border-radius: 999px; overflow: hidden;
                 box-shadow: 0 4px 14px rgba(0, 0, 0, .4); opacity: .55; transition: opacity .15s; }
             .grupo:hover, .grupo:focus-within { opacity: 1; }
-            button { all: unset; cursor: pointer; padding: 10px 14px; background: #d9481f; color: #fff; font: inherit; }
+            button { all: unset; cursor: pointer; padding: 14px 20px; background: #d9481f; color: #fff; font: inherit; }
             button:hover { background: #b93a15; }
             button:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
-            .fechar { padding: 10px 11px 10px 9px; background: #2b303b; color: #e9ebf0; }
+            .fechar { padding: 14px 14px 14px 11px; background: #2b303b; color: #e9ebf0; }
             .fechar:hover { background: #444b5a; }
         `;
         const grupo = document.createElement('div');

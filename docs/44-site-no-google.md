@@ -62,3 +62,6 @@ O Google costuma levar de alguns dias a algumas semanas para mostrar o site. Par
 
 `sitemap.xml` válido e as marcações conferidas no `index.html`. `npm test` (61) e os testes da versão Java passando.
 A versão Java serve os arquivos novos sozinha, porque entrega a pasta `public` inteira.
+
+> Depois, a página inicial ganhou os dados estruturados com o nome "Viracap" e uma apresentação do site embaixo do
+> formulário de entrar: veja [Nome do site no Google e apresentação](54-nome-do-site-e-apresentacao.md).

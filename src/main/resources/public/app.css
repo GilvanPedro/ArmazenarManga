@@ -757,6 +757,14 @@ body.entrando main { max-width: none; padding: 0; }
 @media (max-width: 420px) {
     .cartao-de-login { padding: 28px 20px 22px; border-radius: 16px; }
 }
+/* o que e o site, embaixo do formulario de entrar */
+.fundo-de-login { gap: 28px; align-content: center; }
+.sobre-o-site { width: min(100%, 760px); text-align: center; }
+.sobre-o-site h2 { margin: 0 0 14px; font-size: 20px; }
+.sobre-o-site ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; text-align: left; }
+.sobre-o-site li { padding: 14px; border: 1px solid color-mix(in srgb, var(--borda) 80%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--superficie) 70%, transparent); }
+.sobre-o-site h3 { margin: 0 0 6px; font-size: 14.5px; }
+.sobre-o-site li p { margin: 0; color: var(--texto-fraco); font-size: 13px; line-height: 1.45; }
 @media (prefers-reduced-motion: reduce) {
     .cartao-de-login { animation: none; }
 }

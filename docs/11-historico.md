@@ -172,6 +172,15 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Feed por data e seguidores.** O "Para você" passou a mostrar os posts sempre do mais novo para o mais antigo (os
   pontos só escolhem quais entram), as abas foram para a mesma linha da barra de pesquisa, e no perfil dá para clicar
   nos seguidores e em "seguindo" para ver quem são. Detalhes em [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).
+- **Botão "Lido" mais alto.** O botão da extensão nos sites de leitura cobria os botões do canto inferior direito;
+  agora fica maior e mais para cima, na borda direita (extensão 1.4.2). Detalhes em
+  [Botão "Lido" maior e mais para cima](53-botao-lido-maior-e-mais-alto.md).
+- **Nome do site no Google.** A página inicial ganhou os dados que dizem ao Google que o site se chama Viracap e,
+  embaixo do formulário de entrar, uma apresentação do que o site faz. Detalhes em
+  [Nome do site no Google e apresentação](54-nome-do-site-e-apresentacao.md).
+- **Extensão pela loja.** A aba Extensão e atalho deixou de ensinar a carregar a extensão pelos arquivos e passou a
+  ter o botão "Instalar no Firefox", que leva à loja da Mozilla. Detalhes em
+  [Link da extensão na loja do Firefox](55-link-da-extensao-no-firefox.md).
 
 ## O que foi removido ou abandonado
 

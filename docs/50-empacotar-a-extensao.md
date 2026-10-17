@@ -46,3 +46,6 @@ Os dois zips são gerados a cada vez e não precisam ir para o repositório.
 O `addons-linter` mais recente da Mozilla (10.14.0), no `extensao-firefox.zip`, dá 0 erros, 0 avisos e 0 observações
 (na pasta, com o manifesto completo, eram os dois avisos acima). Os dois zips abrem sem erro e têm o `manifest.json`
 na raiz, com o `background` certo para cada navegador.
+
+> Depois, a extensão passou para a versão **1.4.2** (botão "Lido" maior e mais alto): veja
+> [Botão "Lido" maior e mais para cima](53-botao-lido-maior-e-mais-alto.md).

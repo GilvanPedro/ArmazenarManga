@@ -2004,6 +2004,9 @@ function codigoDoAtalho() {
     return 'javascript:(' + codigo.toString().replace(/\s+/g, ' ') + ')(' + JSON.stringify(location.origin) + ');';
 }
 
+/** A pagina da extensao na loja do Firefox (sem a lingua no endereco: a Mozilla abre na lingua de quem visita). */
+const EXTENSAO_NO_FIREFOX = 'https://addons.mozilla.org/firefox/addon/viracap-marcar-mangas/';
+
 function situacaoDaExtensao() {
     if (estado.extensao) return h('p', {class: 'situacao boa'}, '✓ Extensão instalada e liberada para este site.');
     if (extensaoInstalada()) {
@@ -2025,20 +2028,16 @@ async function telaAtalho() {
             h('p', null, 'Alguns sites de leitura mudam o link a cada capítulo e só entregam as páginas a um navegador de verdade, então o servidor não consegue descobrir o link do próximo capítulo. '
                 + 'Com a extensão, o botão “Ler” faz isso no seu navegador: abre o último capítulo lido, acha o botão de próximo, vai direto para ele e salva o link certo.'),
             situacaoDaExtensao(),
-            h('p', null, h('b', null, 'Chrome, Edge ou Brave')),
+            h('p', null,
+                h('a', {class: 'botao primario', href: EXTENSAO_NO_FIREFOX, target: '_blank', rel: 'noopener'}, 'Instalar no Firefox')),
             h('ol', null,
-                h('li', null, 'Abra ', h('code', null, 'chrome://extensions'), ' e ligue o “Modo do desenvolvedor”.'),
-                h('li', null, 'Clique em “Carregar sem compactação” e escolha a pasta ', h('code', null, 'extensao'), ' do projeto.'),
+                h('li', null, 'Clique em “Instalar no Firefox” e, na página da Mozilla, em “Adicionar ao Firefox”.'),
                 h('li', null, 'Volte para este site, recarregue a página, clique no ícone da extensão e em “Permitir que este site use a extensão”.')),
-            h('p', null, h('b', null, 'Firefox')),
-            h('ol', null,
-                h('li', null, 'Abra ', h('code', null, 'about:debugging#/runtime/this-firefox'), ' e clique em “Carregar extensão temporária”.'),
-                h('li', null, 'Escolha o arquivo ', h('code', null, 'manifest.json'), ' dentro da pasta ', h('code', null, 'extensao'), '.'),
-                h('li', null, 'Libere este site pelo ícone da extensão, como no Chrome. No Firefox a extensão carregada assim sai ao fechar o navegador.')),
+            h('p', {class: 'subtitulo'}, 'Por enquanto a extensão está só na loja do Firefox (inclusive o Firefox para Android).'),
             h('h1', {class: 'segundo'}, 'Marcar o capítulo como lido direto do site de leitura'),
             h('p', null, 'Com a extensão instalada não precisa de favorito. Há três jeitos, todos abrem este site com o mangá e o capítulo já preenchidos para você confirmar:'),
             h('ul', null,
-                h('li', null, h('b', null, 'Botão “✓ Lido”'), ': aparece sozinho no canto de baixo das páginas dos sites onde você tem mangá cadastrado.'),
+                h('li', null, h('b', null, 'Botão “✓ Lido”'), ': aparece sozinho na borda direita das páginas dos sites onde você tem mangá cadastrado.'),
                 h('li', null, h('b', null, 'Ícone da extensão'), ': clique nele e em “Marcar este capítulo como lido”. Funciona em qualquer site.'),
                 h('li', null, h('b', null, 'Teclado'), ': Alt+Shift+L na página do capítulo.')),
             h('h1', {class: 'segundo'}, 'Sem a extensão: favorito'),
@@ -2499,7 +2498,17 @@ function telaLogin(aviso, criando) {
         }
     });
 
-    app.replaceChildren(h('div', {class: 'fundo-de-login'}, formulario));
+    // embaixo do formulario, o que e o site: para quem chega pela primeira vez e para o Google, que so ve esta tela
+    const recurso = (titulo, texto) => h('li', null, h('h3', null, titulo), h('p', null, texto));
+    const sobre = criando ? null : h('section', {class: 'sobre-o-site', 'aria-labelledby': 'titulo-sobre-o-site'},
+        h('h2', {id: 'titulo-sobre-o-site'}, 'Sua lista de mangás, manhwas e manhuas'),
+        h('p', {class: 'chamada-de-login'}, 'O Viracap guarda em que capítulo você parou em cada obra e em qual site você lê, e leva direto ao próximo capítulo.'),
+        h('ul', null,
+            recurso('Continue de onde parou', 'Cadastre o que você lê com o link do site de leitura e abra o próximo capítulo com um clique.'),
+            recurso('Lançamentos do dia', 'Veja quais obras da sua lista lançam capítulo novo hoje.'),
+            recurso('Descubra obras novas', 'Recomendações a partir do que você já lê, com sinopse e gêneros.'),
+            recurso('Comunidade', 'Poste o que está lendo, compartilhe listas e siga outros leitores.')));
+    app.replaceChildren(h('div', {class: 'fundo-de-login'}, formulario, sobre));
     (criando ? nick : email.value ? senha.entrada : email).focus();
 }
 
