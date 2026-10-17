@@ -682,7 +682,7 @@ async function sessaoValida(request) {
     const cookie = lerCookie(request.headers.get('cookie'), COOKIE);
     const id = contaDoCookie(cookie);
     if (!id) return null;
-    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto, borda, efeito FROM contas WHERE id = $1', [id]);
+    const { rows } = await (await banco()).query('SELECT id, email, nick, senha_hash, admin, criada_em, foto, borda, efeito, tema FROM contas WHERE id = $1', [id]);
     if (rows.length === 0) return null; // conta excluida
     const expira = validarSessao(cookie, await segredoDaSessao(), rows[0].id, rows[0].senha_hash);
     return expira ? { conta: rows[0], expira } : null;
@@ -729,6 +729,8 @@ const contaPublica = conta => ({
     // a borda e o efeito da loja equipados nas capas dos favoritos (nulos: a roxa e o brilho de sempre)
     borda: conta.borda || null,
     efeito: conta.efeito || null,
+    // o tema do site que a pessoa equipou (nulo: segue o sistema)
+    tema: conta.tema || null,
 });
 
 const respostaDaSessao = sessao => ({

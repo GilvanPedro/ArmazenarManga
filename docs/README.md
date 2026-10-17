@@ -68,6 +68,10 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [62 · Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md) | A primeira borda feita a partir de uma imagem, e como fazer as próximas |
 | [63 · Imagens da loja no banco](63-imagens-da-loja-no-banco.md) | As imagens das bordas e efeitos ficam no banco, enviadas pela aba "Imagens da loja" do Gerenciar |
 | [64 · Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md) | Clicar no número de mangás do perfil mostra os mangás da pessoa; lista de um mangá abre direto nele |
+| [65 · A borda da pessoa nos mangás do perfil](65-bordas-nos-mangas-do-perfil.md) | Os favoritos abertos pelo perfil aparecem com a borda e o efeito que a pessoa equipou |
+| [66 · Capturas da tela para o Google](66-capturas-da-tela-no-google.md) | Imagens da Biblioteca, da Comunidade e de um mangá na página inicial, nos dados estruturados e no sitemap |
+| [67 · Temas do site](67-temas-do-site.md) | Escuro e claro de graça, cinco temas de cor (R$ 5,00) e quatro de fundo animado (R$ 7,50) na loja |
+| [68 · Mais efeitos e o filtro da mochila](68-mais-efeitos-e-filtro-da-mochila.md) | Seis efeitos novos (Brasas, Chuva, Corações, Glitch, Tela CRT e Confete) e o filtro por tipo na mochila |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

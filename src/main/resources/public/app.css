@@ -993,6 +993,107 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     33% { box-shadow: inset 0 0 34px 8px rgba(59, 130, 246, .6); }
     66% { box-shadow: inset 0 0 26px 6px rgba(16, 185, 129, .6); }
 }
+/* brasas: pontos laranja subindo e piscando, com um calor que vem de baixo */
+.capa.favorita.efeito-brasas::before {
+    background:
+        radial-gradient(circle at 15% 40%, #fde68a 0 1.5px, rgba(251, 146, 60, .6) 2.5px, transparent 4.5px),
+        radial-gradient(circle at 70% 15%, #fdba74 0 1.5px, rgba(249, 115, 22, .5) 2.5px, transparent 4.5px),
+        radial-gradient(circle at 40% 75%, #fef3c7 0 1px, rgba(251, 146, 60, .5) 2px, transparent 4px),
+        radial-gradient(circle at 88% 55%, #fdba74 0 2px, rgba(234, 88, 12, .5) 3px, transparent 5px),
+        linear-gradient(0deg, rgba(234, 88, 12, .35), transparent 35%);
+    background-size: 100% 50%, 100% 50%, 100% 50%, 100% 50%, 100% 100%;
+    animation: brasas-subindo 4s linear infinite, brasas-piscando 1.3s ease-in-out infinite alternate;
+}
+@keyframes brasas-subindo {
+    from { background-position: 0 200%, 0 200%, 0 200%, 0 200%, 0 0; }
+    to { background-position: 6px 0, -6px 0, 4px 0, -4px 0, 0 0; }
+}
+@keyframes brasas-piscando {
+    from { opacity: .75; }
+    to { opacity: 1; }
+}
+/* chuva: riscos finos caindo na diagonal */
+.capa.favorita.efeito-chuva::before {
+    background:
+        repeating-linear-gradient(105deg, transparent 0 14px, rgba(191, 219, 254, .55) 14px 15px, transparent 15px 31px),
+        repeating-linear-gradient(105deg, transparent 0 22px, rgba(147, 197, 253, .35) 22px 23px, transparent 23px 41px),
+        linear-gradient(180deg, rgba(30, 58, 138, .18), rgba(30, 58, 138, .05));
+    background-size: 100% 60px, 100% 90px, 100% 100%;
+    animation: chuva-caindo .7s linear infinite;
+}
+@keyframes chuva-caindo {
+    from { background-position: 0 0, 0 0, 0 0; }
+    to { background-position: -16px 60px, -24px 90px, 0 0; }
+}
+/* coracoes: um coracao que sobe e some, e as sombras do texto fazem os outros, em lugares e cores diferentes */
+.capa.favorita.efeito-coracoes::before {
+    content: "♥";
+    inset: auto auto 0 30%;
+    color: rgba(244, 114, 182, .9);
+    font-size: 20px;
+    line-height: 1;
+    text-shadow: 38px -30px 0 rgba(251, 113, 133, .85), -22px -70px 0 rgba(249, 168, 212, .9), 60px -110px 0 rgba(236, 72, 153, .8),
+        12px -150px 0 rgba(253, 164, 175, .85), -30px -190px 0 rgba(244, 114, 182, .7);
+    animation: coracoes-subindo 5s ease-in infinite;
+}
+@keyframes coracoes-subindo {
+    0% { transform: translateY(20%); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translateY(-60%); opacity: 0; }
+}
+/* glitch: faixas de cor que pulam de lugar de vez em quando */
+.capa.favorita.efeito-glitch::before {
+    background:
+        linear-gradient(transparent 0 20%, rgba(255, 0, 80, .35) 20% 23%, transparent 23% 61%, rgba(0, 255, 230, .35) 61% 63%, transparent 63%),
+        linear-gradient(transparent 0 42%, rgba(0, 200, 255, .3) 42% 44%, transparent 44% 80%, rgba(255, 60, 200, .3) 80% 83%, transparent 83%);
+    mix-blend-mode: screen;
+    animation: glitch-pulando 2.6s steps(1, end) infinite;
+}
+@keyframes glitch-pulando {
+    0%, 100% { transform: translate(0, 0); opacity: 0; }
+    8% { transform: translate(-4px, 0); opacity: 1; }
+    11% { transform: translate(5px, 8%); opacity: 1; }
+    14% { transform: translate(0, 0); opacity: 0; }
+    52% { transform: translate(3px, -12%); opacity: 1; }
+    55% { transform: translate(-6px, 4%); opacity: 1; }
+    58% { opacity: 0; }
+}
+/* tela CRT: linhas de TV antiga, cantos escurecidos e uma faixa de luz descendo */
+.capa.favorita.efeito-crt::before {
+    background:
+        linear-gradient(180deg, transparent 0 45%, rgba(255, 255, 255, .12) 50%, transparent 55%),
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 1px, transparent 1px 3px),
+        radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .45));
+    background-size: 100% 300%, 100% 100%, 100% 100%;
+    animation: crt-faixa 4s linear infinite, crt-tremendo .15s steps(2) infinite;
+}
+@keyframes crt-faixa {
+    from { background-position: 0 100%, 0 0, 0 0; }
+    to { background-position: 0 0, 0 0, 0 0; }
+}
+@keyframes crt-tremendo {
+    from { opacity: .92; }
+    to { opacity: 1; }
+}
+/* confete: retalhos coloridos caindo e girando de leve */
+.capa.favorita.efeito-confete::before {
+    background:
+        linear-gradient(35deg, #f43f5e 0 0) 12% 10% / 5px 8px no-repeat,
+        linear-gradient(-20deg, #facc15 0 0) 70% 20% / 6px 4px no-repeat,
+        linear-gradient(60deg, #22d3ee 0 0) 40% 35% / 4px 7px no-repeat,
+        linear-gradient(10deg, #a78bfa 0 0) 85% 50% / 6px 5px no-repeat,
+        linear-gradient(-40deg, #4ade80 0 0) 25% 62% / 5px 6px no-repeat,
+        linear-gradient(80deg, #fb923c 0 0) 58% 78% / 4px 8px no-repeat,
+        linear-gradient(-70deg, #f472b6 0 0) 8% 88% / 6px 4px no-repeat;
+    animation: confete-caindo 3.5s linear infinite;
+}
+@keyframes confete-caindo {
+    0% { transform: translateY(-30%) rotate(0deg); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(30%) rotate(8deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .capa.favorita[class*=" efeito-"]::before { animation: none; }
     .capa.favorita.efeito-raios::before { opacity: 1; box-shadow: inset 0 0 18px 3px rgba(56, 189, 248, .7); }
@@ -1349,12 +1450,22 @@ body.entrando main { max-width: none; padding: 0; }
 }
 /* o que e o site, embaixo do formulario de entrar */
 .fundo-de-login { gap: 28px; align-content: center; }
-.sobre-o-site { width: min(100%, 760px); text-align: center; }
+.sobre-o-site { width: min(100%, 980px); text-align: center; }
 .sobre-o-site h2 { margin: 0 0 14px; font-size: 20px; }
 .sobre-o-site ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 16px 0 0; padding: 0; list-style: none; text-align: left; }
 .sobre-o-site li { padding: 14px; border: 1px solid color-mix(in srgb, var(--borda) 80%, transparent); border-radius: 14px; background: color-mix(in srgb, var(--superficie) 70%, transparent); }
 .sobre-o-site h3 { margin: 0 0 6px; font-size: 14.5px; }
 .sobre-o-site li p { margin: 0; color: var(--texto-fraco); font-size: 13px; line-height: 1.45; }
+/* capturas da tela, embaixo da apresentacao */
+.titulo-das-capturas { margin: 28px 0 14px !important; }
+.capturas-do-site { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; text-align: left; }
+.capturas-do-site figure { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.abrir-captura { display: block; padding: 0; border: 1px solid color-mix(in srgb, var(--borda) 80%, transparent); border-radius: 12px; overflow: hidden; background: var(--superficie); cursor: zoom-in; }
+.abrir-captura img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; transition: transform .2s; }
+.abrir-captura:hover img { transform: scale(1.03); }
+.capturas-do-site figcaption { color: var(--texto-fraco); font-size: 13px; line-height: 1.45; }
+.capturas-do-site figcaption b { color: var(--texto); }
+@media (max-width: 760px) { .capturas-do-site { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) {
     .cartao-de-login { animation: none; }
 }
@@ -2051,3 +2162,349 @@ dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
 /* mangas do perfil: a mesma janela de montar lista, so para ver; as partes escondidas somem de verdade */
 .janela-dos-mangas-do-perfil [hidden] { display: none !important; }
 .janela-dos-mangas-do-perfil .conteudo-da-lista { flex: 1; min-height: 0; }
+
+/* ------------------------------------------------------------ temas
+ * O tema que a pessoa equipou fica em <html data-tema="...">: escuro e claro (gratis) e os da loja. Sem tema, o site
+ * segue o sistema (escuro, ou claro com o sistema claro). Cada tema troca as cores (as mesmas variaveis do :root); os
+ * de fundo animado ganham uma camada atras de tudo (body::before e body::after). As mesmas regras valem para as
+ * previas da loja (.previa-do-tema), entao a previa e o tema de verdade nunca ficam diferentes.
+ */
+:root[data-tema="escuro"], .previa-do-tema[data-tema="escuro"],
+:root[data-tema="vermelho"], .previa-do-tema[data-tema="vermelho"],
+:root[data-tema="roxo"], .previa-do-tema[data-tema="roxo"],
+:root[data-tema="cinza"], .previa-do-tema[data-tema="cinza"],
+:root[data-tema="aurora"], .previa-do-tema[data-tema="aurora"],
+:root[data-tema="estrelas"], .previa-do-tema[data-tema="estrelas"],
+:root[data-tema="synthwave"], .previa-do-tema[data-tema="synthwave"] {
+    --lendo: #3ecf8e;
+    --ler: #5aa9ff;
+    --concluido: #b08cff;
+    --hiatus: #f5b942;
+    --dropado: #ef7a7a;
+    --cancelado: #9aa1b0;
+    --serie-1: #3987e5;
+    --serie-2: #d95926;
+    --serie-3: #199e70;
+    --serie-4: #c98500;
+    --serie-5: #d55181;
+    --serie-6: #9085e9;
+    --lucro: #0ca30c;
+    --prejuizo: #e66767;
+    color-scheme: dark;
+}
+:root[data-tema="claro"], .previa-do-tema[data-tema="claro"],
+:root[data-tema="verde"], .previa-do-tema[data-tema="verde"],
+:root[data-tema="rosa"], .previa-do-tema[data-tema="rosa"],
+:root[data-tema="petalas"], .previa-do-tema[data-tema="petalas"] {
+    --lendo: #12845a;
+    --ler: #1f6fd0;
+    --concluido: #6d45d6;
+    --hiatus: #a56a00;
+    --dropado: #c53030;
+    --cancelado: #646a78;
+    --serie-1: #2a78d6;
+    --serie-2: #eb6834;
+    --serie-3: #1baf7a;
+    --serie-4: #eda100;
+    --serie-5: #e87ba4;
+    --serie-6: #6250d6;
+    --lucro: #0a7d0a;
+    --prejuizo: #c53030;
+    color-scheme: light;
+}
+:root[data-tema="escuro"], .previa-do-tema[data-tema="escuro"] {
+    --fundo: #0f1115;
+    --fundo-imagem: none;
+    --superficie: #181b22;
+    --superficie-2: #20242d;
+    --borda: #2b303b;
+    --texto: #e9ebf0;
+    --texto-fraco: #9aa1b0;
+    --destaque: #f2613f;
+    --destaque-forte: #ff7a59;
+    --sobre-destaque: #1a0b06;
+    --perigo: #ef5a5a;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .35);
+}
+:root[data-tema="claro"], .previa-do-tema[data-tema="claro"] {
+    --fundo: #f5f4f1;
+    --fundo-imagem: none;
+    --superficie: #ffffff;
+    --superficie-2: #f0eeea;
+    --borda: #dedbd4;
+    --texto: #1c1e23;
+    --texto-fraco: #646a78;
+    --destaque: #d9481f;
+    --destaque-forte: #b93a15;
+    --sobre-destaque: #ffffff;
+    --perigo: #c53030;
+    --sombra: 0 10px 30px rgba(30, 20, 10, .12);
+}
+:root[data-tema="verde"], .previa-do-tema[data-tema="verde"] {
+    --fundo: #e8f4ec;
+    --fundo-imagem: none;
+    --superficie: #f8fdf9;
+    --superficie-2: #ddeee3;
+    --borda: #c3dccb;
+    --texto: #1b2a21;
+    --texto-fraco: #587062;
+    --destaque: #3a9566;
+    --destaque-forte: #2a7a52;
+    --sobre-destaque: #ffffff;
+    --perigo: #c53030;
+    --sombra: 0 10px 30px rgba(30, 80, 50, .12);
+}
+:root[data-tema="rosa"], .previa-do-tema[data-tema="rosa"] {
+    --fundo: #fbe6f0;
+    --fundo-imagem: linear-gradient(160deg, #fde3ef, #f7d4e6 45%, #e9d8f6);
+    --superficie: rgba(255, 255, 255, .6);
+    --superficie-2: rgba(255, 238, 246, .72);
+    --borda: rgba(214, 140, 182, .4);
+    --texto: #3a1f2d;
+    --texto-fraco: #87586f;
+    --destaque: #d9508f;
+    --destaque-forte: #b83d76;
+    --sobre-destaque: #ffffff;
+    --perigo: #c53030;
+    --sombra: 0 10px 30px rgba(160, 60, 110, .14);
+}
+:root[data-tema="vermelho"], .previa-do-tema[data-tema="vermelho"] {
+    --fundo: #140a0b;
+    --fundo-imagem: none;
+    --superficie: #1f1113;
+    --superficie-2: #2a1619;
+    --borda: #3d2024;
+    --texto: #f6eaeb;
+    --texto-fraco: #b99a9e;
+    --destaque: #e5383b;
+    --destaque-forte: #ff5a5f;
+    --sobre-destaque: #1a0506;
+    --perigo: #ff7b7b;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .45);
+}
+:root[data-tema="roxo"], .previa-do-tema[data-tema="roxo"] {
+    --fundo: #100b1c;
+    --fundo-imagem: none;
+    --superficie: #19122b;
+    --superficie-2: #221938;
+    --borda: #33264f;
+    --texto: #eee9ff;
+    --texto-fraco: #a89cc8;
+    --destaque: #a78bfa;
+    --destaque-forte: #c4b5fd;
+    --sobre-destaque: #160c2e;
+    --perigo: #f87171;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .45);
+}
+:root[data-tema="cinza"], .previa-do-tema[data-tema="cinza"] {
+    --fundo: #16161a;
+    --fundo-imagem: linear-gradient(160deg, #34363d, #1c1c21 40%, #0b0b0d);
+    --superficie: rgba(39, 39, 44, .82);
+    --superficie-2: rgba(63, 63, 70, .62);
+    --borda: rgba(130, 130, 140, .3);
+    --texto: #f4f4f5;
+    --texto-fraco: #a1a1aa;
+    --destaque: #d4d4d8;
+    --destaque-forte: #fafafa;
+    --sobre-destaque: #18181b;
+    --perigo: #f87171;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
+}
+:root[data-tema="aurora"], .previa-do-tema[data-tema="aurora"] {
+    --fundo: #060a13;
+    --fundo-imagem: none;
+    --superficie: rgba(14, 20, 34, .8);
+    --superficie-2: rgba(24, 33, 52, .78);
+    --borda: rgba(80, 110, 140, .3);
+    --texto: #e6f2f0;
+    --texto-fraco: #93aab0;
+    --destaque: #34d399;
+    --destaque-forte: #6ee7b7;
+    --sobre-destaque: #03140d;
+    --perigo: #f87171;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
+}
+:root[data-tema="estrelas"], .previa-do-tema[data-tema="estrelas"] {
+    --fundo: #050816;
+    --fundo-imagem: linear-gradient(180deg, #03050f, #0b1133 70%, #1a1446);
+    --superficie: rgba(14, 18, 42, .8);
+    --superficie-2: rgba(24, 30, 64, .78);
+    --borda: rgba(100, 110, 180, .28);
+    --texto: #e8eaff;
+    --texto-fraco: #9ea4cc;
+    --destaque: #fbbf24;
+    --destaque-forte: #fcd34d;
+    --sobre-destaque: #1a1100;
+    --perigo: #f87171;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
+}
+:root[data-tema="petalas"], .previa-do-tema[data-tema="petalas"] {
+    --fundo: #fff0f5;
+    --fundo-imagem: linear-gradient(180deg, #fff6f9, #ffe4ee 60%, #fbd5e5);
+    --superficie: rgba(255, 255, 255, .74);
+    --superficie-2: rgba(255, 236, 244, .8);
+    --borda: rgba(230, 150, 185, .38);
+    --texto: #3d2230;
+    --texto-fraco: #8a5c73;
+    --destaque: #e0608f;
+    --destaque-forte: #c34777;
+    --sobre-destaque: #ffffff;
+    --perigo: #c53030;
+    --sombra: 0 10px 30px rgba(190, 80, 130, .14);
+}
+:root[data-tema="synthwave"], .previa-do-tema[data-tema="synthwave"] {
+    --fundo: #12041f;
+    --fundo-imagem: linear-gradient(180deg, #0d0220, #2a0a45 55%, #5b1060);
+    --superficie: rgba(26, 8, 46, .82);
+    --superficie-2: rgba(44, 14, 72, .8);
+    --borda: rgba(200, 80, 220, .3);
+    --texto: #fbe9ff;
+    --texto-fraco: #c49ad6;
+    --destaque: #ff3ea5;
+    --destaque-forte: #ff7cc5;
+    --sobre-destaque: #1a0010;
+    --perigo: #ff7b7b;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
+}
+
+/* o fundo: a cor e, nos temas que tem, o degrade por cima, parado na tela enquanto ela rola */
+body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
+
+/* temas de fundo animado: as camadas ficam paradas na tela, atras de tudo, sem pegar cliques */
+:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"]) body::before,
+:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"]) body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+.previa-do-tema { position: relative; overflow: hidden; isolation: isolate; background: var(--fundo-imagem, none), var(--fundo); }
+.previa-do-tema > .fundo-da-previa, .previa-do-tema > .fundo-da-previa-2 { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+
+/* Aurora: luzes verdes, azuis e roxas que se mexem devagar */
+:root[data-tema="aurora"] body::before, .previa-do-tema[data-tema="aurora"] > .fundo-da-previa {
+    inset: -30%;
+    background:
+        radial-gradient(40% 30% at 30% 30%, rgba(52, 211, 153, .45), transparent 70%),
+        radial-gradient(35% 28% at 70% 40%, rgba(56, 189, 248, .4), transparent 70%),
+        radial-gradient(45% 30% at 50% 70%, rgba(168, 85, 247, .35), transparent 70%);
+    filter: blur(40px);
+    animation: aurora-andando 24s ease-in-out infinite alternate;
+}
+@keyframes aurora-andando {
+    0% { transform: translate(-6%, -4%) rotate(0deg) scale(1); }
+    50% { transform: translate(6%, 3%) rotate(12deg) scale(1.12); }
+    100% { transform: translate(-3%, 6%) rotate(-8deg) scale(1.05); }
+}
+
+/* Noite estrelada: dois grupos de estrelas que piscam fora de tempo, e o ceu andando bem devagar */
+:root[data-tema="estrelas"] body::before, .previa-do-tema[data-tema="estrelas"] > .fundo-da-previa,
+:root[data-tema="estrelas"] body::after, .previa-do-tema[data-tema="estrelas"] > .fundo-da-previa-2 {
+    background-size: 220px 220px;
+    animation: estrelas-piscando-no-ceu 5s ease-in-out infinite;
+}
+:root[data-tema="estrelas"] body::before, .previa-do-tema[data-tema="estrelas"] > .fundo-da-previa {
+    background-image:
+        radial-gradient(1.5px 1.5px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 90px 140px, #e0e7ff, transparent),
+        radial-gradient(1.5px 1.5px at 160px 60px, #fff, transparent), radial-gradient(1px 1px at 130px 200px, #c7d2fe, transparent),
+        radial-gradient(2px 2px at 60px 180px, #fef3c7, transparent);
+}
+:root[data-tema="estrelas"] body::after, .previa-do-tema[data-tema="estrelas"] > .fundo-da-previa-2 {
+    background-image:
+        radial-gradient(1px 1px at 50px 90px, #fff, transparent), radial-gradient(1.5px 1.5px at 190px 150px, #e0e7ff, transparent),
+        radial-gradient(1px 1px at 110px 20px, #fff, transparent), radial-gradient(1.5px 1.5px at 10px 120px, #fde68a, transparent);
+    animation-delay: -2.5s;
+}
+@keyframes estrelas-piscando-no-ceu {
+    0%, 100% { opacity: .35; }
+    50% { opacity: 1; }
+}
+
+/* Sakura ao vento (petalas): petalas caindo e balancando sobre um rosa claro */
+:root[data-tema="petalas"] body::before, .previa-do-tema[data-tema="petalas"] > .fundo-da-previa {
+    /* sobra em cima e a direita: a camada anda para baixo e para a esquerda */
+    inset: -100% -400px 0 0;
+    background-image:
+        radial-gradient(6px 4px at 30px 40px, rgba(244, 114, 182, .55), transparent 70%),
+        radial-gradient(5px 3px at 140px 90px, rgba(249, 168, 212, .7), transparent 70%),
+        radial-gradient(7px 4px at 220px 170px, rgba(236, 72, 153, .4), transparent 70%),
+        radial-gradient(5px 4px at 90px 230px, rgba(251, 207, 232, .9), transparent 70%);
+    background-size: 280px 280px;
+    --passo: 280px;
+    animation: sakura-caindo 14s linear infinite;
+}
+:root[data-tema="petalas"] body::after, .previa-do-tema[data-tema="petalas"] > .fundo-da-previa-2 {
+    /* sobra em cima e a direita: a camada anda para baixo e para a esquerda */
+    inset: -100% -400px 0 0;
+    background-image:
+        radial-gradient(4px 3px at 60px 120px, rgba(244, 114, 182, .5), transparent 70%),
+        radial-gradient(6px 4px at 190px 30px, rgba(249, 168, 212, .6), transparent 70%);
+    background-size: 340px 340px;
+    --passo: 340px;
+    animation: sakura-caindo 22s linear infinite;
+}
+/* desce exatamente um ladrilho (e anda um ladrilho para o lado): a volta ao comeco nao da pulo */
+@keyframes sakura-caindo {
+    from { transform: translate(0, 0); }
+    to { transform: translate(calc(var(--passo) * -1), var(--passo)); }
+}
+
+/* Synthwave: um sol listrado no horizonte e a grade neon vindo na direcao de quem olha */
+:root[data-tema="synthwave"] body::before, .previa-do-tema[data-tema="synthwave"] > .fundo-da-previa {
+    top: auto;
+    height: 42%;
+    background:
+        linear-gradient(rgba(255, 62, 165, .55) 2px, transparent 2px) 0 0 / 100% 40px,
+        linear-gradient(90deg, rgba(255, 62, 165, .55) 2px, transparent 2px) 50% 0 / 60px 100%;
+    transform: perspective(300px) rotateX(60deg);
+    transform-origin: 50% 0;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%);
+    mask-image: linear-gradient(to bottom, transparent, #000 30%);
+    animation: grade-vindo 2.2s linear infinite;
+}
+@keyframes grade-vindo {
+    from { background-position: 0 0, 50% 0; }
+    to { background-position: 0 40px, 50% 0; }
+}
+:root[data-tema="synthwave"] body::after, .previa-do-tema[data-tema="synthwave"] > .fundo-da-previa-2 {
+    inset: auto 0 30% 0;
+    margin: auto;
+    width: min(46vmin, 360px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #ffd166, #ff6b9d 55%, #c13aa8);
+    /* metade de cima inteira, metade de baixo em listras */
+    -webkit-mask-image: linear-gradient(#000 52%, transparent 52%), repeating-linear-gradient(180deg, #000 0 9px, transparent 9px 14px);
+    mask-image: linear-gradient(#000 52%, transparent 52%), repeating-linear-gradient(180deg, #000 0 9px, transparent 9px 14px);
+    box-shadow: 0 0 60px rgba(255, 107, 157, .5);
+    opacity: .85;
+    animation: sol-pulsando 6s ease-in-out infinite alternate;
+}
+.previa-do-tema[data-tema="synthwave"] > .fundo-da-previa-2 { width: 46%; bottom: 34%; }
+@keyframes sol-pulsando {
+    from { filter: brightness(.95); }
+    to { filter: brightness(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+    body::before, body::after, .fundo-da-previa, .fundo-da-previa-2 { animation: none !important; }
+}
+
+/* previa de um tema na loja: uma janelinha do site com as cores (e o fundo) dele */
+.previa-do-tema { width: 100%; aspect-ratio: 4 / 3; border: 1px solid var(--borda); border-radius: 12px; color: var(--texto); }
+.janela-da-previa { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 8%; padding: 7%; }
+.previa-topo { display: flex; align-items: center; gap: 6%; }
+.previa-logo { width: 9%; aspect-ratio: 1; border-radius: 3px; background: var(--destaque); }
+.previa-aba { width: 18%; height: 6px; border-radius: 99px; background: var(--texto-fraco); opacity: .6; }
+.previa-aba.ativa { background: var(--texto); opacity: 1; }
+.previa-capas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6%; flex: 1; }
+.previa-capa { border-radius: 5px; background: var(--superficie-2); border: 1px solid var(--borda); }
+.previa-capa:first-child { border: 2px solid var(--destaque); }
+.previa-cartao { display: flex; align-items: center; gap: 6%; padding: 5% 6%; border-radius: 7px; background: var(--superficie); border: 1px solid var(--borda); box-shadow: var(--sombra); }
+.previa-linhas { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.previa-linha { height: 5px; border-radius: 99px; background: var(--texto); opacity: .85; }
+.previa-linha.curta { width: 60%; background: var(--texto-fraco); }
+.previa-botao { width: 26%; height: 14px; border-radius: 6px; background: var(--destaque); }
+
+/* filtro da mochila (todos, bordas, efeitos ou temas), centralizado como o resto da loja */
+.filtro-da-mochila { justify-content: center; margin: 0 0 16px; }

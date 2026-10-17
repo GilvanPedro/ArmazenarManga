@@ -142,3 +142,5 @@ A sessão (`/api/inicio`, `/api/sessao`) passou a trazer `conta.borda`, e o auto
 
 > Depois, a conta do dono do site passou a ter todos os itens sem comprar: veja
 > [O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md).
+
+> Depois, a loja ganhou temas para o site todo (aba Temas): veja [Temas do site](67-temas-do-site.md).

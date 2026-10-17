@@ -47,3 +47,6 @@ confiar no site.
   aparece embaixo do formulário, sem rolagem para o lado; o bloco de dados é lido como JSON válido com o nome
   "Viracap".
 - Os 71 testes da versão JavaScript continuam passando.
+
+> Depois, a página inicial ganhou capturas da interface, também nos dados estruturados e no sitemap: veja
+> [Capturas da tela para o Google](66-capturas-da-tela-no-google.md).

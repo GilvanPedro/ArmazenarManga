@@ -429,6 +429,9 @@ export function criarComunidade(f) {
         const conta = await exigirConta(id);
         const { rows } = await (await banco()).query(`
             SELECT (SELECT descricao FROM contas WHERE id = $2) AS descricao,
+                   -- a borda e o efeito da loja que a pessoa equipou: aparecem nos mangas dela abertos pelo perfil
+                   (SELECT borda FROM contas WHERE id = $2) AS borda,
+                   (SELECT efeito FROM contas WHERE id = $2) AS efeito,
                    (SELECT count(*) FROM mangas WHERE conta = $3)::int AS mangas,
                    (SELECT count(*) FROM posts WHERE autor = $2)::int AS posts,
                    (SELECT count(*) FROM seguindo WHERE seguido = $2)::int AS seguidores,

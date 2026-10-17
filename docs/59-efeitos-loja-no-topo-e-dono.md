@@ -88,3 +88,6 @@ O histórico de vendas das Finanças passou a trazer o nome do item ("Borda Neon
 - Uma admin que não é a dona viu só Contas e Registro, `#/gerenciar/financas` abriu Contas, e as rotas do painel e
   das finanças responderam 403.
 - No navegador, no computador (tema escuro) e no celular (390 px, tema claro), sem rolagem para o lado.
+
+> Depois, entraram mais seis efeitos e a mochila ganhou um filtro por tipo: veja
+> [Mais efeitos e o filtro da mochila](68-mais-efeitos-e-filtro-da-mochila.md).

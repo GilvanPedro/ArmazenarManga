@@ -2517,10 +2517,24 @@ function telaLogin(aviso, criando) {
             recurso('Continue de onde parou', 'Cadastre o que você lê com o link do site de leitura e abra o próximo capítulo com um clique.'),
             recurso('Lançamentos do dia', 'Veja quais obras da sua lista lançam capítulo novo hoje.'),
             recurso('Descubra obras novas', 'Recomendações a partir do que você já lê, com sinopse e gêneros.'),
-            recurso('Comunidade', 'Poste o que está lendo, compartilhe listas e siga outros leitores.')));
+            recurso('Comunidade', 'Poste o que está lendo, compartilhe listas e siga outros leitores.')),
+        // capturas da tela (com pessoas e capas de exemplo): quem chega ve como e por dentro, e o Google indexa as imagens
+        h('h2', {class: 'titulo-das-capturas'}, 'Como é por dentro'),
+        h('div', {class: 'capturas-do-site'}, ...CAPTURAS_DO_SITE.map(([arquivo, titulo, texto]) =>
+            h('figure', null,
+                h('button', {type: 'button', class: 'abrir-captura', 'aria-label': 'Ver maior: ' + titulo, onclick: () => verImagem('capturas/' + arquivo)},
+                    h('img', {src: 'capturas/' + arquivo, alt: titulo + ': ' + texto, loading: 'lazy', decoding: 'async', width: '1600', height: '1000'})),
+                h('figcaption', null, h('b', null, titulo), ' ', texto)))));
     app.replaceChildren(h('div', {class: 'fundo-de-login'}, formulario, sobre));
     (criando ? nick : email.value ? senha.entrada : email).focus();
 }
+
+/** As capturas da tela de entrar: arquivo em public/capturas, titulo e o que mostram (tambem no index.html e no sitemap). */
+const CAPTURAS_DO_SITE = [
+    ['biblioteca.webp', 'Biblioteca', 'sua lista de mangás, manhwas e manhuas com capa, status, nota e o próximo capítulo de cada um.'],
+    ['comunidade.webp', 'Comunidade', 'posts, listas compartilhadas, #tags e leitores para seguir.'],
+    ['manga.webp', 'Página do mangá', 'o capítulo em que você parou, quando sai o próximo, sua nota, as tags e a sinopse.'],
+];
 
 /** Esquece tudo o que estava guardado da conta anterior: outra conta nao pode ver a lista dela. */
 function esquecerDadosDaConta() {
@@ -2557,6 +2571,7 @@ function mostrarConta(conta) {
     link.hidden = sair.hidden = !conta;
     document.querySelector('.secoes').hidden = !conta;
     document.getElementById('secao-gerenciar').hidden = !conta?.admin;
+    aplicarTema(conta?.tema);
     // a loja so existe na versao do Vercel (a mesma que tem a Comunidade)
     document.getElementById('secao-loja').hidden = !conta || estado.temComunidade !== true;
     if (conta) {
@@ -2603,11 +2618,47 @@ const meusEquipados = () => ({borda: estado.sessao?.conta?.borda || null, efeito
 const classesDaLoja = ({borda, efeito} = {}) => (borda && /^[a-z]+$/.test(borda) ? ' borda-' + borda : '')
     + (efeito && /^[a-z]+$/.test(efeito) ? ' efeito-' + efeito : '');
 const PRECO_EM_REAIS = centavos => (centavos / 100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
-/** Os itens de sempre, que toda conta tem: aparecem na mochila para voltar a eles. */
+/** Os itens de sempre, que toda conta tem: aparecem na mochila para voltar a eles (os temas de graca vem do servidor). */
 const ITENS_DE_SEMPRE = [
     {id: null, tipo: 'borda', nome: 'Roxa', descricao: 'A borda de sempre dos favoritos. Vem com todas as contas.'},
     {id: null, tipo: 'efeito', nome: 'Brilho', descricao: 'O reflexo de sempre que passa pela capa. Vem com todas as contas.'},
+    {id: null, tipo: 'tema', nome: 'Automático', descricao: 'Segue o seu aparelho: escuro, ou claro se o sistema estiver no modo claro.'},
 ];
+const NOME_DO_TIPO = {borda: 'Borda', efeito: 'Efeito', tema: 'Tema'};
+
+/**
+ * Poe o tema do site (o que a pessoa equipou) na pagina: <html data-tema="...">, que o app.css usa para trocar as
+ * cores e o fundo. Sem tema, o site segue o sistema. O tema fica guardado no navegador para a pagina ja abrir com
+ * ele, sem piscar com o tema de sempre antes de a conta chegar.
+ */
+function aplicarTema(tema) {
+    const valido = typeof tema === 'string' && /^[a-z]+$/.test(tema) ? tema : null;
+    if (valido) document.documentElement.dataset.tema = valido;
+    else delete document.documentElement.dataset.tema;
+    try {
+        if (valido) localStorage.setItem('viracap-tema', valido);
+        else localStorage.removeItem('viracap-tema');
+    } catch (e) {
+        // sem o navegador guardar, o tema chega com a conta
+    }
+}
+// o tema guardado, antes de qualquer coisa
+try {
+    const guardado = localStorage.getItem('viracap-tema');
+    if (guardado && /^[a-z]+$/.test(guardado)) document.documentElement.dataset.tema = guardado;
+} catch (e) {
+    // sem tema guardado
+}
+
+/** Uma janelinha do site com as cores (e o fundo, se for animado) de um tema, para a loja e a mochila. */
+function previaDoTema(tema) {
+    return h('div', {class: 'previa-do-tema', 'data-tema': tema || null, 'aria-hidden': 'true'},
+        h('div', {class: 'fundo-da-previa'}), h('div', {class: 'fundo-da-previa-2'}),
+        h('div', {class: 'janela-da-previa'},
+            h('div', {class: 'previa-topo'}, h('span', {class: 'previa-logo'}), h('span', {class: 'previa-aba ativa'}), h('span', {class: 'previa-aba'})),
+            h('div', {class: 'previa-capas'}, h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'})),
+            h('div', {class: 'previa-cartao'}, h('div', {class: 'previa-linhas'}, h('span', {class: 'previa-linha'}), h('span', {class: 'previa-linha curta'})), h('span', {class: 'previa-botao'}))));
+}
 /** Na loja, cada pagina mostra ate 6 linhas de 5 itens. */
 const ITENS_POR_PAGINA_NA_LOJA = 30;
 
@@ -2616,6 +2667,7 @@ const ITENS_POR_PAGINA_NA_LOJA = 30;
  * borda aparece com o brilho de sempre; um efeito, com a borda roxa.
  */
 function previaDoItem(item, exemplo) {
+    if (item.tipo === 'tema') return previaDoTema(item.id);
     const imagem = exemplo
         ? h('img', {src: exemplo, alt: '', loading: 'lazy', decoding: 'async', width: '300', height: '450'})
         : h('div', {class: 'capa-de-exemplo', 'aria-hidden': 'true'}, h('span', null, '漫'), h('small', null, 'Seu favorito'));
@@ -2631,10 +2683,12 @@ function previaDoItem(item, exemplo) {
  */
 async function telaLoja(partes, consulta) {
     const vez = ++estado.render;
-    const aba = ['efeitos', 'mochila'].includes(partes[0]) ? partes[0] : 'bordas';
+    const aba = ['efeitos', 'temas', 'mochila'].includes(partes[0]) ? partes[0] : 'bordas';
     const parametros = new URLSearchParams(consulta || '');
     const compraVoltando = parametros.get('compra');
     let pagina = Math.max(1, Number.parseInt(parametros.get('pagina'), 10) || 1);
+    // na mochila, o filtro por tipo (todos, bordas, efeitos ou temas) fica no endereco: ?tipo=borda
+    const tipoNaMochila = ['borda', 'efeito', 'tema'].includes(parametros.get('tipo')) ? parametros.get('tipo') : '';
     document.title = (aba === 'mochila' ? 'Mochila' : 'Loja') + ' · Viracap';
     const aviso = h('div', {class: 'aviso-da-compra', role: 'status', hidden: true});
     const conteudo = h('div', {class: 'conteudo-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
@@ -2643,11 +2697,13 @@ async function telaLoja(partes, consulta) {
     app.replaceChildren(
         h('div', {class: 'pagina-da-loja'},
             h('h1', null, 'Loja'),
-            h('p', {class: 'subtitulo'}, 'Bordas (' + PRECO_EM_REAIS(450) + ') e efeitos (' + PRECO_EM_REAIS(250) + ') para as capas dos seus mangás favoritos. '
-                + 'Você paga uma vez e o item fica na sua mochila para sempre. Quem vê suas listas na Comunidade também vê.'),
+            h('p', {class: 'subtitulo'}, 'Bordas (' + PRECO_EM_REAIS(450) + ') e efeitos (' + PRECO_EM_REAIS(250) + ') para as capas dos seus mangás favoritos, '
+                + 'e temas para o site todo (' + PRECO_EM_REAIS(500) + ', ou ' + PRECO_EM_REAIS(750) + ' os de fundo animado). '
+                + 'Você paga uma vez e o item fica na sua mochila para sempre.'),
             aviso,
             rolagemDasAbas(h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'},
-                link('bordas', '#/loja/bordas', 'Bordas'), link('efeitos', '#/loja/efeitos', 'Efeitos'), link('mochila', '#/loja/mochila', 'Mochila', contador))),
+                link('bordas', '#/loja/bordas', 'Bordas'), link('efeitos', '#/loja/efeitos', 'Efeitos'), link('temas', '#/loja/temas', 'Temas'),
+                link('mochila', '#/loja/mochila', 'Mochila', contador))),
             conteudo));
     estado.recarregar = () => telaLoja(partes, consulta);
 
@@ -2676,7 +2732,8 @@ async function telaLoja(partes, consulta) {
             const {equipados} = await chamar('PUT', '/api/loja/equipar', item.id ? {item: item.id} : {tipo: item.tipo, item: null});
             Object.assign(estado.sessao.conta, equipados);
             dados.equipados = equipados;
-            avisar(item.nome + (item.tipo === 'efeito' ? ' equipado' : ' equipada'));
+            aplicarTema(equipados.tema);
+            avisar(item.nome + (item.tipo === 'borda' ? ' equipada' : ' equipado'));
             desenhar();
         } catch (e) {
             avisar(e.message, true);
@@ -2698,8 +2755,8 @@ async function telaLoja(partes, consulta) {
     };
 
     const cartaoDoItem = item => {
-        const equipado = dados.equipados[item.tipo] === item.id;
-        const meu = item.id === null || tenho(item.id);
+        const equipado = (dados.equipados[item.tipo] || null) === item.id;
+        const meu = item.id === null || item.preco === 0 || tenho(item.id);
         let acao;
         if (aba === 'mochila' || meu) {
             acao = equipado
@@ -2712,7 +2769,7 @@ async function telaLoja(partes, consulta) {
         return h('article', {class: 'item-da-loja' + (equipado ? ' equipado' : '')},
             previaDoItem(item, exemplo),
             h('div', {class: 'sobre-o-item'},
-                h('span', {class: 'tipo-do-item'}, item.tipo === 'efeito' ? 'Efeito' : 'Borda'),
+                h('span', {class: 'tipo-do-item'}, (NOME_DO_TIPO[item.tipo] || 'Item') + (item.animado ? ' animado' : '')),
                 h('h2', null, item.nome),
                 h('p', null, item.descricao),
                 aba !== 'mochila' && meu && !equipado ? h('span', {class: 'selo-na-mochila'}, 'Na mochila') : null,
@@ -2724,7 +2781,12 @@ async function telaLoja(partes, consulta) {
         const paginas = Math.max(1, Math.ceil(itens.length / ITENS_POR_PAGINA_NA_LOJA));
         pagina = Math.min(pagina, paginas);
         const desta = itens.slice((pagina - 1) * ITENS_POR_PAGINA_NA_LOJA, pagina * ITENS_POR_PAGINA_NA_LOJA);
-        const irPara = numero => { location.hash = '#/loja/' + aba + (numero > 1 ? '?pagina=' + numero : ''); };
+        const irPara = numero => {
+            const busca = new URLSearchParams();
+            if (aba === 'mochila' && tipoNaMochila) busca.set('tipo', tipoNaMochila);
+            if (numero > 1) busca.set('pagina', String(numero));
+            location.hash = '#/loja/' + aba + (busca.toString() ? '?' + busca : '');
+        };
         return [
             h('div', {class: 'grade-da-loja'}, ...desta.map(cartaoDoItem)),
             paginas > 1 ? h('nav', {class: 'paginacao-da-loja', 'aria-label': 'Páginas da loja'},
@@ -2737,7 +2799,7 @@ async function telaLoja(partes, consulta) {
     const desenhar = () => {
         // replaceChildren escreveria "null" como texto: o que nao vale fica de fora
         if (aba !== 'mochila') {
-            const tipo = aba === 'efeitos' ? 'efeito' : 'borda';
+            const tipo = {efeitos: 'efeito', temas: 'tema'}[aba] || 'borda';
             conteudo.replaceChildren(...[
                 dados.pagamentoConfigurado ? null : h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'),
                 ...gradePaginada(dados.itens.filter(item => item.tipo === tipo)),
@@ -2746,8 +2808,17 @@ async function telaLoja(partes, consulta) {
             return;
         }
         const minhas = dados.itens.filter(item => tenho(item.id));
+        const daMochila = [...ITENS_DE_SEMPRE, ...(dados.gratis || []), ...minhas].filter(item => !tipoNaMochila || item.tipo === tipoNaMochila);
+        // trocar o filtro volta para a primeira pagina
+        const filtroDaMochila = h('div', {class: 'filtros filtro-da-mochila', role: 'group', 'aria-label': 'Mostrar na mochila'},
+            ...[['', 'Todos'], ['borda', 'Bordas'], ['efeito', 'Efeitos'], ['tema', 'Temas']].map(([tipo, texto]) => {
+                const quantos = [...ITENS_DE_SEMPRE, ...(dados.gratis || []), ...minhas].filter(item => !tipo || item.tipo === tipo).length;
+                return h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(tipoNaMochila === tipo),
+                    onclick: () => { location.hash = '#/loja/mochila' + (tipo ? '?tipo=' + tipo : ''); }}, texto + ' (' + quantos + ')');
+            }));
         conteudo.replaceChildren(...[
-            ...gradePaginada([...ITENS_DE_SEMPRE, ...minhas]),
+            filtroDaMochila,
+            ...gradePaginada(daMochila),
             dados.temTudo ? h('p', {class: 'nota-da-loja'}, 'Como dono do site, você tem todos os itens da loja, inclusive os que entrarem depois.') : null,
             minhas.length ? null : h('p', {class: 'nota-da-loja'}, 'Sua mochila só tem a borda roxa e o brilho de sempre por enquanto. ',
                 h('a', {href: '#/loja/bordas'}, 'Ver a loja'))].filter(Boolean));
@@ -2777,7 +2848,7 @@ async function acompanharCompra(id, aviso, vez, dados, redesenhar) {
         }
         if (vez !== estado.render) return;
         const item = dados.itens.find(i => i.id === compra.item);
-        const nome = item ? (item.tipo === 'efeito' ? 'O efeito ' : 'A borda ') + item.nome : 'O item';
+        const nome = item ? ({efeito: 'O efeito ', tema: 'O tema '}[item.tipo] || 'A borda ') + item.nome : 'O item';
         if (compra.status === 'aprovada') {
             aviso.className = 'aviso-da-compra aprovada';
             if (!dados.mochila.some(m => m.item === compra.item)) dados.mochila.push({item: compra.item});
@@ -2789,6 +2860,7 @@ async function acompanharCompra(id, aviso, vez, dados, redesenhar) {
                     const {equipados} = await chamar('PUT', '/api/loja/equipar', {item: compra.item});
                     Object.assign(estado.sessao.conta, equipados);
                     dados.equipados = equipados;
+                    aplicarTema(equipados.tema);
                     redesenhar();
                     botao.replaceWith(h('span', null, '✓ Equipado'));
                 } catch (e) {

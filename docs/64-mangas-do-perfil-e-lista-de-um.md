@@ -55,3 +55,6 @@ pelo endereço do perfil, e a mesma capa pedida pelo perfil de outra conta deu 4
 favorito, o detalhe com status, nota, favorito e capítulo, o Esc voltando para as capas e a busca "fri" achando só
 Frieren. Um post da Bia com um mangá só mostrou "Mangá · Frieren · Ver mangá →" e abriu direto nas informações, sem
 o voltar, e o × fechou a janela. Os 86 testes da versão JavaScript passam.
+
+> Depois, os favoritos dessa janela passaram a aparecer com a borda e o efeito que a pessoa equipou: veja
+> [A borda da pessoa nos mangás do perfil](65-bordas-nos-mangas-do-perfil.md).

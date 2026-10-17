@@ -19,6 +19,8 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 /** Precos, em centavos: cada borda e cada efeito. */
 export const PRECO_DA_BORDA = 450;
 export const PRECO_DO_EFEITO = 250;
+export const PRECO_DO_TEMA = 500;
+export const PRECO_DO_TEMA_ANIMADO = 750;
 
 /**
  * O que a loja vende. O id vira a classe "borda-{id}" ou "efeito-{id}" das capas (app.css). A pessoa equipa uma borda
@@ -43,10 +45,31 @@ export const ITENS_DA_LOJA = [
     { id: 'neve', tipo: 'efeito', nome: 'Neve', descricao: 'Flocos de neve caindo devagar sobre a capa.', preco: PRECO_DO_EFEITO },
     { id: 'raios', tipo: 'efeito', nome: 'Raios', descricao: 'Clarões elétricos azuis que piscam nas bordas da capa.', preco: PRECO_DO_EFEITO },
     { id: 'aura', tipo: 'efeito', nome: 'Aura', descricao: 'Uma luz que pulsa de dentro da capa, mudando de cor.', preco: PRECO_DO_EFEITO },
+    { id: 'brasas', tipo: 'efeito', nome: 'Brasas', descricao: 'Brasas acesas subindo pela capa, com um calor que vem de baixo.', preco: PRECO_DO_EFEITO },
+    { id: 'chuva', tipo: 'efeito', nome: 'Chuva', descricao: 'Uma chuva fina caindo na diagonal sobre a capa.', preco: PRECO_DO_EFEITO },
+    { id: 'coracoes', tipo: 'efeito', nome: 'Corações', descricao: 'Coraçõezinhos subindo e sumindo, para os mangás do coração.', preco: PRECO_DO_EFEITO },
+    { id: 'glitch', tipo: 'efeito', nome: 'Glitch', descricao: 'Faixas de cor que tremem e pulam, como uma tela com defeito.', preco: PRECO_DO_EFEITO },
+    { id: 'crt', tipo: 'efeito', nome: 'Tela CRT', descricao: 'As linhas de uma TV antiga, com uma faixa de luz passando de cima para baixo.', preco: PRECO_DO_EFEITO },
+    { id: 'confete', tipo: 'efeito', nome: 'Confete', descricao: 'Confetes coloridos caindo sem parar, para comemorar.', preco: PRECO_DO_EFEITO },
+    { id: 'verde', tipo: 'tema', nome: 'Verde pastel', descricao: 'O site todo em tons claros de verde-menta, leve para ler de dia.', preco: PRECO_DO_TEMA },
+    { id: 'rosa', tipo: 'tema', nome: 'Rosa pastel', descricao: 'Rosa e lilás claros, com os painéis meio transparentes sobre um degradê.', preco: PRECO_DO_TEMA },
+    { id: 'vermelho', tipo: 'tema', nome: 'Vermelho', descricao: 'Escuro, com detalhes em vermelho intenso.', preco: PRECO_DO_TEMA },
+    { id: 'roxo', tipo: 'tema', nome: 'Roxo', descricao: 'Escuro, em tons de roxo e lavanda.', preco: PRECO_DO_TEMA },
+    { id: 'cinza', tipo: 'tema', nome: 'Degradê cinza', descricao: 'Grafite em degradê, com os painéis meio transparentes e detalhes em prata.', preco: PRECO_DO_TEMA },
+    { id: 'aurora', tipo: 'tema', nome: 'Aurora', descricao: 'Fundo animado: luzes verdes, azuis e roxas se mexendo devagar no escuro.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'estrelas', tipo: 'tema', nome: 'Noite estrelada', descricao: 'Fundo animado: um céu noturno com estrelas piscando.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'petalas', tipo: 'tema', nome: 'Sakura ao vento', descricao: 'Fundo animado: pétalas de cerejeira caindo sobre um rosa bem claro.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'synthwave', tipo: 'tema', nome: 'Synthwave', descricao: 'Fundo animado: sol retrô no horizonte e uma grade neon vindo na sua direção.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+];
+
+/** Os temas de graca, que toda conta tem: o escuro (o de sempre) e o claro. Sem tema, o site segue o sistema. */
+export const TEMAS_GRATIS = [
+    { id: 'escuro', tipo: 'tema', nome: 'Escuro', descricao: 'O tema de sempre do Viracap. Vem com todas as contas.', preco: 0 },
+    { id: 'claro', tipo: 'tema', nome: 'Claro', descricao: 'Fundo claro e letras escuras. Vem com todas as contas.', preco: 0 },
 ];
 
 /** A coluna de "contas" onde fica o item equipado de cada tipo. */
-export const COLUNA_DO_TIPO = { borda: 'borda', efeito: 'efeito' };
+export const COLUNA_DO_TIPO = { borda: 'borda', efeito: 'efeito', tema: 'tema' };
 
 export const itemDaLoja = id => ITENS_DA_LOJA.find(item => item.id === id) || null;
 
@@ -67,6 +90,7 @@ export const ESTRUTURA_DA_LOJA = `
     -- a borda e o efeito equipados (nulos: a borda roxa e o brilho de sempre)
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS borda TEXT;
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS efeito TEXT;
+    ALTER TABLE contas ADD COLUMN IF NOT EXISTS tema TEXT;
 `;
 
 /** Imagens da loja: nome do arquivo (que o CSS usa em /api/loja/imagens/{nome}), formatos e tamanho maximo. */
@@ -199,7 +223,8 @@ export function criarLoja(f) {
                     // devolvido: o item sai da mochila (e de cima das capas, se estava equipado)
                     await cliente.query('DELETE FROM mochila WHERE conta = $1 AND item = $2 AND compra = $3', [compra.conta, compra.item, compra.id]);
                     await cliente.query(`UPDATE contas SET borda = CASE WHEN borda = $2 THEN NULL ELSE borda END,
-                        efeito = CASE WHEN efeito = $2 THEN NULL ELSE efeito END WHERE id = $1`, [compra.conta, compra.item]);
+                        efeito = CASE WHEN efeito = $2 THEN NULL ELSE efeito END, tema = CASE WHEN tema = $2 THEN NULL ELSE tema END
+                        WHERE id = $1`, [compra.conta, compra.item]);
                 } else if (nova === 'divergente') {
                     console.error(`Compra ${compra.id}: pago ${pagamento.transaction_amount} ${pagamento.currency_id}, esperado ${compra.preco / 100} BRL`);
                 }
@@ -220,14 +245,15 @@ export function criarLoja(f) {
         const db = await banco();
         const [{ rows: meus }, { rows: conta }] = await Promise.all([
             db.query('SELECT item, obtido_em FROM mochila WHERE conta = $1 ORDER BY obtido_em', [eu.id]),
-            db.query('SELECT borda, efeito FROM contas WHERE id = $1', [eu.id]),
+            db.query('SELECT borda, efeito, tema FROM contas WHERE id = $1', [eu.id]),
         ]);
         const comprados = meus.filter(linha => itemDaLoja(linha.item)).map(linha => ({ item: linha.item, obtidoEm: linha.obtido_em }));
         return {
             itens: ITENS_DA_LOJA,
+            gratis: TEMAS_GRATIS,
             mochila: temTudo(eu) ? ITENS_DA_LOJA.map(item => ({ item: item.id, obtidoEm: null })) : comprados,
             temTudo: temTudo(eu),
-            equipados: { borda: conta[0]?.borda || null, efeito: conta[0]?.efeito || null },
+            equipados: { borda: conta[0]?.borda || null, efeito: conta[0]?.efeito || null, tema: conta[0]?.tema || null },
             pagamentoConfigurado: pagamentoConfigurado(),
         };
     }
@@ -253,7 +279,7 @@ export function criarLoja(f) {
             metodo: 'POST',
             idempotencia: compraId,
             corpo: {
-                items: [{ id: item.id, title: `${item.tipo === 'efeito' ? 'Efeito' : 'Borda'} ${item.nome} - Viracap`, description: item.descricao, category_id: 'virtual_goods',
+                items: [{ id: item.id, title: `${{ efeito: 'Efeito', tema: 'Tema' }[item.tipo] || 'Borda'} ${item.nome} - Viracap`, description: item.descricao, category_id: 'virtual_goods',
                     quantity: 1, currency_id: 'BRL', unit_price: item.preco / 100 }],
                 external_reference: compraId,
                 back_urls: { success: retorno, pending: retorno, failure: retorno },
@@ -324,13 +350,19 @@ export function criarLoja(f) {
         const { item, tipo } = await f.lerCorpo(request);
         const db = await banco();
         const equipados = async () => {
-            const { rows } = await db.query('SELECT borda, efeito FROM contas WHERE id = $1', [eu.id]);
-            return { equipados: { borda: rows[0]?.borda || null, efeito: rows[0]?.efeito || null } };
+            const { rows } = await db.query('SELECT borda, efeito, tema FROM contas WHERE id = $1', [eu.id]);
+            return { equipados: { borda: rows[0]?.borda || null, efeito: rows[0]?.efeito || null, tema: rows[0]?.tema || null } };
         };
         if (item === null) {
             const coluna = Object.hasOwn(COLUNA_DO_TIPO, tipo) ? COLUNA_DO_TIPO[tipo] : null;
-            if (!coluna) throw new ErroDaLoja(400, 'Informe o tipo: borda ou efeito');
+            if (!coluna) throw new ErroDaLoja(400, 'Informe o tipo: borda, efeito ou tema');
             await db.query(`UPDATE contas SET ${coluna} = NULL WHERE id = $1`, [eu.id]);
+            return equipados();
+        }
+        // os temas de graca (escuro e claro) qualquer conta equipa
+        const gratis = TEMAS_GRATIS.find(tema => tema.id === item);
+        if (gratis) {
+            await db.query('UPDATE contas SET tema = $2 WHERE id = $1', [eu.id, gratis.id]);
             return equipados();
         }
         const achado = itemDaLoja(item);

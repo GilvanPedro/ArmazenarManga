@@ -207,6 +207,15 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Mangás do perfil.** O número de mangás do perfil passou a abrir os mangás da pessoa (só para ver, sem os links
   de leitura), e uma lista de um mangá só passou a abrir direto nele. Detalhes em
   [Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md).
+- **Bordas no perfil.** Os mangás abertos pelo perfil passaram a mostrar a borda e o efeito que a pessoa equipou.
+  Detalhes em [A borda da pessoa nos mangás do perfil](65-bordas-nos-mangas-do-perfil.md).
+- **Capturas para o Google.** A página inicial ganhou três capturas da interface (Biblioteca, Comunidade e um mangá),
+  com dados de exemplo, também nos dados estruturados e no sitemap. Detalhes em
+  [Capturas da tela para o Google](66-capturas-da-tela-no-google.md).
+- **Temas do site.** A loja ganhou temas para o site todo: escuro e claro de graça, cinco de cor (R$ 5,00) e quatro
+  de fundo animado (R$ 7,50). Detalhes em [Temas do site](67-temas-do-site.md).
+- **Mais efeitos e filtro da mochila.** Seis efeitos novos na loja e um filtro na mochila para ver só as bordas, os
+  efeitos ou os temas. Detalhes em [Mais efeitos e o filtro da mochila](68-mais-efeitos-e-filtro-da-mochila.md).
 
 ## O que foi removido ou abandonado
 

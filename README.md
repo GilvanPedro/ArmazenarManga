@@ -100,6 +100,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Efeitos, Loja no topo e painel do dono](docs/59-efeitos-loja-no-topo-e-dono.md) | [Bordas ornamentadas](docs/60-bordas-ornamentadas.md) |
 | [O dono tem todos os itens da loja](docs/61-dono-tem-todos-os-itens.md) | [Borda Celestial, feita de imagem](docs/62-borda-celestial-de-imagem.md) |
 | [Imagens da loja no banco](docs/63-imagens-da-loja-no-banco.md) | [Os mangás do perfil e a lista de um só](docs/64-mangas-do-perfil-e-lista-de-um.md) |
+| [A borda da pessoa nos mangás do perfil](docs/65-bordas-nos-mangas-do-perfil.md) | [Capturas da tela para o Google](docs/66-capturas-da-tela-no-google.md) |
+| [Temas do site](docs/67-temas-do-site.md) | [Mais efeitos e o filtro da mochila](docs/68-mais-efeitos-e-filtro-da-mochila.md) |
 
 ## Testes
 

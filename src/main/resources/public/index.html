@@ -22,16 +22,36 @@
     <meta property="og:image:alt" content="Logo do Viracap com o texto: sua lista de mangás">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="theme-color" content="#f2613f">
-    <!-- o nome do site para o Google mostrar "Viracap" no resultado, e nao o endereco (so dados: nao e executado) -->
+    <!-- para o Google: o nome do site (para mostrar "Viracap" no resultado, e nao o endereco) e o que ele e, com as
+         capturas da tela. So dados: o navegador nao executa -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Viracap",
-        "alternateName": ["Viracap mangás", "viracap.vercel.app"],
-        "url": "https://viracap.vercel.app/",
-        "inLanguage": "pt-BR",
-        "description": "Organize os mangás, manhwas e manhuas que você lê: continue do capítulo onde parou, veja o que lança hoje, descubra obras novas e compartilhe listas com a comunidade."
+        "@graph": [
+            {
+                "@type": "WebSite",
+                "name": "Viracap",
+                "alternateName": ["Viracap mangás", "viracap.vercel.app"],
+                "url": "https://viracap.vercel.app/",
+                "inLanguage": "pt-BR",
+                "description": "Organize os mangás, manhwas e manhuas que você lê: continue do capítulo onde parou, veja o que lança hoje, descubra obras novas e compartilhe listas com a comunidade."
+            },
+            {
+                "@type": "WebApplication",
+                "name": "Viracap",
+                "url": "https://viracap.vercel.app/",
+                "applicationCategory": "LifestyleApplication",
+                "operatingSystem": "Web",
+                "inLanguage": "pt-BR",
+                "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL" },
+                "description": "Lista de mangás, manhwas e manhuas: guarda o capítulo em que você parou, mostra os lançamentos do dia, recomenda obras novas e tem uma comunidade de leitores.",
+                "screenshot": [
+                    { "@type": "ImageObject", "url": "https://viracap.vercel.app/capturas/biblioteca.webp", "caption": "Biblioteca do Viracap: a lista de mangás com capa, status, nota e próximo capítulo" },
+                    { "@type": "ImageObject", "url": "https://viracap.vercel.app/capturas/comunidade.webp", "caption": "Comunidade do Viracap: posts, listas compartilhadas e #tags" },
+                    { "@type": "ImageObject", "url": "https://viracap.vercel.app/capturas/manga.webp", "caption": "Página de um mangá no Viracap: capítulo atual, lançamento, nota, tags e sinopse" }
+                ]
+            }
+        ]
     }
     </script>
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
