@@ -103,7 +103,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [A borda da pessoa nos mangás do perfil](docs/65-bordas-nos-mangas-do-perfil.md) | [Capturas da tela para o Google](docs/66-capturas-da-tela-no-google.md) |
 | [Temas do site](docs/67-temas-do-site.md) | [Mais efeitos e o filtro da mochila](docs/68-mais-efeitos-e-filtro-da-mochila.md) |
 | [Temas animados Galáxia e Fazenda](docs/69-temas-galaxia-e-fazenda.md) | [Tema Silhueta e o tema no perfil](docs/70-tema-silhueta-e-tema-no-perfil.md) |
-| [Meteoros no tema Galáxia](docs/71-meteoros-na-galaxia.md) | |
+| [Meteoros no tema Galáxia](docs/71-meteoros-na-galaxia.md) | [Sem tema de imagem de fundo](docs/72-sem-tema-de-imagem.md) |
+| [O tema da pessoa no perfil e nas listas](docs/73-tema-da-pessoa-no-perfil-e-nas-listas.md) | |
 
 ## Testes
 

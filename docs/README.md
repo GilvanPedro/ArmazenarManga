@@ -75,6 +75,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [69 · Temas animados Galáxia e Fazenda](69-temas-galaxia-e-fazenda.md) | Dois temas de fundo animado novos: nebulosas girando e uma fazenda com nuvens passando |
 | [70 · Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md) | Um tema com ilustração de fundo (do banco) e a janela dos mangás do perfil com o tema da pessoa |
 | [71 · Meteoros no tema Galáxia](71-meteoros-na-galaxia.md) | Meteoros cruzando a tela de vez em quando no tema animado Galáxia |
+| [72 · Sem tema de imagem de fundo](72-sem-tema-de-imagem.md) | O tema Silhueta saiu da loja; quem o tinha equipado volta ao Automático |
+| [73 · O tema da pessoa no perfil e nas listas](73-tema-da-pessoa-no-perfil-e-nas-listas.md) | O perfil, os mangás e as listas de outra pessoa aparecem com o tema, a borda e o efeito dela |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

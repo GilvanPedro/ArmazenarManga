@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, hashtagsQueComecamCom, doMaisNovoParaOMaisAntigo, lerBusca, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
 import { criarFinancas } from './_financas.js';
+import { temaQueExiste } from './_loja.js';
 import { dadosDoPainel, lerPeriodo } from './_painel.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
@@ -91,13 +92,13 @@ export function criarComunidade(f) {
     const { banco, json, Recusa } = f;
 
     const urlDaFoto = (id, foto) => (foto ? `/api/comunidade/contas/${id}/foto?v=${encodeURIComponent(foto)}` : null);
-    // a borda e o efeito da loja que o autor equipou: aparecem nas capas dos favoritos das listas que ele publica
+    // a borda, o efeito e o tema da loja que o autor equipou: as listas que ele publica abrem com eles
     const autor = linha => ({ id: linha.autor_id, nick: linha.nick, foto: urlDaFoto(linha.autor_id, linha.foto),
-        borda: linha.borda || null, efeito: linha.efeito || null });
+        borda: linha.borda || null, efeito: linha.efeito || null, tema: temaQueExiste(linha.tema) });
 
     // os campos que todo post devolvido leva; $1 e sempre quem esta usando. Os totais ja estao no post (gatilhos)
     const CAMPOS_DO_POST = `
-        p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto, c.borda, c.efeito,
+        p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto, c.borda, c.efeito, c.tema,
         p.curtidas_total AS curtidas, p.comentarios_total AS comentarios,
         EXISTS (SELECT 1 FROM curtidas WHERE post = p.id AND conta = $1) AS curti,
         EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = p.autor) AS sigo`;
@@ -440,6 +441,7 @@ export function criarComunidade(f) {
                    (SELECT count(*) FROM seguindo WHERE seguidor = $2)::int AS seguindo,
                    EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = $2) AS sigo`, [eu.id, conta.id, String(conta.id)]);
         const resposta = { id: conta.id, nick: conta.nick, foto: urlDaFoto(conta.id, conta.foto), criadaEm: conta.criada_em, ...rows[0], euMesmo: conta.id === eu.id };
+        resposta.tema = temaQueExiste(resposta.tema);
         // para os admins: a punicao da conta e se ela pode ser punida (admins nao podem)
         if (f.ehAdmin(eu) && conta.id !== eu.id) {
             const { rows: completa } = await (await banco()).query('SELECT email, admin, punicao, punida_ate, punicao_motivo FROM contas WHERE id = $1', [conta.id]);

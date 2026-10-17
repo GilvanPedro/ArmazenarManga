@@ -222,6 +222,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   perfil passou a mostrar o tema da pessoa. Detalhes em [Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md).
 - **Meteoros na Galáxia.** O tema Galáxia ganhou meteoros cruzando a tela de vez em quando. Detalhes em
   [Meteoros no tema Galáxia](71-meteoros-na-galaxia.md).
+- **Sem tema de imagem.** O tema Silhueta, de imagem de fundo, saiu da loja. Detalhes em
+  [Sem tema de imagem de fundo](72-sem-tema-de-imagem.md).
+- **O tema da pessoa.** O perfil, os mangás e as listas de outra pessoa passaram a aparecer com o tema dela, e não com
+  o de quem vê. Detalhes em [O tema da pessoa no perfil e nas listas](73-tema-da-pessoa-no-perfil-e-nas-listas.md).
 
 ## O que foi removido ou abandonado
 

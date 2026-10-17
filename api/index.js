@@ -9,7 +9,7 @@ import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
 import { ESTRUTURA_DAS_FINANCAS } from './_financas.js';
-import { ESTRUTURA_DA_LOJA, criarLoja } from './_loja.js';
+import { ESTRUTURA_DA_LOJA, criarLoja, temaQueExiste } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
@@ -730,7 +730,7 @@ const contaPublica = conta => ({
     borda: conta.borda || null,
     efeito: conta.efeito || null,
     // o tema do site que a pessoa equipou (nulo: segue o sistema)
-    tema: conta.tema || null,
+    tema: temaQueExiste(conta.tema),
 });
 
 const respostaDaSessao = sessao => ({

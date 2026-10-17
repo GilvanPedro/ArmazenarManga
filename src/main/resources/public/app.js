@@ -2390,6 +2390,8 @@ function rota() {
     const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
     const partes = caminho.split('/');
     document.title = 'Viracap';
+    // fora do perfil de outra pessoa, o tema e o da conta (o perfil poe o da pessoa quando abre)
+    if (!(partes[0] === 'comunidade' && partes[1] === 'perfil')) mostrarTemaNaPagina(null);
     marcarSecao(['comunidade', 'loja', 'gerenciar'].includes(partes[0]) ? partes[0] : partes[0] === 'conta' ? null : 'biblioteca');
     clearInterval(estado.vigiaDoFeed);
     // voltando de um post para a tela da Comunidade de onde ele foi aberto: ela volta como estava
@@ -2649,6 +2651,27 @@ try {
 } catch (e) {
     // sem tema guardado
 }
+
+/**
+ * O tema para mostrar o que e de outra pessoa (o perfil, os mangas e as listas dela): o que ela equipou, e, se ela usa
+ * o Automatico, o tema de sempre do site (escuro, ou claro se o aparelho de quem ve estiver no modo claro). Nunca o
+ * tema de quem esta vendo.
+ */
+function temaParaVer(tema) {
+    if (typeof tema === 'string' && /^[a-z]+$/.test(tema)) return tema;
+    return matchMedia('(prefers-color-scheme: light)').matches ? 'claro' : 'escuro';
+}
+
+/** Troca o tema da pagina so na tela (sem guardar): usado no perfil de outra pessoa. Nulo volta ao tema da conta. */
+function mostrarTemaNaPagina(tema) {
+    const valido = tema === undefined || tema === null ? meuTema() : tema;
+    if (valido) document.documentElement.dataset.tema = valido;
+    else delete document.documentElement.dataset.tema;
+}
+const meuTema = () => (typeof estado.sessao?.conta?.tema === 'string' ? estado.sessao.conta.tema : null);
+
+/** As camadas do fundo animado de um tema, para uma janela com o tema de outra pessoa. */
+const camadasDoTema = () => [1, 2, 3, 4].map(n => h('div', {class: 'fundo-da-previa' + (n > 1 ? '-' + n : ''), 'aria-hidden': 'true'}));
 
 /** Uma janelinha do site com as cores (e o fundo, se for animado) de um tema, para a loja e a mochila. */
 function previaDoTema(tema) {
@@ -3321,6 +3344,8 @@ async function telaPerfil(principal, id, vez) {
     }
     if (vez !== estado.render) return;
     document.title = perfil.nick + ' · Comunidade · Viracap';
+    // no perfil de outra pessoa, a pagina toda fica com o tema dela; sair do perfil volta o seu (em rota)
+    if (!perfil.euMesmo) mostrarTemaNaPagina(temaParaVer(perfil.tema));
     const numeros = h('p', {class: 'numeros-do-perfil'});
     const mostrarNumeros = dados => numeros.replaceChildren(
         h('button', {type: 'button', class: 'numero-clicavel', onclick: () => janelaDosMangasDoPerfil(perfil)},
@@ -4463,7 +4488,9 @@ function abrirListaDoPost(lista, autor) {
     const conteudo = h('div', {class: 'conteudo-da-lista'});
     const titulo = h('h2', null);
     const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
-    const dialogo = h('dialog', {class: 'janela-da-lista-publicada'}, h('div', {class: 'topo-da-janela'}, titulo, fechar), conteudo);
+    // a lista abre com o tema de quem publicou (e as capas com a borda e o efeito dele)
+    const dialogo = h('dialog', {class: 'janela-da-lista-publicada janela-com-tema', 'data-tema': temaParaVer(autor.tema)},
+        ...camadasDoTema(), h('div', {class: 'topo-da-janela'}, titulo, fechar), conteudo);
     let vendoManga = false;
     const soUm = lista.itens.length === 1;
     fechar.addEventListener('click', () => {
@@ -4530,11 +4557,9 @@ function janelaDosMangasDoPerfil(perfil) {
     const rolagem = h('div', {class: 'rolagem-da-escolha'}, grade, fim);
     const ferramentas = [h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar), filtros];
     const detalhe = h('div', {class: 'conteudo-da-lista', hidden: true});
-    // a janela usa o tema do site da pessoa (cores, fundo e animacao); sem tema, o de quem esta vendo
-    const tema = typeof perfil.tema === 'string' && /^[a-z]+$/.test(perfil.tema) ? perfil.tema : null;
-    const dialogo = h('dialog', {class: 'janela-da-lista janela-dos-mangas-do-perfil', 'data-tema': tema},
-        h('div', {class: 'fundo-da-previa', 'aria-hidden': 'true'}), h('div', {class: 'fundo-da-previa-2', 'aria-hidden': 'true'}),
-        h('div', {class: 'fundo-da-previa-3', 'aria-hidden': 'true'}), h('div', {class: 'fundo-da-previa-4', 'aria-hidden': 'true'}),
+    // a janela usa o tema do site da pessoa (cores, fundo e animacao), nunca o de quem esta vendo
+    const dialogo = h('dialog', {class: 'janela-da-lista janela-dos-mangas-do-perfil janela-com-tema', 'data-tema': temaParaVer(perfil.tema)},
+        ...camadasDoTema(),
         h('div', {class: 'topo-da-janela'}, titulo, fechar), ...ferramentas, rolagem, detalhe);
     let vendoManga = false;
     const mostrarCapas = () => {
@@ -4638,6 +4663,8 @@ function abrirPost(id) {
         recarregar: estado.recarregar,
         retomar: estado.retomarFeed,
         titulo: document.title,
+        // o tema da pagina (no perfil de outra pessoa, o dela) volta junto
+        tema: document.documentElement.dataset.tema || null,
     };
     estado.postAberto = id;
     location.hash = '#/comunidade/post/' + id;
@@ -4650,6 +4677,7 @@ function restaurarComunidade(guardada) {
     estado.render = guardada.vez;
     estado.recarregar = guardada.recarregar;
     document.title = guardada.titulo;
+    if (guardada.tema) mostrarTemaNaPagina(guardada.tema);
     requestAnimationFrame(() => window.scrollTo(0, guardada.rolagem));
     if (guardada.retomar) guardada.retomar();
     // o post que foi aberto volta atualizado (curtidas e comentarios novos), ou some, se foi apagado

@@ -51,3 +51,9 @@ Num banco local: a imagem enviada pela rota da aba Imagens da loja; o Silhueta e
 personagem à direita atrás dos painéis; e, com a Mei usando a Galáxia, a janela dos mangás dela abriu com a Galáxia
 (estrelas e nebulosas) mesmo com quem estava vendo usando o Silhueta, nas capas e no detalhe. Os 87 testes da versão
 JavaScript passam.
+
+> Depois, o tema Silhueta saiu da loja (a janela dos mangás com o tema da pessoa continua): veja
+> [Sem tema de imagem de fundo](72-sem-tema-de-imagem.md).
+
+> Depois, o perfil inteiro e as listas dos posts também passaram a usar o tema da pessoa, e o Automático dela deixou
+> de mostrar o tema de quem vê: veja [O tema da pessoa no perfil e nas listas](73-tema-da-pessoa-no-perfil-e-nas-listas.md).

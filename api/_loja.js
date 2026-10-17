@@ -61,7 +61,6 @@ export const ITENS_DA_LOJA = [
     { id: 'petalas', tipo: 'tema', nome: 'Sakura ao vento', descricao: 'Fundo animado: pétalas de cerejeira caindo sobre um rosa bem claro.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'cosmos', tipo: 'tema', nome: 'Galáxia', descricao: 'Fundo animado: nebulosas roxas, azuis e rosas girando devagar, com estrelas piscando.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'fazenda', tipo: 'tema', nome: 'Fazenda', descricao: 'Fundo animado: céu azul com nuvens passando, sol, morros verdes e uma cerca de madeira.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
-    { id: 'silhueta', tipo: 'tema', nome: 'Silhueta', descricao: 'Fundo com uma personagem de mangá em traço preto e branco no canto da tela, que se aproxima devagar.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'synthwave', tipo: 'tema', nome: 'Synthwave', descricao: 'Fundo animado: sol retrô no horizonte e uma grade neon vindo na sua direção.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
 ];
 
@@ -70,6 +69,14 @@ export const TEMAS_GRATIS = [
     { id: 'escuro', tipo: 'tema', nome: 'Escuro', descricao: 'O tema de sempre do Viracap. Vem com todas as contas.', preco: 0 },
     { id: 'claro', tipo: 'tema', nome: 'Claro', descricao: 'Fundo claro e letras escuras. Vem com todas as contas.', preco: 0 },
 ];
+
+/**
+ * O tema equipado, se ele ainda existe (na loja ou entre os de graca); senao, nulo (o Automatico). Um tema que saiu
+ * da loja (como o Silhueta) nao fica preso na conta de quem o tinha equipado.
+ */
+export function temaQueExiste(id) {
+    return [...ITENS_DA_LOJA, ...TEMAS_GRATIS].some(item => item.tipo === 'tema' && item.id === id) ? id : null;
+}
 
 /** A coluna de "contas" onde fica o item equipado de cada tipo. */
 export const COLUNA_DO_TIPO = { borda: 'borda', efeito: 'efeito', tema: 'tema' };
@@ -256,7 +263,7 @@ export function criarLoja(f) {
             gratis: TEMAS_GRATIS,
             mochila: temTudo(eu) ? ITENS_DA_LOJA.map(item => ({ item: item.id, obtidoEm: null })) : comprados,
             temTudo: temTudo(eu),
-            equipados: { borda: conta[0]?.borda || null, efeito: conta[0]?.efeito || null, tema: conta[0]?.tema || null },
+            equipados: { borda: conta[0]?.borda || null, efeito: conta[0]?.efeito || null, tema: temaQueExiste(conta[0]?.tema) },
             pagamentoConfigurado: pagamentoConfigurado(),
         };
     }
@@ -354,7 +361,7 @@ export function criarLoja(f) {
         const db = await banco();
         const equipados = async () => {
             const { rows } = await db.query('SELECT borda, efeito, tema FROM contas WHERE id = $1', [eu.id]);
-            return { equipados: { borda: rows[0]?.borda || null, efeito: rows[0]?.efeito || null, tema: rows[0]?.tema || null } };
+            return { equipados: { borda: rows[0]?.borda || null, efeito: rows[0]?.efeito || null, tema: temaQueExiste(rows[0]?.tema) } };
         };
         if (item === null) {
             const coluna = Object.hasOwn(COLUNA_DO_TIPO, tipo) ? COLUNA_DO_TIPO[tipo] : null;

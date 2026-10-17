@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { COLUNA_DO_TIPO, PRECO_DO_TEMA, PRECO_DO_TEMA_ANIMADO, TEMAS_GRATIS, conferirImagemDaLoja, formatoDaImagem, ITENS_DA_LOJA, PRECO_DA_BORDA, PRECO_DO_EFEITO, assinaturaValida, itemDaLoja, podeMudar, situacaoDoPagamento } from '../api/_loja.js';
+import { COLUNA_DO_TIPO, temaQueExiste, PRECO_DO_TEMA, PRECO_DO_TEMA_ANIMADO, TEMAS_GRATIS, conferirImagemDaLoja, formatoDaImagem, ITENS_DA_LOJA, PRECO_DA_BORDA, PRECO_DO_EFEITO, assinaturaValida, itemDaLoja, podeMudar, situacaoDoPagamento } from '../api/_loja.js';
 
 test('a loja tem pelo menos 4 bordas, todas a R$ 4,50 e com ids que viram classes', () => {
     const bordas = ITENS_DA_LOJA.filter(item => item.tipo === 'borda');
@@ -102,4 +102,12 @@ test('temas: os de cor a R$ 5,00, os animados a R$ 7,50, e o escuro e o claro de
     for (const item of temas) assert.equal(item.preco, item.animado ? 750 : 500, item.id);
     assert.deepEqual(TEMAS_GRATIS.map(item => item.id), ['escuro', 'claro']);
     for (const gratis of TEMAS_GRATIS) assert.equal(itemDaLoja(gratis.id), null, gratis.id + ' nao se compra');
+});
+
+test('um tema que saiu da loja nao fica preso na conta: vira o Automatico', () => {
+    assert.equal(temaQueExiste('cosmos'), 'cosmos');
+    assert.equal(temaQueExiste('claro'), 'claro');
+    assert.equal(temaQueExiste('silhueta'), null, 'o Silhueta saiu da loja');
+    assert.equal(temaQueExiste('neon'), null, 'neon e uma borda, nao um tema');
+    assert.equal(temaQueExiste(null), null);
 });

@@ -2172,7 +2172,6 @@ dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
  */
 [data-tema="escuro"],
 [data-tema="cosmos"],
-[data-tema="silhueta"],
 [data-tema="vermelho"],
 [data-tema="roxo"],
 [data-tema="cinza"],
@@ -2375,8 +2374,8 @@ dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
 body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 
 /* temas de fundo animado: as camadas ficam paradas na tela, atras de tudo, sem pegar cliques */
-:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"], [data-tema="silhueta"]) body::before,
-:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"], [data-tema="silhueta"]) body::after {
+:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"]) body::before,
+:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"]) body::after {
     content: "";
     position: fixed;
     inset: 0;
@@ -2385,11 +2384,11 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 }
 .previa-do-tema { position: relative; overflow: hidden; isolation: isolate; background: var(--fundo-imagem, none), var(--fundo); }
 .previa-do-tema > .fundo-da-previa, .previa-do-tema > .fundo-da-previa-2,
-.janela-dos-mangas-do-perfil > .fundo-da-previa, .janela-dos-mangas-do-perfil > .fundo-da-previa-2,
+.janela-com-tema > .fundo-da-previa, .janela-com-tema > .fundo-da-previa-2,
 .previa-do-tema > .fundo-da-previa-3, .previa-do-tema > .fundo-da-previa-4,
-.janela-dos-mangas-do-perfil > .fundo-da-previa-3, .janela-dos-mangas-do-perfil > .fundo-da-previa-4 { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-/* a janela dos mangas de outra pessoa com o tema dela: as cores, o fundo e as camadas animadas */
-.janela-dos-mangas-do-perfil[data-tema] { isolation: isolate; overflow: hidden; color: var(--texto); background: var(--fundo-imagem, none), var(--fundo); }
+.janela-com-tema > .fundo-da-previa-3, .janela-com-tema > .fundo-da-previa-4 { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+/* as janelas com o que e de outra pessoa (os mangas do perfil e as listas dos posts) com o tema dela */
+.janela-com-tema[data-tema] { isolation: isolate; overflow: hidden; color: var(--texto); background: var(--fundo-imagem, none), var(--fundo); }
 
 /* Aurora: luzes verdes, azuis e roxas que se mexem devagar */
 :root[data-tema="aurora"] body::before, [data-tema="aurora"] > .fundo-da-previa {
@@ -2621,39 +2620,6 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(120% 60% at 20% 100%, #86c56a 0 48%, transparent 49%),
         radial-gradient(110% 55% at 85% 100%, #6fb352 0 46%, transparent 47%),
         radial-gradient(160% 40% at 50% 100%, #5a9e3f 0 50%, transparent 51%);
-}
-
-/*
- * Silhueta: uma ilustracao (silhueta.webp, 1600 x 900, guardada no banco pela aba Imagens da loja) presa no canto de
- * baixo a direita, na altura da tela. O fundo da imagem e um cinza liso #181818, a mesma cor do tema: a imagem se
- * emenda no resto da tela em qualquer largura. Um zoom bem lento da vida a ela.
- */
-[data-tema="silhueta"] {
-    --fundo: #181818;
-    --fundo-imagem: none;
-    --superficie: rgba(30, 30, 30, .82);
-    --superficie-2: rgba(44, 44, 44, .8);
-    --borda: rgba(150, 150, 150, .25);
-    --texto: #f1f1f1;
-    --texto-fraco: #a8a8a8;
-    --destaque: #e5e5e5;
-    --destaque-forte: #ffffff;
-    --sobre-destaque: #181818;
-    --perigo: #f87171;
-    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
-}
-:root[data-tema="silhueta"] body::before, [data-tema="silhueta"] > .fundo-da-previa {
-    background: url("/api/loja/imagens/silhueta.webp") right bottom / auto 100% no-repeat;
-    transform-origin: 100% 100%;
-    animation: silhueta-respirando 14s ease-in-out infinite alternate;
-}
-@keyframes silhueta-respirando {
-    from { transform: scale(1); }
-    to { transform: scale(1.04); }
-}
-/* no celular a ilustracao fica atras do texto: bem apagada, para nao atrapalhar a leitura */
-@media (max-width: 760px) {
-    :root[data-tema="silhueta"] body::before { opacity: .35; }
 }
 
 @media (prefers-reduced-motion: reduce) {
