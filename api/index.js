@@ -8,6 +8,7 @@ import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, 
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
+import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
@@ -108,7 +109,7 @@ const ESTRUTURA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
-` + ESTRUTURA_DA_COMUNIDADE;
+` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL;
 
 async function banco() {
     if (!conexoes) {
@@ -985,8 +986,11 @@ async function rotear(request) {
     if (recurso === 'contas' && partes.length === 1 && metodo === 'POST') return criarConta(request);
     // tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista)
     if (recurso === 'inicio' && partes.length === 1 && metodo === 'GET') {
+        const sessaoDoInicio = await sessaoValida(request);
+        // cada abertura do site conta um acesso no painel dos admins (robos nao contam)
+        await registrarAcesso(await banco(), sessaoDoInicio?.conta.id || null, request.headers.get('user-agent'));
         return semCache(json(200, {
-            sessao: respostaDaSessao(await sessaoValida(request)),
+            sessao: respostaDaSessao(sessaoDoInicio),
             status: listaDeStatus(), formatos: listaDeFormatos(), dias: listaDeDias(),
             ordensDaLista: listaDeOrdens(ORDENS_DA_LISTA), ordensDeRecomendacao: listaDeOrdens(ORDENS),
             // so esta versao (a do Vercel) tem a Comunidade, e com ela o perfil; a versao Java nao manda este campo
@@ -997,6 +1001,8 @@ async function rotear(request) {
     const sessao = await sessaoValida(request);
     if (!sessao) throw new Recusa(401, 'Entre na sua conta');
     contexto.getStore().conta = sessao.conta.id;
+    // para o painel: a conta usou o site hoje (uma gravacao por conta por dia)
+    await marcarAtividade(await banco(), sessao.conta.id);
     if (recurso === 'conta' && partes.length <= 2) return tratarConta(request, sessao, id);
     if (recurso === 'comunidade') return comunidade()(request, url, partes.slice(1), sessao.conta);
 

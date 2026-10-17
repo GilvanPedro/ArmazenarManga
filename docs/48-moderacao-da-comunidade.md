@@ -126,3 +126,6 @@ fora.
   de moderação no perfil; admin apagando post do leitor; quem não é admin recebe 403 na API e "Só para
   administradores" em `#/gerenciar`; banir outro admin, punir a si mesmo e suspender por 0 horas são recusados; capa
   de mangá passa no post e como foto de perfil; o registro mostra tudo, na ordem. Sem rolagem para o lado no celular.
+
+> Depois, o Gerenciar ganhou a aba **Painel**, que abre primeiro (`#/gerenciar`); as contas passaram para
+> `#/gerenciar/contas`. Veja [Painel dos administradores](56-painel-dos-administradores.md).

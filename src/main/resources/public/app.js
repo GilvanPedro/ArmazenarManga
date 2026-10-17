@@ -3314,18 +3314,201 @@ async function telaGerenciar(partes) {
             h('a', {class: 'botao', href: '#/comunidade'}, 'Ir para a Comunidade')));
         return;
     }
-    const aba = partes[0] === 'registro' ? 'registro' : 'contas';
+    // o painel abre primeiro: e o resumo do site; contas e registro sao a moderacao
+    const aba = ['contas', 'registro'].includes(partes[0]) ? partes[0] : 'painel';
     const conteudo = h('div', {class: 'conteudo-do-gerenciamento'});
+    const link = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, texto);
     app.replaceChildren(h('div', {class: 'pagina-de-gerenciamento'},
         h('h1', null, 'Gerenciar'),
-        h('p', {class: 'subtitulo'}, 'Suspenda ou bana contas da Comunidade e veja o que os administradores e o robô de imagens fizeram.'),
+        h('p', {class: 'subtitulo'}, 'Acompanhe os acessos e as contas do site, suspenda ou bana contas da Comunidade e veja o que os administradores e o robô de imagens fizeram.'),
         rolagemDasAbas(h('nav', {class: 'abas', 'aria-label': 'Gerenciamento'},
-            h('a', {class: 'aba', href: '#/gerenciar', 'aria-current': aba === 'contas' ? 'page' : null}, 'Contas'),
-            h('a', {class: 'aba', href: '#/gerenciar/registro', 'aria-current': aba === 'registro' ? 'page' : null}, 'Registro'))),
+            link('painel', '#/gerenciar', 'Painel'),
+            link('contas', '#/gerenciar/contas', 'Contas'),
+            link('registro', '#/gerenciar/registro', 'Registro'))),
         conteudo));
     estado.recarregar = () => telaGerenciar(partes);
     if (aba === 'registro') return registroDoGerenciamento(conteudo, vez);
-    return contasDoGerenciamento(conteudo, vez);
+    if (aba === 'contas') return contasDoGerenciamento(conteudo, vez);
+    return painelDoGerenciamento(conteudo, vez);
+}
+
+// ------------------------------------------------------------------ painel (so admins)
+
+const numeroCurto = valor => valor >= 10000 ? (valor / 1000).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + ' mil' : valor.toLocaleString('pt-BR');
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+/** '2026-10-17' -> '17/10'; '2026-10' -> 'out 2026'. */
+const diaCurto = dia => dia.slice(8, 10) + '/' + dia.slice(5, 7);
+const mesCurto = mes => MESES_CURTOS[Number(mes.slice(5, 7)) - 1] + ' ' + mes.slice(0, 4);
+
+/** Um numero do painel: o nome, o valor e, se houver, a comparacao com o mes passado. */
+function quadroDoPainel(rotulo, valor, comparacoes, principal) {
+    return h('div', {class: 'quadro-do-painel' + (principal ? ' principal' : '')},
+        h('span', {class: 'rotulo-do-quadro'}, rotulo),
+        h('b', {class: 'valor-do-quadro'}, numeroCurto(valor)),
+        ...[comparacoes].flat().filter(Boolean).map(texto => h('small', null, texto)));
+}
+
+/** Topo arredondado para o eixo (4, 6, 8, 10, 20, 40...), sempre no maior valor ou acima dele. */
+function topoDoEixo(maximo) {
+    if (maximo <= 4) return 4;
+    const potencia = 10 ** Math.floor(Math.log10(maximo));
+    // passos com metade redonda: a linha do meio da grade tambem fica com um numero redondo
+    for (const passo of [1, 2, 4, 6, 8, 10]) if (passo * potencia >= maximo) return passo * potencia;
+    return 10 * potencia;
+}
+
+const SVG = 'http://www.w3.org/2000/svg';
+function svg(tag, atributos, ...filhos) {
+    const el = document.createElementNS(SVG, tag);
+    for (const [nome, valor] of Object.entries(atributos || {})) if (valor != null) el.setAttribute(nome, valor);
+    el.append(...filhos);
+    return el;
+}
+
+/**
+ * Grafico de colunas de uma serie (um valor por dia), desenhado na largura que couber e refeito quando ela muda. A
+ * dica (tooltip) segue o ponteiro e mostra o dia mais perto; as setas do teclado andam pelos dias. Os mesmos numeros
+ * ficam na tabela embaixo, para quem nao usa o mouse ou o leitor de tela.
+ */
+function graficoDeColunas(titulo, itens, campo, {detalhe, media} = {}) {
+    const area = h('div', {class: 'area-do-grafico'});
+    const dica = h('div', {class: 'dica-do-grafico', role: 'status', hidden: true});
+    const total = itens.reduce((soma, item) => soma + item[campo], 0);
+    // usuarios ativos nao se somam (a mesma pessoa conta em varios dias): para eles, a media por dia
+    const resumo = media
+        ? 'média de ' + (total / itens.length).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + ' por dia'
+        : numeroCurto(total) + ' no período';
+    const caixa = h('section', {class: 'grafico-do-painel', 'aria-label': titulo},
+        h('div', {class: 'topo-do-grafico'}, h('h3', null, titulo), h('span', {class: 'total-do-grafico'}, resumo)),
+        area, dica,
+        h('details', {class: 'tabela-do-grafico'}, h('summary', null, 'Ver em tabela'),
+            h('table', null,
+                h('thead', null, h('tr', null, h('th', {scope: 'col'}, 'Dia'), h('th', {scope: 'col'}, titulo))),
+                h('tbody', null, ...itens.slice().reverse().map(item => h('tr', null, h('td', null, diaCurto(item.dia)), h('td', null, item[campo].toLocaleString('pt-BR'))))))));
+    let marcado = -1;
+    let medidas = null;
+    const desenhar = () => {
+        const largura = Math.max(260, area.clientWidth);
+        const altura = 180;
+        const margem = {topo: 10, direita: 6, baixo: 24, esquerda: 34};
+        const util = largura - margem.esquerda - margem.direita;
+        const fatia = util / itens.length;
+        const coluna = Math.max(2, Math.min(24, fatia - 2));
+        const topo = topoDoEixo(Math.max(...itens.map(item => item[campo])));
+        const y = valor => margem.topo + (altura - margem.topo - margem.baixo) * (1 - valor / topo);
+        const grafico = svg('svg', {width: largura, height: altura, viewBox: `0 0 ${largura} ${altura}`, role: 'img',
+            'aria-label': titulo + ' nos últimos ' + itens.length + ' dias: ' + resumo});
+        // grade: tres linhas recessivas com os valores do eixo
+        for (const parte of [0, 0.5, 1]) {
+            const valor = topo * parte;
+            grafico.append(
+                svg('line', {x1: margem.esquerda, x2: largura - margem.direita, y1: y(valor), y2: y(valor), class: parte === 0 ? 'base' : 'grade'}),
+                svg('text', {x: margem.esquerda - 6, y: y(valor) + 4, 'text-anchor': 'end', class: 'eixo'}, numeroCurto(valor)));
+        }
+        const barras = itens.map((item, i) => {
+            const centro = margem.esquerda + fatia * (i + 0.5);
+            const alto = y(0) - y(item[campo]);
+            if (alto <= 0) return null;
+            // topo arredondado (4 px, ou menos em colunas finas), base reta
+            const r = Math.min(4, coluna / 2, alto);
+            const x0 = centro - coluna / 2;
+            const base = y(0);
+            const caminho = `M${x0},${base} V${base - alto + r} Q${x0},${base - alto} ${x0 + r},${base - alto} H${x0 + coluna - r} Q${x0 + coluna},${base - alto} ${x0 + coluna},${base - alto + r} V${base} Z`;
+            const barra = svg('path', {d: caminho, class: 'coluna'});
+            grafico.append(barra);
+            return barra;
+        });
+        // rotulos do eixo x: o primeiro, o do meio e o ultimo dia
+        for (const i of [...new Set([0, Math.floor((itens.length - 1) / 2), itens.length - 1])]) {
+            grafico.append(svg('text', {x: margem.esquerda + fatia * (i + 0.5), y: altura - 6, 'text-anchor': i === 0 ? 'start' : i === itens.length - 1 ? 'end' : 'middle', class: 'eixo'}, diaCurto(itens[i].dia)));
+        }
+        area.replaceChildren(grafico);
+        medidas = {margem, fatia, barras, largura};
+        if (marcado >= 0) mostrar(marcado);
+    };
+    const mostrar = i => {
+        marcado = i;
+        medidas.barras.forEach((barra, j) => barra?.classList.toggle('marcada', j === i));
+        const item = itens[i];
+        dica.replaceChildren(h('b', null, item[campo].toLocaleString('pt-BR')), h('span', null, diaCurto(item.dia) + (detalhe ? ' · ' + detalhe(item) : '')));
+        dica.hidden = false;
+        const centro = medidas.margem.esquerda + medidas.fatia * (i + 0.5);
+        dica.style.left = Math.min(Math.max(centro, 70), medidas.largura - 70) + 'px';
+    };
+    const esconder = () => {
+        marcado = -1;
+        dica.hidden = true;
+        medidas?.barras.forEach(barra => barra?.classList.remove('marcada'));
+    };
+    area.tabIndex = 0;
+    area.setAttribute('aria-label', titulo + '. Use as setas para andar pelos dias.');
+    area.addEventListener('pointermove', evento => {
+        const x = evento.clientX - area.getBoundingClientRect().left - medidas.margem.esquerda;
+        mostrar(Math.max(0, Math.min(itens.length - 1, Math.floor(x / medidas.fatia))));
+    });
+    area.addEventListener('pointerleave', esconder);
+    area.addEventListener('blur', esconder);
+    area.addEventListener('keydown', evento => {
+        if (evento.key !== 'ArrowLeft' && evento.key !== 'ArrowRight') return;
+        evento.preventDefault();
+        const passo = evento.key === 'ArrowRight' ? 1 : -1;
+        mostrar(marcado < 0 ? itens.length - 1 : Math.max(0, Math.min(itens.length - 1, marcado + passo)));
+    });
+    // so a largura importa: redesenhar muda a altura, e isso nao pode disparar outro desenho
+    let larguraDesenhada = 0;
+    new ResizeObserver(() => {
+        if (area.clientWidth === larguraDesenhada) return;
+        larguraDesenhada = area.clientWidth;
+        desenhar();
+    }).observe(area);
+    return caixa;
+}
+
+/**
+ * Painel: usuarios ativos, acessos e contas criadas. Os numeros do mes no topo (com o mes passado para comparar), um
+ * grafico por dia de cada um no periodo escolhido (7, 30 ou 90 dias) e uma tabela com os ultimos 12 meses.
+ */
+async function painelDoGerenciamento(conteudo, vez, periodo = estado.periodoDoPainel || 30) {
+    const filtros = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Período dos gráficos'},
+        ...[7, 30, 90].map(dias => h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(periodo === dias), onclick: () => {
+            estado.periodoDoPainel = dias;
+            painelDoGerenciamento(conteudo, vez, dias);
+        }}, dias + ' dias')));
+    let dados;
+    try {
+        dados = await chamar('GET', '/api/comunidade/gerenciamento/painel?periodo=' + periodo);
+    } catch (e) {
+        if (vez === estado.render) conteudo.replaceChildren(vazio('Não deu para carregar o painel', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    const n = dados.numeros;
+    const mesPassado = valor => 'mês passado: ' + valor.toLocaleString('pt-BR');
+    const linhaDoMes = item => h('tr', null, h('th', {scope: 'row'}, mesCurto(item.mes)),
+        h('td', null, item.ativos.toLocaleString('pt-BR')), h('td', null, item.acessos.toLocaleString('pt-BR')), h('td', null, item.contas.toLocaleString('pt-BR')));
+    conteudo.replaceChildren(
+        h('div', {class: 'numeros-do-painel'},
+            quadroDoPainel('Usuários ativos no mês', n.ativosNoMes, [mesPassado(n.ativosNoMesPassado),
+                'hoje: ' + n.ativosHoje.toLocaleString('pt-BR') + ' · últimos 7 dias: ' + n.ativos7Dias.toLocaleString('pt-BR')], true),
+            quadroDoPainel('Acessos no mês', n.acessosNoMes, mesPassado(n.acessosNoMesPassado)),
+            quadroDoPainel('Acessos hoje', n.acessosHoje),
+            quadroDoPainel('Contas criadas no mês', n.contasNoMes, mesPassado(n.contasNoMesPassado)),
+            quadroDoPainel('Contas no total', n.contas)),
+        h('p', {class: 'subtitulo nota-do-painel'}, dados.contandoDesde
+            ? 'Acessos e usuários ativos contados desde ' + new Date(dados.contandoDesde + 'T12:00:00').toLocaleDateString('pt-BR') + '. Um acesso é cada vez que alguém abre o site; um usuário ativo é uma conta que usou o site no período. Robôs de busca não contam.'
+            : 'A contagem de acessos e usuários ativos começa agora: os números aparecem conforme as pessoas abrirem o site.'),
+        filtros,
+        h('div', {class: 'graficos-do-painel'},
+            graficoDeColunas('Usuários ativos por dia', dados.porDia, 'ativos', {media: true}),
+            graficoDeColunas('Acessos por dia', dados.porDia, 'acessos', {detalhe: item => item.comConta + ' com conta, ' + item.semConta + ' sem conta'}),
+            graficoDeColunas('Contas criadas por dia', dados.porDia, 'contas')),
+        h('section', {class: 'meses-do-painel'},
+            h('h3', null, 'Últimos 12 meses'),
+            h('div', {class: 'rolagem-da-tabela'},
+                h('table', null,
+                    h('thead', null, h('tr', null, h('th', {scope: 'col'}, 'Mês'), h('th', {scope: 'col'}, 'Usuários ativos'),
+                        h('th', {scope: 'col'}, 'Acessos'), h('th', {scope: 'col'}, 'Contas criadas'))),
+                    h('tbody', null, ...dados.porMes.slice().reverse().map(linhaDoMes))))));
 }
 
 async function contasDoGerenciamento(conteudo, vez) {

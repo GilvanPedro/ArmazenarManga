@@ -1220,6 +1220,49 @@ dialog.janela-de-punir { max-width: 460px; }
 .pagina-de-gerenciamento { max-width: 980px; margin: 0 auto; }
 .pagina-de-gerenciamento > h1 { margin-bottom: 6px; }
 .pagina-de-gerenciamento > .subtitulo { margin: 0 0 18px; }
+/* painel: numeros do mes, graficos por dia e a tabela dos meses */
+.numeros-do-painel { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.quadro-do-painel { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.quadro-do-painel.principal { grid-column: span 2; grid-row: span 2; justify-content: center; }
+.rotulo-do-quadro { color: var(--texto-fraco); font-size: 13.5px; }
+.valor-do-quadro { font-size: 28px; font-weight: 700; line-height: 1.1; }
+.quadro-do-painel.principal .valor-do-quadro { font-size: 48px; }
+.quadro-do-painel small { color: var(--texto-fraco); font-size: 12.5px; }
+.nota-do-painel { margin: 12px 0 16px; font-size: 13px; }
+.graficos-do-painel { display: flex; flex-direction: column; gap: 14px; }
+.grafico-do-painel { position: relative; padding: 14px 16px 10px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.topo-do-grafico { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 8px; }
+.topo-do-grafico h3 { margin: 0; font-size: 15.5px; }
+.total-do-grafico { color: var(--texto-fraco); font-size: 13px; }
+.area-do-grafico { position: relative; outline: none; border-radius: 8px; cursor: crosshair; }
+.area-do-grafico:focus-visible { box-shadow: 0 0 0 2px var(--destaque); }
+.area-do-grafico svg { display: block; }
+.area-do-grafico .coluna { fill: var(--destaque); transition: opacity .1s; }
+.area-do-grafico .coluna.marcada { fill: var(--destaque-forte); }
+.area-do-grafico .grade { stroke: var(--borda); stroke-width: 1; }
+.area-do-grafico .base { stroke: color-mix(in srgb, var(--texto-fraco) 60%, transparent); stroke-width: 1; }
+.area-do-grafico .eixo { fill: var(--texto-fraco); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.dica-do-grafico { position: absolute; top: 40px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border: 1px solid var(--borda); border-radius: 9px; background: var(--superficie-2); box-shadow: var(--sombra); pointer-events: none; white-space: nowrap; font-size: 12.5px; }
+.dica-do-grafico b { font-size: 15px; }
+.dica-do-grafico span { color: var(--texto-fraco); }
+.tabela-do-grafico summary { width: fit-content; margin-top: 4px; color: var(--texto-fraco); font-size: 13px; cursor: pointer; }
+.tabela-do-grafico table, .meses-do-painel table { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.tabela-do-grafico table { max-width: 320px; }
+.tabela-do-grafico th, .tabela-do-grafico td, .meses-do-painel th, .meses-do-painel td { padding: 6px 10px; border-bottom: 1px solid var(--borda); text-align: right; }
+.tabela-do-grafico th:first-child, .tabela-do-grafico td:first-child, .meses-do-painel th:first-child { text-align: left; }
+.meses-do-painel thead th, .tabela-do-grafico thead th { color: var(--texto-fraco); font-weight: 600; }
+.meses-do-painel { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+.meses-do-painel h3 { margin: 0; font-size: 15.5px; }
+.rolagem-da-tabela { overflow-x: auto; }
+/* o numero principal ocupa a metade esquerda; os outros quatro, dois por dois ao lado. No celular, ele vai por cima */
+@media (max-width: 760px) {
+    .numeros-do-painel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .quadro-do-painel.principal { grid-column: 1 / -1; grid-row: auto; }
+}
+.meses-do-painel th[scope=row] { white-space: nowrap; }
+@media (max-width: 560px) {
+    .valor-do-quadro { font-size: 24px; }
+}
 .total-de-contas { margin: 0 0 10px; }
 .lista-de-contas { display: flex; flex-direction: column; gap: 10px; }
 .linha-de-conta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px 14px; padding: 12px 14px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }

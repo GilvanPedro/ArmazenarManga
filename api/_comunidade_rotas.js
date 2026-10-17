@@ -2,6 +2,7 @@
 // Tudo pede login; quem esta usando chega em "eu" (a conta da sessao). So a versao do Vercel tem a Comunidade.
 import { randomUUID } from 'node:crypto';
 import { DadoInvalidoNaComunidade, IMAGENS_POR_POST, PESOS, POSTS_DO_FEED, POSTS_POR_PAGINA, TAMANHO_MAXIMO_DA_IMAGEM, escaparLike, hashtagsDo, hashtagsQueComecamCom, doMaisNovoParaOMaisAntigo, lerBusca, validarComentario, validarDescricao, validarPost } from './_comunidade.js';
+import { dadosDoPainel, lerPeriodo } from './_painel.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
 
@@ -543,6 +544,9 @@ export function criarComunidade(f) {
             if (recurso === 'contas' && !id && metodo === 'GET') return f.semCache(json(200, await contasParaGerenciar(url)));
             if (recurso === 'contas' && id && acao) return await punir(request, eu, id, acao, metodo);
             if (recurso === 'registro' && !id && metodo === 'GET') return f.semCache(json(200, await registroDaModeracao(url)));
+            if (recurso === 'painel' && !id && metodo === 'GET') {
+                return f.semCache(json(200, await dadosDoPainel(await banco(), lerPeriodo(url.searchParams.get('periodo')))));
+            }
         } catch (erro) {
             if (erro instanceof DadoInvalidoNaModeracao) throw new Recusa(400, erro.message);
             throw erro;

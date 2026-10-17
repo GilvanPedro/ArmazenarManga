@@ -181,6 +181,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Extensão pela loja.** A aba Extensão e atalho deixou de ensinar a carregar a extensão pelos arquivos e passou a
   ter o botão "Instalar no Firefox", que leva à loja da Mozilla. Detalhes em
   [Link da extensão na loja do Firefox](55-link-da-extensao-no-firefox.md).
+- **Painel dos administradores.** O Gerenciar ganhou a aba Painel, a primeira, com os usuários ativos no mês, os
+  acessos e as contas criadas, em números, gráficos por dia e uma tabela por mês. O site passou a contar os acessos
+  (sem IP nem navegador) e os dias em que cada conta usa o site. Detalhes em
+  [Painel dos administradores](56-painel-dos-administradores.md).
 
 ## O que foi removido ou abandonado
 
