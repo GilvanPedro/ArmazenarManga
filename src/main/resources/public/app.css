@@ -64,6 +64,18 @@
 
 html { -webkit-text-size-adjust: 100%; }
 
+/*
+ * barras de rolagem do site todo (doc 99): finas, na cor de destaque do tema equipado, sobre um trilho transparente.
+ * scrollbar-color e scrollbar-width valem no Firefox e no Chrome/Edge/Opera novos; o ::-webkit-scrollbar e para o
+ * Safari e navegadores mais antigos. As abas continuam sem barra nenhuma (scrollbar-width: none, mais especifico).
+ */
+/* em cada elemento (e nao so herdado da pagina): a janela com o tema de outra pessoa usa a cor do tema dela */
+*, :root { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--destaque) 55%, transparent) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: color-mix(in srgb, var(--destaque) 55%, transparent) padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--destaque) padding-box; }
+
 body {
     margin: 0;
     background: var(--fundo);

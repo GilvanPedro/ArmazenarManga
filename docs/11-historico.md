@@ -282,6 +282,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes em [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).
 - **"+ Adicionar" alinhado.** Os botões dos recomendados ficam no mesmo nível, com qualquer quantidade de tags.
   Detalhes em [O "+ Adicionar" dos recomendados alinhado](98-botao-adicionar-alinhado.md).
+- **Barras de rolagem do tema.** As barras de rolagem ficaram finas e na cor do tema equipado. Detalhes em
+  [Barras de rolagem na cor do tema](99-barras-de-rolagem-do-tema.md).
 
 ## O que foi removido ou abandonado
 

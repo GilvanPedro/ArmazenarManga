@@ -102,6 +102,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [96 · Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md) | Um banner pode ter a imagem horizontal, a vertical ou as duas (pelo menos uma) e aparece nos lugares dos dois formatos |
 | [97 · Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md) | O vertical é o horizontal em pé: 50–2000 × 300–4000 px, altura de 2 a 11 vezes a largura |
 | [98 · O "+ Adicionar" dos recomendados alinhado](98-botao-adicionar-alinhado.md) | Os botões dos recomendados (e do Descobrir) no mesmo nível, com qualquer quantidade de tags |
+| [99 · Barras de rolagem na cor do tema](99-barras-de-rolagem-do-tema.md) | Barras de rolagem finas, na cor de destaque do tema equipado, no site todo |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
