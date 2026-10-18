@@ -56,3 +56,5 @@ deixando a regra da Celestial mais específica). Os 85 testes da versão JavaScr
 > [A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md).
 
 > Depois vieram mais quatro molduras de imagem no mesmo esquema: veja [Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md).
+
+> Depois, as molduras de imagem passaram a encolher a capa para 84%, para não encostar nas vizinhas: veja [Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md).

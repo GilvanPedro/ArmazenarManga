@@ -252,6 +252,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md).
 - **Quatro molduras de imagem.** Arte Derretida, Relíquia, Bosque Élfico e Portão do Inferno, feitas das imagens
   enviadas pelo Gerenciar. Detalhes em [Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md).
+- **Capas altas e molduras vizinhas.** Imagens altas esticavam a capa nas bordas com enfeite, e as molduras de imagem
+  encostavam nas vizinhas. Detalhes em [Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md).
 
 ## O que foi removido ou abandonado
 

@@ -43,3 +43,5 @@ por cima.
 - No navegador, num banco local com as mesmas imagens: as quatro numa capa de verdade da biblioteca (tema escuro, e a
   Arte Derretida também no claro) e na loja, com a imagem do mangá limpa, o brilho por fora sem cortes e a luz em cima
   da estrela, do sol, da esmeralda e dos olhos. O site compactado também foi conferido.
+
+> Depois, as molduras de imagem passaram a encolher a capa para 84%, para não encostar nas vizinhas: veja [Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md).

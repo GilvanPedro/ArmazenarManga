@@ -88,6 +88,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [82 · O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md) | O quadro "Quando ele acaba" com atalhos e resumo, e o seletor de mês com calendário |
 | [83 · Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md) | Duas bordas animadas novas: as cores da aurora correndo pela moldura, e a luz dourada do eclipse com o anel de diamante |
 | [84 · Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md) | Arte Derretida, Relíquia, Bosque Élfico e Portão do Inferno, feitas das imagens enviadas, com brilho e luz no canto |
+| [85 · Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md) | Imagens altas não esticam mais a capa com borda, as molduras de imagem não encostam nas vizinhas, e as imagens dos posts dividem a altura por igual |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
