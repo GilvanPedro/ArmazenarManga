@@ -91,6 +91,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [85 · Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md) | Imagens altas não esticam mais a capa com borda, as molduras de imagem não encostam nas vizinhas, e as imagens dos posts dividem a altura por igual |
 | [86 · Efeitos Retícula, Linhas de Ação e Feixes de Luz](86-efeitos-reticula-linhas-de-acao-e-feixes.md) | Três efeitos novos vindos do mangá e do cinema, e o brilho da Celestial sem esbranquiçar a capa |
 | [87 · Temas Entardecer, Festival de Verão e Página de Mangá](87-temas-entardecer-festival-e-pagina-de-manga.md) | Três temas animados de anime: o pôr do sol com postes e fios, o matsuri com lanternas e fogos, e a página de mangá |
+| [88 · Robô de imagens mais rigoroso](88-robo-de-imagens-mais-rigoroso.md) | O robô deixava passar 4 de 5 imagens explícitas de teste: outro modelo, a imagem encaixada e o limite em 60% |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

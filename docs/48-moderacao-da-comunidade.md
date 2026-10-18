@@ -129,3 +129,5 @@ fora.
 
 > Depois, o Gerenciar ganhou a aba **Painel**, que abre primeiro (`#/gerenciar`); as contas passaram para
 > `#/gerenciar/contas`. Veja [Painel dos administradores](56-painel-dos-administradores.md).
+
+> Depois, o robô passou a usar o modelo MobileNetV2, com a imagem encaixada e o limite em 60%, porque deixava passar 4 de 5 imagens explícitas de teste: veja [Robô de imagens mais rigoroso](88-robo-de-imagens-mais-rigoroso.md).

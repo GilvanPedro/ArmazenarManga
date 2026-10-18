@@ -37,8 +37,10 @@ test('mensagens para quem esta punido, com a data no horario de Brasilia', () =>
 
 test('o robo so barra foto explicita de pessoa: desenho, arte e capa de manga sempre passam', () => {
     assert.equal(avaliarImagem({ Porn: 0.95, Drawing: 0.02, Hentai: 0.01, Sexy: 0.02 }).barrar, true, 'foto explicita');
-    assert.equal(avaliarImagem({ Porn: 0.7, Neutral: 0.3 }).barrar, true, 'no limite');
-    assert.equal(avaliarImagem({ Porn: 0.69, Neutral: 0.31 }).barrar, false, 'abaixo do limite');
+    assert.equal(avaliarImagem({ Porn: 0.6, Neutral: 0.4 }).barrar, true, 'no limite');
+    assert.equal(avaliarImagem({ Porn: 0.64, Neutral: 0.17, Sexy: 0.11 }).barrar, true, 'a mais baixa das imagens de teste do doc 88');
+    assert.equal(avaliarImagem({ Porn: 0.59, Neutral: 0.41 }).barrar, false, 'abaixo do limite');
+    assert.equal(avaliarImagem({ Porn: 0.53, Neutral: 0.47 }).barrar, false, 'a foto comum com a nota mais alta do doc 88');
     assert.equal(avaliarImagem({ Hentai: 0.98, Drawing: 0.02 }).barrar, false, 'desenho explicito e arte: permitido');
     assert.equal(avaliarImagem({ Drawing: 0.86, Hentai: 0.14 }).barrar, false, 'capa de manga');
     assert.equal(avaliarImagem({ Sexy: 0.9, Neutral: 0.1 }).barrar, false, 'foto insinuante, nao explicita');

@@ -92,7 +92,7 @@ export function mensagemDaPunicao(situacao) {
  * insinuante ("Sexy") passam. Para nao confundir arte com foto, "Porn" precisa ser alta e maior que as duas classes
  * de desenho somadas.
  */
-export const LIMITE_DE_FOTO_EXPLICITA = 0.7;
+export const LIMITE_DE_FOTO_EXPLICITA = 0.6;
 
 export function avaliarImagem(probabilidades) {
     const valor = nome => Number(probabilidades?.[nome]) || 0;

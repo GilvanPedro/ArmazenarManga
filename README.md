@@ -115,6 +115,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Capas altas esticando e molduras encostando](docs/85-capas-altas-e-molduras-vizinhas.md) | |
 | [Efeitos Retícula, Linhas de Ação e Feixes de Luz](docs/86-efeitos-reticula-linhas-de-acao-e-feixes.md) | |
 | [Temas Entardecer, Festival de Verão e Página de Mangá](docs/87-temas-entardecer-festival-e-pagina-de-manga.md) | |
+| [Robô de imagens mais rigoroso](docs/88-robo-de-imagens-mais-rigoroso.md) | |
 
 ## Testes
 

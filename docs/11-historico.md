@@ -258,6 +258,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Efeitos Retícula, Linhas de Ação e Feixes de Luz](86-efeitos-reticula-linhas-de-acao-e-feixes.md).
 - **Temas Entardecer, Festival de Verão e Página de Mangá.** Três temas animados novos. Detalhes em
   [Temas Entardecer, Festival de Verão e Página de Mangá](87-temas-entardecer-festival-e-pagina-de-manga.md).
+- **Robô de imagens mais rigoroso.** O robô deixava passar 4 de 5 imagens explícitas de teste; com outro modelo, a
+  imagem encaixada e o limite em 60%, barra as 5 sem barrar capas nem fotos comuns. Detalhes em
+  [Robô de imagens mais rigoroso](88-robo-de-imagens-mais-rigoroso.md).
 
 ## O que foi removido ou abandonado
 
