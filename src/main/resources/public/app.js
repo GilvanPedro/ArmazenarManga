@@ -1877,7 +1877,9 @@ async function preencherDescricao(titulo, descricao, aviso, substituir, aoAcharT
     descricao.value = sinopse.descricao;
     aviso.textContent = 'Descrição de “' + sinopse.tituloEncontrado + '”, do ' + sinopse.fonte
         + (sinopse.traduzida ? ', traduzida automaticamente' : '')
-        + (sinopse.idioma === 'en' ? ' (só encontrei em inglês)' : '')
+        + (sinopse.idioma === 'en' ? ' (só encontrei em inglês e a tradução falhou agora; ao salvar, o site traduz para o português)' : '')
+        // as tags vem de todas as fontes que acharam a obra (doc 103)
+        + (Array.isArray(sinopse.fontes) && sinopse.fontes.length > 1 ? '. Tags de ' + sinopse.fontes.join(', ') : '')
         + '. Confira se é a obra certa.';
 }
 

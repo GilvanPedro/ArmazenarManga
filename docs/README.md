@@ -105,6 +105,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [99 · Barras de rolagem na cor do tema](99-barras-de-rolagem-do-tema.md) | Barras de rolagem finas, na cor de destaque do tema equipado, no site todo |
 | [100 · O site muito mais leve para o processador](100-site-muito-mais-leve.md) | As animações de bordas, efeitos e temas reescritas para não redesenhar a página (de até 857 ms/s para 1 ms/s), e pausadas fora da tela e com a janela sem foco |
 | [101 · Obra nova com o começo do nome de uma da lista](101-obra-nova-com-nome-parecido.md) | Ao marcar capítulo lido, uma obra nova que começa com o nome de outra não é mais confundida, e há um botão para cadastrar como nova |
+| [102 · Descrição sempre em português](102-descricao-sempre-em-portugues.md) | A descrição buscada é traduzida pelo Google (com o MyMemory de reserva), conferida, e traduzida de novo ao salvar se ainda estiver em inglês |
+| [103 · Descrição e tags de vários sites](103-descricao-e-tags-de-varios-sites.md) | A busca usa MangaDex, AniList, MangaUpdates, MyAnimeList e Kitsu ao mesmo tempo, e junta as tags de todos os que acharam a mesma obra |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

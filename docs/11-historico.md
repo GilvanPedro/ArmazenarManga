@@ -289,6 +289,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Obra nova com nome parecido.** Ao marcar capítulo lido, uma obra que começa com o nome de outra da lista não é
   mais confundida com ela, e a tela ganhou "+ Cadastrar como mangá novo". Detalhes em
   [Obra nova com o começo do nome de uma da lista](101-obra-nova-com-nome-parecido.md).
+- **Descrição sempre em português.** A tradução passou a usar o Google (com o MyMemory de reserva) e a descrição em
+  inglês é traduzida ao salvar. Detalhes em [Descrição sempre em português](102-descricao-sempre-em-portugues.md).
+- **Descrição e tags de vários sites.** A busca passou a usar cinco sites ao mesmo tempo e a juntar as tags. Detalhes
+  em [Descrição e tags de vários sites](103-descricao-e-tags-de-varios-sites.md).
 
 ## O que foi removido ou abandonado
 

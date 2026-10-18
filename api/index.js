@@ -5,7 +5,7 @@ import pg from 'pg';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
-import { criarBuscadorDeSinopse } from './_sinopse.js';
+import { criarBuscadorDeSinopse, criarTradutorDeDescricao } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
 import { ESTRUTURA_DOS_BANNERS, criarBanners } from './_banners.js';
@@ -16,6 +16,8 @@ import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaC
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
+// a descricao salva sempre em portugues: se veio em ingles (buscada, colada ou escrita), e traduzida ao salvar (doc 102)
+const descricaoEmPortugues = criarTradutorDeDescricao();
 const buscarRecomendacoes = criarBuscadorDeRecomendacoes();
 const TAMANHO_DA_PAGINA = 24; // 4 fileiras de 6 colunas
 const TAMANHO_MAXIMO_DA_PAGINA = 100;
@@ -386,7 +388,7 @@ async function montarManga(id, dados) {
         lastChapter,
         readingStatus,
         releaseDay,
-        description: description === null ? '' : description.trim(),
+        description: description === null ? '' : await descricaoEmPortugues(description.trim()),
         rating,
     };
 }
