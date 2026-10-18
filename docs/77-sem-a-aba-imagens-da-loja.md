@@ -29,3 +29,6 @@ nenhum item novo assim está previsto.
 Num banco local, com a imagem da Celestial guardada: `/api/loja/imagens/celestial.webp` continuou respondendo com a
 imagem; listar e enviar deram 404; o Gerenciar mostrou Painel, Finanças, Banners, Contas e Registro, e
 `#/gerenciar/imagens` abriu o Painel, sem erros. Os 94 testes da versão JavaScript passam.
+
+> Depois, a aba voltou, só na conta do dono do site, junto com uma ferramenta para o terminal: veja
+> [Imagens da loja: aba do dono e terminal](78-imagens-da-loja-pelo-terminal.md).

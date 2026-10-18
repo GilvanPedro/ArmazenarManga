@@ -236,6 +236,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   eles aparecem ainda não existem. Detalhes em [Banners de anúncio: cadastro e relatórios](76-banners-de-anuncio.md).
 - **Sem Imagens da loja.** A aba de enviar imagens saiu do Gerenciar; a imagem que a borda Celestial usa continua
   sendo servida. Detalhes em [Sem a aba Imagens da loja](77-sem-a-aba-imagens-da-loja.md).
+- **Imagens da loja: aba do dono e terminal.** A aba Imagens da loja voltou, só na conta do dono, e as imagens também
+  podem ser guardadas pelo terminal. Detalhes em [Imagens da loja: aba do dono e terminal](78-imagens-da-loja-pelo-terminal.md).
 
 ## O que foi removido ou abandonado
 

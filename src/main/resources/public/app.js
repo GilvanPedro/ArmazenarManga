@@ -3653,7 +3653,7 @@ async function telaGerenciar(partes) {
     }
     // o painel e as financas sao so do dono do site (e o painel abre primeiro para ele); os outros admins moderam
     const dono = estado.sessao.conta.dono === true;
-    const permitidas = dono ? ['painel', 'financas', 'banners', 'contas', 'registro'] : ['contas', 'registro'];
+    const permitidas = dono ? ['painel', 'financas', 'banners', 'imagens', 'contas', 'registro'] : ['contas', 'registro'];
     const aba = permitidas.includes(partes[0]) ? partes[0] : permitidas[0];
     const conteudo = h('div', {class: 'conteudo-do-gerenciamento'});
     const link = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, texto);
@@ -3666,6 +3666,7 @@ async function telaGerenciar(partes) {
             dono ? link('painel', '#/gerenciar/painel', 'Painel') : null,
             dono ? link('financas', '#/gerenciar/financas', 'Finanças') : null,
             dono ? link('banners', '#/gerenciar/banners', 'Banners') : null,
+            dono ? link('imagens', '#/gerenciar/imagens', 'Imagens da loja') : null,
             link('contas', '#/gerenciar/contas', 'Contas'),
             link('registro', '#/gerenciar/registro', 'Registro'))),
         conteudo));
@@ -3673,6 +3674,7 @@ async function telaGerenciar(partes) {
     if (aba === 'registro') return registroDoGerenciamento(conteudo, vez);
     if (aba === 'contas') return contasDoGerenciamento(conteudo, vez);
     if (aba === 'financas') return financasDoGerenciamento(conteudo, vez, partes[1]);
+    if (aba === 'imagens') return imagensDaLojaNoGerenciamento(conteudo, vez);
     if (aba === 'banners') return partes[1] ? relatorioDoBannerNoGerenciamento(conteudo, vez, partes[1]) : bannersNoGerenciamento(conteudo, vez);
     return painelDoGerenciamento(conteudo, vez);
 }
@@ -4539,6 +4541,87 @@ function janelaDoBanner(formatos, banner, aoSalvar) {
     document.body.append(dialogo);
     dialogo.showModal();
     empresa.focus();
+}
+
+// ------------------------------------------------------------------ imagens da loja (so o dono)
+
+/**
+ * As imagens das bordas e efeitos que nao sao so CSS ficam no banco: aqui o dono envia, troca e apaga. Cada uma fica
+ * em /api/loja/imagens/{nome}, que e o endereco que o CSS da borda usa. Trocar uma imagem leva ate uma hora para
+ * aparecer para todo mundo (a CDN guarda por uma hora).
+ */
+async function imagensDaLojaNoGerenciamento(conteudo, vez) {
+    const lista = h('div', {class: 'lista-de-imagens-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+    const erro = h('p', {class: 'erro-de-login', role: 'alert'});
+    const arquivo = h('input', {type: 'file', id: 'imagem-da-loja-arquivo', accept: 'image/webp,image/png,image/gif', required: true});
+    const nome = h('input', {type: 'text', id: 'imagem-da-loja-nome', required: true, placeholder: 'celestial.webp', maxlength: '64',
+        pattern: '[a-z0-9][a-z0-9-]*\\.(webp|png|gif)', autocomplete: 'off', spellcheck: 'false'});
+    // o nome sai do arquivo: minusculas, sem acento, espacos viram hifen
+    arquivo.addEventListener('change', () => {
+        const escolhido = arquivo.files[0];
+        if (!escolhido || nome.value) return;
+        nome.value = escolhido.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+(?=\.)/g, '');
+    });
+    const enviar = h('button', {type: 'submit', class: 'botao primario'}, 'Enviar');
+    const formulario = h('form', {class: 'envio-de-imagem-da-loja'},
+        h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-arquivo'}, 'Arquivo (WebP, PNG ou GIF, até 3 MB)'), arquivo),
+        h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-nome'}, 'Nome'), nome,
+            h('small', null, 'Letras minúsculas, números e hífen. Enviar com um nome que já existe troca a imagem.')),
+        erro, h('div', null, enviar));
+    const carregar = async () => {
+        try {
+            const imagens = await chamar('GET', '/api/loja/imagens');
+            if (vez !== estado.render) return;
+            lista.replaceChildren(...(imagens.length === 0 ? [h('p', {class: 'subtitulo'}, 'Nenhuma imagem enviada ainda.')] : imagens.map(imagem =>
+                h('article', {class: 'imagem-da-loja'},
+                    h('a', {href: imagem.endereco, target: '_blank', rel: 'noopener', class: 'miniatura-da-imagem'},
+                        h('img', {src: imagem.endereco + '?v=' + encodeURIComponent(imagem.atualizadaEm), alt: imagem.nome, loading: 'lazy'})),
+                    h('div', {class: 'sobre-a-imagem'},
+                        h('b', null, imagem.nome),
+                        h('small', null, imagem.tipo.slice(6).toUpperCase() + ' · ' + (imagem.tamanho / 1024).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + ' KB · ' + dataEHora(imagem.atualizadaEm)),
+                        h('code', null, imagem.endereco)),
+                    h('button', {type: 'button', class: 'botao pequeno perigo', onclick: async () => {
+                        if (!await confirmar('Apagar ' + imagem.nome + '?', 'A borda ou o efeito que usa essa imagem fica sem ela até você enviar de novo.', 'Apagar')) return;
+                        try {
+                            await chamar('DELETE', '/api/loja/imagens/' + encodeURIComponent(imagem.nome));
+                            avisar(imagem.nome + ' apagada');
+                            carregar();
+                        } catch (e) {
+                            avisar(e.message, true);
+                        }
+                    }}, 'Apagar')))));
+        } catch (e) {
+            if (vez === estado.render) lista.replaceChildren(vazio('Não deu para carregar as imagens', e.message));
+        }
+    };
+    formulario.addEventListener('submit', async evento => {
+        evento.preventDefault();
+        erro.textContent = '';
+        const escolhido = arquivo.files[0];
+        if (!escolhido) return;
+        enviar.disabled = true;
+        enviar.textContent = 'Enviando…';
+        try {
+            // o corpo e o arquivo como veio: o servidor confere o formato pelos primeiros bytes
+            const resposta = await fetch('/api/loja/imagens/' + encodeURIComponent(nome.value.trim()), {method: 'PUT', body: escolhido,
+                headers: {'Content-Type': escolhido.type || 'application/octet-stream'}});
+            const corpo = await resposta.json().catch(() => ({}));
+            if (!resposta.ok) throw new Error(corpo.mensagem || 'Não deu para enviar a imagem');
+            avisar(corpo.nome + ' enviada');
+            formulario.reset();
+            carregar();
+        } catch (e) {
+            erro.textContent = e.message;
+        }
+        enviar.disabled = false;
+        enviar.textContent = 'Enviar';
+    });
+    conteudo.replaceChildren(
+        h('p', {class: 'subtitulo'}, 'As imagens das bordas e efeitos que não são feitos só com código (molduras desenhadas, animações) ficam guardadas no banco. '
+            + 'Cada uma fica em /api/loja/imagens/{nome}, o endereço que a borda usa. Trocar uma imagem leva até uma hora para aparecer para todo mundo.'),
+        h('section', {class: 'caixa-de-lancamentos'}, h('h3', null, 'Enviar imagem'), formulario),
+        h('section', {class: 'caixa-de-lancamentos'}, h('h3', null, 'Imagens enviadas'), lista));
+    await carregar();
 }
 
 async function contasDoGerenciamento(conteudo, vez) {

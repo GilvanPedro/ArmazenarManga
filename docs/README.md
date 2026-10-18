@@ -81,6 +81,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [75 · Otimização geral do site](75-otimizacao-geral.md) | Site compactado no Vercel com cache de um ano, a estrutura do banco só quando muda, acesso numa ida ao banco e fundos animados mais leves |
 | [76 · Banners de anúncio: cadastro e relatórios](76-banners-de-anuncio.md) | O cadastro dos banners horizontais e verticais e os relatórios para as empresas, na aba Banners do Gerenciar do dono |
 | [77 · Sem a aba Imagens da loja](77-sem-a-aba-imagens-da-loja.md) | A aba de enviar imagens saiu do Gerenciar; a imagem da borda Celestial continua sendo servida |
+| [78 · Imagens da loja: aba do dono e terminal](78-imagens-da-loja-pelo-terminal.md) | A aba Imagens da loja de volta, só na conta do dono, e uma ferramenta para guardar as imagens pelo terminal |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

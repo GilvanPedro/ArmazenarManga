@@ -2150,7 +2150,17 @@ dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
 .historico-de-vendas th, .historico-de-vendas td { text-align: left; white-space: nowrap; }
 .historico-de-vendas th:nth-child(4), .historico-de-vendas td:nth-child(4) { text-align: right; }
 
+/* ------------------------------------------------------------ imagens da loja (gerenciar) */
+.envio-de-imagem-da-loja { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.envio-de-imagem-da-loja small { color: var(--texto-fraco); font-size: 12.5px; }
 .caixa-de-lancamentos + .caixa-de-lancamentos { margin-top: 14px; }
+.lista-de-imagens-da-loja { display: flex; flex-direction: column; margin-top: 6px; }
+.imagem-da-loja { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--borda); }
+.miniatura-da-imagem { display: block; width: 64px; height: 88px; border-radius: 8px; background: repeating-conic-gradient(var(--superficie-2) 0 25%, var(--superficie) 0 50%) 0 0 / 12px 12px; }
+.miniatura-da-imagem img { width: 100%; height: 100%; object-fit: contain; }
+.sobre-a-imagem { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sobre-a-imagem small { color: var(--texto-fraco); font-size: 12.5px; }
+.sobre-a-imagem code { overflow-wrap: anywhere; color: var(--texto-fraco); font-size: 12px; }
 
 /* mangas do perfil: a mesma janela de montar lista, so para ver; as partes escondidas somem de verdade */
 .janela-dos-mangas-do-perfil [hidden] { display: none !important; }
