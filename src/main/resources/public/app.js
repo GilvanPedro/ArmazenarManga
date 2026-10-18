@@ -533,6 +533,130 @@ function recarregarAba() {
 }
 
 /** Aba dos mangas que estou lendo e que lancam capitulo no dia de hoje. */
+// ------------------------------------------------------------------ lugares de banner (doc 91)
+
+/*
+ * Os lugares onde aparecem os banners do Gerenciar. Cada pagina poe os seus: verticais nas laterais (trilhos fixos ao
+ * lado do conteudo, so quando sobra espaco) e horizontais (os "so sem trilhos" aparecem no lugar dos verticais quando
+ * a tela e estreita). Cada lugar sorteia um banner do formato dele, pelo peso, entre os que estao no ar, e conta uma
+ * exibicao quando aparece. Sem nenhum banner no ar daquele formato, entra o banner padrao "Anuncie aqui".
+ */
+const banners = {lista: null, buscadoEm: 0, buscando: null, trilhos: null, pendentes: [], envio: null};
+
+/** O e-mail para quem quer anunciar (montado em partes, para nao ficar inteiro no codigo para robos de spam). */
+const EMAIL_PARA_ANUNCIAR = ['gilvanpedro2006', 'gmail.com'].join('@');
+
+async function bannersNoAr() {
+    if (banners.lista && Date.now() - banners.buscadoEm < 120_000) return banners.lista;
+    banners.buscando ??= fetch('/api/banners/no-ar').then(resposta => resposta.ok ? resposta.json() : {banners: []})
+        .then(dados => dados.banners || []).catch(() => []);
+    banners.lista = await banners.buscando;
+    banners.buscando = null;
+    banners.buscadoEm = Date.now();
+    return banners.lista;
+}
+
+/** Um lugar de banner. formato: horizontal ou vertical. classe: 'so-sem-trilhos', 'trilho-de-banner esquerda' etc. */
+function lugarDeBanner(posicao, formato, classe = '') {
+    return h('div', {class: 'lugar-de-banner ' + formato + (classe ? ' ' + classe : ''), 'data-posicao': posicao, 'data-formato': formato});
+}
+
+/**
+ * Os dois trilhos verticais de uma pagina, ao lado do elemento "referencia" (o conteudo). Ficam fixos na tela; a largura
+ * e a posicao sao calculadas em arrumarBanners, pelo espaco que sobra dos dois lados.
+ */
+function trilhosDeBanner(referencia, pagina) {
+    const esquerda = lugarDeBanner(pagina + '-esquerda', 'vertical', 'trilho-de-banner');
+    const direita = lugarDeBanner(pagina + '-direita', 'vertical', 'trilho-de-banner');
+    banners.trilhos = {referencia, esquerda, direita};
+    return [esquerda, direita];
+}
+
+function sortearBanner(lista, formato, jaUsados) {
+    const doFormato = lista.filter(banner => banner.formato === formato);
+    const naoUsados = doFormato.filter(banner => !jaUsados.has(banner.id));
+    const opcoes = naoUsados.length ? naoUsados : doFormato;
+    const total = opcoes.reduce((soma, banner) => soma + banner.peso, 0);
+    let sorteio = Math.random() * total;
+    return opcoes.find(banner => (sorteio -= banner.peso) < 0) || opcoes[0] || null;
+}
+
+function bannerPadrao(formato) {
+    return h('a', {class: 'banner-padrao ' + formato, href: 'mailto:' + EMAIL_PARA_ANUNCIAR + '?subject=' + encodeURIComponent('Anúncio no Viracap')},
+        h('span', {class: 'icone-do-banner-padrao', 'aria-hidden': 'true'}, '📣'),
+        h('span', {class: 'textos-do-banner-padrao'},
+            h('b', null, 'Anuncie aqui'),
+            h('span', null, 'Seu banner para quem lê mangá, manhwa e webtoon todo dia.')),
+        h('span', {class: 'botao-do-banner-padrao'}, 'Fale comigo'));
+}
+
+function contarExibicao(banner, posicao) {
+    banners.pendentes.push({banner, posicao});
+    clearTimeout(banners.envio);
+    // juntas: uma chamada para os lugares que apareceram quase ao mesmo tempo (de 12 em 12)
+    banners.envio = setTimeout(() => {
+        while (banners.pendentes.length) {
+            const itens = banners.pendentes.splice(0, 12);
+            fetch('/api/banners/exibicoes', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({itens}), keepalive: true}).catch(() => {});
+        }
+    }, 800);
+}
+
+/** Calcula os trilhos (cabem ou nao) e preenche os lugares que estao aparecendo e ainda estao vazios. */
+async function arrumarBanners() {
+    const trilhos = banners.trilhos;
+    let comTrilhos = false;
+    if (trilhos && trilhos.referencia.isConnected) {
+        const caixa = trilhos.referencia.getBoundingClientRect();
+        const largura = document.documentElement.clientWidth;
+        // o espaco do lado mais estreito, menos 14 px de cada lado (do conteudo e da beira da tela); a partir de 90 px cabe
+        const sobra = Math.min(caixa.left, largura - caixa.right) - 28;
+        const lado = Math.floor(Math.min(200, sobra));
+        comTrilhos = lado >= 90;
+        if (comTrilhos) {
+            trilhos.esquerda.style.width = trilhos.direita.style.width = lado + 'px';
+            trilhos.esquerda.style.left = Math.round(caixa.left - 14 - lado) + 'px';
+            trilhos.direita.style.left = Math.round(caixa.right + 14) + 'px';
+        }
+    }
+    app.classList.toggle('com-trilhos', comTrilhos);
+    const vazios = [...app.querySelectorAll('.lugar-de-banner:not([data-pronto])')].filter(lugar => lugar.getClientRects().length > 0);
+    if (!vazios.length) return;
+    vazios.forEach(lugar => lugar.dataset.pronto = '1');
+    const lista = await bannersNoAr();
+    const usados = new Set([...app.querySelectorAll('.lugar-de-banner[data-banner]')].map(lugar => lugar.dataset.banner));
+    for (const lugar of vazios) {
+        if (!lugar.isConnected) continue;
+        const formato = lugar.dataset.formato;
+        const banner = sortearBanner(lista, formato, usados);
+        if (!banner) {
+            lugar.replaceChildren(bannerPadrao(formato));
+            continue;
+        }
+        usados.add(banner.id);
+        lugar.dataset.banner = banner.id;
+        const imagem = h('img', {src: banner.imagem, alt: banner.texto || 'Anúncio de ' + banner.empresa, width: banner.largura, height: banner.altura, decoding: 'async'});
+        const selo = h('span', {class: 'selo-de-anuncio'}, 'Anúncio');
+        lugar.replaceChildren(banner.temLink
+            ? h('a', {class: 'banner-de-anuncio', href: '/api/banners/' + encodeURIComponent(banner.id) + '/clique?posicao=' + lugar.dataset.posicao,
+                target: '_blank', rel: 'sponsored noopener', title: banner.texto || banner.empresa}, imagem, selo)
+            : h('div', {class: 'banner-de-anuncio'}, imagem, selo));
+        contarExibicao(banner.id, lugar.dataset.posicao);
+    }
+}
+
+// a pagina muda (troca de tela, lista carregada) ou a janela muda de tamanho: confere os lugares de novo
+let esperaDosBanners = null;
+const agendarBanners = () => {
+    clearTimeout(esperaDosBanners);
+    esperaDosBanners = setTimeout(arrumarBanners, 120);
+};
+new MutationObserver(() => {
+    if (banners.trilhos && !banners.trilhos.referencia.isConnected) banners.trilhos = null;
+    agendarBanners();
+}).observe(app, {childList: true, subtree: true});
+window.addEventListener('resize', agendarBanners);
+
 function telaHoje() {
     const lista = h('div', {class: 'grade'});
     const hoje = diaDeHoje();
@@ -540,7 +664,8 @@ function telaHoje() {
     app.replaceChildren(
         abas('hoje'),
         h('p', {class: 'subtitulo'}, descricaoDia(hoje), ' · mangás que você está lendo e que lançam capítulo hoje. Ao marcar o capítulo novo, ele sai daqui.'),
-        lista);
+        lista,
+        lugarDeBanner('hoje-fim', 'horizontal', 'no-fim'));
     estado.recarregar = () => {
         lista.classList.add('recarregando');
         carregarHoje(lista, hoje);
@@ -689,7 +814,8 @@ function telaGrade() {
             h('button', {type: 'button', class: 'botao', onclick: sortear}, '🎲 Sortear')),
         filtros,
         lista,
-        paginacao);
+        paginacao,
+        lugarDeBanner('biblioteca-fim', 'horizontal', 'no-fim'));
     carregarGrade(lista, paginacao);
 }
 
@@ -1241,8 +1367,10 @@ async function telaDescobrir() {
         h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar),
         todasAsTags.length ? h('div', {class: 'quadros-de-tags'}, quadros.map(quadro => quadro.elemento)) : null,
         aviso,
+        lugarDeBanner('descobrir-topo', 'horizontal', 'so-sem-trilhos'),
         lista,
-        paginacao);
+        paginacao,
+        ...trilhosDeBanner(lista, 'descobrir'));
     carregar();
 }
 
@@ -2032,7 +2160,8 @@ async function telaAtalho() {
     document.title = 'Extensão e atalho · Viracap';
     app.replaceChildren(
         abas('atalho'),
-        h('div', {class: 'texto'},
+        // o texto e, ao lado, dois banners verticais (em telas estreitas, um horizontal embaixo do texto)
+        h('div', {class: 'atalho-com-banners'}, h('div', {class: 'texto'},
             h('h1', null, 'Extensão: próximo capítulo automático'),
             h('p', null, 'Alguns sites de leitura mudam o link a cada capítulo e só entregam as páginas a um navegador de verdade, então o servidor não consegue descobrir o link do próximo capítulo. '
                 + 'Com a extensão, o botão “Ler” faz isso no seu navegador: abre o último capítulo lido, acha o botão de próximo, vai direto para ele e salva o link certo.'),
@@ -2083,7 +2212,9 @@ async function telaAtalho() {
                     }
                 },
             }, 'Copiar código')),
-            h('textarea', {class: 'codigo', readonly: true, rows: '4', 'aria-label': 'Código do atalho'}, codigo)));
+            h('textarea', {class: 'codigo', readonly: true, rows: '4', 'aria-label': 'Código do atalho'}, codigo)),
+        h('aside', {class: 'banners-do-atalho', 'aria-label': 'Anúncios'}, lugarDeBanner('atalho-1', 'vertical'), lugarDeBanner('atalho-2', 'vertical'))),
+        lugarDeBanner('atalho-fim', 'horizontal', 'so-sem-coluna no-fim'));
 }
 
 /** Entre os mangas do mesmo site, o que tem o endereco mais parecido com o da pagina capturada. */
@@ -2731,7 +2862,10 @@ async function telaLoja(partes, consulta) {
             rolagemDasAbas(h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'},
                 link('bordas', '#/loja/bordas', 'Bordas'), link('efeitos', '#/loja/efeitos', 'Efeitos'), link('temas', '#/loja/temas', 'Temas'),
                 link('mochila', '#/loja/mochila', 'Mochila', contador))),
-            conteudo));
+            lugarDeBanner('loja-topo', 'horizontal', 'so-sem-trilhos'),
+            conteudo,
+            lugarDeBanner('loja-fim', 'horizontal', 'so-sem-trilhos no-fim')),
+        ...trilhosDeBanner(conteudo, 'loja'));
     estado.recarregar = () => telaLoja(partes, consulta);
 
     let dados;
@@ -2945,7 +3079,13 @@ async function telaComunidade(partes, consulta) {
     const [qual, id] = partes;
     const principal = h('div', {class: 'coluna-da-comunidade'});
     const lateral = h('aside', {class: 'lateral-da-comunidade'});
-    app.replaceChildren(h('div', {class: 'pagina-da-comunidade'}, principal, lateral), botaoDeEscrever());
+    // os banners: um vertical na coluna da esquerda (vazia) e outro embaixo de "Quem seguir"; sem as colunas (telas
+    // menores), um horizontal em cima do feed
+    const bannerDaDireita = lugarDeBanner('comunidade-direita', 'vertical', 'na-lateral');
+    app.replaceChildren(h('div', {class: 'pagina-da-comunidade'},
+        h('div', {class: 'lateral-esquerda-da-comunidade'}, lugarDeBanner('comunidade-esquerda', 'vertical', 'na-lateral')),
+        principal, lateral), botaoDeEscrever());
+    lateral.append(bannerDaDireita);
 
     // no perfil, o "Quem seguir" nao aparece: o foco e a pessoa do perfil
     if (qual === 'perfil' && id) return telaPerfil(principal, id, vez);
@@ -2981,6 +3121,7 @@ async function telaComunidade(partes, consulta) {
         h('div', {class: 'topo-do-feed'},
             h('nav', {class: 'abas', 'aria-label': 'Feeds'}, aba('para-voce', '#/comunidade', 'Para você'), aba('seguindo', '#/comunidade/seguindo', 'Seguindo')),
             barraDeBuscaDaComunidade()),
+        lugarDeBanner('comunidade-topo', 'horizontal', 'so-sem-laterais'),
         avisarSePunido(editorDePost(post => porNoFeed(lista, post))),
         avisoDeNovos,
         lista);
@@ -3087,7 +3228,8 @@ async function carregarSugestoes(lateral, vez) {
         return;
     }
     if (vez !== estado.render || contas.length === 0) return;
-    lateral.append(h('section', {class: 'caixa-da-comunidade'},
+    // em cima de tudo na lateral (o banner da direita fica embaixo)
+    lateral.prepend(h('section', {class: 'caixa-da-comunidade'},
         h('h2', null, 'Quem seguir'),
         ...contas.map(conta => h('div', {class: 'sugestao'},
             h('a', {class: 'quem', href: '#/comunidade/perfil/' + conta.id}, avatar(conta), h('span', null, h('b', null, conta.nick),
@@ -3635,8 +3777,11 @@ function frasesDoRegistro(item) {
     case 'apagar_post': return [admin, ' apagou um post de ', quem, detalhes.texto ? ': “' + detalhes.texto + '”' : ''];
     case 'apagar_comentario': return [admin, ' apagou um comentário de ', quem, detalhes.texto ? ': “' + detalhes.texto + '”' : ''];
     case 'imagem_barrada': {
-        const foto = Math.round((detalhes.probabilidades?.Porn || 0) * 100);
-        return [h('b', null, 'O robô'), ' barrou uma imagem de ', quem, ' (' + (detalhes.onde === 'foto' ? 'foto de perfil' : 'post') + '; foto explícita: ' + foto + '%)'];
+        // com a OpenAI (doc 89), a nota dela; sem, a do modelo local
+        const nota = detalhes.fonte === 'openai'
+            ? 'conteúdo sexual, pela OpenAI: ' + Math.round((detalhes.openai?.sexual || 0) * 100) + '%'
+            : 'foto explícita: ' + Math.round((detalhes.probabilidades?.Porn || 0) * 100) + '%';
+        return [h('b', null, 'O robô'), ' barrou uma imagem de ', quem, ' (' + (detalhes.onde === 'foto' ? 'foto de perfil' : 'post') + '; ' + nota + ')'];
     }
     default: return [admin, ' ' + item.acao + ' ', quem];
     }
@@ -4485,7 +4630,8 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
     conteudo.replaceChildren(
         h('div', {class: 'topo-do-grafico'},
             h('p', {class: 'subtitulo'}, 'Os banners de anúncio do site, horizontais e verticais, e os relatórios para as empresas. '
-                + 'Os lugares do site onde eles aparecem ainda não existem: por enquanto, aqui é só o cadastro.'),
+                + 'Os horizontais aparecem embaixo das listas e, em telas estreitas, em cima da Loja, da Comunidade e do Descobrir; os verticais, nas laterais. '
+                + 'Sem banner no ar de um formato, aparece o “Anuncie aqui”.'),
             h('div', {class: 'acoes-do-lancamento'},
                 h('a', {class: 'botao pequeno', href: '/api/banners/planilha?mes=' + relatorio.mes, download: true}, 'Baixar planilha do mês'),
                 h('button', {type: 'button', class: 'botao pequeno primario', disabled: lista.banners.length >= lista.maximo,

@@ -1,7 +1,7 @@
-// Banners de anuncio: o cadastro (so o dono do site, na aba Banners do Gerenciar) e os relatorios: um geral do mes,
-// para o dono, e um de cada banner para a empresa dona dele, por um link privado que nao pede login. Os lugares do site
-// onde os banners vao aparecer ainda nao existem; quando existirem, eles somam as exibicoes e os cliques na tabela
-// metricas_de_banner, que os relatorios ja leem. Mesmo desenho do painel de anuncios do CuidaMed (ADR-0055 e 0057).
+// Banners de anuncio: o cadastro (so o dono do site, na aba Banners do Gerenciar), os lugares do site onde eles
+// aparecem (doc 91: a lista dos que estao no ar, a contagem das exibicoes e o clique que leva ao site da empresa) e os
+// relatorios: um geral do mes, para o dono, e um de cada banner para a empresa dona dele, por um link privado que nao
+// pede login. As contagens ficam em metricas_de_banner. Mesmo desenho do painel de anuncios do CuidaMed (ADR-0055 e 0057).
 //
 // Sem rastrear ninguem: as contagens sao por dia, banner e lugar no site, sem conta, IP ou aparelho.
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -27,6 +27,36 @@ export const ESTRUTURA_DOS_BANNERS = `
 `;
 
 export const BANNERS_MAXIMOS = 50;
+
+/**
+ * Os lugares do site onde aparecem banners (doc 91), com o nome que vai para os relatorios. Os verticais ficam nas
+ * laterais quando sobra espaco ao lado do conteudo; sem espaco, a pagina mostra os horizontais no lugar deles.
+ */
+export const LUGARES_DE_BANNER = {
+    'biblioteca-fim': 'Biblioteca, embaixo da lista',
+    'hoje-fim': 'Lançam hoje, embaixo da lista',
+    'descobrir-esquerda': 'Descobrir, lateral esquerda',
+    'descobrir-direita': 'Descobrir, lateral direita',
+    'descobrir-topo': 'Descobrir, em cima das obras',
+    'atalho-1': 'Extensão e atalho, ao lado do texto (primeiro)',
+    'atalho-2': 'Extensão e atalho, ao lado do texto (segundo)',
+    'atalho-fim': 'Extensão e atalho, embaixo do texto',
+    'loja-esquerda': 'Loja, lateral esquerda',
+    'loja-direita': 'Loja, lateral direita',
+    'loja-topo': 'Loja, em cima',
+    'loja-fim': 'Loja, embaixo',
+    'comunidade-esquerda': 'Comunidade, lateral esquerda',
+    'comunidade-direita': 'Comunidade, embaixo de Quem seguir',
+    'comunidade-topo': 'Comunidade, em cima do feed',
+};
+
+/** As exibicoes que uma pagina manda de uma vez: [{ banner, posicao }], conferidas (no maximo 12, lugares conhecidos). */
+export function lerExibicoes(corpo) {
+    const itens = Array.isArray(corpo?.itens) ? corpo.itens : [];
+    if (itens.length > 12) throw new DadoInvalidoNoBanner('Exibições demais de uma vez');
+    return itens.filter(item => typeof item?.banner === 'string' && item.banner.length <= 80 && Object.hasOwn(LUGARES_DE_BANNER, item?.posicao))
+        .map(item => ({ banner: item.banner, posicao: item.posicao }));
+}
 export const TAMANHO_MAXIMO_DO_BANNER = 1024 * 1024;
 
 /**
@@ -179,7 +209,7 @@ export function montarRelatorio(mes, linhas) {
         banner.exibicoes += e;
         banner.cliques += c;
         porBanner.set(linha.banner, banner);
-        const nomeDaPosicao = linha.posicao || 'sem lugar';
+        const nomeDaPosicao = LUGARES_DE_BANNER[linha.posicao] || linha.posicao || 'sem lugar';
         const posicao = porPosicao.get(nomeDaPosicao) || { posicao: nomeDaPosicao, exibicoes: 0, cliques: 0 };
         posicao.exibicoes += e;
         posicao.cliques += c;
@@ -443,9 +473,48 @@ export function criarBanners(f) {
     }
 
     return {
-        /** Rotas sem login: a imagem de um banner e o relatorio da empresa (pelo codigo do link). Nulo se nao for uma delas. */
+        /**
+         * Rotas sem login: os banners no ar, a contagem das exibicoes, o clique, a imagem de um banner e o relatorio da
+         * empresa (pelo codigo do link). Nulo se nao for uma delas.
+         */
         semLogin: traduzirErros(async (request, url, partes) => {
             const [id, acao, codigo] = partes;
+            // os banners que podem aparecer agora (nao pausados, com peso e antes do dia do termino), para as paginas
+            // sortearem pelo peso. A CDN guarda um minuto
+            if (id === 'no-ar' && !acao && request.method === 'GET') {
+                const { rows } = await (await banco()).query(`SELECT id, empresa, texto, formato, peso, largura, altura, link IS NOT NULL AS tem_link, atualizado_em
+                    FROM banners WHERE NOT pausado AND peso > 0 AND (termina_em IS NULL OR termina_em > ${HOJE}) ORDER BY id`);
+                const resposta = json(200, { banners: rows.map(banner => ({ id: banner.id, empresa: banner.empresa, texto: banner.texto, formato: banner.formato,
+                    peso: banner.peso, largura: banner.largura, altura: banner.altura, temLink: banner.tem_link,
+                    imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?v=${new Date(banner.atualizado_em).getTime()}` })) });
+                resposta.headers.set('Cache-Control', 'public, max-age=60');
+                return resposta;
+            }
+            // as exibicoes que a pagina mostrou (somam no dia, por banner e lugar; sem conta, IP ou aparelho)
+            if (id === 'exibicoes' && !acao && request.method === 'POST') {
+                const itens = lerExibicoes(await f.lerCorpo(request));
+                if (itens.length) {
+                    const db = await banco();
+                    const { rows } = await db.query('SELECT id FROM banners WHERE id = ANY($1) AND NOT pausado AND peso > 0', [[...new Set(itens.map(item => item.banner))]]);
+                    const existem = new Set(rows.map(linha => linha.id));
+                    for (const item of itens.filter(item => existem.has(item.banner))) {
+                        await db.query(`INSERT INTO metricas_de_banner (dia, banner, posicao, exibicoes) VALUES (${HOJE}, $1, $2, 1)
+                            ON CONFLICT (dia, banner, posicao) DO UPDATE SET exibicoes = metricas_de_banner.exibicoes + 1`, [item.banner, item.posicao]);
+                    }
+                }
+                return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });
+            }
+            // o clique: conta e leva para o site da empresa
+            if (id && acao === 'clique' && !codigo && request.method === 'GET') {
+                const { rows } = await (await banco()).query('SELECT link FROM banners WHERE id = $1', [id]);
+                if (!rows.length || !rows[0].link) return new Response('Banner não encontrado', { status: 404 });
+                const posicao = url.searchParams.get('posicao');
+                if (Object.hasOwn(LUGARES_DE_BANNER, posicao)) {
+                    await (await banco()).query(`INSERT INTO metricas_de_banner (dia, banner, posicao, cliques) VALUES (${HOJE}, $1, $2, 1)
+                        ON CONFLICT (dia, banner, posicao) DO UPDATE SET cliques = metricas_de_banner.cliques + 1`, [id, posicao]);
+                }
+                return new Response(null, { status: 302, headers: { Location: rows[0].link, 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
+            }
             if (request.method !== 'GET') return null;
             if (id && acao === 'imagem' && !codigo) {
                 const { rows } = await (await banco()).query('SELECT imagem, tipo_imagem FROM banners WHERE id = $1', [id]);

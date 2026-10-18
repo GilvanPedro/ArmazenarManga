@@ -261,6 +261,13 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Robô de imagens mais rigoroso.** O robô deixava passar 4 de 5 imagens explícitas de teste; com outro modelo, a
   imagem encaixada e o limite em 60%, barra as 5 sem barrar capas nem fotos comuns. Detalhes em
   [Robô de imagens mais rigoroso](88-robo-de-imagens-mais-rigoroso.md).
+- **Robô de imagens com a OpenAI.** O modelo local barrava fotos comuns por engano; com a chave da OpenAI, a
+  moderação dela decide, com o modelo local de reserva. Detalhes em
+  [Robô de imagens com a moderação da OpenAI](89-robo-de-imagens-com-a-openai.md).
+- **Temas animados mais vivos.** Os nove temas animados mais rápidos e com camadas novas. Detalhes em
+  [Temas animados mais vivos](90-temas-animados-mais-vivos.md).
+- **Lugares de banner.** Os banners do Gerenciar aparecem na Biblioteca, Lançam hoje, Descobrir, Extensão, Loja e
+  Comunidade, com o "Anuncie aqui" quando não há banner. Detalhes em [Os lugares de banner no site](91-lugares-de-banner.md).
 
 ## O que foi removido ou abandonado
 

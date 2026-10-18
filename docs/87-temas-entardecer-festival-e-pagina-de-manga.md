@@ -51,3 +51,5 @@ de baixo, batendo como coração: tum-tum, pausa. Tema claro.
 - Os 96 testes da versão JavaScript passam (inclusive o de ids que não se repetem).
 - No navegador, com os quadros parados em momentos escolhidos (o avião no meio do rastro, os fogos abertos): os três
   temas na biblioteca, no computador e no celular, e as prévias na loja. O site compactado também foi conferido.
+
+> Depois, os temas animados ficaram mais rápidos e ganharam camadas novas: veja [Temas animados mais vivos](90-temas-animados-mais-vivos.md).

@@ -116,6 +116,9 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Efeitos Retícula, Linhas de Ação e Feixes de Luz](docs/86-efeitos-reticula-linhas-de-acao-e-feixes.md) | |
 | [Temas Entardecer, Festival de Verão e Página de Mangá](docs/87-temas-entardecer-festival-e-pagina-de-manga.md) | |
 | [Robô de imagens mais rigoroso](docs/88-robo-de-imagens-mais-rigoroso.md) | |
+| [Robô de imagens com a moderação da OpenAI](docs/89-robo-de-imagens-com-a-openai.md) | |
+| [Temas animados mais vivos](docs/90-temas-animados-mais-vivos.md) | |
+| [Os lugares de banner no site](docs/91-lugares-de-banner.md) | |
 
 ## Testes
 

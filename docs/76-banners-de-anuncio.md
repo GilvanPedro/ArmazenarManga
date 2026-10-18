@@ -125,3 +125,5 @@ Só o dono do site, menos as duas abertas indicadas.
 
 > Depois, os banners passaram a ter o valor que rendem (que entra nas Finanças) e a data em que acabam, e as Finanças, a
 > pizza de receita e despesa: veja [A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md).
+
+> Depois, os banners passaram a aparecer no site: veja [Os lugares de banner no site](91-lugares-de-banner.md).

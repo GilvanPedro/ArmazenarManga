@@ -131,3 +131,5 @@ fora.
 > `#/gerenciar/contas`. Veja [Painel dos administradores](56-painel-dos-administradores.md).
 
 > Depois, o robô passou a usar o modelo MobileNetV2, com a imagem encaixada e o limite em 60%, porque deixava passar 4 de 5 imagens explícitas de teste: veja [Robô de imagens mais rigoroso](88-robo-de-imagens-mais-rigoroso.md).
+
+> Depois, o robô passou a usar a moderação da OpenAI, com o modelo local de reserva: veja [Robô de imagens com a moderação da OpenAI](89-robo-de-imagens-com-a-openai.md).

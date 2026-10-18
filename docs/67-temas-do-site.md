@@ -91,3 +91,5 @@ um id não pode servir para dois itens; os testes conferem isso).
 > com `data-tema`: veja [Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md).
 
 > Depois vieram os temas Entardecer, Festival de Verão e Página de Mangá: veja [Temas Entardecer, Festival de Verão e Página de Mangá](87-temas-entardecer-festival-e-pagina-de-manga.md).
+
+> Depois, os temas animados ficaram mais rápidos e ganharam camadas novas: veja [Temas animados mais vivos](90-temas-animados-mais-vivos.md).

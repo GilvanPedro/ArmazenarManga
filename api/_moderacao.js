@@ -102,5 +102,30 @@ export function avaliarImagem(probabilidades) {
     return { barrar, foto, desenho };
 }
 
+/**
+ * A decisao com a moderacao da OpenAI (doc 89). Ela da a nota de "sexual" (0 a 1) olhando a imagem de verdade, e e bem
+ * mais precisa que o modelo local com fotos. Barra quando a OpenAI marca a imagem como sexual (ou a nota chega ao
+ * limite) e a imagem nao e desenho para o modelo local: capas de manga e arte continuam passando, como antes. Quando a
+ * OpenAI diz que nao e sexual, a imagem passa, mesmo que o modelo local desconfie (ele confunde pele com nudez).
+ */
+export const LIMITE_DA_OPENAI = 0.5;
+/** A partir de quanto de desenho (Drawing + Hentai, no modelo local) a imagem conta como arte. */
+export const LIMITE_DE_DESENHO = 0.5;
+
+export function avaliarComOpenAI(probabilidadesLocais, openai) {
+    const valor = nome => Number(probabilidadesLocais?.[nome]) || 0;
+    const desenho = valor('Drawing') + valor('Hentai');
+    const sexual = Number(openai?.sexual) || 0;
+    const marcada = openai?.marcada === true || sexual >= LIMITE_DA_OPENAI;
+    return { barrar: marcada && desenho < LIMITE_DE_DESENHO, sexual, desenho };
+}
+
+/** A resposta da API de moderacao da OpenAI -> { marcada, sexual } (ou erro, se veio num formato inesperado). */
+export function lerModeracaoDaOpenAI(resposta) {
+    const resultado = resposta?.results?.[0];
+    if (!resultado || typeof resultado.category_scores?.sexual !== 'number') throw new Error('Resposta da moderação da OpenAI sem a nota de "sexual"');
+    return { marcada: resultado.categories?.sexual === true, sexual: Number(resultado.category_scores.sexual.toFixed(4)) };
+}
+
 export const MENSAGEM_DE_IMAGEM_BARRADA = 'Essa imagem parece ser uma foto com conteúdo sexual explícito e não pode ser usada na Comunidade. '
     + 'Arte e capas de mangá são permitidas. Se achar que foi um engano, fale com um administrador.';

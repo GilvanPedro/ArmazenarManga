@@ -61,3 +61,16 @@ test('o robo le a imagem e classifica (PNG, JPG, WEBP e GIF)', { timeout: 60_000
     }
     await assert.rejects(() => verificarImagem(Buffer.from('nao e uma imagem')));
 });
+
+test('com a OpenAI: barra o que ela marca como sexual, menos desenho', async () => {
+    const { avaliarComOpenAI, lerModeracaoDaOpenAI } = await import('../api/_moderacao.js');
+    const foto = { Porn: 0.3, Sexy: 0.2, Neutral: 0.5 };
+    assert.equal(avaliarComOpenAI(foto, { marcada: true, sexual: 0.97 }).barrar, true, 'foto sexual');
+    assert.equal(avaliarComOpenAI(foto, { marcada: false, sexual: 0.55 }).barrar, true, 'nota acima do limite, mesmo sem a marca');
+    assert.equal(avaliarComOpenAI({ Porn: 0.94, Sexy: 0.03 }, { marcada: false, sexual: 0.02 }).barrar, false,
+        'o modelo local confundiu pele com nudez, a OpenAI diz que nao: passa (a foto do vestido, doc 89)');
+    assert.equal(avaliarComOpenAI({ Drawing: 0.7, Hentai: 0.25 }, { marcada: true, sexual: 0.9 }).barrar, false, 'capa de manga ou arte: passa');
+    assert.deepEqual(lerModeracaoDaOpenAI({ results: [{ flagged: true, categories: { sexual: true }, category_scores: { sexual: 0.98765 } }] }),
+        { marcada: true, sexual: 0.9877 });
+    assert.throws(() => lerModeracaoDaOpenAI({ error: { message: 'x' } }), /sem a nota/);
+});

@@ -73,7 +73,7 @@ export async function exigirImagemPermitida(db, bytes, contaId, onde, Recusa) {
     }
     if (resultado.permitida) return;
     await registrarNaModeracao(db, { conta: contaId, acao: 'imagem_barrada', motivo: 'Foto com conteúdo sexual explícito',
-        detalhes: { onde, probabilidades: resultado.probabilidades } });
+        detalhes: { onde, probabilidades: resultado.probabilidades, fonte: resultado.fonte, openai: resultado.openai || null } });
     throw new Recusa(400, MENSAGEM_DE_IMAGEM_BARRADA);
 }
 

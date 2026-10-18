@@ -33,3 +33,5 @@ Biblioteca, e as duas prévias na aba Temas da loja.
 > Depois, a Galáxia ganhou meteoros passando de vez em quando: veja [Meteoros no tema Galáxia](71-meteoros-na-galaxia.md).
 
 > Depois vieram os temas Entardecer, Festival de Verão e Página de Mangá: veja [Temas Entardecer, Festival de Verão e Página de Mangá](87-temas-entardecer-festival-e-pagina-de-manga.md).
+
+> Depois, os temas animados ficaram mais rápidos e ganharam camadas novas: veja [Temas animados mais vivos](90-temas-animados-mais-vivos.md).

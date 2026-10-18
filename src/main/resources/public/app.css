@@ -2744,7 +2744,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(35% 28% at 70% 40%, rgba(56, 189, 248, .4), transparent 70%),
         radial-gradient(45% 30% at 50% 70%, rgba(168, 85, 247, .35), transparent 70%);
     filter: blur(40px);
-    animation: aurora-andando 24s ease-in-out infinite alternate;
+    animation: aurora-andando 13s ease-in-out infinite alternate;
 }
 @keyframes aurora-andando {
     0% { transform: translate(-6%, -4%) rotate(0deg) scale(1); }
@@ -2755,8 +2755,13 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 /* Noite estrelada: dois grupos de estrelas que piscam fora de tempo, e o ceu andando bem devagar */
 :root[data-tema="estrelas"] body::before, [data-tema="estrelas"] > .fundo-da-previa,
 :root[data-tema="estrelas"] body::after, [data-tema="estrelas"] > .fundo-da-previa-2 {
+    inset: -12%;
     background-size: 220px 220px;
-    animation: estrelas-piscando-no-ceu 5s ease-in-out infinite;
+    animation: estrelas-piscando-no-ceu 3.5s ease-in-out infinite, ceu-andando 40s ease-in-out infinite alternate;
+}
+@keyframes ceu-andando {
+    from { transform: translate(-4%, -2%); }
+    to { transform: translate(4%, 3%); }
 }
 :root[data-tema="estrelas"] body::before, [data-tema="estrelas"] > .fundo-da-previa {
     background-image:
@@ -2768,7 +2773,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     background-image:
         radial-gradient(1px 1px at 50px 90px, #fff, transparent), radial-gradient(1.5px 1.5px at 190px 150px, #e0e7ff, transparent),
         radial-gradient(1px 1px at 110px 20px, #fff, transparent), radial-gradient(1.5px 1.5px at 10px 120px, #fde68a, transparent);
-    animation-delay: -2.5s;
+    animation-delay: -1.7s, -20s;
 }
 @keyframes estrelas-piscando-no-ceu {
     0%, 100% { opacity: .35; }
@@ -2786,7 +2791,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(5px 4px at 90px 230px, rgba(251, 207, 232, .9), transparent 70%);
     background-size: 280px 280px;
     --passo: 280px;
-    animation: sakura-caindo 14s linear infinite;
+    animation: sakura-caindo 9s linear infinite;
 }
 :root[data-tema="petalas"] body::after, [data-tema="petalas"] > .fundo-da-previa-2 {
     /* sobra em cima e a direita: a camada anda para baixo e para a esquerda */
@@ -2796,7 +2801,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(6px 4px at 190px 30px, rgba(249, 168, 212, .6), transparent 70%);
     background-size: 340px 340px;
     --passo: 340px;
-    animation: sakura-caindo 22s linear infinite;
+    animation: sakura-caindo 14s linear infinite;
 }
 /* desce exatamente um ladrilho (e anda um ladrilho para o lado): a volta ao comeco nao da pulo */
 @keyframes sakura-caindo {
@@ -2879,7 +2884,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(22% 16% at 50% 48%, rgba(244, 114, 182, .35), transparent 70%),
         conic-gradient(from 0deg at 50% 50%, transparent, rgba(129, 140, 248, .12), transparent 25%, rgba(192, 132, 252, .12), transparent 50%, rgba(129, 140, 248, .12), transparent 75%);
     filter: blur(30px);
-    animation: galaxia-girando 90s linear infinite;
+    animation: galaxia-girando 45s linear infinite;
 }
 @keyframes galaxia-girando {
     from { transform: rotate(0deg) scale(1); }
@@ -2914,7 +2919,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     filter: drop-shadow(0 0 4px rgba(196, 181, 253, .9));
     --angulo: 24deg;
     opacity: 0;
-    animation: meteoro 11s linear infinite;
+    animation: meteoro 6s linear infinite;
     animation-delay: 2s;
 }
 :root[data-tema="cosmos"]::after, [data-tema="cosmos"] > .fundo-da-previa-4 {
@@ -2924,14 +2929,14 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     filter: drop-shadow(0 0 3px rgba(147, 197, 253, .9));
     opacity: 0;
     --angulo: 34deg;
-    animation: meteoro 17s linear infinite;
+    animation: meteoro 9s linear infinite;
     animation-delay: 9s;
 }
 @keyframes meteoro {
     /* parado e apagado a maior parte do tempo; de vez em quando cruza a tela, descendo na diagonal, e some */
-    0%, 70% { transform: rotate(var(--angulo, 25deg)) translateX(-45%); opacity: 0; }
-    72% { opacity: 1; }
-    82% { transform: rotate(var(--angulo, 25deg)) translateX(75%); opacity: 0; }
+    0%, 40% { transform: rotate(var(--angulo, 25deg)) translateX(-45%); opacity: 0; }
+    43% { opacity: 1; }
+    60% { transform: rotate(var(--angulo, 25deg)) translateX(75%); opacity: 0; }
     100% { transform: rotate(var(--angulo, 25deg)) translateX(75%); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2950,7 +2955,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(45px 18px at 420px 106px, rgba(255, 255, 255, .9), transparent 70%),
         radial-gradient(50px 18px at 250px 200px, rgba(255, 255, 255, .8), transparent 70%);
     background-size: 600px 100%;
-    animation: nuvens-passando 60s linear infinite;
+    animation: nuvens-passando 32s linear infinite;
 }
 @keyframes nuvens-passando {
     from { transform: translateX(0); }
@@ -2975,8 +2980,8 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 :root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"], [data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"]) body::before,
 :root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"], [data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"]) body::after,
 :root[data-tema="cosmos"]::before, :root[data-tema="cosmos"]::after,
-:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"])::before,
-:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"])::after {
+:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"], [data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="fazenda"], [data-tema="synthwave"])::before,
+:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"], [data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="fazenda"], [data-tema="synthwave"])::after {
     will-change: transform, opacity;
 }
 
@@ -2989,8 +2994,8 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
  * e :root::before e :root::after (como a Galaxia); na previa da loja, .fundo-da-previa, -2, -3 e -4, nessa ordem.
  * Os desenhos (postes, lanternas e quadrinhos) sao SVGs dentro do proprio CSS.
  */
-:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"])::before,
-:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"])::after {
+:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"], [data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="fazenda"], [data-tema="synthwave"])::before,
+:root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"], [data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="fazenda"], [data-tema="synthwave"])::after {
     content: "";
     position: fixed;
     inset: 0;
@@ -3014,20 +3019,38 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     --sombra: 0 10px 30px rgba(20, 0, 30, .45);
 }
 /* o sol baixo, perto do horizonte, que respira devagar */
-:root[data-tema="entardecer"] body::before, [data-tema="entardecer"] > .fundo-da-previa {
-    background: radial-gradient(circle at 70% 80%, #fff4d6 0 4.5vmin, rgba(255, 196, 120, .75) 6.5vmin, rgba(255, 140, 110, .25) 17vmin, transparent 34vmin);
-    animation: sol-do-entardecer 7s ease-in-out infinite alternate;
+/*
+ * um bando de passaros cruzando o ceu sem parar, batendo as asas (o SVG tem os dois quadros lado a lado, e o fundo pula
+ * de um para o outro). As medidas em cqw e cqh: na pagina, sem container, valem a tela; na previa, a previa.
+ */
+:root[data-tema="entardecer"] body::before, [data-tema="entardecer"] > .fundo-da-previa,
+:root[data-tema="fazenda"]::before, [data-tema="fazenda"] > .fundo-da-previa-3 {
+    inset: auto;
+    left: 0;
+    top: 11%;
+    width: 180px;
+    height: 60px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 40'%3E%3Cg fill='none' stroke='%23241a2e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 22q6-8 12 0q6-8 12 0M34 12q6-8 12 0q6-8 12 0M58 27q5-7 10 0q5-7 10 0M86 17q6-8 12 0q6-8 12 0'/%3E%3Cpath d='M126 19q6 6 12 0q6 6 12 0M154 9q6 6 12 0q6 6 12 0M178 24q5 5 10 0q5 5 10 0M206 14q6 6 12 0q6 6 12 0'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 200% 100%;
+    animation: passaros-voando 19s linear infinite, asas-batendo .5s steps(1, end) infinite;
 }
-[data-tema="entardecer"] > .fundo-da-previa { background: radial-gradient(circle at 70% 80%, #fff4d6 0 4.5cqmin, rgba(255, 196, 120, .75) 6.5cqmin, rgba(255, 140, 110, .25) 17cqmin, transparent 34cqmin); }
-@keyframes sol-do-entardecer {
-    from { opacity: .8; }
-    to { opacity: 1; }
+:root[data-tema="fazenda"]::before, [data-tema="fazenda"] > .fundo-da-previa-3 { top: 14%; animation-duration: 24s, .45s; animation-delay: -8s, 0s; }
+[data-tema="entardecer"] > .fundo-da-previa, [data-tema="fazenda"] > .fundo-da-previa-3 { width: 54px; height: 18px; }
+@keyframes passaros-voando {
+    0% { transform: translate(-190px, 0); }
+    50% { transform: translate(50cqw, -5cqh); }
+    100% { transform: translate(calc(100cqw + 20px), 1cqh); }
+}
+@keyframes asas-batendo {
+    0% { background-position: 0 0; }
+    50% { background-position: 100% 0; }
 }
 /* a cidade ao longe, os postes e os fios, contra o ceu (parados). O traco nao estica com a tela (non-scaling-stroke) */
 :root[data-tema="entardecer"] body::after, [data-tema="entardecer"] > .fundo-da-previa-2 {
     top: auto;
     height: 62%;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 400' preserveAspectRatio='none'%3E%3Cpath d='M0 338L50 330V306H82V322L130 316V290H158V310L214 302L250 310L292 298V270H314V300L372 306L414 298L462 310L512 300V276H540V302L596 308L652 294L700 306L752 298V272H782V302L846 310L900 300L952 308L1000 300V400H0Z' fill='%23150a24' fill-opacity='.9'/%3E%3Cg stroke='%23120818' fill='none'%3E%3Cpath d='M180 30V400M820 60V400' stroke-width='7' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M148 58H212M158 82H202M790 86H850M798 108H842' stroke-width='5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M150 58Q480 168 792 86M210 58Q500 150 848 86M160 82Q490 190 800 108M150 58Q60 104 -10 84M212 58Q110 120 -10 120M848 86Q930 122 1010 100M842 108Q930 150 1010 140' stroke-width='1.6' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat;
+    /* o sol (que estava numa camada so dele) fica atras da cidade: 70% x 80% da tela e 70% x 67,7% desta camada */
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 400' preserveAspectRatio='none'%3E%3Cpath d='M0 338L50 330V306H82V322L130 316V290H158V310L214 302L250 310L292 298V270H314V300L372 306L414 298L462 310L512 300V276H540V302L596 308L652 294L700 306L752 298V272H782V302L846 310L900 300L952 308L1000 300V400H0Z' fill='%23150a24' fill-opacity='.9'/%3E%3Cg stroke='%23120818' fill='none'%3E%3Cpath d='M180 30V400M820 60V400' stroke-width='7' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M148 58H212M158 82H202M790 86H850M798 108H842' stroke-width='5' vector-effect='non-scaling-stroke'/%3E%3Cpath d='M150 58Q480 168 792 86M210 58Q500 150 848 86M160 82Q490 190 800 108M150 58Q60 104 -10 84M212 58Q110 120 -10 120M848 86Q930 122 1010 100M842 108Q930 150 1010 140' stroke-width='1.6' vector-effect='non-scaling-stroke'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat,
+        radial-gradient(circle at 70% 67.7%, #fff4d6 0 4.5cqmin, rgba(255, 196, 120, .75) 6.5cqmin, rgba(255, 140, 110, .25) 17cqmin, transparent 34cqmin);
 }
 /* nuvens compridas, iluminadas por baixo, passando bem devagar (um ladrilho que anda e volta sem pulo) */
 :root[data-tema="entardecer"]::before, [data-tema="entardecer"] > .fundo-da-previa-3 {
@@ -3040,7 +3063,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(150px 8px at 820px 16%, rgba(255, 220, 210, .3), transparent 70%),
         radial-gradient(200px 10px at 330px 62%, rgba(255, 200, 170, .26), transparent 70%);
     background-size: 900px 100%;
-    animation: nuvens-do-entardecer 150s linear infinite;
+    animation: nuvens-do-entardecer 55s linear infinite;
 }
 [data-tema="entardecer"] > .fundo-da-previa-3 { inset: 0; background-size: 100% 100%; animation: none; }
 @keyframes nuvens-do-entardecer {
@@ -3054,14 +3077,14 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         linear-gradient(90deg, transparent, rgba(255, 246, 236, .7)) 16% 17.2% / 30% 2px no-repeat;
     transform-origin: 16% 17%;
     opacity: 0;
-    animation: rastro-do-aviao 28s ease-out infinite;
+    animation: rastro-do-aviao 13s ease-out infinite;
     animation-delay: 3s;
 }
 @keyframes rastro-do-aviao {
     0% { transform: rotate(-7deg) scaleX(0); opacity: 0; }
-    3% { opacity: 1; }
-    30% { transform: rotate(-7deg) scaleX(1); opacity: 1; }
-    45%, 100% { transform: rotate(-7deg) scaleX(1); opacity: 0; }
+    4% { opacity: 1; }
+    55% { transform: rotate(-7deg) scaleX(1); opacity: 1; }
+    75%, 100% { transform: rotate(-7deg) scaleX(1); opacity: 0; }
 }
 
 /* Festival de Verao (matsuri): noite azul com estrelas, lanternas e fogos */
@@ -3098,7 +3121,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     top: 16%;
     background: repeating-conic-gradient(rgba(255, 214, 140, .95) 0 2.2deg, transparent 2.2deg 12deg), radial-gradient(circle, #fff3c4, transparent 30%);
     filter: drop-shadow(0 0 6px rgba(255, 190, 110, .8));
-    animation: fogo-abrindo 9s ease-out infinite;
+    animation: fogo-abrindo 5s ease-out infinite;
     animation-delay: 1.5s;
 }
 :root[data-tema="matsuri"]::before, [data-tema="matsuri"] > .fundo-da-previa-3 {
@@ -3107,17 +3130,17 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     width: 22vmin;
     background: repeating-conic-gradient(from 6deg, rgba(255, 140, 190, .95) 0 2.4deg, transparent 2.4deg 14deg), radial-gradient(circle, #ffe4f1, transparent 30%);
     filter: drop-shadow(0 0 6px rgba(255, 120, 180, .8));
-    animation: fogo-abrindo 13s ease-out infinite;
+    animation: fogo-abrindo 7s ease-out infinite;
     animation-delay: 6s;
 }
 [data-tema="matsuri"] > .fundo-da-previa, [data-tema="matsuri"] > .fundo-da-previa-3 { inset: auto; width: 34cqmin; }
 [data-tema="matsuri"] > .fundo-da-previa { left: 10%; top: 26%; }
 [data-tema="matsuri"] > .fundo-da-previa-3 { right: 8%; top: 34%; width: 26cqmin; }
 @keyframes fogo-abrindo {
-    0%, 55% { transform: scale(.15); opacity: 0; }
-    57% { transform: scale(.35); opacity: .9; }
-    72% { transform: scale(1) translateY(0); opacity: .75; }
-    88% { transform: scale(1.12) translateY(6%); opacity: 0; }
+    0%, 22% { transform: scale(.15); opacity: 0; }
+    25% { transform: scale(.35); opacity: .95; }
+    50% { transform: scale(1) translateY(0); opacity: .8; }
+    78% { transform: scale(1.12) translateY(7%); opacity: 0; }
     100% { transform: scale(1.12) translateY(6%); opacity: 0; }
 }
 /*
@@ -3130,12 +3153,12 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 150'%3E%3Cdefs%3E%3CradialGradient id='l' cx='.45' cy='.4' r='.65'%3E%3Cstop offset='0' stop-color='%23fff1b8'/%3E%3Cstop offset='.35' stop-color='%23ffb347'/%3E%3Cstop offset='.75' stop-color='%23f0452c'/%3E%3Cstop offset='1' stop-color='%239e1a14'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M0 16Q120 50 240 16' stroke='%237a5440' stroke-width='1.6' fill='none'/%3E%3Cg id='a'%3E%3Cpath d='M60 28V38' stroke='%237a5440' stroke-width='1.4'/%3E%3Crect x='51' y='37' width='18' height='5' rx='1.5' fill='%232b1a14'/%3E%3Cellipse cx='60' cy='62' rx='17' ry='21' fill='url(%23l)'/%3E%3Cpath d='M44 54Q60 50 76 54M43 62H77M44 70Q60 74 76 70' stroke='%23a3281c' stroke-opacity='.45' fill='none'/%3E%3Crect x='51' y='81' width='18' height='5' rx='1.5' fill='%232b1a14'/%3E%3Cpath d='M60 86V100' stroke='%23ffb347' stroke-width='2'/%3E%3C/g%3E%3Cuse href='%23a' x='120' y='0'/%3E%3C/svg%3E") 0 0 / 200px 125px repeat-x;
     filter: drop-shadow(0 0 10px rgba(255, 120, 60, .55));
     transform-origin: 50% 0;
-    animation: lanternas-balancando 5s ease-in-out infinite alternate;
+    animation: lanternas-balancando 2.6s ease-in-out infinite alternate;
 }
 [data-tema="matsuri"] > .fundo-da-previa-2 { top: auto; height: 30%; background-size: auto 100%; }
 @keyframes lanternas-balancando {
-    from { transform: translateY(0); opacity: .75; }
-    to { transform: translateY(4px); opacity: .95; }
+    from { transform: translateY(-3px) skewX(-1.5deg); opacity: .7; }
+    to { transform: translateY(5px) skewX(1.5deg); opacity: 1; }
 }
 /* estrelas piscando no ceu (atras dos fogos) */
 :root[data-tema="matsuri"]::after, [data-tema="matsuri"] > .fundo-da-previa-4 {
@@ -3176,7 +3199,7 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     background: radial-gradient(circle, rgba(20, 20, 20, .2) 0 1.4px, transparent 1.9px) 0 0 / 7px 7px;
     -webkit-mask: radial-gradient(38% 30% at 30% 35%, #000, transparent 70%), radial-gradient(30% 26% at 72% 70%, rgba(0, 0, 0, .8), transparent 70%);
     mask: radial-gradient(38% 30% at 30% 35%, #000, transparent 70%), radial-gradient(30% 26% at 72% 70%, rgba(0, 0, 0, .8), transparent 70%);
-    animation: reticula-passeando 40s ease-in-out infinite alternate;
+    animation: reticula-passeando 16s ease-in-out infinite alternate;
 }
 [data-tema="pagina"] > .fundo-da-previa-2 { background-size: 4px 4px; }
 @keyframes reticula-passeando {
@@ -3203,10 +3226,117 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     22% { transform: rotate(-8deg) scale(1.01); }
     30% { transform: rotate(-8deg) scale(1.05); }
 }
-:root[data-tema="pagina"]::after { content: none; }
+/* linhas de acao num quadrinho de cima a direita, tremendo como num desenho de impacto */
+:root[data-tema="pagina"]::after, [data-tema="pagina"] > .fundo-da-previa-4 {
+    inset: auto;
+    right: 3cqmin;
+    top: 13%;
+    width: 38cqmin;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: repeating-conic-gradient(rgba(20, 20, 20, .55) 0 .9deg, transparent 1.3deg 6.5deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 30%, #000 42% 60%, transparent 71%);
+    mask: radial-gradient(circle, transparent 0 30%, #000 42% 60%, transparent 71%);
+    opacity: .13;
+    animation: linhas-da-pagina .42s steps(1, end) infinite;
+}
+@keyframes linhas-da-pagina {
+    0% { transform: rotate(0deg) scale(1); }
+    33% { transform: rotate(2.2deg) scale(1.03); }
+    66% { transform: rotate(1deg) scale(.98); }
+}
+
+/* Aurora: uma cortina de luz em faixas, balancando, e estrelas piscando no alto */
+:root[data-tema="aurora"]::before, [data-tema="aurora"] > .fundo-da-previa-3 {
+    inset: 0 -12% 25% -12%;
+    background: repeating-linear-gradient(90deg, transparent 0 22px, rgba(110, 231, 183, .2) 34px, transparent 50px, transparent 70px, rgba(125, 211, 252, .16) 84px, transparent 100px, transparent 128px, rgba(196, 181, 253, .16) 140px, transparent 156px);
+    -webkit-mask: linear-gradient(to bottom, transparent, #000 22%, #000 42%, transparent 88%);
+    mask: linear-gradient(to bottom, transparent, #000 22%, #000 42%, transparent 88%);
+    animation: cortina-da-aurora 6s ease-in-out infinite alternate;
+}
+@keyframes cortina-da-aurora {
+    from { transform: translateX(-70px) skewX(-10deg); opacity: .45; }
+    to { transform: translateX(70px) skewX(10deg); opacity: 1; }
+}
+:root[data-tema="aurora"]::after, [data-tema="aurora"] > .fundo-da-previa-4,
+:root[data-tema="synthwave"]::before, [data-tema="synthwave"] > .fundo-da-previa-3 {
+    bottom: 40%;
+    background-image:
+        radial-gradient(1.5px 1.5px at 30px 40px, #fff, transparent), radial-gradient(1px 1px at 140px 100px, #e0f2fe, transparent),
+        radial-gradient(1.5px 1.5px at 220px 20px, #fff, transparent), radial-gradient(1px 1px at 90px 170px, #fff, transparent);
+    background-size: 280px 200px;
+    -webkit-mask: linear-gradient(#000 40%, transparent);
+    mask: linear-gradient(#000 40%, transparent);
+    animation: estrelas-piscando-no-ceu 2.8s ease-in-out infinite;
+}
+[data-tema="aurora"] > .fundo-da-previa-4, [data-tema="synthwave"] > .fundo-da-previa-3 { background-size: 90px 70px; }
+
+/* Noite estrelada e Synthwave: estrelas cadentes cruzando de tempos em tempos (como os meteoros da Galaxia) */
+:root[data-tema="estrelas"]::before, [data-tema="estrelas"] > .fundo-da-previa-3,
+:root[data-tema="estrelas"]::after, [data-tema="estrelas"] > .fundo-da-previa-4,
+:root[data-tema="synthwave"]::after, [data-tema="synthwave"] > .fundo-da-previa-4 {
+    opacity: 0;
+    animation: meteoro 5s linear infinite;
+}
+:root[data-tema="estrelas"]::before, [data-tema="estrelas"] > .fundo-da-previa-3 {
+    background:
+        radial-gradient(6px 6px at 29.8% 22%, #fff, rgba(254, 243, 199, .7) 35%, transparent 70%),
+        linear-gradient(90deg, transparent, rgba(254, 243, 199, .55) 55%, #fff) 10% 22% / 22% 2.5px no-repeat;
+    filter: drop-shadow(0 0 4px rgba(253, 230, 138, .9));
+    --angulo: 22deg;
+    animation-delay: 1s;
+}
+:root[data-tema="estrelas"]::after, [data-tema="estrelas"] > .fundo-da-previa-4 {
+    background:
+        radial-gradient(5px 5px at 66% 12%, #fff, rgba(199, 210, 254, .7) 35%, transparent 70%),
+        linear-gradient(90deg, transparent, rgba(199, 210, 254, .5) 55%, #fff) 60% 12% / 15% 2px no-repeat;
+    filter: drop-shadow(0 0 3px rgba(199, 210, 254, .9));
+    --angulo: 32deg;
+    animation-duration: 7s;
+    animation-delay: 3.5s;
+}
+:root[data-tema="synthwave"]::after, [data-tema="synthwave"] > .fundo-da-previa-4 {
+    background:
+        radial-gradient(6px 6px at 39.8% 14%, #fff, rgba(255, 124, 197, .8) 35%, transparent 70%),
+        linear-gradient(90deg, transparent, rgba(255, 62, 165, .6) 55%, #fff) 20% 14% / 20% 2.5px no-repeat;
+    filter: drop-shadow(0 0 5px rgba(255, 62, 165, .9));
+    --angulo: 16deg;
+    animation-duration: 6s;
+    animation-delay: 2s;
+}
+
+/* Sakura ao vento: uma terceira camada, de petalas maiores e mais perto, caindo mais rapido */
+:root[data-tema="petalas"]::before, [data-tema="petalas"] > .fundo-da-previa-3 {
+    inset: -100% -500px 0 0;
+    background-image:
+        radial-gradient(10px 6px at 80px 60px, rgba(236, 72, 153, .45), transparent 70%),
+        radial-gradient(9px 6px at 300px 220px, rgba(244, 114, 182, .55), transparent 70%),
+        radial-gradient(11px 7px at 190px 380px, rgba(249, 168, 212, .6), transparent 70%);
+    background-size: 460px 460px;
+    --passo: 460px;
+    animation: sakura-caindo 6.5s linear infinite;
+}
+:root[data-tema="petalas"]::after { content: none; }
+
+/* Fazenda: raios de sol girando devagar em volta do sol (os passaros estao junto com os do Entardecer) */
+:root[data-tema="fazenda"]::after, [data-tema="fazenda"] > .fundo-da-previa-4 {
+    inset: auto;
+    left: calc(85% - 22cqmin);
+    top: calc(14% - 22cqmin);
+    width: 44cqmin;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: repeating-conic-gradient(rgba(255, 244, 180, .5) 0 5deg, transparent 5deg 18deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 16%, #000 24%, transparent 68%);
+    mask: radial-gradient(circle, transparent 0 16%, #000 24%, transparent 68%);
+    animation: raios-de-sol 26s linear infinite;
+}
+@keyframes raios-de-sol {
+    to { transform: rotate(360deg); }
+}
 @media (prefers-reduced-motion: reduce) {
-    :root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"])::before,
-    :root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"])::after { animation: none !important; }
+    :root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"], [data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="fazenda"], [data-tema="synthwave"])::before,
+    :root:is([data-tema="entardecer"], [data-tema="matsuri"], [data-tema="pagina"], [data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="fazenda"], [data-tema="synthwave"])::after { animation: none !important; }
     :root[data-tema="entardecer"]::after, :root[data-tema="matsuri"]::before, :root[data-tema="matsuri"] body::before,
     [data-tema="entardecer"] > .fundo-da-previa-4, [data-tema="matsuri"] > .fundo-da-previa, [data-tema="matsuri"] > .fundo-da-previa-3 { opacity: 0 !important; }
 }
@@ -3308,3 +3438,57 @@ input[type=file].escolher-arquivo::file-selector-button:hover { background: var(
 .atalhos-do-termino .botao { border-radius: 999px; }
 .resumo-do-termino { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--superficie-2); color: var(--texto); font-size: 13.5px; line-height: 1.45; }
 .resumo-do-termino.passou { background: color-mix(in srgb, var(--perigo) 14%, var(--superficie)); color: var(--perigo); }
+
+/* ------------------------------------------------------------ lugares de banner (doc 91)
+ * Verticais nos trilhos (fixos ao lado do conteudo, largura e posicao calculadas no app.js) e nas laterais da
+ * Comunidade; horizontais embaixo das listas e, sem trilhos, em cima e embaixo do conteudo. O banner padrao
+ * ("Anuncie aqui") entra quando nao ha banner no ar do formato.
+ */
+.lugar-de-banner { position: relative; }
+.lugar-de-banner.horizontal { width: 100%; max-width: 970px; margin: 20px auto; }
+.lugar-de-banner.no-fim { margin-top: 32px; }
+.lugar-de-banner.vertical { width: 100%; }
+.trilho-de-banner { position: fixed; top: 84px; z-index: 1; }
+#app:not(.com-trilhos) .trilho-de-banner { display: none; }
+#app.com-trilhos .so-sem-trilhos { display: none; }
+.banner-de-anuncio { position: relative; display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--borda); background: var(--superficie); box-shadow: var(--sombra); }
+.banner-de-anuncio img { display: block; width: 100%; height: auto; }
+.vertical .banner-de-anuncio img { max-height: calc(100vh - 120px); object-fit: contain; }
+/* horizontal de imagem mais alta que o normal: no maximo 200 px de altura, inteira (sem cortar), no meio */
+.horizontal .banner-de-anuncio { width: fit-content; max-width: 100%; margin: 0 auto; }
+.horizontal .banner-de-anuncio img { width: auto; max-width: 100%; max-height: 200px; }
+a.banner-de-anuncio { transition: transform .15s, box-shadow .15s; }
+a.banner-de-anuncio:hover { transform: translateY(-2px); }
+.selo-de-anuncio { position: absolute; top: 6px; right: 6px; padding: 1px 6px; border-radius: 6px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 10.5px; font-weight: 600; letter-spacing: .03em; pointer-events: none; }
+/* o banner padrao: um convite para anunciar, que abre o e-mail */
+.banner-padrao { display: flex; align-items: center; gap: 16px; padding: 16px 22px; border: 1.5px dashed color-mix(in srgb, var(--destaque) 55%, var(--borda)); border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--destaque) 14%, var(--superficie)), var(--superficie) 70%); color: var(--texto); text-decoration: none; transition: border-color .15s, transform .15s; }
+.banner-padrao:hover { border-color: var(--destaque); transform: translateY(-2px); }
+.banner-padrao.horizontal { min-height: 96px; }
+.icone-do-banner-padrao { font-size: 30px; line-height: 1; }
+.textos-do-banner-padrao { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.textos-do-banner-padrao b { font-size: 18px; }
+.textos-do-banner-padrao span { color: var(--texto-fraco); font-size: 13.5px; }
+.botao-do-banner-padrao { flex: none; padding: 8px 16px; border-radius: 999px; background: var(--destaque); color: var(--sobre-destaque); font-weight: 700; font-size: 14px; }
+.banner-padrao.vertical { flex-direction: column; justify-content: center; text-align: center; gap: 18px; padding: 26px 14px; aspect-ratio: 1 / 2.6; max-height: calc(100vh - 120px); }
+.banner-padrao.vertical .textos-do-banner-padrao { flex: none; gap: 10px; }
+.banner-padrao.vertical .icone-do-banner-padrao { font-size: 40px; }
+@media (max-width: 560px) {
+    .banner-padrao.horizontal { flex-wrap: wrap; padding: 14px 16px; gap: 10px 14px; }
+    .banner-padrao.horizontal .textos-do-banner-padrao { flex: 1 1 calc(100% - 60px); }
+    .banner-padrao.horizontal .botao-do-banner-padrao { margin-left: 44px; }
+}
+/* Comunidade: o vertical da esquerda na coluna vazia, o da direita embaixo de "Quem seguir"; sem as colunas, o horizontal */
+.lateral-esquerda-da-comunidade { grid-column: 1; grid-row: 1; justify-self: end; width: 100%; max-width: 200px; position: sticky; top: 84px; }
+.pagina-da-comunidade > .coluna-da-comunidade { grid-row: 1; }
+.lateral-da-comunidade > .lugar-de-banner.vertical { max-width: 200px; }
+.lugar-de-banner.so-sem-laterais { margin: 0 auto; }
+@media (min-width: 1181px) { .lugar-de-banner.so-sem-laterais { display: none; } }
+@media (max-width: 1180px) { .lateral-esquerda-da-comunidade { display: none; } }
+/* Extensao e atalho: dois verticais na coluna ao lado do texto; sem espaco, um horizontal embaixo */
+.atalho-com-banners { display: flex; align-items: flex-start; gap: 48px; }
+.banners-do-atalho { flex: none; width: 180px; display: flex; flex-direction: column; gap: 20px; margin-top: 8px; }
+.banners-do-atalho .banner-padrao.vertical { aspect-ratio: 1 / 1.8; }
+@media (max-width: 860px) { .banners-do-atalho { display: none; } }
+@media (min-width: 861px) { .lugar-de-banner.so-sem-coluna { display: none; } }
+@media print { .lugar-de-banner { display: none !important; } }

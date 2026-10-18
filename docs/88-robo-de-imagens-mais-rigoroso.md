@@ -52,3 +52,5 @@ comum barrada por engano, o limite fica em `LIMITE_DE_FOTO_EXPLICITA`, em `api/_
   da moderação (notas 92% e 64%); três capas ecchi e a xícara de café foram aceitas. A primeira imagem levou ~0,7 s
   (carregando o modelo) e as outras ~0,12 s.
 - Os 96 testes da versão JavaScript passam.
+
+> Depois, o robô passou a usar a moderação da OpenAI, com o modelo local de reserva: veja [Robô de imagens com a moderação da OpenAI](89-robo-de-imagens-com-a-openai.md).

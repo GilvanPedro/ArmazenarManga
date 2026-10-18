@@ -85,3 +85,18 @@ test('a planilha nao deixa celula virar formula', () => {
     assert.equal(celulaDoCsv(12), '"12"');
     assert.equal(celulaDoCsv(null), '""');
 });
+
+test('os lugares do site: as exibicoes que a pagina manda sao conferidas', async () => {
+    const { lerExibicoes, LUGARES_DE_BANNER } = await import('../api/_banners.js');
+    assert.deepEqual(lerExibicoes({ itens: [{ banner: 'loja-do-otaku', posicao: 'loja-topo' }, { banner: 'x', posicao: 'lugar-inventado' }, { posicao: 'loja-fim' }] }),
+        [{ banner: 'loja-do-otaku', posicao: 'loja-topo' }], 'so lugares conhecidos e com banner');
+    assert.deepEqual(lerExibicoes({}), []);
+    assert.throws(() => lerExibicoes({ itens: Array.from({ length: 13 }, () => ({ banner: 'a', posicao: 'loja-topo' })) }), /demais/);
+    assert.equal(LUGARES_DE_BANNER['comunidade-direita'], 'Comunidade, embaixo de Quem seguir');
+});
+
+test('o relatorio mostra o nome do lugar', async () => {
+    const { montarRelatorio } = await import('../api/_banners.js');
+    const relatorio = montarRelatorio('2026-10', [{ dia: '2026-10-18', banner: 'a', posicao: 'loja-esquerda', exibicoes: 5, cliques: 1 }]);
+    assert.equal(relatorio.porPosicao[0].posicao, 'Loja, lateral esquerda');
+});
