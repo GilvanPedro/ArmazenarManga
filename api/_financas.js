@@ -10,6 +10,8 @@ export const ESTRUTURA_DAS_FINANCAS = `
     -- ou unica (vale so no mes de inicio). inicio e fim sao o primeiro dia do mes; na unica, inicio e o dia exato
     CREATE TABLE IF NOT EXISTS financas (id UUID PRIMARY KEY, tipo TEXT NOT NULL, nome TEXT NOT NULL, valor INT NOT NULL,
         recorrencia TEXT NOT NULL, inicio DATE NOT NULL, fim DATE, criado_em TIMESTAMPTZ NOT NULL DEFAULT now());
+    -- a receita que vem de um banner de anuncio (o id dele): e mexida pelo cadastro do banner, e nao aqui
+    ALTER TABLE financas ADD COLUMN IF NOT EXISTS banner TEXT;
 `;
 
 export class DadoInvalidoNasFinancas extends Error {}
@@ -77,6 +79,20 @@ export function valeNoMes(lancamento, mes) {
     return inicio <= mes && (!lancamento.fim || lancamento.fim.slice(0, 7) >= mes);
 }
 
+/** Em quantos meses, ate o mes 'ate' (inclusive), o lancamento contou: um mensal, de inicio a fim; uma unica, um ou zero. */
+export function mesesQueContaram(lancamento, ate) {
+    const inicio = lancamento.inicio.slice(0, 7);
+    if (inicio > ate) return 0;
+    if (lancamento.recorrencia === 'unica') return 1;
+    const ultimo = lancamento.fim && lancamento.fim.slice(0, 7) < ate ? lancamento.fim.slice(0, 7) : ate;
+    const [a1, m1] = inicio.split('-').map(Number);
+    const [a2, m2] = ultimo.split('-').map(Number);
+    return Math.max(0, (a2 - a1) * 12 + (m2 - m1) + 1);
+}
+
+/** O total de uma lista de lancamentos desde o comeco ate o mes 'ate' (o geral). */
+export const totalAte = (lancamentos, ate) => lancamentos.reduce((soma, item) => soma + item.valor * mesesQueContaram(item, ate), 0);
+
 /** Total de uma lista de lancamentos no mes. */
 export const totalNoMes = (lancamentos, mes) => lancamentos.filter(item => valeNoMes(item, mes)).reduce((soma, item) => soma + item.valor, 0);
 
@@ -102,9 +118,9 @@ export function criarFinancas(f) {
     const HOJE = `(now() AT TIME ZONE 'America/Sao_Paulo')`;
     const linha = item => ({
         id: item.id, tipo: item.tipo, nome: item.nome, valor: item.valor, recorrencia: item.recorrencia,
-        inicio: item.inicio, fim: item.fim,
+        inicio: item.inicio, fim: item.fim, banner: item.banner || null,
     });
-    const datas = `id, tipo, nome, valor, recorrencia, to_char(inicio, 'YYYY-MM-DD') AS inicio, to_char(fim, 'YYYY-MM-DD') AS fim`;
+    const datas = `id, tipo, nome, valor, recorrencia, to_char(inicio, 'YYYY-MM-DD') AS inicio, to_char(fim, 'YYYY-MM-DD') AS fim, banner`;
 
     /** Tudo do mes pedido e o resumo dos 12 meses que terminam nele. */
     async function doMes(url) {
@@ -112,7 +128,7 @@ export function criarFinancas(f) {
         const { rows: [{ atual }] } = await db.query(`SELECT to_char(${HOJE}, 'YYYY-MM') AS atual`);
         const mes = url.searchParams.get('mes') ? lerMes(url.searchParams.get('mes')) : atual;
         const primeiro = somarMeses(mes, -11);
-        const [{ rows: lancamentos }, { rows: vendasPorMes }, { rows: historico }] = await Promise.all([
+        const [{ rows: lancamentos }, { rows: vendasPorMes }, { rows: historico }, { rows: [{ vendasAteHoje }] }] = await Promise.all([
             db.query(`SELECT ${datas} FROM financas ORDER BY tipo, nome, inicio`),
             // vendas da loja: as aprovadas, no mes em que foram aprovadas (reembolsadas nao contam)
             db.query(`SELECT to_char(atualizada_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') AS mes, sum(preco)::int AS total, count(*)::int AS quantidade
@@ -124,6 +140,8 @@ export function criarFinancas(f) {
                 WHERE k.status IN ('aprovada', 'reembolsada', 'divergente')
                   AND to_char(k.atualizada_em AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') = $1
                 ORDER BY k.atualizada_em DESC LIMIT 500`, [mes]),
+            // todas as vendas aprovadas, para o geral
+            db.query(`SELECT coalesce(sum(preco), 0)::int AS "vendasAteHoje" FROM compras WHERE status = 'aprovada'`),
         ]);
         const gastos = lancamentos.filter(item => item.tipo === 'gasto');
         const receitas = lancamentos.filter(item => item.tipo === 'receita');
@@ -141,6 +159,8 @@ export function criarFinancas(f) {
             mes,
             atual,
             resumo: { receitas: meses.at(-1).receitas, gastos: meses.at(-1).gastos, vendas: vendasDoMes.total, quantidadeDeVendas: vendasDoMes.quantidade },
+            // desde o comeco ate o mes atual: para a pizza "Geral" de receita e despesa
+            geral: { receitas: totalAte(receitas, atual) + vendasAteHoje, gastos: totalAte(gastos, atual) },
             pizzaDasReceitas: fatiasDaPizza([...(vendasDoMes.total ? [{ nome: 'Vendas da loja', valor: vendasDoMes.total }] : []), ...receitasDoMes]),
             pizzaDosGastos: fatiasDaPizza(gastosDoMes),
             // os lancamentos que valem no mes (para ver e mexer) e todos os mensais, que podem ter acabado antes
@@ -161,6 +181,12 @@ export function criarFinancas(f) {
         return rows[0];
     }
 
+    /** A receita de um banner e mudada pelo cadastro do banner (o valor, a cobranca e o fim ficam la). */
+    function exigirQueNaoSejaDeBanner(lancamento) {
+        if (lancamento.banner) throw new DadoInvalidoNasFinancas('Essa receita vem de um banner: mude o valor ou o fim no cadastro do banner (Gerenciar → Banners)');
+        return lancamento;
+    }
+
     return async function tratar(request, url, partes) {
         const [id, acao] = partes;
         const metodo = request.method;
@@ -175,13 +201,13 @@ export function criarFinancas(f) {
                 return json(201, linha(await exigirLancamento(novoId)));
             }
             if (id && !acao && metodo === 'DELETE') {
-                await exigirLancamento(id);
+                exigirQueNaoSejaDeBanner(await exigirLancamento(id));
                 await db.query('DELETE FROM financas WHERE id = $1', [id]);
                 return new Response(null, { status: 204 });
             }
             // mensal: o valor muda a partir de um mes; os meses de antes continuam com o valor antigo
             if (id && acao === 'valor' && metodo === 'PUT') {
-                const atual = await exigirLancamento(id);
+                const atual = exigirQueNaoSejaDeBanner(await exigirLancamento(id));
                 const { valor, aPartirDe } = await f.lerCorpo(request);
                 const novoValor = lerValor(valor);
                 if (atual.recorrencia !== 'mensal') {
@@ -211,7 +237,7 @@ export function criarFinancas(f) {
             }
             // mensal: o ultimo mes em que conta (parou de pagar ou de receber)
             if (id && acao === 'encerrar' && metodo === 'PUT') {
-                const atual = await exigirLancamento(id);
+                const atual = exigirQueNaoSejaDeBanner(await exigirLancamento(id));
                 if (atual.recorrencia !== 'mensal') throw new DadoInvalidoNasFinancas('Só lançamentos mensais podem ser encerrados');
                 const { ultimoMes } = await f.lerCorpo(request);
                 const mes = lerMes(ultimoMes, 'último mês');

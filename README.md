@@ -107,7 +107,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [O tema da pessoa no perfil e nas listas](docs/73-tema-da-pessoa-no-perfil-e-nas-listas.md) | [Curtir sem abrir o post](docs/74-curtir-sem-abrir-o-post.md) |
 | [Otimização geral do site](docs/75-otimizacao-geral.md) | [Banners de anúncio: cadastro e relatórios](docs/76-banners-de-anuncio.md) |
 | [Sem a aba Imagens da loja](docs/77-sem-a-aba-imagens-da-loja.md) | [Imagens da loja: aba do dono e terminal](docs/78-imagens-da-loja-pelo-terminal.md) |
-| [A borda Celestial usa o canvas.png](docs/79-celestial-com-canvas-png.md) | |
+| [A borda Celestial usa o canvas.png](docs/79-celestial-com-canvas-png.md) | [Banner vertical recomendado: 400 × 1280](docs/80-banner-vertical-400x1280.md) |
+| [A receita dos banners e a pizza das Finanças](docs/81-receita-dos-banners-e-pizza-das-financas.md) | |
 
 ## Testes
 

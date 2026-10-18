@@ -24,11 +24,19 @@ test('o link: vazio, https ou mailto simples; nada de http, javascript ou copia 
 
 test('os campos do formulario sao conferidos', () => {
     assert.deepEqual(validarDadosDoBanner({ empresa: '  Loja   do Otaku ', texto: 'Mangás em promoção', link: '', formato: 'vertical', peso: '3' }),
-        { empresa: 'Loja do Otaku', texto: 'Mangás em promoção', link: null, formato: 'vertical', peso: 3 });
+        { empresa: 'Loja do Otaku', texto: 'Mangás em promoção', link: null, formato: 'vertical', peso: 3, valor: null, cobranca: null, terminaEm: null });
     assert.equal(validarDadosDoBanner({ empresa: 'X', formato: 'horizontal' }).peso, 1, 'peso padrao');
+    assert.equal(validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', peso: 0 }).peso, 0, 'peso 0: nao aparece');
     assert.throws(() => validarDadosDoBanner({ empresa: '', formato: 'horizontal' }), /nome da empresa/);
     assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'quadrado' }), /horizontal ou vertical/);
-    assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', peso: 0 }), /de 1 a 100/);
+    assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', peso: 101 }), /de 0 a 100/);
+    // o valor que o banner rende, por mes ou de uma vez, e o fim
+    const comValor = validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', valor: '1.234,50', cobranca: 'mensal', terminaEm: '2026-12-31' });
+    assert.deepEqual([comValor.valor, comValor.cobranca, comValor.terminaEm], [123450, 'mensal', '2026-12-31']);
+    assert.equal(validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', valor: '', cobranca: 'mensal' }).cobranca, null, 'sem valor, sem cobranca');
+    assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', valor: '100' }), /por mês ou de uma vez/);
+    assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', valor: 'cem', cobranca: 'unica' }), /150,00/);
+    assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', terminaEm: '2026-02-30' }), /data de término/);
     assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', texto: 'a'.repeat(201) }), /200/);
 });
 
@@ -42,7 +50,7 @@ test('o tipo da imagem vem dos primeiros bytes: PNG, JPEG e WebP, e nada de SVG 
 
 test('as medidas de cada formato: horizontal deitado e vertical em pe', () => {
     for (const [l, a] of [[1280, 400], [970, 250], [728, 90]]) assert.equal(problemaNasMedidas('horizontal', l, a), null, `${l}x${a}`);
-    for (const [l, a] of [[300, 600], [160, 600], [120, 600]]) assert.equal(problemaNasMedidas('vertical', l, a), null, `${l}x${a}`);
+    for (const [l, a] of [[400, 1280], [300, 600], [160, 600], [120, 600]]) assert.equal(problemaNasMedidas('vertical', l, a), null, `${l}x${a}`);
     assert.match(problemaNasMedidas('horizontal', 300, 600), /deitado/);
     assert.match(problemaNasMedidas('vertical', 1280, 400), /em pé/);
     assert.match(problemaNasMedidas('horizontal', 200, 50), /de 300 a 4000 px de largura/);

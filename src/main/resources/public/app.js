@@ -3880,7 +3880,7 @@ function lerReais(texto) {
  * espaco da cor do fundo separa as fatias, e o total fica no meio. A legenda ao lado tem o nome, o valor e a
  * porcentagem de cada fatia (os numeros nao dependem da cor nem do mouse); passar o mouse numa fatia destaca a linha.
  */
-function graficoDePizza(titulo, fatias, vazioTexto) {
+function graficoDePizza(titulo, fatias, vazioTexto, rotuloDoMeio = 'no mês', valorDoMeio = null) {
     const total = fatias.reduce((soma, fatia) => soma + fatia.valor, 0);
     const caixa = h('section', {class: 'pizza-do-painel', 'aria-label': titulo}, h('h3', null, titulo));
     if (!total) {
@@ -3903,7 +3903,8 @@ function graficoDePizza(titulo, fatias, vazioTexto) {
     fatias.forEach((fatia, i) => {
         const parte = fatia.valor / total;
         const fim = angulo + parte * Math.PI * 2;
-        const cor = 'var(--serie-' + (i + 1) + ')';
+        // a cor segue quem a fatia e (quando vem), e nao a posicao
+        const cor = fatia.cor || 'var(--serie-' + (i + 1) + ')';
         let forma;
         if (fatias.length === 1) {
             forma = svg('circle', {cx: centro, cy: centro, r: raio - espessura / 2, fill: 'none', stroke: cor, 'stroke-width': espessura, class: 'fatia'});
@@ -3929,8 +3930,8 @@ function graficoDePizza(titulo, fatias, vazioTexto) {
         angulo = fim;
     });
     grafico.append(
-        svg('text', {x: centro, y: centro - 4, 'text-anchor': 'middle', class: 'total-da-pizza'}, reais(total)),
-        svg('text', {x: centro, y: centro + 16, 'text-anchor': 'middle', class: 'rotulo-da-pizza'}, 'no mês'));
+        svg('text', {x: centro, y: centro - 4, 'text-anchor': 'middle', class: 'total-da-pizza'}, valorDoMeio ?? reais(total)),
+        svg('text', {x: centro, y: centro + 16, 'text-anchor': 'middle', class: 'rotulo-da-pizza'}, rotuloDoMeio));
     caixa.append(h('div', {class: 'corpo-da-pizza'}, h('div', {class: 'desenho-da-pizza'}, grafico), legenda));
     return caixa;
 }
@@ -4078,6 +4079,39 @@ function janelaDeLancamento(tipo, mesAberto, aoSalvar) {
     nome.focus();
 }
 
+/**
+ * Pizza de receita e despesa, com a escolha entre o mes aberto e o geral (tudo desde o comeco ate o mes atual). A
+ * escolha fica guardada enquanto a pagina esta aberta. A legenda traz os valores e as porcentagens, e embaixo vai o
+ * resultado (lucro ou prejuizo) do que esta sendo mostrado.
+ */
+function pizzaDeReceitaEDespesa(dados, mes) {
+    const caixa = h('section', {class: 'pizza-de-resultado'});
+    const desenhar = () => {
+        const geral = estado.pizzaDasFinancas === 'geral';
+        const numeros = geral ? dados.geral : dados.resumo;
+        const resultado = numeros.receitas - numeros.gastos;
+        const escolha = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Período da pizza'},
+            ...[['mes', 'Do mês'], ['geral', 'Geral']].map(([valor, texto]) => h('button', {type: 'button', class: 'filtro',
+                'aria-pressed': String((estado.pizzaDasFinancas || 'mes') === valor), onclick: () => {
+                    estado.pizzaDasFinancas = valor;
+                    desenhar();
+                }}, texto)));
+        const pizza = graficoDePizza(geral ? 'Receita e despesa, no geral' : 'Receita e despesa em ' + mesPorExtenso(mes),
+            [{nome: 'Receitas', valor: numeros.receitas, cor: 'var(--serie-1)'}, {nome: 'Despesas', valor: numeros.gastos, cor: 'var(--serie-2)'}].filter(fatia => fatia.valor > 0),
+            geral ? 'Nada cadastrado ainda.' : 'Nenhuma receita nem despesa neste mês.',
+            // no meio, o resultado (somar receita com despesa nao diria nada)
+            resultado > 0 ? 'de lucro' : resultado < 0 ? 'de prejuízo' : 'empatou', reais(Math.abs(resultado)));
+        pizza.querySelector('h3').after(escolha,
+            h('p', {class: 'resultado-da-pizza ' + (resultado >= 0 ? 'lucro' : 'prejuizo')},
+                h('span', {'aria-hidden': 'true'}, resultado >= 0 ? '▲ ' : '▼ '),
+                (resultado > 0 ? 'Lucro de ' : resultado < 0 ? 'Prejuízo de ' : 'Empatou: ') + reais(Math.abs(resultado)),
+                geral ? ' desde o começo' : ' no mês'));
+        caixa.replaceChildren(pizza);
+    };
+    desenhar();
+    return caixa;
+}
+
 /** Janela pequena com um campo: mudar o valor de um mensal a partir do mes aberto. */
 function janelaDeNovoValor(lancamento, mesAberto, aoSalvar) {
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
@@ -4165,6 +4199,13 @@ async function financasDoGerenciamento(conteudo, vez, mesPedido) {
                     avisar(e.message, true);
                 }
             }}, 'Excluir')].filter(Boolean);
+        // a receita de um banner e mudada no cadastro do banner (valor, cobranca e termino ficam la)
+        if (item.banner) {
+            return h('li', {class: 'lancamento'},
+                h('div', {class: 'sobre-o-lancamento'}, h('b', null, item.nome),
+                    h('small', null, periodo + ' · vem do banner: ', h('a', {href: '#/gerenciar/banners'}, 'mude no cadastro do banner'))),
+                h('b', {class: 'valor-do-lancamento'}, reais(item.valor) + (mensal ? '/mês' : '')));
+        }
         return h('li', {class: 'lancamento'},
             h('div', {class: 'sobre-o-lancamento'}, h('b', null, item.nome), h('small', null, periodo)),
             h('b', {class: 'valor-do-lancamento'}, reais(item.valor) + (mensal ? '/mês' : '')),
@@ -4214,6 +4255,7 @@ async function financasDoGerenciamento(conteudo, vez, mesPedido) {
                 h('span', {class: 'rotulo-do-quadro'}, 'Resultado do mês'),
                 h('b', {class: 'valor-do-quadro'}, h('span', {'aria-hidden': 'true'}, resultado >= 0 ? '▲ ' : '▼ '), reais(Math.abs(resultado))),
                 h('small', null, resultado > 0 ? 'Lucro' : resultado < 0 ? 'Prejuízo' : 'Empatou'))),
+        pizzaDeReceitaEDespesa(dados, mes),
         h('div', {class: 'pizzas-das-financas'},
             graficoDePizza('De onde vem o dinheiro', dados.pizzaDasReceitas, 'Nenhuma receita neste mês.'),
             graficoDePizza('Para onde vai o dinheiro', dados.pizzaDosGastos, 'Nenhum gasto neste mês.')),
@@ -4371,12 +4413,16 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
         h('div', {class: 'sobre-o-banner'},
             h('div', {class: 'linha'}, h('b', null, banner.empresa),
                 h('span', {class: 'selo-na-mochila'}, banner.formato === 'vertical' ? 'Vertical' : 'Horizontal'),
-                banner.pausado ? h('span', {class: 'selo-de-pausa'}, 'Pausado') : h('span', {class: 'selo-ativo'}, 'No ar')),
+                banner.encerrado ? h('span', {class: 'selo-de-pausa'}, 'Encerrado')
+                    : banner.pausado ? h('span', {class: 'selo-de-pausa'}, 'Pausado')
+                        : banner.peso === 0 ? h('span', {class: 'selo-de-pausa'}, 'Peso 0') : h('span', {class: 'selo-ativo'}, 'No ar')),
             h('small', null, banner.largura + ' × ' + banner.altura + ' px · peso ' + banner.peso + (banner.link ? ' · ' + banner.link : ' · sem link')),
+            h('small', null, (banner.valor ? 'Rende ' + reais(banner.valor) + (banner.cobranca === 'mensal' ? ' por mês' : ' (uma vez)') : 'Sem valor cadastrado')
+                + (banner.terminaEm ? ' · ' + (banner.encerrado ? 'acabou em ' : 'acaba em ') + new Date(banner.terminaEm + 'T12:00:00').toLocaleDateString('pt-BR') : ' · sem data para acabar')),
             h('small', null, 'Este mês: ' + numeroInteiro(banner.exibicoes) + ' exibições, ' + numeroInteiro(banner.cliques) + ' cliques (' + taxaEmTexto(banner.taxa) + ')'),
             h('div', {class: 'acoes-do-lancamento'},
                 h('a', {class: 'botao pequeno primario', href: '#/gerenciar/banners/' + encodeURIComponent(banner.id)}, 'Relatório'),
-                h('button', {type: 'button', class: 'botao pequeno', onclick: () => janelaDoBanner(lista.formatos, banner, recarregar)}, 'Editar'),
+                h('button', {type: 'button', class: 'botao pequeno', onclick: () => janelaDoBanner(lista.formatos, banner, recarregar, lista.banners)}, 'Editar'),
                 h('button', {type: 'button', class: 'botao pequeno', onclick: async () => {
                     try {
                         await chamar('PUT', '/api/banners/' + encodeURIComponent(banner.id) + '/pausa', {pausado: !banner.pausado});
@@ -4404,7 +4450,7 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
             h('div', {class: 'acoes-do-lancamento'},
                 h('a', {class: 'botao pequeno', href: '/api/banners/planilha?mes=' + relatorio.mes, download: true}, 'Baixar planilha do mês'),
                 h('button', {type: 'button', class: 'botao pequeno primario', disabled: lista.banners.length >= lista.maximo,
-                    onclick: () => janelaDoBanner(lista.formatos, null, recarregar)}, '+ Banner'))),
+                    onclick: () => janelaDoBanner(lista.formatos, null, recarregar, lista.banners)}, '+ Banner'))),
         navegacaoDoMes(relatorio.mes, relatorio.atual, novo => bannersNoGerenciamento(conteudo, vez, novo)),
         h('div', {class: 'numeros-do-painel numeros-dos-banners'},
             quadroDoPainel('Exibições no mês', t.exibicoes),
@@ -4433,13 +4479,42 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
  * Janela para cadastrar ou editar um banner: empresa, descricao (para leitores de tela), link, formato, peso e a imagem,
  * com a previa e as medidas conferidas na hora (o servidor confere de novo). formatos: as regras de cada formato.
  */
-function janelaDoBanner(formatos, banner, aoSalvar) {
+function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
     const empresa = h('input', {type: 'text', id: 'banner-empresa', maxlength: '120', required: true, value: banner?.empresa || '', placeholder: 'Ex.: Loja do Otaku'});
     const texto = h('input', {type: 'text', id: 'banner-texto', maxlength: '200', value: banner?.texto || '', placeholder: 'Ex.: Mangás com 20% de desconto'});
     const link = h('input', {type: 'url', id: 'banner-link', maxlength: '500', value: banner?.link || '', placeholder: 'https://… (ou vazio)'});
-    const peso = h('input', {type: 'number', id: 'banner-peso', min: '1', max: '100', step: '1', value: String(banner?.peso || 1)});
-    const arquivo = h('input', {type: 'file', id: 'banner-imagem', accept: 'image/png,image/jpeg,image/webp'});
+    // o peso: uma barra de 0 a 10 (a maioria dos casos) e o numero ao lado, que vai ate 100
+    const pesoInicial = banner ? banner.peso : 1;
+    const barraDoPeso = h('input', {type: 'range', id: 'banner-peso', min: '0', max: '10', step: '1', value: String(Math.min(pesoInicial, 10)), 'aria-describedby': 'explicacao-do-peso'});
+    const numeroDoPeso = h('input', {type: 'number', min: '0', max: '100', step: '1', value: String(pesoInicial), 'aria-label': 'Peso (número)'});
+    const explicacaoDoPeso = h('small', {id: 'explicacao-do-peso', class: 'explicacao-do-peso'});
+    // os outros banners que estao no ar (sem este): a parte das exibicoes e o peso deste sobre a soma de todos
+    const outros = todos.filter(outro => outro.id !== banner?.id && !outro.pausado && !outro.encerrado && outro.peso > 0);
+    const explicarPeso = () => {
+        const valor = Number(numeroDoPeso.value) || 0;
+        if (valor === 0) {
+            explicacaoDoPeso.textContent = 'Peso 0: o banner não aparece (fica no cadastro, com os números dele).';
+            return;
+        }
+        const soma = outros.reduce((total, outro) => total + outro.peso, 0) + valor;
+        const parte = Math.round((valor / soma) * 100);
+        explicacaoDoPeso.textContent = (valor === 1 ? 'Peso 1: o normal. ' : 'Peso ' + valor + ': aparece ' + valor + ' vezes mais que um banner de peso 1. ')
+            + (outros.length ? 'Com os ' + (outros.length + 1) + ' banners no ar, fica com cerca de ' + parte + '% das exibições.' : 'É o único banner no ar: fica com todas as exibições.');
+    };
+    barraDoPeso.addEventListener('input', () => { numeroDoPeso.value = barraDoPeso.value; explicarPeso(); });
+    numeroDoPeso.addEventListener('input', () => { barraDoPeso.value = String(Math.min(Number(numeroDoPeso.value) || 0, 10)); explicarPeso(); });
+    explicarPeso();
+    // quanto o banner rende, por mes ou de uma vez: vira uma receita nas Financas
+    const valor = h('input', {type: 'text', id: 'banner-valor', inputmode: 'decimal', autocomplete: 'off', placeholder: '0,00 (ou vazio)',
+        value: banner?.valor ? (banner.valor / 100).toFixed(2).replace('.', ',') : ''});
+    let cobranca = banner?.cobranca || 'mensal';
+    const opcoesDeCobranca = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Cobrança'});
+    const desenharCobranca = () => opcoesDeCobranca.replaceChildren(...[['mensal', 'Por mês'], ['unica', 'Uma vez só']].map(([qual, nome]) =>
+        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(cobranca === qual), onclick: () => { cobranca = qual; desenharCobranca(); }}, nome)));
+    desenharCobranca();
+    const terminaEm = h('input', {type: 'date', id: 'banner-termino', value: banner?.terminaEm || ''});
+    const arquivo = h('input', {type: 'file', id: 'banner-imagem', class: 'escolher-arquivo', accept: 'image/png,image/jpeg,image/webp'});
     const previa = h('div', {class: 'previa-do-banner grande'}, banner ? h('img', {src: banner.imagem, alt: ''}) : h('span', {class: 'subtitulo'}, 'A imagem aparece aqui'));
     const medidas = h('small', {class: 'medidas-do-banner'});
     let formato = banner?.formato || 'horizontal';
@@ -4500,8 +4575,16 @@ function janelaDoBanner(formatos, banner, aoSalvar) {
         h('div', {class: 'campo'}, h('label', {for: 'banner-texto'}, 'Descrição (para leitores de tela)'), texto),
         h('div', {class: 'campo'}, h('label', {for: 'banner-link'}, 'Link ao clicar'), link,
             h('small', null, 'https:// ou mailto:. Vazio: o banner não é clicável.')),
-        h('div', {class: 'campo'}, h('label', {for: 'banner-peso'}, 'Peso'), peso,
-            h('small', null, 'A parte das exibições: um banner de peso 2 aparece o dobro de um de peso 1.')),
+        h('div', {class: 'campo'}, h('label', {for: 'banner-peso'}, 'Peso: quanto ele aparece'),
+            h('div', {class: 'linha-do-peso'}, barraDoPeso, numeroDoPeso), explicacaoDoPeso),
+        h('fieldset', {class: 'campo-de-dinheiro'},
+            h('legend', null, 'Quanto ele rende'),
+            h('div', {class: 'campos-mensais'},
+                h('div', {class: 'campo'}, h('label', {for: 'banner-valor'}, 'Valor em reais'), valor),
+                h('div', {class: 'campo'}, h('span', {class: 'rotulo'}, 'Cobrança'), opcoesDeCobranca)),
+            h('small', null, 'Entra sozinho nas Finanças como receita: por mês, em todo mês desde o começo do anúncio até o término; uma vez só, no dia do cadastro. Vazio: sem receita.')),
+        h('div', {class: 'campo'}, h('label', {for: 'banner-termino'}, 'Acaba em (opcional)'), terminaEm,
+            h('small', null, 'Nesse dia o peso vira 0 e o banner sai do ar. A receita por mês para nesse mês.')),
         erro,
         h('div', {class: 'acoes'}, h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'), salvar));
     const dialogo = h('dialog', {class: 'janela-de-lancamento janela-do-banner'},
@@ -4524,7 +4607,10 @@ function janelaDoBanner(formatos, banner, aoSalvar) {
         envio.append('texto', texto.value);
         envio.append('link', link.value);
         envio.append('formato', formato);
-        envio.append('peso', peso.value);
+        envio.append('peso', numeroDoPeso.value);
+        envio.append('valor', valor.value);
+        envio.append('cobranca', cobranca);
+        envio.append('terminaEm', terminaEm.value);
         if (arquivo.files[0]) envio.append('imagem', arquivo.files[0]);
         salvar.disabled = true;
         try {

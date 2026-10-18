@@ -83,6 +83,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [77 · Sem a aba Imagens da loja](77-sem-a-aba-imagens-da-loja.md) | A aba de enviar imagens saiu do Gerenciar; a imagem da borda Celestial continua sendo servida |
 | [78 · Imagens da loja: aba do dono e terminal](78-imagens-da-loja-pelo-terminal.md) | A aba Imagens da loja de volta, só na conta do dono, e uma ferramenta para guardar as imagens pelo terminal |
 | [79 · A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md) | A moldura da Celestial vem da imagem `canvas.png`, o arquivo original |
+| [80 · Banner vertical recomendado: 400 × 1280](80-banner-vertical-400x1280.md) | O tamanho recomendado do banner vertical passou a ser 400 × 1280, o espelho do horizontal |
+| [81 · A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md) | A pizza de receita e despesa (do mês ou geral), e no banner o peso melhor, o valor que ele rende (nas Finanças) e a data em que acaba |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

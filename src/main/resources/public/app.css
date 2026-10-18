@@ -2703,3 +2703,26 @@ body.pagina-de-relatorio .topo { display: none; }
     .topo, .topo-do-relatorio .botao, .navegacao-do-mes button, .tabela-do-grafico summary, .avisos { display: none !important; }
     .quadro-do-painel, .grafico-do-painel, .meses-do-painel { break-inside: avoid; border-color: #ccc; background: #fff; }
 }
+
+/* o botao de escolher o arquivo na cor de destaque do site */
+input[type=file].escolher-arquivo::file-selector-button {
+    margin-right: 10px; padding: 8px 14px; border: 0; border-radius: 999px; background: var(--destaque); color: var(--sobre-destaque);
+    font: inherit; font-weight: 700; cursor: pointer;
+}
+input[type=file].escolher-arquivo::file-selector-button:hover { background: var(--destaque-forte); }
+/* o peso: a barra e o numero lado a lado, e a explicacao embaixo */
+.linha-do-peso { display: flex; align-items: center; gap: 12px; }
+.linha-do-peso input[type=range] { flex: 1; accent-color: var(--destaque); }
+.linha-do-peso input[type=number] { width: 80px; }
+.explicacao-do-peso { color: var(--texto-fraco); font-size: 12.5px; }
+.campo-de-dinheiro { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 12px 14px; border: 1px solid var(--borda); border-radius: var(--raio); }
+.campo-de-dinheiro legend { padding: 0 6px; font-weight: 700; }
+.campo-de-dinheiro small { color: var(--texto-fraco); font-size: 12.5px; }
+/* o valor e a cobranca um embaixo do outro: os botoes da cobranca cabem inteiros */
+.campo-de-dinheiro .campos-mensais { grid-template-columns: 1fr; }
+/* a pizza de receita e despesa (do mes ou geral) */
+.pizza-de-resultado { margin-bottom: 14px; }
+.pizza-de-resultado .filtros { margin: 0 0 10px; }
+.resultado-da-pizza { margin: 0 0 10px; font-weight: 700; }
+.resultado-da-pizza.lucro { color: var(--lucro); }
+.resultado-da-pizza.prejuizo { color: var(--prejuizo); }

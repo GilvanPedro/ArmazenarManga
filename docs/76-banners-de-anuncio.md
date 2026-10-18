@@ -120,3 +120,8 @@ Só o dono do site, menos as duas abertas indicadas.
   planilha saiu em CSV, pausar funcionou, e o link da empresa abriu sem login só com o relatório daquele banner. Um
   código errado, o código de outro banner e o link antigo depois de "Gerar link novo" deram 404; uma conta que não é
   a dona recebeu 403. O site compactado também foi conferido.
+
+> Depois, o tamanho recomendado do vertical passou a ser 400 × 1280: veja [Banner vertical recomendado: 400 × 1280](80-banner-vertical-400x1280.md).
+
+> Depois, os banners passaram a ter o valor que rendem (que entra nas Finanças) e a data em que acabam, e as Finanças, a
+> pizza de receita e despesa: veja [A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md).

@@ -4,7 +4,7 @@
 // metricas_de_banner, que os relatorios ja leem. Mesmo desenho do painel de anuncios do CuidaMed (ADR-0055 e 0057).
 //
 // Sem rastrear ninguem: as contagens sao por dia, banner e lugar no site, sem conta, IP ou aparelho.
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 export const ESTRUTURA_DOS_BANNERS = `
     -- formato: horizontal ou vertical. pausado: fica no cadastro, mas nao aparece. peso: a parte das exibicoes (1 a 100)
@@ -18,6 +18,12 @@ export const ESTRUTURA_DOS_BANNERS = `
     CREATE TABLE IF NOT EXISTS metricas_de_banner (dia DATE NOT NULL, banner TEXT NOT NULL, posicao TEXT NOT NULL DEFAULT '',
         exibicoes INT NOT NULL DEFAULT 0, cliques INT NOT NULL DEFAULT 0, PRIMARY KEY (dia, banner, posicao));
     CREATE INDEX IF NOT EXISTS metricas_de_banner_banner ON metricas_de_banner (banner, dia);
+    -- quanto o banner rende (centavos) e como e cobrado (mensal ou unica): vira uma receita nas Financas (lancamento);
+    -- termina_em: o dia em que o banner acaba (dai em diante o peso vira 0)
+    ALTER TABLE banners ADD COLUMN IF NOT EXISTS valor INT;
+    ALTER TABLE banners ADD COLUMN IF NOT EXISTS cobranca TEXT;
+    ALTER TABLE banners ADD COLUMN IF NOT EXISTS termina_em DATE;
+    ALTER TABLE banners ADD COLUMN IF NOT EXISTS lancamento UUID;
 `;
 
 export const BANNERS_MAXIMOS = 50;
@@ -25,12 +31,12 @@ export const TAMANHO_MAXIMO_DO_BANNER = 1024 * 1024;
 
 /**
  * As medidas aceitas de cada formato (em pixels), e as proporcoes: um horizontal tem a largura de 2 a 11 vezes a
- * altura (1280 x 400, 970 x 250, 728 x 90); um vertical tem a altura de 1,5 a 5 vezes a largura (300 x 600,
- * 160 x 600, 120 x 600).
+ * altura (1280 x 400, 970 x 250, 728 x 90); um vertical tem a altura de 1,5 a 5 vezes a largura (400 x 1280, o
+ * recomendado, espelho do horizontal; 300 x 600, 160 x 600, 120 x 600).
  */
 export const FORMATOS_DE_BANNER = {
     horizontal: { nome: 'Horizontal', largura: [300, 4000], altura: [50, 2000], proporcao: [2, 11], exemplos: '1280 × 400, 970 × 250 ou 728 × 90' },
-    vertical: { nome: 'Vertical', largura: [100, 2000], altura: [250, 4000], proporcao: [1.5, 5], exemplos: '300 × 600 ou 160 × 600' },
+    vertical: { nome: 'Vertical', largura: [100, 2000], altura: [250, 4000], proporcao: [1.5, 5], exemplos: '400 × 1280, 300 × 600 ou 160 × 600' },
 };
 
 export class DadoInvalidoNoBanner extends Error {}
@@ -67,7 +73,28 @@ export function validarLinkDeBanner(link) {
     throw new DadoInvalidoNoBanner('Link inválido: use um endereço que comece com https:// (ou mailto: para e-mail)');
 }
 
-/** Os campos do formulario de um banner, conferidos: { empresa, texto, link, formato, peso }. */
+/** "1.234,56", "1234.56", "R$ 150" -> centavos; vazio -> nulo. */
+export function lerValorEmReais(texto) {
+    const limpo = String(texto ?? '').replace(/[R$\s]/g, '');
+    if (!limpo) return null;
+    const numero = limpo.includes(',') ? limpo.replace(/\./g, '').replace(',', '.') : limpo;
+    if (!/^\d+(\.\d{1,2})?$/.test(numero)) throw new DadoInvalidoNoBanner('Escreva o valor como 150,00');
+    const centavos = Math.round(Number(numero) * 100);
+    if (centavos < 1 || centavos > 100_000_000) throw new DadoInvalidoNoBanner('O valor vai de R$ 0,01 a R$ 1.000.000,00');
+    return centavos;
+}
+
+/** "AAAA-MM-DD" valido (uma data que existe), vazio -> nulo. */
+export function lerDataDeTermino(texto) {
+    const valor = String(texto ?? '').trim();
+    if (!valor) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor) || new Date(valor + 'T12:00:00Z').toISOString().slice(0, 10) !== valor) {
+        throw new DadoInvalidoNoBanner('Escolha uma data de término válida');
+    }
+    return valor;
+}
+
+/** Os campos do formulario de um banner, conferidos: { empresa, texto, link, formato, peso, valor, cobranca, terminaEm }. */
 export function validarDadosDoBanner(dados) {
     const empresa = typeof dados.empresa === 'string' ? dados.empresa.trim().replace(/\s+/g, ' ') : '';
     if (!empresa) throw new DadoInvalidoNoBanner('Informe o nome da empresa');
@@ -76,8 +103,11 @@ export function validarDadosDoBanner(dados) {
     if ([...texto].length > 200) throw new DadoInvalidoNoBanner('A descrição pode ter no máximo 200 caracteres');
     if (!Object.hasOwn(FORMATOS_DE_BANNER, dados.formato)) throw new DadoInvalidoNoBanner('Escolha o formato: horizontal ou vertical');
     const peso = Number(dados.peso ?? 1);
-    if (!Number.isInteger(peso) || peso < 1 || peso > 100) throw new DadoInvalidoNoBanner('O peso vai de 1 a 100 (para tirar o banner do ar, use Pausar)');
-    return { empresa, texto, link: validarLinkDeBanner(dados.link), formato: dados.formato, peso };
+    if (!Number.isInteger(peso) || peso < 0 || peso > 100) throw new DadoInvalidoNoBanner('O peso vai de 0 a 100 (0: o banner não aparece)');
+    const valor = lerValorEmReais(dados.valor);
+    const cobranca = valor == null ? null : dados.cobranca;
+    if (valor != null && !['mensal', 'unica'].includes(cobranca)) throw new DadoInvalidoNoBanner('Escolha se o valor é por mês ou de uma vez só');
+    return { empresa, texto, link: validarLinkDeBanner(dados.link), formato: dados.formato, peso, valor, cobranca, terminaEm: lerDataDeTermino(dados.terminaEm) };
 }
 
 /** O tipo de verdade de uma imagem pelos primeiros bytes: PNG, JPEG ou WebP (nulo para o resto, inclusive SVG e GIF). */
@@ -178,7 +208,65 @@ export function celulaDoCsv(valor) {
 export function criarBanners(f) {
     const { banco, json, Recusa } = f;
     const MES_ATUAL = `to_char(now() AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM')`;
-    const CAMPOS = 'id, empresa, texto, link, formato, peso, pausado, tipo_imagem, largura, altura, codigo_do_relatorio, criado_em, atualizado_em';
+    const CAMPOS = `id, empresa, texto, link, formato, peso, pausado, tipo_imagem, largura, altura, codigo_do_relatorio, criado_em, atualizado_em,
+        valor, cobranca, to_char(termina_em, 'YYYY-MM-DD') AS termina_em, lancamento`;
+    const HOJE = `(now() AT TIME ZONE 'America/Sao_Paulo')::date`;
+    /** "AAAA-MM-DD" de hoje no horario de Brasilia. */
+    const hoje = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const mesAnterior = mes => new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 2, 1)).toISOString().slice(0, 7);
+
+    /** Banners que chegaram ao dia do termino: o peso vira 0 (deixam de aparecer). Roda antes de mostrar a lista. */
+    async function encerrarVencidos(db) {
+        await db.query(`UPDATE banners SET peso = 0 WHERE termina_em IS NOT NULL AND termina_em <= ${HOJE} AND peso > 0`);
+    }
+
+    /**
+     * Deixa a receita do banner nas Financas igual ao cadastro (dentro da mesma transacao). Mensal: conta todo mes,
+     * do mes em que comecou ate o mes do termino (ou sem fim); unica: conta no dia em que foi cadastrada. Mudar o valor
+     * de um mensal vale a partir deste mes (os meses de antes ficam com o valor antigo); tirar o valor ou trocar a
+     * cobranca encerra a receita antiga no mes passado (ou apaga, se ela comecou este mes).
+     */
+    async function sincronizarReceita(db, banner, dados) {
+        const mes = hoje().slice(0, 7);
+        const nome = ('Banner: ' + dados.empresa).slice(0, 60);
+        const fimDoMensal = dados.terminaEm ? dados.terminaEm.slice(0, 7) + '-01' : null;
+        const { rows } = banner.lancamento
+            ? await db.query(`SELECT id, valor, recorrencia, to_char(inicio, 'YYYY-MM-DD') AS inicio FROM financas WHERE id = $1`, [banner.lancamento])
+            : { rows: [] };
+        const atual = rows[0] || null;
+        // encerra (ou apaga) a receita atual
+        const encerrar = async () => {
+            if (!atual) return;
+            if (atual.recorrencia === 'mensal' && atual.inicio.slice(0, 7) < mes) {
+                await db.query(`UPDATE financas SET fim = $2 WHERE id = $1 AND (fim IS NULL OR fim >= $2)`, [atual.id, mesAnterior(mes) + '-01']);
+            } else if (atual.recorrencia === 'mensal' || atual.inicio.slice(0, 7) === mes) {
+                await db.query('DELETE FROM financas WHERE id = $1', [atual.id]);
+            }
+            // uma unica de um mes que ja passou fica: o dinheiro entrou
+        };
+        const criar = async (inicio) => {
+            const id = randomUUID();
+            await db.query(`INSERT INTO financas (id, tipo, nome, valor, recorrencia, inicio, fim, banner) VALUES ($1, 'receita', $2, $3, $4, $5, $6, $7)`,
+                [id, nome, dados.valor, dados.cobranca, inicio, dados.cobranca === 'mensal' ? fimDoMensal : null, banner.id]);
+            return id;
+        };
+        let novo = atual?.id || null;
+        if (dados.valor == null) {
+            await encerrar();
+            novo = null;
+        } else if (!atual || atual.recorrencia !== dados.cobranca) {
+            await encerrar();
+            novo = await criar(dados.cobranca === 'mensal' ? mes + '-01' : hoje());
+        } else if (dados.cobranca === 'mensal' && atual.valor !== dados.valor && atual.inicio.slice(0, 7) < mes) {
+            // o valor novo vale deste mes em diante
+            await db.query('UPDATE financas SET fim = $2 WHERE id = $1', [atual.id, mesAnterior(mes) + '-01']);
+            novo = await criar(mes + '-01');
+        } else {
+            await db.query(`UPDATE financas SET nome = $2, valor = $3, fim = $4 WHERE id = $1`,
+                [atual.id, nome, dados.valor, dados.cobranca === 'mensal' ? fimDoMensal : null]);
+        }
+        if (novo !== banner.lancamento) await db.query('UPDATE banners SET lancamento = $2 WHERE id = $1', [banner.id, novo]);
+    }
     const novoCodigo = () => randomBytes(18).toString('base64url');
 
     const publico = (banner, numeros = {}) => ({
@@ -186,6 +274,9 @@ export function criarBanners(f) {
         peso: banner.peso, pausado: banner.pausado, largura: banner.largura, altura: banner.altura,
         imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?v=${new Date(banner.atualizado_em).getTime()}`,
         criadoEm: banner.criado_em, atualizadoEm: banner.atualizado_em,
+        valor: banner.valor, cobranca: banner.cobranca, terminaEm: banner.termina_em,
+        // chegou ao dia do termino: nao aparece mais (o peso ja virou 0)
+        encerrado: Boolean(banner.termina_em) && banner.termina_em <= hoje(),
         // o caminho do relatorio da empresa (o site monta o endereco completo)
         relatorio: `#/relatorio-de-banner/${encodeURIComponent(banner.id)}/${banner.codigo_do_relatorio}`,
         exibicoes: numeros.exibicoes || 0, cliques: numeros.cliques || 0, taxa: taxaDeCliques(numeros.cliques || 0, numeros.exibicoes || 0),
@@ -255,34 +346,50 @@ export function criarBanners(f) {
             throw new DadoInvalidoNoBanner('Envie o formulário do banner');
         }
         const campo = nome => formulario.get(nome);
-        const dados = validarDadosDoBanner({ empresa: campo('empresa'), texto: campo('texto'), link: campo('link'), formato: campo('formato'), peso: campo('peso') });
-        const db = await banco();
+        const dados = validarDadosDoBanner({ empresa: campo('empresa'), texto: campo('texto'), link: campo('link'), formato: campo('formato'), peso: campo('peso'),
+            valor: campo('valor'), cobranca: campo('cobranca'), terminaEm: campo('terminaEm') });
+        // com o termino ja chegado, o banner nao aparece: o peso fica 0
+        if (dados.terminaEm && dados.terminaEm <= hoje()) dados.peso = 0;
         const imagem = await lerImagem(campo('imagem'), dados.formato);
-        if (!id) {
-            if (!imagem) throw new DadoInvalidoNoBanner('Escolha a imagem do banner');
-            const { rows } = await db.query('SELECT id FROM banners');
-            if (rows.length >= BANNERS_MAXIMOS) throw new DadoInvalidoNoBanner(`No máximo ${BANNERS_MAXIMOS} banners: apague algum antigo antes`);
-            const novoId = idDaEmpresa(dados.empresa, rows.map(linha => linha.id));
-            await db.query(`INSERT INTO banners (id, empresa, texto, link, formato, peso, imagem, tipo_imagem, largura, altura, codigo_do_relatorio)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [novoId, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura, novoCodigo()]);
-            return publico(await exigirBanner(novoId));
-        }
-        const atual = await exigirBanner(id);
+        const atual = id ? await exigirBanner(id) : null;
+        if (!id && !imagem) throw new DadoInvalidoNoBanner('Escolha a imagem do banner');
         // trocar o formato sem trocar a imagem: a imagem que ja esta la tem que servir no formato novo
-        if (!imagem && dados.formato !== atual.formato) {
+        if (atual && !imagem && dados.formato !== atual.formato) {
             const problema = problemaNasMedidas(dados.formato, atual.largura, atual.altura);
             if (problema) throw new DadoInvalidoNoBanner(problema + '. Envie uma imagem nova para o formato novo');
         }
-        await db.query(`UPDATE banners SET empresa = $2, texto = $3, link = $4, formato = $5, peso = $6, atualizado_em = now()
-            ${imagem ? ', imagem = $7, tipo_imagem = $8, largura = $9, altura = $10' : ''} WHERE id = $1`,
-        imagem ? [id, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura]
-            : [id, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso]);
-        return publico(await exigirBanner(id));
+        const cliente = await (await banco()).connect();
+        let salvoId = id;
+        try {
+            await cliente.query('BEGIN');
+            if (!id) {
+                const { rows } = await cliente.query('SELECT id FROM banners');
+                if (rows.length >= BANNERS_MAXIMOS) throw new DadoInvalidoNoBanner(`No máximo ${BANNERS_MAXIMOS} banners: apague algum antigo antes`);
+                salvoId = idDaEmpresa(dados.empresa, rows.map(linha => linha.id));
+                await cliente.query(`INSERT INTO banners (id, empresa, texto, link, formato, peso, imagem, tipo_imagem, largura, altura, codigo_do_relatorio, valor, cobranca, termina_em)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+                [salvoId, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura, novoCodigo(),
+                    dados.valor, dados.cobranca, dados.terminaEm]);
+            } else {
+                await cliente.query(`UPDATE banners SET empresa = $2, texto = $3, link = $4, formato = $5, peso = $6, valor = $7, cobranca = $8, termina_em = $9,
+                    atualizado_em = now() ${imagem ? ', imagem = $10, tipo_imagem = $11, largura = $12, altura = $13' : ''} WHERE id = $1`,
+                [id, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso, dados.valor, dados.cobranca, dados.terminaEm,
+                    ...(imagem ? [imagem.bytes, imagem.tipo, imagem.largura, imagem.altura] : [])]);
+            }
+            await sincronizarReceita(cliente, { id: salvoId, lancamento: atual?.lancamento || null }, dados);
+            await cliente.query('COMMIT');
+        } catch (erro) {
+            await cliente.query('ROLLBACK');
+            throw erro;
+        } finally {
+            cliente.release();
+        }
+        return publico(await exigirBanner(salvoId));
     }
 
     async function lista() {
         const db = await banco();
+        await encerrarVencidos(db);
         const [{ rows: banners }, { rows: numeros }] = await Promise.all([
             db.query(`SELECT ${CAMPOS} FROM banners ORDER BY pausado, criado_em DESC`),
             db.query(`SELECT banner, sum(exibicoes)::int AS exibicoes, sum(cliques)::int AS cliques FROM metricas_de_banner
@@ -295,6 +402,7 @@ export function criarBanners(f) {
     async function relatorioGeral(url) {
         const mes = await mesPedido(url);
         const db = await banco();
+        await encerrarVencidos(db);
         const [{ rows: [{ atual }] }, linhas, { rows: banners }] = await Promise.all([
             db.query(`SELECT ${MES_ATUAL} AS atual`),
             linhasDoMes(mes),
@@ -371,7 +479,12 @@ export function criarBanners(f) {
             if (id === 'planilha' && !acao && metodo === 'GET') return planilha(url);
             if (id && !acao && metodo === 'PUT') return json(200, await salvar(request, id));
             if (id && !acao && metodo === 'DELETE') {
-                await exigirBanner(id);
+                const banner = await exigirBanner(id);
+                // a receita mensal do banner para neste mes (que ja conta); a de uma vez so fica, porque o dinheiro entrou
+                if (banner.lancamento) {
+                    await db.query(`UPDATE financas SET fim = date_trunc('month', ${HOJE})::date
+                        WHERE id = $1 AND recorrencia = 'mensal' AND (fim IS NULL OR fim > date_trunc('month', ${HOJE})::date)`, [banner.lancamento]);
+                }
                 await db.query('DELETE FROM banners WHERE id = $1', [id]);
                 return new Response(null, { status: 204 });
             }

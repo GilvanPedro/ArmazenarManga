@@ -95,3 +95,6 @@ pouco contraste sobre o branco, e por isso cada fatia tem o nome e o valor escri
 
 > Depois, o Painel e as Finanças passaram a ser só do dono do site (os outros admins ficam com Contas e Registro):
 > veja [Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md).
+
+> Depois, os banners passaram a ter o valor que rendem (que entra nas Finanças) e a data em que acabam, e as Finanças, a
+> pizza de receita e despesa: veja [A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md).

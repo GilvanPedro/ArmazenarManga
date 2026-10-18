@@ -240,6 +240,11 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   podem ser guardadas pelo terminal. Detalhes em [Imagens da loja: aba do dono e terminal](78-imagens-da-loja-pelo-terminal.md).
 - **Celestial com o canvas.png.** A moldura da borda Celestial passou a vir da imagem `canvas.png`. Detalhes em
   [A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md).
+- **Banner vertical 400 × 1280.** O tamanho recomendado do banner vertical passou a ser 400 × 1280. Detalhes em
+  [Banner vertical recomendado: 400 × 1280](80-banner-vertical-400x1280.md).
+- **Receita dos banners.** As Finanças ganharam a pizza de receita e despesa (do mês ou geral), e o cadastro dos
+  banners, o peso com explicação, o valor que o banner rende (que entra sozinho nas Finanças, por mês ou de uma vez) e a
+  data em que ele acaba. Detalhes em [A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md).
 
 ## O que foi removido ou abandonado
 
