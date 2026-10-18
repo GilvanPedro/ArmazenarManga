@@ -1494,10 +1494,12 @@ select.seletor-de-nota { width: auto; }
     font-weight: 600;
 }
 
+/* a pagina de um manga no meio da tela: capa e informacoes num bloco de ate 940 px */
+.pagina-do-manga { max-width: 940px; margin: 0 auto; }
 .detalhes { display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
 @media (max-width: 640px) {
     .detalhes { grid-template-columns: 1fr; }
-    .detalhes > .capa { max-width: 220px; }
+    .detalhes > .capa { max-width: 220px; width: 100%; justify-self: center; }
 }
 .detalhes h1 { font-size: clamp(24px, 4vw, 34px); letter-spacing: -.02em; overflow-wrap: anywhere; }
 .detalhes-info { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -3449,11 +3451,15 @@ input[type=file].escolher-arquivo::file-selector-button:hover { background: var(
 .lugar-de-banner.no-fim { margin-top: 32px; }
 .lugar-de-banner.vertical { width: 100%; }
 .trilho-de-banner { position: fixed; top: 84px; z-index: 1; }
+/* nas laterais, o banner fica na altura do meio da tela (do espaco abaixo da barra do topo) */
+#app.com-trilhos .trilho-de-banner { top: 60px; bottom: 0; display: flex; flex-direction: column; justify-content: center; }
 #app:not(.com-trilhos) .trilho-de-banner { display: none; }
 #app.com-trilhos .so-sem-trilhos { display: none; }
 .banner-de-anuncio { position: relative; display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--borda); background: var(--superficie); box-shadow: var(--sombra); }
 .banner-de-anuncio img { display: block; width: 100%; height: auto; }
-.vertical .banner-de-anuncio img { max-height: calc(100vh - 120px); object-fit: contain; }
+/* vertical: a borda acompanha a imagem (que encolhe pela altura da tela sem deixar faixas dos lados), no meio do lugar */
+.vertical .banner-de-anuncio { width: fit-content; max-width: 100%; margin: 0 auto; }
+.vertical .banner-de-anuncio img { width: auto; max-width: 100%; max-height: calc(100vh - 120px); }
 /* horizontal de imagem mais alta que o normal: no maximo 200 px de altura, inteira (sem cortar), no meio */
 .horizontal .banner-de-anuncio { width: fit-content; max-width: 100%; margin: 0 auto; }
 .horizontal .banner-de-anuncio img { width: auto; max-width: 100%; max-height: 200px; }
@@ -3479,7 +3485,17 @@ a.banner-de-anuncio:hover { transform: translateY(-2px); }
     .banner-padrao.horizontal .botao-do-banner-padrao { margin-left: 44px; }
 }
 /* Comunidade: o vertical da esquerda na coluna vazia, o da direita embaixo de "Quem seguir"; sem as colunas, o horizontal */
-.lateral-esquerda-da-comunidade { grid-column: 1; grid-row: 1; justify-self: end; width: 100%; max-width: 200px; position: sticky; top: 84px; }
+.lateral-esquerda-da-comunidade { grid-column: 1; grid-row: 1; justify-self: end; width: 100%; max-width: 200px; position: sticky; top: 60px;
+    height: calc(100vh - 60px); display: flex; flex-direction: column; justify-content: center; }
+/* a lateral da direita ocupa a altura da tela: "Quem seguir" em cima e o banner no meio do espaco que sobra */
+@media (min-width: 1181px) {
+    .lateral-da-comunidade:has(> .lugar-de-banner) { height: calc(100vh - 104px); }
+    .lateral-da-comunidade > .lugar-de-banner.vertical { margin-block: auto; }
+    .lateral-da-comunidade > .lugar-de-banner .banner-de-anuncio { width: fit-content; max-width: 100%; margin: 0 auto; }
+    .lateral-da-comunidade > .lugar-de-banner .banner-de-anuncio img { width: auto; max-width: 100%; }
+    .lateral-da-comunidade > .lugar-de-banner .banner-de-anuncio img,
+    .lateral-da-comunidade > .lugar-de-banner .banner-padrao.vertical { max-height: calc(100vh - 380px); }
+}
 .pagina-da-comunidade > .coluna-da-comunidade { grid-row: 1; }
 .lateral-da-comunidade > .lugar-de-banner.vertical { max-width: 200px; }
 .lugar-de-banner.so-sem-laterais { margin: 0 auto; }

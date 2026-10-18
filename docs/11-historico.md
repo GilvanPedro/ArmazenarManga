@@ -268,6 +268,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Temas animados mais vivos](90-temas-animados-mais-vivos.md).
 - **Lugares de banner.** Os banners do Gerenciar aparecem na Biblioteca, Lançam hoje, Descobrir, Extensão, Loja e
   Comunidade, com o "Anuncie aqui" quando não há banner. Detalhes em [Os lugares de banner no site](91-lugares-de-banner.md).
+- **Banners laterais no meio da tela.** Os verticais da Loja, do Descobrir e da Comunidade passaram para a altura do
+  meio da tela. Detalhes em [Banners laterais no meio da tela](92-banners-laterais-no-meio-da-tela.md).
+- **Página do mangá no meio.** As informações de um mangá passaram para o meio da tela. Detalhes em
+  [A página do mangá no meio da tela](93-pagina-do-manga-no-meio.md).
 
 ## O que foi removido ou abandonado
 

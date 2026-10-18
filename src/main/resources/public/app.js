@@ -1227,7 +1227,8 @@ async function telaDetalhes(id, aviso) {
     });
     mostrarFavorito();
 
-    app.replaceChildren(h('div', null,
+    // a pagina do manga fica no meio da tela (doc 93)
+    app.replaceChildren(h('div', {class: 'pagina-do-manga'},
         h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
         avisoDeLeitura(manga, aviso),
         estado.sorteado === manga.id

@@ -119,6 +119,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Robô de imagens com a moderação da OpenAI](docs/89-robo-de-imagens-com-a-openai.md) | |
 | [Temas animados mais vivos](docs/90-temas-animados-mais-vivos.md) | |
 | [Os lugares de banner no site](docs/91-lugares-de-banner.md) | |
+| [Banners laterais no meio da tela](docs/92-banners-laterais-no-meio-da-tela.md) | |
+| [A página do mangá no meio da tela](docs/93-pagina-do-manga-no-meio.md) | |
 
 ## Testes
 

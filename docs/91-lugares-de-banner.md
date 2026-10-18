@@ -75,3 +75,5 @@ O e-mail fica no código montado em duas partes, para não aparecer inteiro para
   exibições foram contadas por lugar, e o clique contou e levou ao link (302).
 - Com os banners pausados, o "Anuncie aqui" apareceu em todos os lugares, também no celular. O site compactado também
   foi conferido.
+
+> Depois, os banners das laterais passaram para a altura do meio da tela: veja [Banners laterais no meio da tela](92-banners-laterais-no-meio-da-tela.md).

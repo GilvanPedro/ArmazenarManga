@@ -95,6 +95,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [89 · Robô de imagens com a moderação da OpenAI](89-robo-de-imagens-com-a-openai.md) | A moderação gratuita da OpenAI decide (com o modelo local de reserva), sem barrar foto comum por engano; como ligar a chave |
 | [90 · Temas animados mais vivos](90-temas-animados-mais-vivos.md) | Os nove temas animados mais rápidos e com camadas novas: pássaros, estrelas cadentes, cortina de luz, raios de sol, linhas de ação |
 | [91 · Os lugares de banner no site](91-lugares-de-banner.md) | Os banners do Gerenciar aparecem no site (laterais, em cima e embaixo, conforme a tela), com exibições e cliques contados, e o "Anuncie aqui" quando não há banner |
+| [92 · Banners laterais no meio da tela](92-banners-laterais-no-meio-da-tela.md) | Os verticais da Loja, do Descobrir e da Comunidade na altura do meio da tela |
+| [93 · A página do mangá no meio da tela](93-pagina-do-manga-no-meio.md) | As informações de um mangá num bloco no meio da tela, e a capa no meio no celular |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
