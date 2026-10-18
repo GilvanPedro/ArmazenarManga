@@ -238,6 +238,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   sendo servida. Detalhes em [Sem a aba Imagens da loja](77-sem-a-aba-imagens-da-loja.md).
 - **Imagens da loja: aba do dono e terminal.** A aba Imagens da loja voltou, só na conta do dono, e as imagens também
   podem ser guardadas pelo terminal. Detalhes em [Imagens da loja: aba do dono e terminal](78-imagens-da-loja-pelo-terminal.md).
+- **Celestial com o canvas.png.** A moldura da borda Celestial passou a vir da imagem `canvas.png`. Detalhes em
+  [A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md).
 
 ## O que foi removido ou abandonado
 

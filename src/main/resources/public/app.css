@@ -842,7 +842,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 }
 
 /*
- * Celestial: a moldura e uma imagem (celestial.webp, 401 x 573, com o meio transparente), guardada no banco e enviada
+ * Celestial: a moldura e uma imagem (canvas.png, 401 x 573, com o meio transparente), guardada no banco e enviada
  * pela aba "Imagens da loja" do Gerenciar. Ela fica por cima da
  * capa com o meio da faixa da moldura em cima da beira da capa: a capa ocupa, na imagem, de x 32,5 a 368,5 e de
  * y 36,5 a 538,5 (336 x 502, quase 2:3). Dai as medidas abaixo, em porcentagem da capa. A estrela da imagem faz o
@@ -861,7 +861,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     top: -7.27%;
     width: 119.35%;
     height: 114.14%;
-    background: url("/api/loja/imagens/celestial.webp") 0 0 / 100% 100% no-repeat;
+    background: url("/api/loja/imagens/canvas.png") 0 0 / 100% 100% no-repeat;
     animation: celestial-brilho 4s ease-in-out infinite;
 }
 @keyframes celestial-brilho {

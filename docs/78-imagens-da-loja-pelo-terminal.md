@@ -50,3 +50,6 @@ a imagem da Celestial pela aba; um admin que não é o dono viu só Contas e Reg
 a ferramenta listou a imagem enviada pela aba; e o site serviu a imagem. A ferramenta também foi testada sozinha:
 enviar, trocar, recusar um WebP com nome `.png`, apagar, e a mensagem quando falta o endereço do banco. Os 95 testes
 da versão JavaScript passam, e o site compactado foi conferido.
+
+> Depois, a Celestial passou a usar a imagem `canvas.png` (enviar `Downloads/canvas.png`): veja
+> [A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md).

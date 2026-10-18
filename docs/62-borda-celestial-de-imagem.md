@@ -51,3 +51,6 @@ deixando a regra da Celestial mais específica). Os 85 testes da versão JavaScr
 > Depois, a imagem da Celestial saiu de `public/bordas/` e passou a ficar no banco, enviada pela aba "Imagens da
 > loja" do Gerenciar: veja [Imagens da loja no banco](63-imagens-da-loja-no-banco.md). O caminho das próximas bordas
 > de imagem também mudou.
+
+> Depois, a moldura passou a vir da imagem `canvas.png` guardada no banco: veja
+> [A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md).
