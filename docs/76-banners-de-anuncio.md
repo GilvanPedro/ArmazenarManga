@@ -127,3 +127,5 @@ Só o dono do site, menos as duas abertas indicadas.
 > pizza de receita e despesa: veja [A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md).
 
 > Depois, os banners passaram a aparecer no site: veja [Os lugares de banner no site](91-lugares-de-banner.md).
+
+> Depois, um banner passou a poder ter as duas imagens (horizontal e vertical): veja [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).

@@ -4439,11 +4439,11 @@ function relatorioDeUmBanner(dados, aoTrocarMes) {
     const t = dados.totais;
     return h('div', {class: 'relatorio-do-banner'},
         h('div', {class: 'cabecalho-do-relatorio'},
-            h('img', {class: 'banner-do-relatorio ' + b.formato, src: b.imagem, alt: b.texto || 'Banner de ' + b.empresa}),
+            h('img', {class: 'banner-do-relatorio ' + (b.imagens?.horizontal ? 'horizontal' : 'vertical'), src: b.imagem, alt: b.texto || 'Banner de ' + b.empresa}),
             h('div', {class: 'sobre-o-relatorio'},
                 h('span', {class: 'tipo-do-item'}, 'Relatório do anúncio'),
                 h('h1', null, b.empresa),
-                h('p', {class: 'subtitulo'}, 'Banner ' + (b.formato === 'vertical' ? 'vertical' : 'horizontal') + ' (' + b.largura + ' × ' + b.altura + ' px) no Viracap'
+                h('p', {class: 'subtitulo'}, descreverImagensDoBanner(b) + ' no Viracap'
                     + (b.desde ? ', desde ' + new Date(b.desde).toLocaleDateString('pt-BR') : '') + (b.pausado ? '. Pausado no momento.' : '.')),
                 b.link ? h('p', {class: 'subtitulo'}, 'Leva a: ', h('a', {href: b.link, target: '_blank', rel: 'noopener noreferrer'}, b.link)) : null)),
         navegacaoDoMes(dados.mes, dados.atual, aoTrocarMes),
@@ -4602,16 +4602,18 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
     const recarregar = () => bannersNoGerenciamento(conteudo, vez, relatorio.mes);
     const t = relatorio.totais;
 
+    // a previa mostra as imagens que o banner tem (a horizontal e a vertical lado a lado, quando tem as duas)
     const cartaoDoBanner = banner => h('article', {class: 'cartao-de-banner' + (banner.pausado ? ' pausado' : '')},
-        h('a', {class: 'previa-do-banner ' + banner.formato, href: '#/gerenciar/banners/' + encodeURIComponent(banner.id)},
-            h('img', {src: banner.imagem, alt: banner.texto || 'Banner de ' + banner.empresa, loading: 'lazy'})),
+        h('a', {class: 'previas-do-banner', href: '#/gerenciar/banners/' + encodeURIComponent(banner.id)},
+            ...['horizontal', 'vertical'].filter(formato => banner.imagens?.[formato]).map(formato => h('span', {class: 'previa-do-banner ' + formato},
+                h('img', {src: banner.imagens[formato].url, alt: (banner.texto || 'Banner de ' + banner.empresa) + ' (' + formato + ')', loading: 'lazy'})))),
         h('div', {class: 'sobre-o-banner'},
             h('div', {class: 'linha'}, h('b', null, banner.empresa),
-                h('span', {class: 'selo-na-mochila'}, banner.formato === 'vertical' ? 'Vertical' : 'Horizontal'),
+                h('span', {class: 'selo-na-mochila'}, banner.formato === 'ambos' ? 'Horizontal + vertical' : banner.formato === 'vertical' ? 'Vertical' : 'Horizontal'),
                 banner.encerrado ? h('span', {class: 'selo-de-pausa'}, 'Encerrado')
                     : banner.pausado ? h('span', {class: 'selo-de-pausa'}, 'Pausado')
                         : banner.peso === 0 ? h('span', {class: 'selo-de-pausa'}, 'Peso 0') : h('span', {class: 'selo-ativo'}, 'No ar')),
-            h('small', null, banner.largura + ' × ' + banner.altura + ' px · peso ' + banner.peso + (banner.link ? ' · ' + banner.link : ' · sem link')),
+            h('small', null, descreverImagensDoBanner(banner) + ' · peso ' + banner.peso + (banner.link ? ' · ' + banner.link : ' · sem link')),
             h('small', null, (banner.valor ? 'Rende ' + reais(banner.valor) + (banner.cobranca === 'mensal' ? ' por mês' : ' (uma vez)') : 'Sem valor cadastrado')
                 + (banner.terminaEm ? ' · ' + (banner.encerrado ? 'acabou em ' : 'acaba em ') + new Date(banner.terminaEm + 'T12:00:00').toLocaleDateString('pt-BR') : ' · sem data para acabar')),
             h('small', null, 'Este mês: ' + numeroInteiro(banner.exibicoes) + ' exibições, ' + numeroInteiro(banner.cliques) + ' cliques (' + taxaEmTexto(banner.taxa) + ')'),
@@ -4662,7 +4664,7 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
                     h('thead', null, h('tr', null, ...['Banner', 'Formato', 'Exibições', 'Cliques', 'Taxa de cliques', 'Parte das exibições'].map(texto => h('th', {scope: 'col'}, texto)))),
                     h('tbody', null, ...relatorio.porBanner.map(item => h('tr', null,
                         h('th', {scope: 'row'}, item.foraDoCadastro ? item.banner + ' (apagado)' : h('a', {href: '#/gerenciar/banners/' + encodeURIComponent(item.banner)}, item.empresa)),
-                        h('td', null, item.formato === 'vertical' ? 'Vertical' : item.formato === 'horizontal' ? 'Horizontal' : '—'),
+                        h('td', null, item.formato === 'ambos' ? 'Horizontal + vertical' : item.formato === 'vertical' ? 'Vertical' : item.formato === 'horizontal' ? 'Horizontal' : '—'),
                         h('td', null, numeroInteiro(item.exibicoes)), h('td', null, numeroInteiro(item.cliques)),
                         h('td', null, taxaEmTexto(item.taxa)), h('td', null, item.parte.toLocaleString('pt-BR') + '%'))))))),
         h('section', {class: 'caixa-de-lancamentos'},
@@ -4675,6 +4677,14 @@ async function bannersNoGerenciamento(conteudo, vez, mes) {
  * Janela para cadastrar ou editar um banner: empresa, descricao (para leitores de tela), link, formato, peso e a imagem,
  * com a previa e as medidas conferidas na hora (o servidor confere de novo). formatos: as regras de cada formato.
  */
+/** "Horizontal 1280 × 400 px e vertical 400 × 1280 px": as imagens que um banner tem, com as medidas. */
+function descreverImagensDoBanner(banner) {
+    const partes = ['horizontal', 'vertical'].filter(formato => banner.imagens?.[formato])
+        .map(formato => formato + ' ' + banner.imagens[formato].largura + ' × ' + banner.imagens[formato].altura + ' px');
+    const texto = partes.join(' e ') || 'sem imagem';
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
     const empresa = h('input', {type: 'text', id: 'banner-empresa', maxlength: '120', required: true, value: banner?.empresa || '', placeholder: 'Ex.: Loja do Otaku'});
@@ -4778,64 +4788,86 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
     desenharTermino();
     terminaEm.addEventListener('input', resumirTermino);
     valor.addEventListener('input', resumirTermino);
-    const arquivo = h('input', {type: 'file', id: 'banner-imagem', class: 'escolher-arquivo', accept: 'image/png,image/jpeg,image/webp'});
-    const previa = h('div', {class: 'previa-do-banner grande'}, banner ? h('img', {src: banner.imagem, alt: ''}) : h('span', {class: 'subtitulo'}, 'A imagem aparece aqui'));
-    const medidas = h('small', {class: 'medidas-do-banner'});
-    let formato = banner?.formato || 'horizontal';
-    let escolhida = null;
-    const opcoes = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Formato'});
-    const regra = () => formatos[formato];
-    const conferir = () => {
-        previa.className = 'previa-do-banner grande ' + formato;
-        const r = regra();
+    /*
+     * As duas imagens (doc 96): a horizontal e a vertical, cada uma opcional, mas o banner precisa de pelo menos uma.
+     * Cada quadro tem a previa, o botao de escolher, as medidas conferidas na hora e, se ja havia imagem, "Tirar".
+     */
+    const quadroDeImagem = formato => {
+        const r = formatos[formato];
+        const existente = banner?.imagens?.[formato] || null;
+        const estado = {formato, arquivo: h('input', {type: 'file', id: 'banner-imagem-' + formato, class: 'escolher-arquivo', accept: 'image/png,image/jpeg,image/webp'}),
+            escolhida: null, tirar: false, existente};
+        const previa = h('div', {class: 'previa-do-banner ' + formato});
+        const medidas = h('small', {class: 'medidas-do-banner'});
+        const tirar = h('button', {type: 'button', class: 'botao pequeno perigo', hidden: true});
         const dica = 'Recomendado: ' + r.exemplos + ' px. PNG, JPEG ou WebP, até 1 MB.';
-        if (!escolhida) {
-            medidas.textContent = dica;
-            return true;
-        }
-        const {largura, altura} = escolhida;
-        const proporcao = formato === 'horizontal' ? largura / altura : altura / largura;
-        const ok = largura >= r.largura[0] && largura <= r.largura[1] && altura >= r.altura[0] && altura <= r.altura[1] && proporcao >= r.proporcao[0] && proporcao <= r.proporcao[1];
-        medidas.textContent = largura + ' × ' + altura + ' px ' + (ok ? '✓ serve para um banner ' + r.nome.toLowerCase() : '✗ não serve para um banner ' + r.nome.toLowerCase() + '. ' + dica);
-        medidas.classList.toggle('erro', !ok);
-        return ok;
-    };
-    const desenharOpcoes = () => opcoes.replaceChildren(...Object.entries(formatos).map(([valor, r]) =>
-        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(formato === valor), onclick: () => {
-            formato = valor;
-            desenharOpcoes();
-            conferir();
-        }}, r.nome)));
-    desenharOpcoes();
-    conferir();
-    arquivo.addEventListener('change', () => {
-        const escolhido = arquivo.files[0];
-        escolhida = null;
-        if (!escolhido) return conferir();
-        const endereco = URL.createObjectURL(escolhido);
-        const img = h('img', {src: endereco, alt: ''});
-        img.addEventListener('load', () => {
-            escolhida = {largura: img.naturalWidth, altura: img.naturalHeight};
-            // a imagem escolhida ja mostra o formato que ela tem
-            const deitada = escolhida.largura >= escolhida.altura;
-            if ((deitada ? 'horizontal' : 'vertical') !== formato) {
-                formato = deitada ? 'horizontal' : 'vertical';
-                desenharOpcoes();
+        estado.ok = () => {
+            if (!estado.escolhida) return true;
+            const {largura, altura} = estado.escolhida;
+            const proporcao = formato === 'horizontal' ? largura / altura : altura / largura;
+            return largura >= r.largura[0] && largura <= r.largura[1] && altura >= r.altura[0] && altura <= r.altura[1] && proporcao >= r.proporcao[0] && proporcao <= r.proporcao[1];
+        };
+        estado.tem = () => Boolean(estado.arquivo.files[0] || (estado.existente && !estado.tirar));
+        const desenhar = () => {
+            const imagem = estado.arquivo.files[0] ? previa.querySelector('img') : null;
+            if (!imagem) {
+                previa.replaceChildren(estado.existente && !estado.tirar ? h('img', {src: estado.existente.url, alt: ''})
+                    : h('span', {class: 'subtitulo'}, estado.tirar ? 'Será tirada ao salvar' : 'Sem imagem ' + r.nome.toLowerCase()));
             }
-            conferir();
+            if (estado.escolhida) {
+                const {largura, altura} = estado.escolhida;
+                medidas.textContent = largura + ' × ' + altura + ' px ' + (estado.ok() ? '✓ serve' : '✗ não serve para um banner ' + r.nome.toLowerCase() + '. ' + dica);
+            } else {
+                medidas.textContent = estado.existente && !estado.tirar ? 'A atual: ' + estado.existente.largura + ' × ' + estado.existente.altura + ' px. Escolha outra só para trocar.' : dica;
+            }
+            medidas.classList.toggle('erro', !estado.ok());
+            tirar.hidden = !(estado.existente || estado.arquivo.files[0]);
+            tirar.textContent = estado.tirar ? 'Manter a atual' : 'Tirar';
+        };
+        tirar.addEventListener('click', () => {
+            if (estado.arquivo.files[0]) {
+                // tira a escolhida agora (volta para a que ja estava, se tinha)
+                estado.arquivo.value = '';
+                estado.escolhida = null;
+                previa.replaceChildren();
+            } else {
+                estado.tirar = !estado.tirar;
+            }
+            desenhar();
         });
-        img.addEventListener('error', () => {
-            medidas.textContent = 'Não deu para ler essa imagem';
-            medidas.classList.add('erro');
+        estado.arquivo.addEventListener('change', () => {
+            const escolhido = estado.arquivo.files[0];
+            estado.escolhida = null;
+            estado.tirar = false;
+            if (!escolhido) return desenhar();
+            const img = h('img', {src: URL.createObjectURL(escolhido), alt: ''});
+            img.addEventListener('load', () => {
+                estado.escolhida = {largura: img.naturalWidth, altura: img.naturalHeight};
+                desenhar();
+            });
+            img.addEventListener('error', () => {
+                medidas.textContent = 'Não deu para ler essa imagem';
+                medidas.classList.add('erro');
+            });
+            previa.replaceChildren(img);
+            desenhar();
         });
-        previa.replaceChildren(img);
-    });
+        desenhar();
+        estado.elemento = h('fieldset', {class: 'quadro-da-imagem-do-banner'},
+            h('legend', null, 'Imagem ' + r.nome.toLowerCase()),
+            previa,
+            h('div', {class: 'linha-da-imagem-do-banner'}, estado.arquivo, tirar),
+            medidas);
+        return estado;
+    };
+    const imagens = [quadroDeImagem('horizontal'), quadroDeImagem('vertical')];
     const salvar = h('button', {type: 'submit', class: 'botao primario'}, banner ? 'Salvar' : 'Cadastrar');
     const formulario = h('form', {class: 'formulario-de-lancamento'},
         h('div', {class: 'campo'}, h('label', {for: 'banner-empresa'}, 'Empresa'), empresa),
-        h('div', {class: 'campo'}, h('span', {class: 'rotulo'}, 'Formato'), opcoes),
-        h('div', {class: 'campo'}, h('label', {for: 'banner-imagem'}, banner ? 'Imagem (escolha só para trocar)' : 'Imagem'), arquivo, medidas),
-        previa,
+        h('div', {class: 'campo'},
+            h('span', {class: 'rotulo'}, 'Imagens'),
+            h('small', null, 'Horizontal, vertical ou as duas (pelo menos uma). Com as duas, o banner aparece nos lugares horizontais e nos verticais do site.'),
+            h('div', {class: 'imagens-do-banner'}, ...imagens.map(imagem => imagem.elemento))),
         h('div', {class: 'campo'}, h('label', {for: 'banner-texto'}, 'Descrição (para leitores de tela)'), texto),
         h('div', {class: 'campo'}, h('label', {for: 'banner-link'}, 'Link ao clicar'), link,
             h('small', null, 'https:// ou mailto:. Vazio: o banner não é clicável.')),
@@ -4861,24 +4893,28 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
     formulario.addEventListener('submit', async evento => {
         evento.preventDefault();
         erro.textContent = '';
-        if (!banner && !arquivo.files[0]) {
-            erro.textContent = 'Escolha a imagem do banner';
+        if (!imagens.some(imagem => imagem.tem())) {
+            erro.textContent = 'O banner precisa de pelo menos uma imagem: a horizontal, a vertical ou as duas';
             return;
         }
-        if (escolhida && !conferir()) {
-            erro.textContent = 'A imagem não tem as medidas de um banner ' + regra().nome.toLowerCase();
+        const errada = imagens.find(imagem => !imagem.ok());
+        if (errada) {
+            erro.textContent = 'A imagem ' + formatos[errada.formato].nome.toLowerCase() + ' não tem as medidas de um banner ' + formatos[errada.formato].nome.toLowerCase();
             return;
         }
         const envio = new FormData();
         envio.append('empresa', empresa.value);
         envio.append('texto', texto.value);
         envio.append('link', link.value);
-        envio.append('formato', formato);
         envio.append('peso', numeroDoPeso.value);
         envio.append('valor', valor.value);
         envio.append('cobranca', cobranca);
         envio.append('terminaEm', comTermino ? terminaEm.value : '');
-        if (arquivo.files[0]) envio.append('imagem', arquivo.files[0]);
+        for (const imagem of imagens) {
+            const sufixo = imagem.formato === 'horizontal' ? 'Horizontal' : 'Vertical';
+            if (imagem.arquivo.files[0]) envio.append('imagem' + sufixo, imagem.arquivo.files[0]);
+            else if (imagem.tirar) envio.append('remover' + sufixo, '1');
+        }
         salvar.disabled = true;
         try {
             await chamar(banner ? 'PUT' : 'POST', '/api/banners' + (banner ? '/' + encodeURIComponent(banner.id) : ''), envio);

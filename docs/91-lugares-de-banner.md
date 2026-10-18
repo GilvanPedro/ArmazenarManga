@@ -79,3 +79,5 @@ O e-mail fica no código montado em duas partes, para não aparecer inteiro para
 > Depois, os banners das laterais passaram para a altura do meio da tela: veja [Banners laterais no meio da tela](92-banners-laterais-no-meio-da-tela.md).
 
 > Depois vieram mais lugares, na página do mangá e no formulário: veja [Banners na página do mangá e no formulário](95-banners-na-pagina-do-manga-e-no-formulario.md).
+
+> Depois, um banner passou a poder ter as duas imagens (horizontal e vertical): veja [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).

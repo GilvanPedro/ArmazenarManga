@@ -24,6 +24,18 @@ export const ESTRUTURA_DOS_BANNERS = `
     ALTER TABLE banners ADD COLUMN IF NOT EXISTS cobranca TEXT;
     ALTER TABLE banners ADD COLUMN IF NOT EXISTS termina_em DATE;
     ALTER TABLE banners ADD COLUMN IF NOT EXISTS lancamento UUID;
+    -- as imagens (doc 96): um banner pode ter a horizontal, a vertical ou as duas (no minimo uma). Antes era uma imagem
+    -- so, nas colunas imagem/tipo_imagem/largura/altura do banner, no formato da coluna formato; elas passam para esta
+    -- tabela (uma vez) e ficam vazias
+    CREATE TABLE IF NOT EXISTS imagens_de_banner (banner TEXT NOT NULL REFERENCES banners(id) ON DELETE CASCADE,
+        formato TEXT NOT NULL, imagem BYTEA NOT NULL, tipo TEXT NOT NULL, largura INT NOT NULL, altura INT NOT NULL,
+        atualizada_em TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (banner, formato));
+    ALTER TABLE banners ALTER COLUMN formato DROP NOT NULL, ALTER COLUMN imagem DROP NOT NULL, ALTER COLUMN tipo_imagem DROP NOT NULL,
+        ALTER COLUMN largura DROP NOT NULL, ALTER COLUMN altura DROP NOT NULL;
+    INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura, atualizada_em)
+        SELECT id, formato, imagem, tipo_imagem, largura, altura, atualizado_em FROM banners WHERE imagem IS NOT NULL AND formato IS NOT NULL
+        ON CONFLICT DO NOTHING;
+    UPDATE banners SET imagem = NULL, tipo_imagem = NULL, largura = NULL, altura = NULL, formato = NULL WHERE imagem IS NOT NULL;
 `;
 
 export const BANNERS_MAXIMOS = 50;
@@ -132,20 +144,19 @@ export function lerDataDeTermino(texto) {
     return valor;
 }
 
-/** Os campos do formulario de um banner, conferidos: { empresa, texto, link, formato, peso, valor, cobranca, terminaEm }. */
+/** Os campos do formulario de um banner, conferidos: { empresa, texto, link, peso, valor, cobranca, terminaEm }. As imagens sao conferidas a parte. */
 export function validarDadosDoBanner(dados) {
     const empresa = typeof dados.empresa === 'string' ? dados.empresa.trim().replace(/\s+/g, ' ') : '';
     if (!empresa) throw new DadoInvalidoNoBanner('Informe o nome da empresa');
     if ([...empresa].length > 120) throw new DadoInvalidoNoBanner('O nome da empresa pode ter no máximo 120 caracteres');
     const texto = typeof dados.texto === 'string' ? dados.texto.trim().replace(/\s+/g, ' ') : '';
     if ([...texto].length > 200) throw new DadoInvalidoNoBanner('A descrição pode ter no máximo 200 caracteres');
-    if (!Object.hasOwn(FORMATOS_DE_BANNER, dados.formato)) throw new DadoInvalidoNoBanner('Escolha o formato: horizontal ou vertical');
     const peso = Number(dados.peso ?? 1);
     if (!Number.isInteger(peso) || peso < 0 || peso > 100) throw new DadoInvalidoNoBanner('O peso vai de 0 a 100 (0: o banner não aparece)');
     const valor = lerValorEmReais(dados.valor);
     const cobranca = valor == null ? null : dados.cobranca;
     if (valor != null && !['mensal', 'unica'].includes(cobranca)) throw new DadoInvalidoNoBanner('Escolha se o valor é por mês ou de uma vez só');
-    return { empresa, texto, link: validarLinkDeBanner(dados.link), formato: dados.formato, peso, valor, cobranca, terminaEm: lerDataDeTermino(dados.terminaEm) };
+    return { empresa, texto, link: validarLinkDeBanner(dados.link), peso, valor, cobranca, terminaEm: lerDataDeTermino(dados.terminaEm) };
 }
 
 /** O tipo de verdade de uma imagem pelos primeiros bytes: PNG, JPEG ou WebP (nulo para o resto, inclusive SVG e GIF). */
@@ -246,7 +257,10 @@ export function celulaDoCsv(valor) {
 export function criarBanners(f) {
     const { banco, json, Recusa } = f;
     const MES_ATUAL = `to_char(now() AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM')`;
-    const CAMPOS = `id, empresa, texto, link, formato, peso, pausado, tipo_imagem, largura, altura, codigo_do_relatorio, criado_em, atualizado_em,
+    // imagens: { horizontal: { largura, altura, v }, vertical: {...} } (so os formatos que o banner tem)
+    const CAMPOS = `id, empresa, texto, link, peso, pausado, codigo_do_relatorio, criado_em, atualizado_em,
+        (SELECT json_object_agg(formato, json_build_object('largura', largura, 'altura', altura, 'v', (extract(epoch FROM atualizada_em) * 1000)::bigint))
+            FROM imagens_de_banner WHERE banner = banners.id) AS imagens,
         valor, cobranca, to_char(termina_em, 'YYYY-MM-DD') AS termina_em, lancamento`;
     const HOJE = `(now() AT TIME ZONE 'America/Sao_Paulo')::date`;
     /** "AAAA-MM-DD" de hoje no horario de Brasilia. */
@@ -307,10 +321,25 @@ export function criarBanners(f) {
     }
     const novoCodigo = () => randomBytes(18).toString('base64url');
 
+    /**
+     * As imagens do banner para a API: { horizontal: { url, largura, altura } ou null, vertical: ... }, e a "principal"
+     * (a horizontal, ou a vertical se so tiver ela), para as telas que mostram uma so.
+     */
+    const imagensPublicas = banner => {
+        const imagens = Object.fromEntries(Object.keys(FORMATOS_DE_BANNER).map(formato => {
+            const imagem = banner.imagens?.[formato];
+            return [formato, imagem ? { url: `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${formato}&v=${imagem.v}`,
+                largura: imagem.largura, altura: imagem.altura } : null];
+        }));
+        const principal = imagens.horizontal || imagens.vertical;
+        const formatos = Object.keys(imagens).filter(formato => imagens[formato]);
+        return { imagens, imagem: principal?.url || null, largura: principal?.largura || null, altura: principal?.altura || null,
+            formatos, formato: formatos.length === 2 ? 'ambos' : formatos[0] || null };
+    };
+
     const publico = (banner, numeros = {}) => ({
-        id: banner.id, empresa: banner.empresa, texto: banner.texto, link: banner.link, formato: banner.formato,
-        peso: banner.peso, pausado: banner.pausado, largura: banner.largura, altura: banner.altura,
-        imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?v=${new Date(banner.atualizado_em).getTime()}`,
+        id: banner.id, empresa: banner.empresa, texto: banner.texto, link: banner.link,
+        peso: banner.peso, pausado: banner.pausado, ...imagensPublicas(banner),
         criadoEm: banner.criado_em, atualizadoEm: banner.atualizado_em,
         valor: banner.valor, cobranca: banner.cobranca, terminaEm: banner.termina_em,
         // chegou ao dia do termino: nao aparece mais (o peso ja virou 0)
@@ -369,10 +398,8 @@ export function criarBanners(f) {
         delete relatorio.porBanner;
         return {
             ...relatorio, atual,
-            banner: { id: banner.id, empresa: banner.empresa, texto: banner.texto, link: banner.link, formato: banner.formato,
-                largura: banner.largura, altura: banner.altura, pausado: banner.pausado,
-                imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?v=${new Date(banner.atualizado_em).getTime()}`,
-                desde: banner.criado_em },
+            banner: { id: banner.id, empresa: banner.empresa, texto: banner.texto, link: banner.link, pausado: banner.pausado,
+                ...imagensPublicas(banner), desde: banner.criado_em },
         };
     }
 
@@ -384,18 +411,22 @@ export function criarBanners(f) {
             throw new DadoInvalidoNoBanner('Envie o formulário do banner');
         }
         const campo = nome => formulario.get(nome);
-        const dados = validarDadosDoBanner({ empresa: campo('empresa'), texto: campo('texto'), link: campo('link'), formato: campo('formato'), peso: campo('peso'),
+        const dados = validarDadosDoBanner({ empresa: campo('empresa'), texto: campo('texto'), link: campo('link'), peso: campo('peso'),
             valor: campo('valor'), cobranca: campo('cobranca'), terminaEm: campo('terminaEm') });
         // com o termino ja chegado, o banner nao aparece: o peso fica 0
         if (dados.terminaEm && dados.terminaEm <= hoje()) dados.peso = 0;
-        const imagem = await lerImagem(campo('imagem'), dados.formato);
         const atual = id ? await exigirBanner(id) : null;
-        if (!id && !imagem) throw new DadoInvalidoNoBanner('Escolha a imagem do banner');
-        // trocar o formato sem trocar a imagem: a imagem que ja esta la tem que servir no formato novo
-        if (atual && !imagem && dados.formato !== atual.formato) {
-            const problema = problemaNasMedidas(dados.formato, atual.largura, atual.altura);
-            if (problema) throw new DadoInvalidoNoBanner(problema + '. Envie uma imagem nova para o formato novo');
+        // as duas imagens (doc 96): "imagemHorizontal" e "imagemVertical" trocam ou poem; "removerHorizontal" e
+        // "removerVertical" ("1") tiram a que ja estava. No fim, o banner precisa ter pelo menos uma
+        const novas = {};
+        const tirar = [];
+        for (const [formato, sufixo] of [['horizontal', 'Horizontal'], ['vertical', 'Vertical']]) {
+            const imagem = await lerImagem(campo('imagem' + sufixo), formato);
+            if (imagem) novas[formato] = imagem;
+            else if (campo('remover' + sufixo) === '1') tirar.push(formato);
         }
+        const ficam = Object.keys(FORMATOS_DE_BANNER).filter(formato => novas[formato] || (atual?.imagens?.[formato] && !tirar.includes(formato)));
+        if (ficam.length === 0) throw new DadoInvalidoNoBanner('O banner precisa de pelo menos uma imagem: a horizontal, a vertical ou as duas');
         const cliente = await (await banco()).connect();
         let salvoId = id;
         try {
@@ -404,15 +435,19 @@ export function criarBanners(f) {
                 const { rows } = await cliente.query('SELECT id FROM banners');
                 if (rows.length >= BANNERS_MAXIMOS) throw new DadoInvalidoNoBanner(`No máximo ${BANNERS_MAXIMOS} banners: apague algum antigo antes`);
                 salvoId = idDaEmpresa(dados.empresa, rows.map(linha => linha.id));
-                await cliente.query(`INSERT INTO banners (id, empresa, texto, link, formato, peso, imagem, tipo_imagem, largura, altura, codigo_do_relatorio, valor, cobranca, termina_em)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
-                [salvoId, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura, novoCodigo(),
-                    dados.valor, dados.cobranca, dados.terminaEm]);
+                await cliente.query(`INSERT INTO banners (id, empresa, texto, link, peso, codigo_do_relatorio, valor, cobranca, termina_em)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [salvoId, dados.empresa, dados.texto, dados.link, dados.peso, novoCodigo(), dados.valor, dados.cobranca, dados.terminaEm]);
             } else {
-                await cliente.query(`UPDATE banners SET empresa = $2, texto = $3, link = $4, formato = $5, peso = $6, valor = $7, cobranca = $8, termina_em = $9,
-                    atualizado_em = now() ${imagem ? ', imagem = $10, tipo_imagem = $11, largura = $12, altura = $13' : ''} WHERE id = $1`,
-                [id, dados.empresa, dados.texto, dados.link, dados.formato, dados.peso, dados.valor, dados.cobranca, dados.terminaEm,
-                    ...(imagem ? [imagem.bytes, imagem.tipo, imagem.largura, imagem.altura] : [])]);
+                await cliente.query(`UPDATE banners SET empresa = $2, texto = $3, link = $4, peso = $5, valor = $6, cobranca = $7, termina_em = $8,
+                    atualizado_em = now() WHERE id = $1`,
+                [id, dados.empresa, dados.texto, dados.link, dados.peso, dados.valor, dados.cobranca, dados.terminaEm]);
+            }
+            if (tirar.length) await cliente.query('DELETE FROM imagens_de_banner WHERE banner = $1 AND formato = ANY($2)', [salvoId, tirar]);
+            for (const [formato, imagem] of Object.entries(novas)) {
+                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura) VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (banner, formato) DO UPDATE SET imagem = $3, tipo = $4, largura = $5, altura = $6, atualizada_em = now()`,
+                [salvoId, formato, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura]);
             }
             await sincronizarReceita(cliente, { id: salvoId, lancamento: atual?.lancamento || null }, dados);
             await cliente.query('COMMIT');
@@ -444,7 +479,8 @@ export function criarBanners(f) {
         const [{ rows: [{ atual }] }, linhas, { rows: banners }] = await Promise.all([
             db.query(`SELECT ${MES_ATUAL} AS atual`),
             linhasDoMes(mes),
-            db.query('SELECT id, empresa, formato, pausado FROM banners'),
+            db.query(`SELECT id, empresa, pausado, (SELECT CASE WHEN count(*) = 2 THEN 'ambos' ELSE min(formato) END FROM imagens_de_banner WHERE banner = banners.id) AS formato
+                FROM banners`),
         ]);
         const relatorio = montarRelatorio(mes, linhas);
         const cadastro = new Map(banners.map(banner => [banner.id, banner]));
@@ -490,11 +526,14 @@ export function criarBanners(f) {
             // os banners que podem aparecer agora (nao pausados, com peso e antes do dia do termino), para as paginas
             // sortearem pelo peso. A CDN guarda um minuto
             if (id === 'no-ar' && !acao && request.method === 'GET') {
-                const { rows } = await (await banco()).query(`SELECT id, empresa, texto, formato, peso, largura, altura, link IS NOT NULL AS tem_link, atualizado_em
-                    FROM banners WHERE NOT pausado AND peso > 0 AND (termina_em IS NULL OR termina_em > ${HOJE}) ORDER BY id`);
+                // uma linha por imagem: um banner com as duas entra no sorteio dos lugares horizontais e dos verticais
+                const { rows } = await (await banco()).query(`SELECT b.id, b.empresa, b.texto, i.formato, b.peso, i.largura, i.altura, b.link IS NOT NULL AS tem_link,
+                        (extract(epoch FROM i.atualizada_em) * 1000)::bigint AS v
+                    FROM banners b JOIN imagens_de_banner i ON i.banner = b.id
+                    WHERE NOT b.pausado AND b.peso > 0 AND (b.termina_em IS NULL OR b.termina_em > ${HOJE}) ORDER BY b.id, i.formato`);
                 const resposta = json(200, { banners: rows.map(banner => ({ id: banner.id, empresa: banner.empresa, texto: banner.texto, formato: banner.formato,
                     peso: banner.peso, largura: banner.largura, altura: banner.altura, temLink: banner.tem_link,
-                    imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?v=${new Date(banner.atualizado_em).getTime()}` })) });
+                    imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${banner.formato}&v=${banner.v}` })) });
                 resposta.headers.set('Cache-Control', 'public, max-age=60');
                 return resposta;
             }
@@ -525,7 +564,11 @@ export function criarBanners(f) {
             }
             if (request.method !== 'GET') return null;
             if (id && acao === 'imagem' && !codigo) {
-                const { rows } = await (await banco()).query('SELECT imagem, tipo_imagem FROM banners WHERE id = $1', [id]);
+                // ?formato=horizontal ou vertical; sem ele (enderecos antigos), a horizontal ou, se nao tiver, a vertical
+                const formato = url.searchParams.get('formato');
+                const { rows } = await (await banco()).query(`SELECT imagem, tipo AS tipo_imagem FROM imagens_de_banner WHERE banner = $1
+                    ${Object.hasOwn(FORMATOS_DE_BANNER, formato) ? 'AND formato = $2' : ''} ORDER BY formato LIMIT 1`,
+                Object.hasOwn(FORMATOS_DE_BANNER, formato) ? [id, formato] : [id]);
                 if (!rows.length) return new Response('Banner não encontrado', { status: 404 });
                 // o endereco leva ?v= (a ultima mudanca): pode ficar guardado por um ano
                 return new Response(rows[0].imagem, { status: 200, headers: { 'Content-Type': rows[0].tipo_imagem, 'X-Content-Type-Options': 'nosniff',

@@ -276,6 +276,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   celular). Detalhes em ["Com tags em comum" e "recomendados" encaixados](94-parecidos-e-recomendados-encaixados.md).
 - **Banners na página do mangá e no formulário.** Mais quatro lugares de banner. Detalhes em
   [Banners na página do mangá e no formulário](95-banners-na-pagina-do-manga-e-no-formulario.md).
+- **Banner com as duas imagens.** Um banner pode ter a imagem horizontal, a vertical ou as duas. Detalhes em
+  [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).
 
 ## O que foi removido ou abandonado
 

@@ -1,4 +1,4 @@
-// Testes dos banners de anuncio: o cadastro (empresa, link, formato, imagem) e os relatorios.
+// Testes dos banners de anuncio: o cadastro (empresa, link, imagens horizontal e vertical) e os relatorios.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { celulaDoCsv, diasDoMes, idDaEmpresa, lerMesDoRelatorio, montarRelatorio, problemaNasMedidas, taxaDeCliques, tipoDaImagemDoBanner,
@@ -24,11 +24,11 @@ test('o link: vazio, https ou mailto simples; nada de http, javascript ou copia 
 
 test('os campos do formulario sao conferidos', () => {
     assert.deepEqual(validarDadosDoBanner({ empresa: '  Loja   do Otaku ', texto: 'Mangás em promoção', link: '', formato: 'vertical', peso: '3' }),
-        { empresa: 'Loja do Otaku', texto: 'Mangás em promoção', link: null, formato: 'vertical', peso: 3, valor: null, cobranca: null, terminaEm: null });
+        { empresa: 'Loja do Otaku', texto: 'Mangás em promoção', link: null, peso: 3, valor: null, cobranca: null, terminaEm: null },
+        'o formato saiu dos campos: as imagens (horizontal e vertical) sao conferidas a parte (doc 96)');
     assert.equal(validarDadosDoBanner({ empresa: 'X', formato: 'horizontal' }).peso, 1, 'peso padrao');
     assert.equal(validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', peso: 0 }).peso, 0, 'peso 0: nao aparece');
     assert.throws(() => validarDadosDoBanner({ empresa: '', formato: 'horizontal' }), /nome da empresa/);
-    assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'quadrado' }), /horizontal ou vertical/);
     assert.throws(() => validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', peso: 101 }), /de 0 a 100/);
     // o valor que o banner rende, por mes ou de uma vez, e o fim
     const comValor = validarDadosDoBanner({ empresa: 'X', formato: 'horizontal', valor: '1.234,50', cobranca: 'mensal', terminaEm: '2026-12-31' });
