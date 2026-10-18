@@ -309,6 +309,9 @@ select:disabled { opacity: .55; }
 }
 
 .cartao { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+/* o botao do fim do cartao (+ Adicionar) sempre no pe do cartao: os cartoes de uma linha tem a mesma altura, e o
+   titulo e as tags com uma ou duas linhas nao mudam a altura do botao (doc 98) */
+.cartao > .botao:last-child { margin-top: auto; }
 
 .capa {
     position: relative;

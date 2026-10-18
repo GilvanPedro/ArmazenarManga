@@ -280,6 +280,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).
 - **Vertical com as medidas do horizontal.** O banner vertical passou a aceitar as medidas do horizontal, trocadas.
   Detalhes em [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).
+- **"+ Adicionar" alinhado.** Os botões dos recomendados ficam no mesmo nível, com qualquer quantidade de tags.
+  Detalhes em [O "+ Adicionar" dos recomendados alinhado](98-botao-adicionar-alinhado.md).
 
 ## O que foi removido ou abandonado
 

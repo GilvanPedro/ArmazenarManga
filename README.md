@@ -125,6 +125,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Banners na página do mangá e no formulário](docs/95-banners-na-pagina-do-manga-e-no-formulario.md) | |
 | [Banner com imagem horizontal e vertical](docs/96-banner-com-imagem-horizontal-e-vertical.md) | |
 | [Banner vertical com as medidas do horizontal](docs/97-banner-vertical-com-as-medidas-do-horizontal.md) | |
+| [O "+ Adicionar" dos recomendados alinhado](docs/98-botao-adicionar-alinhado.md) | |
 
 ## Testes
 
