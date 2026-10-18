@@ -85,6 +85,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [79 · A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md) | A moldura da Celestial vem da imagem `canvas.png`, o arquivo original |
 | [80 · Banner vertical recomendado: 400 × 1280](80-banner-vertical-400x1280.md) | O tamanho recomendado do banner vertical passou a ser 400 × 1280, o espelho do horizontal |
 | [81 · A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md) | A pizza de receita e despesa (do mês ou geral), e no banner o peso melhor, o valor que ele rende (nas Finanças) e a data em que acaba |
+| [82 · O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md) | O quadro "Quando ele acaba" com atalhos e resumo, e o seletor de mês com calendário |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

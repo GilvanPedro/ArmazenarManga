@@ -4239,12 +4239,7 @@ async function financasDoGerenciamento(conteudo, vez, mesPedido) {
                     h('td', null, STATUS_DA_VENDA[venda.status] || venda.status),
                     h('td', null, venda.pagamento || '—')))))));
 
-    const navegacao = h('div', {class: 'navegacao-do-mes'},
-        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Mês anterior', onclick: () => abrirMes(somarMesesNoSite(mes, -1))}, '‹'),
-        h('h2', null, mesPorExtenso(mes)),
-        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Próximo mês', disabled: mes >= dados.atual, onclick: () => abrirMes(somarMesesNoSite(mes, 1))}, '›'),
-        h('input', {type: 'month', value: mes, max: dados.atual, 'aria-label': 'Escolher o mês', onchange: evento => { if (evento.target.value) abrirMes(evento.target.value); }}),
-        mes !== dados.atual ? h('button', {type: 'button', class: 'botao pequeno', onclick: () => abrirMes(dados.atual)}, 'Mês atual') : null);
+    const navegacao = navegacaoDoMes(mes, dados.atual, abrirMes);
 
     conteudo.replaceChildren(
         navegacao,
@@ -4317,11 +4312,55 @@ function relatorioDeUmBanner(dados, aoTrocarMes) {
 
 /** As setas do mes (sem passar do mes atual) e o nome do mes. */
 function navegacaoDoMes(mes, atual, aoTrocarMes) {
-    return h('div', {class: 'navegacao-do-mes'},
-        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Mês anterior', onclick: () => aoTrocarMes(somarMesesNoSite(mes, -1))}, '‹'),
-        h('h2', null, mesPorExtenso(mes)),
-        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Próximo mês', disabled: mes >= atual, onclick: () => aoTrocarMes(somarMesesNoSite(mes, 1))}, '›'),
-        mes !== atual ? h('button', {type: 'button', class: 'botao pequeno', onclick: () => aoTrocarMes(atual)}, 'Mês atual') : null);
+    // o calendario de meses: abre embaixo do nome do mes, com o ano e os 12 meses (os que ainda nao chegaram, apagados)
+    let anoDoCalendario = Number(mes.slice(0, 4));
+    const calendario = h('div', {class: 'calendario-de-meses', role: 'dialog', 'aria-label': 'Escolher o mês', hidden: true});
+    const abrirCalendario = h('button', {type: 'button', class: 'mes-escolhido', 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: 'Escolher outro mês'},
+        h('span', {class: 'icone-do-mes', 'aria-hidden': 'true'}, '📅'), h('span', {class: 'nome-do-mes'}, mesPorExtenso(mes)), h('span', {class: 'seta-do-mes', 'aria-hidden': 'true'}, '▾'));
+    const fechar = () => {
+        calendario.hidden = true;
+        abrirCalendario.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('pointerdown', foraDoCalendario, true);
+    };
+    const foraDoCalendario = evento => { if (!seletor.contains(evento.target)) fechar(); };
+    const desenharCalendario = () => {
+        const anoAtual = Number(atual.slice(0, 4));
+        calendario.replaceChildren(
+            h('div', {class: 'ano-do-calendario'},
+                h('button', {type: 'button', class: 'seta-do-calendario', 'aria-label': 'Ano anterior', onclick: () => { anoDoCalendario--; desenharCalendario(); }}, '‹'),
+                h('b', null, String(anoDoCalendario)),
+                h('button', {type: 'button', class: 'seta-do-calendario', 'aria-label': 'Próximo ano', disabled: anoDoCalendario >= anoAtual,
+                    onclick: () => { anoDoCalendario++; desenharCalendario(); }}, '›')),
+            h('div', {class: 'meses-do-calendario'}, ...MESES_CURTOS.map((nome, i) => {
+                const valor = anoDoCalendario + '-' + String(i + 1).padStart(2, '0');
+                return h('button', {type: 'button', class: 'mes-do-calendario' + (valor === mes ? ' escolhido' : '') + (valor === atual ? ' atual' : ''),
+                    disabled: valor > atual, 'aria-pressed': String(valor === mes), 'aria-label': mesPorExtenso(valor),
+                    onclick: () => { fechar(); if (valor !== mes) aoTrocarMes(valor); }}, nome);
+            })));
+    };
+    abrirCalendario.addEventListener('click', () => {
+        if (!calendario.hidden) return fechar();
+        anoDoCalendario = Number(mes.slice(0, 4));
+        desenharCalendario();
+        calendario.hidden = false;
+        abrirCalendario.setAttribute('aria-expanded', 'true');
+        document.addEventListener('pointerdown', foraDoCalendario, true);
+        calendario.querySelector('.mes-do-calendario.escolhido, .mes-do-calendario:not(:disabled)')?.focus();
+    });
+    calendario.addEventListener('keydown', evento => {
+        if (evento.key !== 'Escape') return;
+        evento.preventDefault();
+        evento.stopPropagation();
+        fechar();
+        abrirCalendario.focus();
+    });
+    const seletor = h('div', {class: 'seletor-de-mes'},
+        h('button', {type: 'button', class: 'seta-do-mes-lado', 'aria-label': 'Mês anterior', onclick: () => aoTrocarMes(somarMesesNoSite(mes, -1))}, '‹'),
+        abrirCalendario,
+        h('button', {type: 'button', class: 'seta-do-mes-lado', 'aria-label': 'Próximo mês', disabled: mes >= atual, onclick: () => aoTrocarMes(somarMesesNoSite(mes, 1))}, '›'),
+        calendario);
+    return h('div', {class: 'navegacao-do-mes'}, seletor,
+        mes !== atual ? h('button', {type: 'button', class: 'voltar-ao-mes-atual', onclick: () => aoTrocarMes(atual)}, '↺ Mês atual') : null);
 }
 
 /**
@@ -4511,9 +4550,77 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
     let cobranca = banner?.cobranca || 'mensal';
     const opcoesDeCobranca = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Cobrança'});
     const desenharCobranca = () => opcoesDeCobranca.replaceChildren(...[['mensal', 'Por mês'], ['unica', 'Uma vez só']].map(([qual, nome]) =>
-        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(cobranca === qual), onclick: () => { cobranca = qual; desenharCobranca(); }}, nome)));
+        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(cobranca === qual), onclick: () => {
+            cobranca = qual;
+            desenharCobranca();
+            if (typeof resumirTermino === 'function') resumirTermino();
+        }}, nome)));
     desenharCobranca();
+    // quando o banner acaba: sem data, ou uma data (com atalhos e um resumo que muda na hora)
     const terminaEm = h('input', {type: 'date', id: 'banner-termino', value: banner?.terminaEm || ''});
+    let comTermino = Boolean(banner?.terminaEm);
+    const opcoesDoTermino = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Quando acaba'});
+    const atalhosDoTermino = h('div', {class: 'atalhos-do-termino'});
+    const resumoDoTermino = h('p', {class: 'resumo-do-termino', 'aria-live': 'polite'});
+    const camposDoTermino = h('div', {class: 'campos-do-termino'}, terminaEm, atalhosDoTermino);
+    const hojeNoAparelho = () => {
+        const agora = new Date();
+        return new Date(Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate()));
+    };
+    const paraTexto = data => data.toISOString().slice(0, 10);
+    // os atalhos contam sempre a partir de hoje, sem passar do ultimo dia do mes (31/01 + 1 mes = 28/02)
+    const somarMesesNaData = meses => {
+        const base = hojeNoAparelho();
+        const alvo = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + meses, 1));
+        const ultimoDia = new Date(Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0)).getUTCDate();
+        alvo.setUTCDate(Math.min(base.getUTCDate(), ultimoDia));
+        return paraTexto(alvo);
+    };
+    const fimDesteMes = () => {
+        const hoje = hojeNoAparelho();
+        return paraTexto(new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() + 1, 0)));
+    };
+    atalhosDoTermino.append(...[['+1 mês', () => somarMesesNaData(1)], ['+3 meses', () => somarMesesNaData(3)], ['+6 meses', () => somarMesesNaData(6)],
+        ['+1 ano', () => somarMesesNaData(12)], ['Fim deste mês', fimDesteMes]].map(([nome, data]) =>
+        h('button', {type: 'button', class: 'botao pequeno', onclick: () => { terminaEm.value = data(); resumirTermino(); }}, nome)));
+    const resumirTermino = () => {
+        camposDoTermino.hidden = !comTermino;
+        if (!comTermino) {
+            resumoDoTermino.className = 'resumo-do-termino';
+            resumoDoTermino.textContent = 'O banner fica no ar até você pausar ou apagar' + (cobranca === 'mensal' && valor.value.trim() ? ', e a receita conta todo mês.' : '.');
+            return;
+        }
+        if (!terminaEm.value) {
+            resumoDoTermino.className = 'resumo-do-termino';
+            resumoDoTermino.textContent = 'Escolha o dia, ou use um dos atalhos.';
+            return;
+        }
+        const data = new Date(terminaEm.value + 'T00:00:00Z');
+        const dias = Math.round((data - hojeNoAparelho()) / 86400000);
+        const porExtenso = data.toLocaleDateString('pt-BR', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC'});
+        const quando = dias > 1 ? 'daqui a ' + dias + ' dias' : dias === 1 ? 'amanhã' : dias === 0 ? 'hoje' : 'já passou';
+        let texto = porExtenso.charAt(0).toUpperCase() + porExtenso.slice(1) + ', ' + quando + '.';
+        if (dias <= 0) texto += ' Ao salvar, o peso vira 0 e o banner sai do ar.';
+        else texto += ' Nesse dia o peso vira 0 e o banner sai do ar.';
+        if (cobranca === 'mensal' && valor.value.trim()) {
+            const agora = hojeNoAparelho();
+            const meses = (data.getUTCFullYear() - agora.getUTCFullYear()) * 12 + (data.getUTCMonth() - agora.getUTCMonth()) + 1;
+            if (meses > 0) texto += ' A receita por mês conta até ' + mesPorExtenso(terminaEm.value.slice(0, 7)) + ' (' + (meses === 1 ? 'só este mês' : meses + ' meses a partir deste') + ').';
+        }
+        resumoDoTermino.className = 'resumo-do-termino' + (dias <= 0 ? ' passou' : '');
+        resumoDoTermino.textContent = texto;
+    };
+    const desenharTermino = () => opcoesDoTermino.replaceChildren(...[[false, 'Sem data para acabar'], [true, 'Acaba em…']].map(([qual, nome]) =>
+        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(comTermino === qual), onclick: () => {
+            comTermino = qual;
+            if (comTermino && !terminaEm.value) terminaEm.value = somarMesesNaData(1);
+            desenharTermino();
+            resumirTermino();
+            if (comTermino) terminaEm.focus();
+        }}, nome)));
+    desenharTermino();
+    terminaEm.addEventListener('input', resumirTermino);
+    valor.addEventListener('input', resumirTermino);
     const arquivo = h('input', {type: 'file', id: 'banner-imagem', class: 'escolher-arquivo', accept: 'image/png,image/jpeg,image/webp'});
     const previa = h('div', {class: 'previa-do-banner grande'}, banner ? h('img', {src: banner.imagem, alt: ''}) : h('span', {class: 'subtitulo'}, 'A imagem aparece aqui'));
     const medidas = h('small', {class: 'medidas-do-banner'});
@@ -4583,8 +4690,11 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
                 h('div', {class: 'campo'}, h('label', {for: 'banner-valor'}, 'Valor em reais'), valor),
                 h('div', {class: 'campo'}, h('span', {class: 'rotulo'}, 'Cobrança'), opcoesDeCobranca)),
             h('small', null, 'Entra sozinho nas Finanças como receita: por mês, em todo mês desde o começo do anúncio até o término; uma vez só, no dia do cadastro. Vazio: sem receita.')),
-        h('div', {class: 'campo'}, h('label', {for: 'banner-termino'}, 'Acaba em (opcional)'), terminaEm,
-            h('small', null, 'Nesse dia o peso vira 0 e o banner sai do ar. A receita por mês para nesse mês.')),
+        h('fieldset', {class: 'campo-de-dinheiro campo-do-termino'},
+            h('legend', null, 'Quando ele acaba'),
+            opcoesDoTermino,
+            camposDoTermino,
+            resumoDoTermino),
         erro,
         h('div', {class: 'acoes'}, h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'), salvar));
     const dialogo = h('dialog', {class: 'janela-de-lancamento janela-do-banner'},
@@ -4610,7 +4720,7 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
         envio.append('peso', numeroDoPeso.value);
         envio.append('valor', valor.value);
         envio.append('cobranca', cobranca);
-        envio.append('terminaEm', terminaEm.value);
+        envio.append('terminaEm', comTermino ? terminaEm.value : '');
         if (arquivo.files[0]) envio.append('imagem', arquivo.files[0]);
         salvar.disabled = true;
         try {
@@ -4623,6 +4733,7 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
             salvar.disabled = false;
         }
     });
+    resumirTermino();
     dialogo.addEventListener('close', () => dialogo.remove());
     document.body.append(dialogo);
     dialogo.showModal();

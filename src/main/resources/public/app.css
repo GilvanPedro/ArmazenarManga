@@ -2088,9 +2088,34 @@ dialog.janela-de-punir { max-width: 460px; }
 .aviso-da-compra.recusada { border-color: var(--perigo); background: color-mix(in srgb, var(--perigo) 8%, var(--superficie)); }
 
 /* ------------------------------------------------------------ financas (gerenciar) */
-.navegacao-do-mes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 14px; }
-.navegacao-do-mes h2 { margin: 0 4px; min-width: 11ch; text-align: center; font-size: 20px; }
-.navegacao-do-mes input[type=month] { width: auto; min-height: 34px; padding: 4px 10px; }
+/* o seletor do mes: uma barra arredondada com as setas e o nome do mes, que abre o calendario de meses */
+.navegacao-do-mes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
+.seletor-de-mes { position: relative; display: inline-flex; align-items: center; padding: 4px; border: 1px solid var(--borda); border-radius: 999px; background: var(--superficie); box-shadow: 0 2px 10px rgba(0, 0, 0, .12); }
+.seta-do-mes-lado { display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: none; color: var(--texto); font-size: 22px; line-height: 1; cursor: pointer; }
+.seta-do-mes-lado:hover:not(:disabled) { background: var(--superficie-2); }
+.seta-do-mes-lado:disabled { opacity: .3; cursor: default; }
+.mes-escolhido { display: inline-flex; align-items: center; gap: 8px; min-width: 16ch; justify-content: center; padding: 8px 16px; border: 0; border-radius: 999px; background: color-mix(in srgb, var(--destaque) 14%, transparent); color: var(--texto); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; }
+.mes-escolhido:hover, .mes-escolhido[aria-expanded=true] { background: color-mix(in srgb, var(--destaque) 24%, transparent); }
+.icone-do-mes { font-size: 16px; }
+.nome-do-mes::first-letter { text-transform: uppercase; }
+.seta-do-mes { color: var(--texto-fraco); font-size: 12px; transition: transform .15s; }
+.mes-escolhido[aria-expanded=true] .seta-do-mes { transform: rotate(180deg); }
+.seta-do-mes-lado:focus-visible, .mes-escolhido:focus-visible, .mes-do-calendario:focus-visible, .voltar-ao-mes-atual:focus-visible { outline: 2px solid var(--destaque); outline-offset: 2px; }
+.voltar-ao-mes-atual { padding: 8px 14px; border: 1px dashed var(--borda); border-radius: 999px; background: none; color: var(--texto-fraco); font: inherit; font-weight: 600; cursor: pointer; }
+.voltar-ao-mes-atual:hover { color: var(--texto); border-color: var(--destaque); }
+/* o calendario de meses, flutuando embaixo do seletor */
+.calendario-de-meses { position: absolute; top: calc(100% + 8px); left: 50%; z-index: 20; transform: translateX(-50%); width: 280px; padding: 12px; border: 1px solid var(--borda); border-radius: 16px; background: var(--superficie); box-shadow: var(--sombra); }
+.calendario-de-meses[hidden] { display: none; }
+.ano-do-calendario { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.ano-do-calendario b { font-size: 17px; }
+.seta-do-calendario { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--superficie-2); color: var(--texto); font-size: 18px; cursor: pointer; }
+.seta-do-calendario:disabled { opacity: .3; cursor: default; }
+.meses-do-calendario { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.mes-do-calendario { padding: 10px 0; border: 1px solid transparent; border-radius: 10px; background: var(--superficie-2); color: var(--texto); font: inherit; font-weight: 600; text-transform: capitalize; cursor: pointer; }
+.mes-do-calendario:hover:not(:disabled) { border-color: var(--destaque); }
+.mes-do-calendario.atual { border-color: color-mix(in srgb, var(--destaque) 55%, transparent); }
+.mes-do-calendario.escolhido { background: var(--destaque); border-color: var(--destaque); color: var(--sobre-destaque); }
+.mes-do-calendario:disabled { opacity: .3; cursor: default; }
 .numeros-das-financas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .quadro-do-painel.resultado.lucro .valor-do-quadro { color: var(--lucro); }
 .quadro-do-painel.resultado.prejuizo .valor-do-quadro { color: var(--prejuizo); }
@@ -2700,7 +2725,7 @@ body.pagina-de-relatorio .topo { display: none; }
 @media print {
     body { background: #fff !important; color: #000; }
     body::before, body::after, :root::before, :root::after { display: none !important; }
-    .topo, .topo-do-relatorio .botao, .navegacao-do-mes button, .tabela-do-grafico summary, .avisos { display: none !important; }
+    .topo, .topo-do-relatorio .botao, .seta-do-mes-lado, .voltar-ao-mes-atual, .calendario-de-meses, .seta-do-mes, .icone-do-mes, .tabela-do-grafico summary, .avisos { display: none !important; }
     .quadro-do-painel, .grafico-do-painel, .meses-do-painel { break-inside: avoid; border-color: #ccc; background: #fff; }
 }
 
@@ -2726,3 +2751,13 @@ input[type=file].escolher-arquivo::file-selector-button:hover { background: var(
 .resultado-da-pizza { margin: 0 0 10px; font-weight: 700; }
 .resultado-da-pizza.lucro { color: var(--lucro); }
 .resultado-da-pizza.prejuizo { color: var(--prejuizo); }
+
+/* quando o banner acaba: as duas opcoes, a data com os atalhos e o resumo */
+.campo-do-termino .filtros { margin: 0; }
+.campos-do-termino { display: flex; flex-direction: column; gap: 10px; }
+.campos-do-termino[hidden] { display: none; }
+.campos-do-termino input[type=date] { width: 100%; max-width: 240px; min-height: 42px; font-size: 15px; color-scheme: inherit; }
+.atalhos-do-termino { display: flex; flex-wrap: wrap; gap: 6px; }
+.atalhos-do-termino .botao { border-radius: 999px; }
+.resumo-do-termino { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--superficie-2); color: var(--texto); font-size: 13.5px; line-height: 1.45; }
+.resumo-do-termino.passou { background: color-mix(in srgb, var(--perigo) 14%, var(--superficie)); color: var(--perigo); }

@@ -69,3 +69,5 @@ muda pelo cadastro do banner (as rotas das Finanças recusam mudar ou apagar ess
   R$ 435 de lucro; a pizza geral com R$ 950 e R$ 750 (R$ 200 de lucro). A receita da Loja do Otaku apareceu em
   dezembro e não em janeiro, e apagar a receita de um banner pelas Finanças foi recusado. O site compactado também foi
   conferido.
+
+> Depois, o campo do término e o seletor de mês ficaram mais bonitos: veja [O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md).

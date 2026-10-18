@@ -245,6 +245,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Receita dos banners.** As Finanças ganharam a pizza de receita e despesa (do mês ou geral), e o cadastro dos
   banners, o peso com explicação, o valor que o banner rende (que entra sozinho nas Finanças, por mês ou de uma vez) e a
   data em que ele acaba. Detalhes em [A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md).
+- **Término do banner e seletor de mês.** O cadastro do banner ganhou o quadro "Quando ele acaba" (com atalhos e um
+  resumo), e as Finanças e os relatórios, um seletor de mês com calendário. Detalhes em
+  [O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md).
 
 ## O que foi removido ou abandonado
 
