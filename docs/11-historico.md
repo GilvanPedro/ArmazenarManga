@@ -286,6 +286,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Barras de rolagem na cor do tema](99-barras-de-rolagem-do-tema.md).
 - **Site muito mais leve.** As animações passaram a usar só `transform` e `opacity` e a pausar fora da tela e com a
   janela sem foco. Detalhes em [O site muito mais leve para o processador](100-site-muito-mais-leve.md).
+- **Obra nova com nome parecido.** Ao marcar capítulo lido, uma obra que começa com o nome de outra da lista não é
+  mais confundida com ela, e a tela ganhou "+ Cadastrar como mangá novo". Detalhes em
+  [Obra nova com o começo do nome de uma da lista](101-obra-nova-com-nome-parecido.md).
 
 ## O que foi removido ou abandonado
 

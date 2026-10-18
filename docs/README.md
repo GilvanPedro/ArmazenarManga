@@ -104,6 +104,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [98 · O "+ Adicionar" dos recomendados alinhado](98-botao-adicionar-alinhado.md) | Os botões dos recomendados (e do Descobrir) no mesmo nível, com qualquer quantidade de tags |
 | [99 · Barras de rolagem na cor do tema](99-barras-de-rolagem-do-tema.md) | Barras de rolagem finas, na cor de destaque do tema equipado, no site todo |
 | [100 · O site muito mais leve para o processador](100-site-muito-mais-leve.md) | As animações de bordas, efeitos e temas reescritas para não redesenhar a página (de até 857 ms/s para 1 ms/s), e pausadas fora da tela e com a janela sem foco |
+| [101 · Obra nova com o começo do nome de uma da lista](101-obra-nova-com-nome-parecido.md) | Ao marcar capítulo lido, uma obra nova que começa com o nome de outra não é mais confundida, e há um botão para cadastrar como nova |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

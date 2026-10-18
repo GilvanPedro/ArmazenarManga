@@ -2277,10 +2277,15 @@ function mangaDoLink(mangas, endereco, titulosDaPagina) {
     // 2) pelo endereco: mesmo site e mesma obra. Tudo antes do ultimo trecho (que e o capitulo) precisa bater.
     // Dois trechos batem se forem iguais ou quase iguais ("obra-3ec3b16f" e "obra-bd5bdaf8": so o id do fim mudou).
     const trechos = url => url.pathname.split('/').filter(Boolean).slice(0, -1);
+    // So quando o que sobra depois do comeco igual e um codigo (letras e numeros, com algum numero, sem hifen):
+    // "solo-leveling-ragnarok" NAO e quase igual a "solo-leveling" (e outra obra, que comeca com o nome da primeira)
+    const codigo = resto => /^[a-z0-9]{0,16}$/i.test(resto);
     const quaseIguais = (a, b) => {
         let iguais = 0;
         while (iguais < a.length && iguais < b.length && a[iguais] === b[iguais]) iguais++;
-        return iguais >= 8 && iguais >= 0.7 * Math.min(a.length, b.length);
+        const restoA = a.slice(iguais);
+        const restoB = b.slice(iguais);
+        return iguais >= 8 && codigo(restoA) && codigo(restoB) && /\d/.test(restoA + restoB);
     };
     // "title", "manga", "read"... sao iguais para o site inteiro; so um trecho com cara de nome de obra identifica
     const identifica = trecho => trecho.length >= 8 || /[-_\d]/.test(trecho);
@@ -2309,13 +2314,25 @@ function mangaDoLink(mangas, endereco, titulosDaPagina) {
     // 3) o nome de um manga da lista aparece inteiro dentro do titulo da pagina, por mais coisa que o site ponha em
     // volta ("[Manga] Manga Solo Leveling - Capítulo 12 - Site"). Vale o nome mais comprido que aparecer, para
     // "Solo Leveling: Ragnarok" ganhar de "Solo Leveling"; nomes curtos demais nao contam, para nao bater por acaso.
-    const paginas = titulos.map(titulo => ' ' + semAcento(titulo) + ' ');
+    // O nome so conta se o que vem logo depois dele no titulo e o capitulo, um separador ("-", "|", "–") ou o fim:
+    // "Solo Leveling Ragnarok" ou "Solo Leveling: Ragnarok" NAO sao "Solo Leveling" (e outra obra com o comeco igual).
+    const comPontuacao = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const paginas = titulos.map(titulo => ' ' + comPontuacao(titulo) + ' ');
+    const fimDoNome = /^\s*($|[-–—|•·~]|\(|\[|(cap(itulo|\.)?|ch(apter|\.)?|ep(isodio|isode|\.)?|vol(ume|\.)?|#)\s*\d|\d)/;
+    const nomeInteiroNoTitulo = (pagina, nome) => {
+        // o nome (sem pontuacao) pode ter pontuacao no titulo: "solo leveling" acha "solo-leveling" e "solo leveling"
+        const padrao = new RegExp('(^|[^\\p{L}\\p{N}])' + nome.split(' ').map(parte => parte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^\\p{L}\\p{N}]+') + '(?![\\p{L}\\p{N}])', 'gu');
+        for (const achado of pagina.matchAll(padrao)) {
+            if (fimDoNome.test(pagina.slice(achado.index + achado[0].length))) return true;
+        }
+        return false;
+    };
     let melhorTamanho = 0;
     let melhores = new Set();
     for (const manga of mangas) {
         for (const nome of nomesDe(manga)) {
             if ((nome.length < 6 && !nome.includes(' ')) || nome.length < 4) continue;
-            if (paginas.some(pagina => pagina.includes(' ' + nome + ' ')) && nome.length >= melhorTamanho) {
+            if (paginas.some(pagina => nomeInteiroNoTitulo(pagina, nome)) && nome.length >= melhorTamanho) {
                 if (nome.length > melhorTamanho) melhores = new Set();
                 melhorTamanho = nome.length;
                 melhores.add(manga);
@@ -2516,6 +2533,8 @@ async function telaCapturar(consulta) {
         erro,
         h('div', {class: 'acoes-form'},
             h('a', {class: 'botao', href: '#/'}, 'Cancelar'),
+            // o site achou que e um manga da lista, mas e outro: cadastra este como novo, com o que a pagina informou
+            h('button', {type: 'button', class: 'botao', onclick: () => cadastrarNovo()}, '+ Cadastrar como mangá novo'),
             salvar));
 
     formulario.addEventListener('submit', async evento => {

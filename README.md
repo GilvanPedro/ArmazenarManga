@@ -128,6 +128,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [O "+ Adicionar" dos recomendados alinhado](docs/98-botao-adicionar-alinhado.md) | |
 | [Barras de rolagem na cor do tema](docs/99-barras-de-rolagem-do-tema.md) | |
 | [O site muito mais leve para o processador](docs/100-site-muito-mais-leve.md) | |
+| [Obra nova com o começo do nome de uma da lista](docs/101-obra-nova-com-nome-parecido.md) | |
 
 ## Testes
 
