@@ -248,6 +248,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Término do banner e seletor de mês.** O cadastro do banner ganhou o quadro "Quando ele acaba" (com atalhos e um
   resumo), e as Finanças e os relatórios, um seletor de mês com calendário. Detalhes em
   [O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md).
+- **Bordas Aurora Boreal e Eclipse.** Duas bordas animadas novas na loja. Detalhes em
+  [Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md).
 
 ## O que foi removido ou abandonado
 

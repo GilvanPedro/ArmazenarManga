@@ -531,21 +531,21 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
  * na camada .enfeite-da-borda (e no ::before e ::after dela), que nas outras bordas nao aparece.
  */
 .enfeite-da-borda { display: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse) {
     overflow: visible;
     isolation: isolate;
     border-width: 5px;
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial) > :is(img, .capa-vazia, .capa-de-exemplo) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse) > :is(img, .capa-vazia, .capa-de-exemplo) {
     border-radius: calc(var(--raio) - 5px);
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial)::after,
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial)::before {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse)::after,
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse)::before {
     border-radius: calc(var(--raio) - 5px);
 }
 /* a imagem nao cresce no hover: sem o corte da capa, ela passaria por cima da moldura */
-a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial):hover img { transform: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial) .enfeite-da-borda {
+a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse):hover img { transform: none; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse) .enfeite-da-borda {
     display: block;
     position: absolute;
     inset: 0;
@@ -884,6 +884,107 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 .capa.favorita.borda-celestial .status { z-index: 4; top: 7%; left: 8%; }
 .capa.favorita.borda-celestial .nota { z-index: 4; right: 8%; bottom: 6%; }
 
+/*
+ * Aurora Boreal e Eclipse: a luz da volta na capa vem de um angulo que gira (--aurora e --eclipse, registrados com
+ * @property para poderem ser animados; navegador sem @property mostra a moldura parada, sem quebrar). As duas desenham
+ * so na faixa da moldura (e no brilho por fora): a capa fica limpa.
+ */
+@property --aurora { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+@property --eclipse { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
+@keyframes aurora-girando { to { --aurora: 360deg; } }
+@keyframes eclipse-girando { to { --eclipse: 360deg; } }
+
+/* Aurora Boreal: as cores correm devagar pela moldura, e um brilho borrado com as mesmas cores acompanha por fora */
+.capa.favorita.borda-boreal {
+    --roxo: #2dd4bf;
+    --cores-da-aurora: #34d399, #22d3ee 18%, #60a5fa 34%, #a78bfa 50%, #f0abfc 62%, #818cf8 76%, #2dd4bf 90%, #34d399;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        conic-gradient(from var(--aurora), var(--cores-da-aurora)) border-box;
+    animation: aurora-girando 7s linear infinite;
+}
+/*
+ * a camada do brilho passa 26px para fora da imagem (21px alem da moldura de 5px; o inset conta de dentro da moldura),
+ * com folga para o borrado nao ser cortado; a mascara dela (aplicada depois do borrado) esconde o miolo, entao o brilho
+ * fica so por fora e em cima da moldura, sem borrar a imagem
+ */
+.capa.favorita:is(.borda-boreal, .borda-eclipse) .enfeite-da-borda {
+    inset: -26px;
+    padding: 26px;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* o brilho: um anel por fora da capa, borrado pelo filtro do pai */
+.borda-boreal .enfeite-da-borda { filter: blur(7px); opacity: .8; animation: aurora-respirando 5s ease-in-out infinite; }
+.borda-boreal .enfeite-da-borda::before {
+    inset: 12px;
+    padding: 9px;
+    border-radius: calc(var(--raio) + 6px);
+    background: conic-gradient(from var(--aurora), var(--cores-da-aurora));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+@keyframes aurora-respirando {
+    0%, 100% { opacity: .55; }
+    50% { opacity: .9; }
+}
+.borda-boreal .enfeite-da-borda::after { content: none; }
+.borda-boreal .estrela-de-favorito { font-size: 0; background: conic-gradient(from var(--aurora), var(--cores-da-aurora)); border-color: rgba(255, 255, 255, .9); box-shadow: 0 0 10px rgba(45, 212, 191, .6); }
+.borda-boreal .estrela-de-favorito::before { content: "✦"; font-size: 14px; line-height: 1; color: #fff; text-shadow: 0 0 4px rgba(15, 23, 42, .6); }
+
+/*
+ * Eclipse: moldura escura de obsidiana com um fio dourado bem fino por fora; um ponto de luz da a volta deixando um
+ * rastro que se apaga, e quando ele passa pelo canto de cima a direita faisca o "anel de diamante" (o brilho do
+ * eclipse). Na capa 2:3, o canto fica a 33,7 graus do topo: 9,4% da volta, dai o momento da faisca.
+ */
+.capa.favorita.borda-eclipse {
+    --roxo: #f59e0b;
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(150deg, #2b2620, #0c0b0d 30%, #1b1814 52%, #0a090b 74%, #2a231b) border-box;
+    box-shadow: 0 0 0 1px rgba(251, 191, 36, .35), 0 0 22px rgba(245, 158, 11, .18), 0 6px 22px rgba(0, 0, 0, .4);
+    animation: eclipse-girando 4.5s linear infinite;
+}
+/* a luz e o rastro, so na faixa da moldura; o filtro do pai faz o brilho em volta da luz */
+.borda-eclipse .enfeite-da-borda {
+    filter: drop-shadow(0 0 3px rgba(253, 224, 71, .95)) drop-shadow(0 0 9px rgba(245, 158, 11, .7));
+}
+.borda-eclipse .enfeite-da-borda::before {
+    inset: 20px;
+    padding: 6px;
+    border-radius: calc(var(--raio) + 1px);
+    background: conic-gradient(from var(--eclipse), transparent 0 62%, rgba(180, 83, 9, .3) 78%, rgba(251, 191, 36, .8) 92%, #fff7d6 96.5%, rgba(251, 191, 36, .6) 98.6%, transparent);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+/* o anel de diamante: uma estrela de quatro pontas que abre e fecha no canto, no tempo em que a luz passa por la */
+.borda-eclipse .enfeite-da-borda::after {
+    top: 21px;
+    right: 21px;
+    width: 34px;
+    aspect-ratio: 1;
+    background:
+        radial-gradient(circle, #fff 0 7%, rgba(255, 244, 214, .85) 14%, rgba(251, 191, 36, .25) 32%, transparent 52%),
+        linear-gradient(90deg, transparent, rgba(255, 247, 220, .95) 50%, transparent) center / 100% 2px no-repeat,
+        linear-gradient(0deg, transparent, rgba(255, 247, 220, .95) 50%, transparent) center / 2px 100% no-repeat;
+    transform: translate(50%, -50%) scale(0) rotate(0deg);
+    animation: anel-de-diamante 4.5s linear infinite;
+}
+@keyframes anel-de-diamante {
+    0%, 4% { transform: translate(50%, -50%) scale(0) rotate(0deg); opacity: 0; }
+    9.4% { transform: translate(50%, -50%) scale(1) rotate(45deg); opacity: 1; }
+    17%, 100% { transform: translate(50%, -50%) scale(0) rotate(90deg); opacity: 0; }
+}
+.borda-eclipse .estrela-de-favorito {
+    font-size: 0;
+    background: radial-gradient(circle at 50% 50%, #0b0a0c 0 52%, #fde68a 56%, #f59e0b 64%, #78350f 100%);
+    border-color: rgba(253, 230, 138, .9);
+    box-shadow: 0 0 10px rgba(245, 158, 11, .75);
+}
+
 /* Galaxia: estrelas e um planetinha flutuando por fora da moldura */
 .borda-galaxia .enfeite-da-borda::before {
     inset: -9%;
@@ -913,7 +1014,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-eletrico, .borda-arcano),
+    .capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-eletrico, .borda-arcano, .borda-boreal, .borda-eclipse),
     .enfeite-da-borda, .enfeite-da-borda::before, .enfeite-da-borda::after, .capa.favorita.borda-arcano::after { animation: none; }
 }
 

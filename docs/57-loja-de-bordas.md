@@ -144,3 +144,5 @@ A sessão (`/api/inicio`, `/api/sessao`) passou a trazer `conta.borda`, e o auto
 > [O dono tem todos os itens da loja](61-dono-tem-todos-os-itens.md).
 
 > Depois, a loja ganhou temas para o site todo (aba Temas): veja [Temas do site](67-temas-do-site.md).
+
+> Depois vieram as bordas animadas Aurora Boreal e Eclipse: veja [Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md).
