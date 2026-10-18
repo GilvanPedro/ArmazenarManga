@@ -18,3 +18,5 @@ o tamanho recomendado do banner **vertical** passou a ser **400 × 1280 px**, o 
 ## Como foi testado
 
 Os 95 testes da versão JavaScript passam, com 400 × 1280 aceito como banner vertical.
+
+> Depois, as medidas do vertical passaram a ser as do horizontal, trocadas: veja [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).

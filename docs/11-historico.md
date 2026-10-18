@@ -278,6 +278,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Banners na página do mangá e no formulário](95-banners-na-pagina-do-manga-e-no-formulario.md).
 - **Banner com as duas imagens.** Um banner pode ter a imagem horizontal, a vertical ou as duas. Detalhes em
   [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).
+- **Vertical com as medidas do horizontal.** O banner vertical passou a aceitar as medidas do horizontal, trocadas.
+  Detalhes em [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).
 
 ## O que foi removido ou abandonado
 

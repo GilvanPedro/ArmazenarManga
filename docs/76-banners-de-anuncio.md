@@ -129,3 +129,5 @@ Só o dono do site, menos as duas abertas indicadas.
 > Depois, os banners passaram a aparecer no site: veja [Os lugares de banner no site](91-lugares-de-banner.md).
 
 > Depois, um banner passou a poder ter as duas imagens (horizontal e vertical): veja [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).
+
+> Depois, as medidas do vertical passaram a ser as do horizontal, trocadas: veja [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).

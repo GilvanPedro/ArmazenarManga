@@ -50,7 +50,14 @@ test('o tipo da imagem vem dos primeiros bytes: PNG, JPEG e WebP, e nada de SVG 
 
 test('as medidas de cada formato: horizontal deitado e vertical em pe', () => {
     for (const [l, a] of [[1280, 400], [970, 250], [728, 90]]) assert.equal(problemaNasMedidas('horizontal', l, a), null, `${l}x${a}`);
-    for (const [l, a] of [[400, 1280], [300, 600], [160, 600], [120, 600]]) assert.equal(problemaNasMedidas('vertical', l, a), null, `${l}x${a}`);
+    for (const [l, a] of [[400, 1280], [250, 970], [90, 728], [300, 600], [160, 600], [120, 600]]) assert.equal(problemaNasMedidas('vertical', l, a), null, `${l}x${a}`);
+    // o vertical e o horizontal em pe: cada medida do horizontal, trocada, tambem serve (doc 97)
+    for (const [l, a] of [[1280, 400], [970, 250], [728, 90], [300, 50], [4000, 2000], [4000, 364]]) {
+        assert.equal(problemaNasMedidas('horizontal', l, a), null, `${l}x${a} deitado`);
+        assert.equal(problemaNasMedidas('vertical', a, l), null, `${a}x${l} em pe`);
+    }
+    assert.match(problemaNasMedidas('vertical', 300, 450), /2 a 11 vezes/, 'pouco em pe (1,5) nao serve mais');
+    assert.match(problemaNasMedidas('vertical', 40, 400), /de 50 a 2000 px de largura/);
     assert.match(problemaNasMedidas('horizontal', 300, 600), /deitado/);
     assert.match(problemaNasMedidas('vertical', 1280, 400), /em pé/);
     assert.match(problemaNasMedidas('horizontal', 200, 50), /de 300 a 4000 px de largura/);

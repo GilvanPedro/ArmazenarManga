@@ -80,13 +80,15 @@ export function lerExibicoes(corpo) {
 export const TAMANHO_MAXIMO_DO_BANNER = 1024 * 1024;
 
 /**
- * As medidas aceitas de cada formato (em pixels), e as proporcoes: um horizontal tem a largura de 2 a 11 vezes a
- * altura (1280 x 400, 970 x 250, 728 x 90); um vertical tem a altura de 1,5 a 5 vezes a largura (400 x 1280, o
- * recomendado, espelho do horizontal; 300 x 600, 160 x 600, 120 x 600).
+ * As medidas aceitas de cada formato (em pixels), e as proporcoes. O vertical e o horizontal deitado em pe (doc 97):
+ * um horizontal tem de 300 a 4000 px de largura, de 50 a 2000 de altura e a largura de 2 a 11 vezes a altura
+ * (1280 x 400, 970 x 250, 728 x 90); um vertical tem as medidas trocadas: de 50 a 2000 px de largura, de 300 a 4000
+ * de altura e a altura de 2 a 11 vezes a largura (400 x 1280, 250 x 970, 90 x 728).
  */
+const HORIZONTAL = { largura: [300, 4000], altura: [50, 2000], proporcao: [2, 11] };
 export const FORMATOS_DE_BANNER = {
-    horizontal: { nome: 'Horizontal', largura: [300, 4000], altura: [50, 2000], proporcao: [2, 11], exemplos: '1280 × 400, 970 × 250 ou 728 × 90' },
-    vertical: { nome: 'Vertical', largura: [100, 2000], altura: [250, 4000], proporcao: [1.5, 5], exemplos: '400 × 1280, 300 × 600 ou 160 × 600' },
+    horizontal: { nome: 'Horizontal', ...HORIZONTAL, exemplos: '1280 × 400, 970 × 250 ou 728 × 90' },
+    vertical: { nome: 'Vertical', largura: HORIZONTAL.altura, altura: HORIZONTAL.largura, proporcao: HORIZONTAL.proporcao, exemplos: '400 × 1280, 250 × 970 ou 90 × 728' },
 };
 
 export class DadoInvalidoNoBanner extends Error {}
