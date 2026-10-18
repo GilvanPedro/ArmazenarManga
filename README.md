@@ -122,6 +122,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Banners laterais no meio da tela](docs/92-banners-laterais-no-meio-da-tela.md) | |
 | [A página do mangá no meio da tela](docs/93-pagina-do-manga-no-meio.md) | |
 | ["Com tags em comum" e "recomendados" encaixados](docs/94-parecidos-e-recomendados-encaixados.md) | |
+| [Banners na página do mangá e no formulário](docs/95-banners-na-pagina-do-manga-e-no-formulario.md) | |
 
 ## Testes
 

@@ -274,6 +274,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [A página do mangá no meio da tela](93-pagina-do-manga-no-meio.md).
 - **Parecidos e recomendados encaixados.** Na página do mangá, as 6 obras ficam numa linha (ou duas de 3 no
   celular). Detalhes em ["Com tags em comum" e "recomendados" encaixados](94-parecidos-e-recomendados-encaixados.md).
+- **Banners na página do mangá e no formulário.** Mais quatro lugares de banner. Detalhes em
+  [Banners na página do mangá e no formulário](95-banners-na-pagina-do-manga-e-no-formulario.md).
 
 ## O que foi removido ou abandonado
 

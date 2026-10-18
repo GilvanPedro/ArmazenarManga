@@ -1227,8 +1227,12 @@ async function telaDetalhes(id, aviso) {
     });
     mostrarFavorito();
 
-    // a pagina do manga fica no meio da tela (doc 93)
-    app.replaceChildren(h('div', {class: 'pagina-do-manga'},
+    // a pagina do manga fica no meio da tela (doc 93); os banners: verticais nas laterais ou, sem espaco, horizontais
+    // entre as informacoes e as listas e no fim (doc 95)
+    const paginaDoManga = h('div', {class: 'pagina-do-manga'});
+    app.replaceChildren(paginaDoManga, ...trilhosDeBanner(paginaDoManga, 'manga'));
+    // (as partes que nao aparecem vem nulas: o filter tira, para nao virarem o texto "null")
+    paginaDoManga.append(...[
         h('a', {class: 'voltar', href: '#/'}, '← Todos os mangás'),
         avisoDeLeitura(manga, aviso),
         estado.sorteado === manga.id
@@ -1270,8 +1274,10 @@ async function telaDetalhes(id, aviso) {
                         onclick: evento => verificarLink(manga, evento.currentTarget),
                     }, 'Verificar link'),
                     h('button', {type: 'button', class: 'botao perigo', onclick: () => excluir(manga)}, 'Excluir')))),
+        lugarDeBanner('manga-meio', 'horizontal', 'so-sem-trilhos'),
         semelhantes,
-        recomendacoes));
+        recomendacoes,
+        lugarDeBanner('manga-fim', 'horizontal', 'so-sem-trilhos no-fim')].filter(Boolean));
     carregarSemelhantes(manga, semelhantes, vez);
     carregarRecomendacoes(manga, recomendacoes, vez);
 }
@@ -2060,7 +2066,9 @@ async function telaFormulario(id, consulta) {
     });
 
     document.title = (manga ? 'Editar ' + manga.title : 'Novo mangá') + ' · Viracap';
-    app.replaceChildren(h('div', {class: 'formulario'},
+    // os banners (doc 95): verticais nas laterais ou, sem espaco, horizontais em cima e embaixo do formulario
+    const paginaDoFormulario = h('div', {class: 'formulario'},
+        lugarDeBanner('formulario-topo', 'horizontal', 'so-sem-trilhos'),
         h('a', {class: 'voltar', href: voltarPara}, '← Voltar'),
         h('h1', null, manga ? 'Edição geral' : 'Novo mangá'),
         recomendado
@@ -2071,7 +2079,9 @@ async function telaFormulario(id, consulta) {
                     h('span', null, 'Este mangá não estava na sua lista. Preenchi o que deu para descobrir pela página; confira antes de cadastrar.'),
                     h('a', {class: 'botao pequeno', href: '#/capturar?' + capturado + '&escolher=1'}, 'Ele já está na lista'))
                 : null,
-        formulario));
+        formulario,
+        lugarDeBanner('formulario-fim', 'horizontal', 'so-sem-trilhos no-fim'));
+    app.replaceChildren(paginaDoFormulario, ...trilhosDeBanner(paginaDoFormulario, 'formulario'));
     mostrarPrevia();
     mostrarExemplo();
     descricao.id = 'campo-descricao';

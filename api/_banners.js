@@ -48,6 +48,14 @@ export const LUGARES_DE_BANNER = {
     'comunidade-esquerda': 'Comunidade, lateral esquerda',
     'comunidade-direita': 'Comunidade, embaixo de Quem seguir',
     'comunidade-topo': 'Comunidade, em cima do feed',
+    'manga-esquerda': 'Página do mangá, lateral esquerda',
+    'manga-direita': 'Página do mangá, lateral direita',
+    'manga-meio': 'Página do mangá, entre as informações e as listas',
+    'manga-fim': 'Página do mangá, embaixo',
+    'formulario-esquerda': 'Novo mangá e edição, lateral esquerda',
+    'formulario-direita': 'Novo mangá e edição, lateral direita',
+    'formulario-topo': 'Novo mangá e edição, em cima',
+    'formulario-fim': 'Novo mangá e edição, embaixo',
 };
 
 /** As exibicoes que uma pagina manda de uma vez: [{ banner, posicao }], conferidas (no maximo 12, lugares conhecidos). */
