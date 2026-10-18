@@ -272,6 +272,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   meio da tela. Detalhes em [Banners laterais no meio da tela](92-banners-laterais-no-meio-da-tela.md).
 - **Página do mangá no meio.** As informações de um mangá passaram para o meio da tela. Detalhes em
   [A página do mangá no meio da tela](93-pagina-do-manga-no-meio.md).
+- **Parecidos e recomendados encaixados.** Na página do mangá, as 6 obras ficam numa linha (ou duas de 3 no
+  celular). Detalhes em ["Com tags em comum" e "recomendados" encaixados](94-parecidos-e-recomendados-encaixados.md).
 
 ## O que foi removido ou abandonado
 

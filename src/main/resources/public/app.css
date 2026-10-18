@@ -3508,3 +3508,9 @@ a.banner-de-anuncio:hover { transform: translateY(-2px); }
 @media (max-width: 860px) { .banners-do-atalho { display: none; } }
 @media (min-width: 861px) { .lugar-de-banner.so-sem-coluna { display: none; } }
 @media print { .lugar-de-banner { display: none !important; } }
+
+/* pagina do manga: "com tags em comum" e "recomendados" mostram ate 6 obras; capas menores, todas numa linha (6
+   colunas) no computador e em duas linhas de 3 em telas menores, sem uma sobrando sozinha embaixo (doc 94) */
+.pagina-do-manga .recomendacoes .grade { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 18px 14px; }
+.pagina-do-manga .recomendacoes .cartao-titulo { font-size: 13px; }
+@media (max-width: 780px) { .pagina-do-manga .recomendacoes .grade { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 10px; } }

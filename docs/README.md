@@ -97,6 +97,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [91 · Os lugares de banner no site](91-lugares-de-banner.md) | Os banners do Gerenciar aparecem no site (laterais, em cima e embaixo, conforme a tela), com exibições e cliques contados, e o "Anuncie aqui" quando não há banner |
 | [92 · Banners laterais no meio da tela](92-banners-laterais-no-meio-da-tela.md) | Os verticais da Loja, do Descobrir e da Comunidade na altura do meio da tela |
 | [93 · A página do mangá no meio da tela](93-pagina-do-manga-no-meio.md) | As informações de um mangá num bloco no meio da tela, e a capa no meio no celular |
+| [94 · "Com tags em comum" e "recomendados" encaixados](94-parecidos-e-recomendados-encaixados.md) | Capas menores, 6 numa linha no computador e 3 por linha no celular, sem obra sobrando |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

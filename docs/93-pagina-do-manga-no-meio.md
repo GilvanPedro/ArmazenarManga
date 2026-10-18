@@ -18,3 +18,5 @@ esquerda, com muito espaço vazio à direita em telas largas. Agora:
 
 No navegador, num mangá com descrição e tags, a 1550 px (o bloco foi de 131–1419 para 305–1245, no meio) e a 390 px
 (a capa no meio). O site compactado também foi conferido, e os 101 testes passam.
+
+> Depois, as seções de parecidos e recomendados ganharam capas menores e 6 por linha: veja ["Com tags em comum" e "recomendados" encaixados](94-parecidos-e-recomendados-encaixados.md).
