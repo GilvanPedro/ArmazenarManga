@@ -284,6 +284,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes em [O "+ Adicionar" dos recomendados alinhado](98-botao-adicionar-alinhado.md).
 - **Barras de rolagem do tema.** As barras de rolagem ficaram finas e na cor do tema equipado. Detalhes em
   [Barras de rolagem na cor do tema](99-barras-de-rolagem-do-tema.md).
+- **Site muito mais leve.** As animações passaram a usar só `transform` e `opacity` e a pausar fora da tela e com a
+  janela sem foco. Detalhes em [O site muito mais leve para o processador](100-site-muito-mais-leve.md).
 
 ## O que foi removido ou abandonado
 

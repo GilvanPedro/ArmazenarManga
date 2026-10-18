@@ -50,3 +50,5 @@ moldura sem o miolo, como nelas: na `canvas.png`, a capa ocupa 83,79% × 87,61%,
   biblioteca, na loja (tema claro, por quem não tem os itens) e junto com bordas (Celestial com Feixes, Portão do
   Inferno com Linhas de Ação, Eclipse com Retícula). A Celestial ficou com a imagem limpa. O teste das capas altas
   ([doc 85](85-capas-altas-e-molduras-vizinhas.md)) continua sem problemas, e o site compactado também foi conferido.
+
+> Depois, as animações foram reescritas para pesar muito menos no processador: veja [O site muito mais leve para o processador](100-site-muito-mais-leve.md).

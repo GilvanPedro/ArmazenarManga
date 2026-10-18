@@ -101,8 +101,9 @@ h1, h2 { line-height: 1.2; margin: 0; text-wrap: balance; }
     justify-content: space-between;
     gap: 12px;
     padding: 10px max(16px, calc((100vw - 1320px) / 2));
-    background: color-mix(in srgb, var(--fundo) 88%, transparent);
-    backdrop-filter: blur(10px);
+    /* quase opaca e sem desfoque do que esta atras (doc 100): com o fundo animado dos temas, o desfoque era refeito a
+       cada quadro pela placa de video */
+    background: color-mix(in srgb, var(--fundo) 95%, transparent);
     border-bottom: 1px solid var(--borda);
 }
 
@@ -416,13 +417,16 @@ a.capa:hover img { transform: scale(1.035); }
     inset: 0;
     pointer-events: none;
     background: linear-gradient(115deg, transparent 38%, rgba(255, 255, 255, .13) 48%, rgba(233, 213, 255, .2) 50%, rgba(255, 255, 255, .13) 52%, transparent 62%);
-    background-size: 280% 100%;
-    background-position: 130% 0;
+    /* uma faixa 2,8 vezes mais larga que a capa, que anda de lado (transform: so a placa de video trabalha; antes era
+       background-position, que fazia o navegador redesenhar a capa a cada quadro) */
+    right: auto;
+    width: 280%;
+    transform: translateX(-83.6%);
     animation: reflexo-de-favorito 7s ease-in-out infinite;
 }
 @keyframes reflexo-de-favorito {
-    0%, 62% { background-position: 130% 0; }
-    100% { background-position: -40% 0; }
+    0%, 62% { transform: translateX(-83.6%); }
+    100% { transform: translateX(25.7%); }
 }
 .estrela-de-favorito {
     position: absolute;
@@ -449,10 +453,10 @@ a.capa:hover { transform: translateY(-3px); box-shadow: 0 10px 22px rgba(0, 0, 0
 a.capa.favorita:hover {
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--roxo) 60%, transparent), 0 10px 30px color-mix(in srgb, var(--roxo) 60%, transparent);
 }
-a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-out 1; }
+a.capa.favorita:not(.borda-sakura, .borda-arcano, .borda-boreal, .borda-neon, .borda-galaxia, .borda-cristal, .borda-sombrio, .borda-eletrico):hover::after { animation: reflexo-de-favorito-rapido .9s ease-out 1; }
 @keyframes reflexo-de-favorito-rapido {
-    from { background-position: 130% 0; }
-    to { background-position: -40% 0; }
+    from { transform: translateX(-83.6%); }
+    to { transform: translateX(25.7%); }
 }
 @media (prefers-reduced-motion: reduce) {
     a.capa, .capa img { transition: none; }
@@ -478,12 +482,7 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
     background:
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(90deg, #22d3ee, #f0abfc, #ec4899, #22d3ee) border-box;
-    background-size: auto, 300% 100%;
-    animation: borda-andando 3s linear infinite, neon-pulsando 2.4s ease-in-out infinite;
-}
-@keyframes neon-pulsando {
-    0%, 100% { box-shadow: 0 0 6px rgba(34, 211, 238, .55), 0 0 18px rgba(236, 72, 153, .35); }
-    50% { box-shadow: 0 0 12px rgba(34, 211, 238, .8), 0 0 30px rgba(236, 72, 153, .55); }
+    box-shadow: 0 0 6px rgba(34, 211, 238, .55), 0 0 18px rgba(236, 72, 153, .35);
 }
 .borda-neon .estrela-de-favorito { background: #0b1020; color: #67e8f9; border-color: #f0abfc; box-shadow: 0 0 10px rgba(240, 171, 252, .8); }
 
@@ -498,13 +497,18 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
     background: radial-gradient(5px 3px at 20% 10%, rgba(251, 207, 232, .9), transparent 70%),
         radial-gradient(4px 3px at 70% 0%, rgba(249, 168, 212, .85), transparent 70%),
         radial-gradient(5px 3px at 45% -10%, rgba(253, 242, 248, .9), transparent 70%);
-    background-size: 100% 60%;
+    background-size: 100% 25%;
     background-repeat: repeat;
+    /* uma camada 2,4 vezes mais alta que a capa, que desce dois ladrilhos e volta sem pulo (transform, doc 100) */
+    inset: -120% 0 auto 0;
+    width: auto;
+    height: 240%;
+    transform: none;
     animation: petalas-caindo 9s linear infinite;
 }
 @keyframes petalas-caindo {
-    from { background-position: 0 -60%; }
-    to { background-position: 18px 200%; }
+    from { transform: translateY(0); }
+    to { transform: translateY(50%); }
 }
 .borda-sakura .estrela-de-favorito { font-size: 0; background: linear-gradient(145deg, #fff1f6, #f9a8d4 60%, #db2777); }
 .borda-sakura .estrela-de-favorito::before { content: "✿"; font-size: 17px; color: #fff; }
@@ -514,13 +518,7 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
     background:
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(0deg, #7f1d1d, #dc2626, #f97316, #facc15, #f97316, #dc2626, #7f1d1d) border-box;
-    background-size: auto, 100% 300%;
-    animation: chamas-subindo 1.8s linear infinite;
     box-shadow: 0 0 14px rgba(249, 115, 22, .55), 0 -4px 22px rgba(250, 204, 21, .25);
-}
-@keyframes chamas-subindo {
-    from { background-position: 0 0, 0 0%; }
-    to { background-position: 0 0, 0 100%; }
 }
 .borda-chamas .estrela-de-favorito { background: linear-gradient(0deg, #b91c1c, #f97316 55%, #fde047); }
 
@@ -537,11 +535,6 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
     background-origin: padding-box, border-box, border-box, border-box, border-box, border-box, border-box;
     background-clip: padding-box, border-box, border-box, border-box, border-box, border-box, border-box;
     box-shadow: 0 0 0 1px rgba(99, 102, 241, .45), 0 6px 24px rgba(79, 70, 229, .5);
-    animation: estrelas-piscando 3s ease-in-out infinite;
-}
-@keyframes estrelas-piscando {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(99, 102, 241, .45), 0 6px 24px rgba(79, 70, 229, .5); }
-    50% { box-shadow: 0 0 0 1px rgba(165, 180, 252, .7), 0 6px 30px rgba(109, 40, 217, .65); }
 }
 .borda-galaxia .estrela-de-favorito { background: radial-gradient(circle at 30% 30%, #a5b4fc, #4338ca 55%, #1e1b4b); }
 
@@ -551,21 +544,24 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
  * na camada .enfeite-da-borda (e no ::before e ::after dela), que nas outras bordas nao aparece.
  */
 .enfeite-da-borda { display: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas) {
     overflow: visible;
     isolation: isolate;
     border-width: 5px;
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) > :is(img, .capa-vazia, .capa-de-exemplo) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas) > :is(img, .capa-vazia, .capa-de-exemplo) {
     border-radius: calc(var(--raio) - 5px);
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno)::after,
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno)::before {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas)::after,
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas)::before {
     border-radius: calc(var(--raio) - 5px);
 }
+/* o reflexo do favorito anda por uma faixa mais larga que a capa; nas bordas que deixam o enfeite sair da capa ele
+   passaria para fora, entao elas ficam sem o reflexo (ja tem a animacao delas). A Arcano usa o ::after para as runas */
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas)::after { content: none; }
 /* a imagem nao cresce no hover: sem o corte da capa, ela passaria por cima da moldura */
-a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno):hover img { transform: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .enfeite-da-borda {
+a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas):hover img { transform: none; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno, .borda-neon, .borda-chamas) .enfeite-da-borda {
     display: block;
     position: absolute;
     inset: 0;
@@ -583,16 +579,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     background:
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(135deg, #f0fdff, #a5f3fc 18%, #38bdf8 36%, #e0f2fe 52%, #7dd3fc 70%, #0ea5e9 85%, #f0fdff) border-box;
-    background-size: auto, 260% 260%;
-    animation: cristal-reluz 4s ease-in-out infinite alternate, cristal-brilho 3s ease-in-out infinite;
-}
-@keyframes cristal-reluz {
-    from { background-position: 0 0, 0% 0%; }
-    to { background-position: 0 0, 100% 100%; }
-}
-@keyframes cristal-brilho {
-    0%, 100% { box-shadow: 0 0 10px rgba(125, 211, 252, .55), 0 0 26px rgba(56, 189, 248, .2); }
-    50% { box-shadow: 0 0 16px rgba(186, 230, 253, .85), 0 0 36px rgba(56, 189, 248, .4); }
+    box-shadow: 0 0 10px rgba(125, 211, 252, .55), 0 0 26px rgba(56, 189, 248, .2);
 }
 .borda-cristal .enfeite-da-borda::before, .borda-cristal .enfeite-da-borda::after {
     bottom: -7%;
@@ -622,8 +609,6 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     background:
         linear-gradient(#0b0f14, #0b0f14) padding-box,
         linear-gradient(90deg, #22ff88, #0b0f14 20%, #a855f7 40%, #0b0f14 60%, #22ff88 80%, #0b0f14) border-box;
-    background-size: auto, 300% 100%;
-    animation: borda-andando 2.6s linear infinite;
     box-shadow: 0 0 10px rgba(34, 255, 136, .35), 0 0 22px rgba(168, 85, 247, .35);
 }
 .capa.favorita.borda-cyberpunk > :is(img, .capa-vazia, .capa-de-exemplo) { border-radius: 2px; }
@@ -648,9 +633,12 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     box-shadow: 0 0 6px #a855f7;
     animation: circuito 1.8s steps(4) infinite reverse;
 }
+/* (doc 100) as luzes do circuito piscam em sequencia pela opacidade (antes andavam com background-position) */
 @keyframes circuito {
-    from { background-position: 0 0; }
-    to { background-position: 32px 0; }
+    0%, 100% { opacity: 1; }
+    25% { opacity: .35; }
+    50% { opacity: .85; }
+    75% { opacity: .5; }
 }
 .borda-cyberpunk .estrela-de-favorito { border-radius: 4px; background: #0b0f14; border-color: #22ff88; box-shadow: 0 0 8px rgba(34, 255, 136, .8); }
 .borda-cyberpunk .estrela-de-favorito::before { content: "⌬"; color: #22ff88; }
@@ -661,13 +649,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     background:
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(180deg, #5eead4, #0d9488 25%, #0e7490 50%, #164e63 75%, #2dd4bf) border-box;
-    background-size: auto, 100% 300%;
-    animation: correnteza 4s linear infinite;
     box-shadow: 0 0 14px rgba(45, 212, 191, .5), 0 0 30px rgba(14, 116, 144, .35);
-}
-@keyframes correnteza {
-    from { background-position: 0 0, 0 0%; }
-    to { background-position: 0 0, 0 300%; }
 }
 .borda-abissal .enfeite-da-borda { overflow: hidden; border-radius: calc(var(--raio) - 5px); }
 .borda-abissal .enfeite-da-borda::before {
@@ -678,12 +660,15 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
         radial-gradient(circle at 25% 85%, rgba(204, 251, 241, .9) 0 1.5px, transparent 3.5px),
         radial-gradient(circle at 70% 65%, rgba(153, 246, 228, .8) 0 2px, rgba(94, 234, 212, .2) 3px, transparent 5px),
         radial-gradient(circle at 50% 35%, rgba(204, 251, 241, .8) 0 1.5px, transparent 3px);
-    background-size: 100% 50%;
+    /* as bolhas numa camada com o dobro da altura, que sobe uma capa e volta sem pulo (transform, doc 100) */
+    background-size: 100% 25%;
+    inset: 0 0 auto 0;
+    height: 200%;
     animation: bolhas 6s linear infinite;
 }
 @keyframes bolhas {
-    from { background-position: 0 200%; }
-    to { background-position: 0 0; }
+    from { transform: translateY(0); }
+    to { transform: translateY(-50%); }
 }
 /* o fundo do mar: uma luz azul que sobe de baixo */
 .borda-abissal .enfeite-da-borda::after {
@@ -703,12 +688,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     background:
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(160deg, #1e1b2e, #581c87 30%, #0f0a1a 50%, #6d28d9 70%, #1e1b2e) border-box;
-    background-size: auto, 200% 200%;
-    animation: cristal-reluz 6s ease-in-out infinite alternate, sombra-pulsando 4s ease-in-out infinite;
-}
-@keyframes sombra-pulsando {
-    0%, 100% { box-shadow: 0 0 18px rgba(88, 28, 135, .7), 0 0 40px rgba(46, 16, 101, .6); }
-    50% { box-shadow: 0 0 26px rgba(124, 58, 237, .8), 0 0 54px rgba(46, 16, 101, .8); }
+    box-shadow: 0 0 18px rgba(88, 28, 135, .7), 0 0 40px rgba(46, 16, 101, .6);
 }
 .borda-sombrio .enfeite-da-borda::before {
     inset: -14%;
@@ -775,15 +755,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     background:
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(90deg, #fde047, #60a5fa, #e0f2fe, #facc15, #3b82f6, #fde047) border-box;
-    background-size: auto, 300% 100%;
-    animation: borda-andando 1.2s linear infinite, voltagem 2.4s steps(1, end) infinite;
-}
-@keyframes voltagem {
-    0%, 100% { box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3); }
-    10% { box-shadow: 0 0 18px rgba(224, 242, 254, .95), 0 0 34px rgba(96, 165, 250, .7); }
-    14% { box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3); }
-    60% { box-shadow: 0 0 16px rgba(253, 224, 71, .9), 0 0 30px rgba(250, 204, 21, .5); }
-    64% { box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3); }
+    box-shadow: 0 0 10px rgba(96, 165, 250, .6), 0 0 22px rgba(250, 204, 21, .3);
 }
 .borda-eletrico .enfeite-da-borda::before, .borda-eletrico .enfeite-da-borda::after {
     width: 16%;
@@ -856,9 +828,10 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     white-space: nowrap;
     z-index: 4;
 }
+/* (doc 100) as runas ficam acesas e a plaquinha respira pela opacidade, em vez de animar a cor e a sombra do texto */
 @keyframes runas {
-    0%, 100% { color: #93a3c4; text-shadow: none; }
-    50% { color: #dbeafe; text-shadow: 0 0 6px #60a5fa, 0 0 12px #3b82f6; }
+    0%, 100% { opacity: .6; }
+    50% { opacity: 1; }
 }
 
 /*
@@ -895,11 +868,10 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     -webkit-mask: linear-gradient(#000 0 0) content-box 49.97% 51.41% / 83.79% 87.61% no-repeat, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box 49.97% 51.41% / 83.79% 87.61% no-repeat exclude, linear-gradient(#000 0 0);
-    animation: celestial-brilho 4s ease-in-out infinite;
-}
-@keyframes celestial-brilho {
-    0%, 100% { filter: drop-shadow(0 0 2px rgba(147, 197, 253, .5)); }
-    50% { filter: drop-shadow(0 0 7px rgba(147, 197, 253, .95)); }
+    /* o brilho e desenhado uma vez (filtro parado) e respira pela opacidade (doc 100: animar o filtro redesenhava a
+       moldura a cada quadro) */
+    filter: drop-shadow(0 0 7px rgba(147, 197, 253, .95));
+    animation: moldura-respirando 4s ease-in-out infinite;
 }
 /* o brilho da estrela (na imagem, perto do canto de cima a direita) */
 .capa.favorita.borda-celestial .enfeite-da-borda::after {
@@ -958,11 +930,12 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     -webkit-mask: linear-gradient(#000 0 0) content-box 50.85% 52.94% / 84.13% 87.59% no-repeat, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box 50.85% 52.94% / 84.13% 87.59% no-repeat exclude, linear-gradient(#000 0 0);
+    filter: drop-shadow(0 0 7px var(--brilho-forte-da-moldura));
     animation: moldura-respirando 4s ease-in-out infinite;
 }
 @keyframes moldura-respirando {
-    0%, 100% { filter: drop-shadow(0 0 2px var(--brilho-da-moldura)); }
-    50% { filter: drop-shadow(0 0 7px var(--brilho-forte-da-moldura)); }
+    0%, 100% { opacity: .3; }
+    50% { opacity: 1; }
 }
 .capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .enfeite-da-borda::after {
     left: var(--x-do-enfeite);
@@ -1025,10 +998,10 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 .capa.favorita.borda-inferno .enfeite-da-borda::before { animation: brasa-da-moldura 2.2s ease-in-out infinite; }
 .capa.favorita.borda-inferno .enfeite-da-borda::after { animation: brasa-dos-olhos 2.2s ease-in-out infinite; }
 @keyframes brasa-da-moldura {
-    0%, 100% { filter: drop-shadow(0 0 3px rgba(239, 68, 68, .45)); }
-    30% { filter: drop-shadow(0 0 8px rgba(249, 115, 22, .9)); }
-    45% { filter: drop-shadow(0 0 4px rgba(239, 68, 68, .6)); }
-    65% { filter: drop-shadow(0 0 9px rgba(251, 146, 60, .85)); }
+    0%, 100% { opacity: .35; }
+    30% { opacity: .95; }
+    45% { opacity: .5; }
+    65% { opacity: 1; }
 }
 @keyframes brasa-dos-olhos {
     0%, 100% { opacity: .35; }
@@ -1038,53 +1011,61 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 }
 
 /*
- * Aurora Boreal e Eclipse: a luz da volta na capa vem de um angulo que gira (--aurora e --eclipse, registrados com
- * @property para poderem ser animados; navegador sem @property mostra a moldura parada, sem quebrar). As duas desenham
- * so na faixa da moldura (e no brilho por fora): a capa fica limpa.
+ * Aurora Boreal e Eclipse: uma luz que da a volta na moldura. As duas desenham so na faixa da moldura (e no brilho por
+ * fora): a capa fica limpa.
  */
-@property --aurora { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
-@property --eclipse { syntax: "<angle>"; inherits: true; initial-value: 0deg; }
-@keyframes aurora-girando { to { --aurora: 360deg; } }
-@keyframes eclipse-girando { to { --eclipse: 360deg; } }
+/*
+ * (doc 100) Antes, a volta era um angulo animado (@property), que obrigava o navegador a redesenhar cada capa a cada
+ * quadro: com 12 capas, quase um nucleo do processador inteiro. Agora a luz e um quadrado com o degrade conico que GIRA
+ * (transform, feito pela placa de video), atras da imagem (z-index -1 dentro da capa isolada), cortado no formato da
+ * moldura (overflow hidden com o canto arredondado). A imagem cobre o miolo, e so a faixa da moldura aparece.
+ */
+@keyframes luz-girando {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+.capa.favorita:is(.borda-boreal, .borda-eclipse) .enfeite-da-borda {
+    z-index: -1;
+    inset: -5px;
+    overflow: hidden;
+    border-radius: var(--raio);
+}
+.capa.favorita:is(.borda-boreal, .borda-eclipse) .enfeite-da-borda::before {
+    left: 50%;
+    top: 50%;
+    width: 300%;
+    aspect-ratio: 1;
+}
 
 /* Aurora Boreal: as cores correm devagar pela moldura, e um brilho borrado com as mesmas cores acompanha por fora */
 .capa.favorita.borda-boreal {
     --roxo: #2dd4bf;
     --cores-da-aurora: #34d399, #22d3ee 18%, #60a5fa 34%, #a78bfa 50%, #f0abfc 62%, #818cf8 76%, #2dd4bf 90%, #34d399;
-    background:
-        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
-        conic-gradient(from var(--aurora), var(--cores-da-aurora)) border-box;
-    animation: aurora-girando 7s linear infinite;
+    /* a moldura e transparente: por baixo dela gira a luz (o enfeite) */
+    background: linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box;
 }
-/*
- * a camada do brilho passa 26px para fora da imagem (21px alem da moldura de 5px; o inset conta de dentro da moldura),
- * com folga para o borrado nao ser cortado; a mascara dela (aplicada depois do borrado) esconde o miolo, entao o brilho
- * fica so por fora e em cima da moldura, sem borrar a imagem
- */
-.capa.favorita:is(.borda-boreal, .borda-eclipse) .enfeite-da-borda {
-    inset: -26px;
-    padding: 26px;
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-}
-/* o brilho: um anel por fora da capa, borrado pelo filtro do pai */
-.borda-boreal .enfeite-da-borda { filter: blur(7px); opacity: .8; animation: aurora-respirando 5s ease-in-out infinite; }
-.borda-boreal .enfeite-da-borda::before {
-    inset: 12px;
-    padding: 9px;
-    border-radius: calc(var(--raio) + 6px);
-    background: conic-gradient(from var(--aurora), var(--cores-da-aurora));
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-}
-@keyframes aurora-respirando {
-    0%, 100% { opacity: .55; }
-    50% { opacity: .9; }
+.capa.favorita.borda-boreal .enfeite-da-borda::before {
+    background: conic-gradient(var(--cores-da-aurora));
+    animation: luz-girando 7s linear infinite;
 }
 .borda-boreal .enfeite-da-borda::after { content: none; }
-.borda-boreal .estrela-de-favorito { font-size: 0; background: conic-gradient(from var(--aurora), var(--cores-da-aurora)); border-color: rgba(255, 255, 255, .9); box-shadow: 0 0 10px rgba(45, 212, 191, .6); }
+/* o brilho por fora: o mesmo degrade, borrado uma vez so (parado) e respirando pela opacidade, atras de tudo */
+.capa.favorita.borda-boreal::after {
+    content: "";
+    inset: -9px;
+    width: auto;
+    z-index: -2;
+    border-radius: calc(var(--raio) + 9px);
+    background: conic-gradient(var(--cores-da-aurora));
+    filter: blur(9px);
+    transform: none;
+    animation: aurora-respirando 5s ease-in-out infinite;
+}
+@keyframes aurora-respirando {
+    0%, 100% { opacity: .45; }
+    50% { opacity: .85; }
+}
+.borda-boreal .estrela-de-favorito { font-size: 0; background: conic-gradient(var(--cores-da-aurora)); border-color: rgba(255, 255, 255, .9); box-shadow: 0 0 10px rgba(45, 212, 191, .6); }
 .borda-boreal .estrela-de-favorito::before { content: "✦"; font-size: 14px; line-height: 1; color: #fff; text-shadow: 0 0 4px rgba(15, 23, 42, .6); }
 
 /*
@@ -1098,38 +1079,34 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
         linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
         linear-gradient(150deg, #2b2620, #0c0b0d 30%, #1b1814 52%, #0a090b 74%, #2a231b) border-box;
     box-shadow: 0 0 0 1px rgba(251, 191, 36, .35), 0 0 22px rgba(245, 158, 11, .18), 0 6px 22px rgba(0, 0, 0, .4);
-    animation: eclipse-girando 4.5s linear infinite;
 }
-/* a luz e o rastro, so na faixa da moldura; o filtro do pai faz o brilho em volta da luz */
-.borda-eclipse .enfeite-da-borda {
-    filter: drop-shadow(0 0 3px rgba(253, 224, 71, .95)) drop-shadow(0 0 9px rgba(245, 158, 11, .7));
+/* a luz e o rastro passam um pouco (3 px) para fora da moldura, como um brilho na beira */
+.capa.favorita.borda-eclipse .enfeite-da-borda { inset: -8px; border-radius: calc(var(--raio) + 3px); }
+.capa.favorita.borda-eclipse .enfeite-da-borda::before {
+    background: conic-gradient(transparent 0 62%, rgba(180, 83, 9, .3) 78%, rgba(251, 191, 36, .8) 92%, #fff7d6 96.5%, rgba(251, 191, 36, .6) 98.6%, transparent);
+    animation: luz-girando 4.5s linear infinite;
 }
-.borda-eclipse .enfeite-da-borda::before {
-    inset: 20px;
-    padding: 6px;
-    border-radius: calc(var(--raio) + 1px);
-    background: conic-gradient(from var(--eclipse), transparent 0 62%, rgba(180, 83, 9, .3) 78%, rgba(251, 191, 36, .8) 92%, #fff7d6 96.5%, rgba(251, 191, 36, .6) 98.6%, transparent);
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
-}
-/* o anel de diamante: uma estrela de quatro pontas que abre e fecha no canto, no tempo em que a luz passa por la */
-.borda-eclipse .enfeite-da-borda::after {
-    top: 21px;
-    right: 21px;
+/* com o enfeite cortado no formato da moldura, o anel de diamante vai para a estrela do favorito, que fica no canto */
+.borda-eclipse .enfeite-da-borda::after { content: none; }
+.borda-eclipse .estrela-de-favorito::after {
+    content: "";
+    position: absolute;
+    left: calc(100% + 11px - 17px);
+    top: calc(-11px - 17px);
     width: 34px;
     aspect-ratio: 1;
     background:
         radial-gradient(circle, #fff 0 7%, rgba(255, 244, 214, .85) 14%, rgba(251, 191, 36, .25) 32%, transparent 52%),
         linear-gradient(90deg, transparent, rgba(255, 247, 220, .95) 50%, transparent) center / 100% 2px no-repeat,
         linear-gradient(0deg, transparent, rgba(255, 247, 220, .95) 50%, transparent) center / 2px 100% no-repeat;
-    transform: translate(50%, -50%) scale(0) rotate(0deg);
+    pointer-events: none;
+    transform: scale(0);
     animation: anel-de-diamante 4.5s linear infinite;
 }
 @keyframes anel-de-diamante {
-    0%, 4% { transform: translate(50%, -50%) scale(0) rotate(0deg); opacity: 0; }
-    9.4% { transform: translate(50%, -50%) scale(1) rotate(45deg); opacity: 1; }
-    17%, 100% { transform: translate(50%, -50%) scale(0) rotate(90deg); opacity: 0; }
+    0%, 4% { transform: scale(0) rotate(0deg); opacity: 0; }
+    9.4% { transform: scale(1) rotate(45deg); opacity: 1; }
+    17%, 100% { transform: scale(0) rotate(90deg); opacity: 0; }
 }
 .borda-eclipse .estrela-de-favorito {
     font-size: 0;
@@ -1175,24 +1152,44 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
  * efeitos da loja: uma camada (::before) por cima da imagem, que convive com qualquer borda. Com um efeito equipado,
  * o brilho de sempre (o reflexo do ::after) sai; a Sakura continua com as petalas e a Arcano com as runas.
  */
-.capa.favorita[class*=" efeito-"]:not(.borda-sakura, .borda-arcano)::after { content: none; }
-.capa.favorita[class*=" efeito-"]::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.capa.favorita[class*=" efeito-"]:not(.borda-sakura, .borda-arcano, .borda-boreal, .borda-neon, .borda-galaxia, .borda-cristal, .borda-sombrio, .borda-eletrico)::after { content: none; }
+/*
+ * (doc 100) o efeito fica numa camada propria, cortada no formato da capa: as partes que andam (neve, chuva, brasas,
+ * o reflexo holografico, a faixa da TV) sao camadas maiores que a capa que se movem com transform, sem redesenhar a
+ * imagem, e o corte impede que passem para fora (inclusive nas bordas com enfeite, em que a capa nao corta). A camada
+ * nao tem z-index, para o mix-blend-mode dos efeitos misturar com a imagem da capa.
+ */
+.camada-do-efeito { display: none; }
+.capa.favorita[class*=" efeito-"] .camada-do-efeito {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: max(0px, calc(var(--raio) - 4px));
+    pointer-events: none;
+}
+.capa.favorita[class*=" efeito-"] .camada-do-efeito::before,
+.capa.favorita[class*=" efeito-"] .camada-do-efeito::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.capa.favorita[class*=" efeito-"] .camada-do-efeito::after { content: none; }
 .capa .status, .capa .nota, .capa .estrela-de-favorito { z-index: 2; }
 /* holografico: arco-iris que atravessa a capa, como carta rara */
-.capa.favorita.efeito-holografico::before {
+.capa.favorita.efeito-holografico .camada-do-efeito::before {
     background: linear-gradient(115deg, transparent 15%, rgba(255, 64, 160, .45) 30%, rgba(255, 214, 64, .45) 40%, rgba(64, 255, 190, .45) 50%,
         rgba(64, 170, 255, .45) 60%, rgba(180, 90, 255, .45) 70%, transparent 85%);
-    background-size: 300% 300%;
+    /* uma camada 3 vezes maior que a capa, que anda na diagonal (transform) */
+    inset: 0 auto auto 0;
+    width: 300%;
+    height: 300%;
     mix-blend-mode: screen;
     opacity: .75;
     animation: holografico 5s ease-in-out infinite alternate;
 }
 @keyframes holografico {
-    from { background-position: 100% 100%; }
-    to { background-position: 0% 0%; }
+    from { transform: translate(-66.67%, -66.67%); }
+    to { transform: translate(0, 0); }
 }
 /* faiscas: estrelinhas que acendem e apagam em dois grupos */
-.capa.favorita.efeito-faiscas::before {
+.capa.favorita.efeito-faiscas .camada-do-efeito::before {
     background:
         radial-gradient(circle at 18% 22%, #fff 0 1.5px, rgba(255, 255, 255, .5) 2.5px, transparent 5px),
         radial-gradient(circle at 78% 15%, #fff7c2 0 1.5px, rgba(255, 240, 160, .5) 2.5px, transparent 5px),
@@ -1207,7 +1204,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     50% { opacity: 1; transform: scale(1.03); }
 }
 /* neve: flocos caindo devagar */
-.capa.favorita.efeito-neve::before {
+.capa.favorita.efeito-neve .camada-do-efeito::before {
     background:
         radial-gradient(2.5px 2.5px at 15% 10%, rgba(255, 255, 255, .95), transparent 70%),
         radial-gradient(2px 2px at 45% 30%, rgba(255, 255, 255, .85), transparent 70%),
@@ -1215,72 +1212,93 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
         radial-gradient(2px 2px at 30% 60%, rgba(240, 248, 255, .85), transparent 70%),
         radial-gradient(2.5px 2.5px at 88% 45%, rgba(255, 255, 255, .9), transparent 70%),
         radial-gradient(2px 2px at 60% 80%, rgba(240, 248, 255, .85), transparent 70%);
-    background-size: 100% 50%;
+    /* camada com o dobro da altura, comecando uma capa acima, que desce uma capa (dois ladrilhos) e volta sem pulo */
+    background-size: 100% 25%;
+    inset: -100% 0 auto 0;
+    height: 200%;
     animation: neve 7s linear infinite;
 }
 @keyframes neve {
-    from { background-position: 0 0; }
-    to { background-position: 14px 200%; }
+    from { transform: translate(0, 0); }
+    to { transform: translate(7px, 50%); }
 }
 /* raios: claroes eletricos que piscam nas bordas */
-.capa.favorita.efeito-raios::before {
+.capa.favorita.efeito-raios .camada-do-efeito::before {
     background: linear-gradient(160deg, transparent 46%, rgba(186, 230, 253, .9) 48%, transparent 50%) no-repeat,
         linear-gradient(20deg, transparent 47%, rgba(147, 197, 253, .8) 49%, transparent 51%) no-repeat;
     background-size: 40% 35%, 35% 30%;
     background-position: 90% 8%, 10% 92%;
-    box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0);
+    /* o clarao por dentro fica parado; so a opacidade pisca (doc 100) */
+    box-shadow: inset 0 0 20px 4px rgba(56, 189, 248, .8);
+    opacity: 0;
     animation: raios 3.2s steps(1, end) infinite;
 }
 @keyframes raios {
-    0%, 100% { opacity: 0; box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0); }
-    6% { opacity: 1; box-shadow: inset 0 0 22px 4px rgba(56, 189, 248, .85); }
+    0%, 100% { opacity: 0; }
+    6% { opacity: 1; }
     9% { opacity: 0; }
-    12% { opacity: 1; box-shadow: inset 0 0 16px 3px rgba(125, 211, 252, .7); }
-    16% { opacity: 0; box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0); }
-    58% { opacity: .9; box-shadow: inset 0 0 18px 3px rgba(96, 165, 250, .75); }
-    61% { opacity: 0; box-shadow: inset 0 0 0 0 rgba(56, 189, 248, 0); }
+    12% { opacity: .8; }
+    16% { opacity: 0; }
+    58% { opacity: .9; }
+    61% { opacity: 0; }
 }
 /* aura: luz que pulsa de dentro da capa, mudando de cor */
-.capa.favorita.efeito-aura::before { animation: aura 6s ease-in-out infinite; }
-@keyframes aura {
-    0%, 100% { box-shadow: inset 0 0 26px 6px rgba(236, 72, 153, .6); }
-    33% { box-shadow: inset 0 0 34px 8px rgba(59, 130, 246, .6); }
-    66% { box-shadow: inset 0 0 26px 6px rgba(16, 185, 129, .6); }
+/* (doc 100) tres luzes paradas (rosa, azul e verde) que se revezam pela opacidade, em vez de animar a sombra */
+.capa.favorita.efeito-aura .camada-do-efeito { box-shadow: inset 0 0 26px 6px rgba(16, 185, 129, .6); }
+.capa.favorita.efeito-aura .camada-do-efeito::before { box-shadow: inset 0 0 26px 6px rgba(236, 72, 153, .9); animation: aura-rosa 6s ease-in-out infinite; }
+.capa.favorita.efeito-aura .camada-do-efeito::after { content: ""; box-shadow: inset 0 0 34px 8px rgba(59, 130, 246, .9); animation: aura-azul 6s ease-in-out infinite; }
+@keyframes aura-rosa {
+    0%, 100% { opacity: 1; }
+    33%, 66% { opacity: 0; }
+}
+@keyframes aura-azul {
+    0%, 66%, 100% { opacity: 0; }
+    33% { opacity: 1; }
 }
 /* brasas: pontos laranja subindo e piscando, com um calor que vem de baixo */
-.capa.favorita.efeito-brasas::before {
+.capa.favorita.efeito-brasas .camada-do-efeito::before {
     background:
         radial-gradient(circle at 15% 40%, #fde68a 0 1.5px, rgba(251, 146, 60, .6) 2.5px, transparent 4.5px),
         radial-gradient(circle at 70% 15%, #fdba74 0 1.5px, rgba(249, 115, 22, .5) 2.5px, transparent 4.5px),
         radial-gradient(circle at 40% 75%, #fef3c7 0 1px, rgba(251, 146, 60, .5) 2px, transparent 4px),
-        radial-gradient(circle at 88% 55%, #fdba74 0 2px, rgba(234, 88, 12, .5) 3px, transparent 5px),
-        linear-gradient(0deg, rgba(234, 88, 12, .35), transparent 35%);
-    background-size: 100% 50%, 100% 50%, 100% 50%, 100% 50%, 100% 100%;
+        radial-gradient(circle at 88% 55%, #fdba74 0 2px, rgba(234, 88, 12, .5) 3px, transparent 5px);
+    /* as brasas numa camada com o dobro da altura, que sobe uma capa e volta sem pulo (transform, doc 100); o calor de
+       baixo fica parado no ::after */
+    background-size: 100% 25%;
+    inset: 0 0 auto 0;
+    height: 200%;
     animation: brasas-subindo 4s linear infinite, brasas-piscando 1.3s ease-in-out infinite alternate;
 }
+.capa.favorita.efeito-brasas .camada-do-efeito::after { content: ""; background: linear-gradient(0deg, rgba(234, 88, 12, .35), transparent 35%); }
 @keyframes brasas-subindo {
-    from { background-position: 0 200%, 0 200%, 0 200%, 0 200%, 0 0; }
-    to { background-position: 6px 0, -6px 0, 4px 0, -4px 0, 0 0; }
+    from { transform: translate(0, 0); }
+    to { transform: translate(4px, -50%); }
 }
 @keyframes brasas-piscando {
     from { opacity: .75; }
     to { opacity: 1; }
 }
 /* chuva: riscos finos caindo na diagonal */
-.capa.favorita.efeito-chuva::before {
+.capa.favorita.efeito-chuva .camada-do-efeito::before {
     background:
         repeating-linear-gradient(105deg, transparent 0 14px, rgba(191, 219, 254, .55) 14px 15px, transparent 15px 31px),
-        repeating-linear-gradient(105deg, transparent 0 22px, rgba(147, 197, 253, .35) 22px 23px, transparent 23px 41px),
-        linear-gradient(180deg, rgba(30, 58, 138, .18), rgba(30, 58, 138, .05));
-    background-size: 100% 60px, 100% 90px, 100% 100%;
-    animation: chuva-caindo .7s linear infinite;
+        repeating-linear-gradient(105deg, transparent 0 22px, rgba(147, 197, 253, .35) 22px 23px, transparent 23px 41px);
+    /* (doc 100) a chuva numa camada 180 px mais alta e 48 px mais larga, que anda 180 px para baixo e 48 para a
+       esquerda (3 ladrilhos de 60 px e 2 de 90 px: as duas chuvas voltam ao comeco juntas, sem pulo); o tom azul de
+       fundo fica parado no ::after */
+    background-size: 100% 60px, 100% 90px;
+    inset: -180px auto auto 0;
+    width: calc(100% + 48px);
+    height: calc(100% + 180px);
+    animation: chuva-caindo 2.1s linear infinite;
 }
+.capa.favorita.efeito-chuva .camada-do-efeito::after { content: ""; background: linear-gradient(180deg, rgba(30, 58, 138, .18), rgba(30, 58, 138, .05)); }
 @keyframes chuva-caindo {
-    from { background-position: 0 0, 0 0, 0 0; }
-    to { background-position: -16px 60px, -24px 90px, 0 0; }
+    from { transform: translate(0, 0); }
+    to { transform: translate(-48px, 180px); }
 }
 /* coracoes: um coracao que sobe e some, e as sombras do texto fazem os outros, em lugares e cores diferentes */
-.capa.favorita.efeito-coracoes::before {
+.capa.favorita.efeito-coracoes .camada-do-efeito::before {
     content: "♥";
     inset: auto auto 0 30%;
     color: rgba(244, 114, 182, .9);
@@ -1296,7 +1314,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     100% { transform: translateY(-60%); opacity: 0; }
 }
 /* glitch: faixas de cor que pulam de lugar de vez em quando */
-.capa.favorita.efeito-glitch::before {
+.capa.favorita.efeito-glitch .camada-do-efeito::before {
     background:
         linear-gradient(transparent 0 20%, rgba(255, 0, 80, .35) 20% 23%, transparent 23% 61%, rgba(0, 255, 230, .35) 61% 63%, transparent 63%),
         linear-gradient(transparent 0 42%, rgba(0, 200, 255, .3) 42% 44%, transparent 44% 80%, rgba(255, 60, 200, .3) 80% 83%, transparent 83%);
@@ -1313,24 +1331,32 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     58% { opacity: 0; }
 }
 /* tela CRT: linhas de TV antiga, cantos escurecidos e uma faixa de luz descendo */
-.capa.favorita.efeito-crt::before {
+.capa.favorita.efeito-crt .camada-do-efeito::before {
     background:
-        linear-gradient(180deg, transparent 0 45%, rgba(255, 255, 255, .12) 50%, transparent 55%),
+        linear-gradient(180deg, transparent 0 45%, rgba(255, 255, 255, .12) 50%, transparent 55%);
+    /* (doc 100) a faixa de luz numa camada 3 vezes mais alta que desce (transform); as linhas e os cantos escuros
+       ficam parados no ::after, que treme pela opacidade */
+    inset: 0 0 auto 0;
+    height: 300%;
+    animation: crt-faixa 4s linear infinite;
+}
+.capa.favorita.efeito-crt .camada-do-efeito::after {
+    content: "";
+    background:
         repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 1px, transparent 1px 3px),
         radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .45));
-    background-size: 100% 300%, 100% 100%, 100% 100%;
-    animation: crt-faixa 4s linear infinite, crt-tremendo .15s steps(2) infinite;
+    animation: crt-tremendo .15s steps(2) infinite;
 }
 @keyframes crt-faixa {
-    from { background-position: 0 100%, 0 0, 0 0; }
-    to { background-position: 0 0, 0 0, 0 0; }
+    from { transform: translateY(-66.67%); }
+    to { transform: translateY(0); }
 }
 @keyframes crt-tremendo {
     from { opacity: .92; }
     to { opacity: 1; }
 }
 /* confete: retalhos coloridos caindo e girando de leve */
-.capa.favorita.efeito-confete::before {
+.capa.favorita.efeito-confete .camada-do-efeito::before {
     background:
         linear-gradient(35deg, #f43f5e 0 0) 12% 10% / 5px 8px no-repeat,
         linear-gradient(-20deg, #facc15 0 0) 70% 20% / 6px 4px no-repeat,
@@ -1354,7 +1380,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
  * os pontos maiores perto do canto e sumindo para o meio (duas tramas: uma de pontos grossos so bem no canto e uma de
  * pontos finos indo mais longe); a mascara respira devagar, como uma sombra que avanca e recua.
  */
-.capa.favorita.efeito-reticula::before {
+.capa.favorita.efeito-reticula .camada-do-efeito::before {
     background:
         radial-gradient(circle, rgba(255, 255, 255, .95) 0 1.6px, transparent 2.1px) 0 0 / 7px 7px,
         radial-gradient(circle, rgba(255, 255, 255, .8) 0 .9px, transparent 1.3px) 3.5px 3.5px / 7px 7px;
@@ -1366,12 +1392,12 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     mask:
         radial-gradient(farthest-side at 0% 100%, #000 0 var(--alcance-da-reticula, 38%), transparent calc(var(--alcance-da-reticula, 38%) + 30%)) 0 0 / 100% 100%,
         radial-gradient(farthest-side at 100% 0%, #000 0 calc(var(--alcance-da-reticula, 38%) - 14%), transparent calc(var(--alcance-da-reticula, 38%) + 12%)) 0 0 / 100% 100%;
+    /* a sombra respira pela opacidade (doc 100: o alcance animado redesenhava a capa a cada quadro) */
     animation: reticula-respirando 6s ease-in-out infinite alternate;
 }
-@property --alcance-da-reticula { syntax: "<percentage>"; inherits: false; initial-value: 38%; }
 @keyframes reticula-respirando {
-    from { --alcance-da-reticula: 26%; }
-    to { --alcance-da-reticula: 52%; }
+    from { opacity: .35; }
+    to { opacity: .85; }
 }
 
 /*
@@ -1379,21 +1405,22 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
  * espacamentos diferentes deixam o desenho irregular, como feito a mao; a mascara deixa o meio limpo e mostra so as
  * beiradas. O angulo pula de leve 6 vezes por segundo (steps), o tremido classico das cenas de impacto.
  */
-@property --angulo-do-foco { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-.capa.favorita.efeito-foco::before {
+.capa.favorita.efeito-foco .camada-do-efeito::before {
     background:
-        repeating-conic-gradient(from var(--angulo-do-foco) at 50% 46%, transparent 0 4.1deg, rgba(255, 255, 255, .7) 4.3deg 4.55deg, transparent 4.75deg 7.3deg),
-        repeating-conic-gradient(from calc(var(--angulo-do-foco) * -1 + 2deg) at 50% 46%, transparent 0 9deg, rgba(255, 255, 255, .45) 9.2deg 9.6deg, transparent 9.8deg 13.1deg);
+        repeating-conic-gradient(at 50% 46%, transparent 0 4.1deg, rgba(255, 255, 255, .7) 4.3deg 4.55deg, transparent 4.75deg 7.3deg),
+        repeating-conic-gradient(from 2deg at 50% 46%, transparent 0 9deg, rgba(255, 255, 255, .45) 9.2deg 9.6deg, transparent 9.8deg 13.1deg);
     -webkit-mask: radial-gradient(ellipse 72% 64% at 50% 46%, transparent 0 46%, rgba(0, 0, 0, .55) 74%, #000 100%);
     mask: radial-gradient(ellipse 72% 64% at 50% 46%, transparent 0 46%, rgba(0, 0, 0, .55) 74%, #000 100%);
     filter: drop-shadow(0 0 1px rgba(0, 0, 0, .55));
     opacity: .85;
+    /* o tremido gira a camada inteira um pouquinho (transform, doc 100), em vez de redesenhar as linhas */
+    transform-origin: 50% 46%;
     animation: foco-tremendo .5s steps(1, end) infinite;
 }
 @keyframes foco-tremendo {
-    0% { --angulo-do-foco: 0deg; }
-    33% { --angulo-do-foco: 2.3deg; }
-    66% { --angulo-do-foco: 1.1deg; }
+    0% { transform: rotate(0deg); }
+    33% { transform: rotate(1.4deg) scale(1.01); }
+    66% { transform: rotate(.7deg); }
 }
 
 /*
@@ -1401,9 +1428,8 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
  * largura, somados com screen; somem para baixo e para a direita pela mascara. O angulo balanca devagar, ida e volta,
  * e a luz respira junto.
  */
-@property --angulo-dos-feixes { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-.capa.favorita.efeito-feixes::before {
-    background: conic-gradient(from calc(96deg + var(--angulo-dos-feixes)) at -18% -14%,
+.capa.favorita.efeito-feixes .camada-do-efeito::before {
+    background: conic-gradient(from 96deg at -18% -14%,
         transparent 0deg, rgba(255, 236, 190, .5) 3deg, transparent 6deg,
         transparent 9deg, rgba(255, 244, 214, .32) 11deg, rgba(255, 244, 214, .32) 15deg, transparent 18deg,
         transparent 22deg, rgba(255, 226, 170, .55) 24deg, transparent 26.5deg,
@@ -1412,11 +1438,14 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
     mix-blend-mode: screen;
     -webkit-mask: linear-gradient(150deg, #000 0 20%, rgba(0, 0, 0, .5) 55%, transparent 88%);
     mask: linear-gradient(150deg, #000 0 20%, rgba(0, 0, 0, .5) 55%, transparent 88%);
+    /* o balanco gira a camada em volta do canto de cima a esquerda (transform, doc 100); os raios que passariam da
+       capa estao na parte de baixo e da direita, que a mascara ja apaga */
+    transform-origin: 0 0;
     animation: feixes-balancando 9s ease-in-out infinite alternate, feixes-respirando 4.5s ease-in-out infinite alternate;
 }
 @keyframes feixes-balancando {
-    from { --angulo-dos-feixes: -4deg; }
-    to { --angulo-dos-feixes: 4deg; }
+    from { transform: rotate(-1.5deg); }
+    to { transform: rotate(1.5deg); }
 }
 @keyframes feixes-respirando {
     from { opacity: .65; }
@@ -1424,14 +1453,110 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .capa.favorita[class*=" efeito-"]::before { animation: none; }
-    .capa.favorita.efeito-raios::before { opacity: 1; box-shadow: inset 0 0 18px 3px rgba(56, 189, 248, .7); }
-    .capa.favorita.efeito-faiscas::before { opacity: .8; }
+    .capa.favorita[class*=" efeito-"] .camada-do-efeito::before, .capa.favorita[class*=" efeito-"] .camada-do-efeito::after { animation: none; }
+    .capa.favorita.efeito-raios .camada-do-efeito::before { opacity: 1; box-shadow: inset 0 0 18px 3px rgba(56, 189, 248, .7); }
+    .capa.favorita.efeito-faiscas .camada-do-efeito::before { opacity: .8; }
 }
 
-@keyframes borda-andando {
-    from { background-position: 0 0, 0% 50%; }
-    to { background-position: 0 0, 300% 50%; }
+/*
+ * (doc 100) a luz que anda na moldura: um degrade grande numa camada atras da imagem (.luz-da-moldura, cortada no
+ * formato da moldura), que se move com transform, sem o navegador redesenhar a capa a cada quadro. A imagem cobre o
+ * miolo, e so a faixa da moldura aparece. Antes era background-position no degrade da propria borda.
+ */
+.luz-da-moldura { display: none; }
+.capa.favorita:is(.borda-neon, .borda-cyberpunk, .borda-eletrico, .borda-chamas, .borda-abissal, .borda-cristal, .borda-sombrio) .luz-da-moldura {
+    display: block;
+    position: absolute;
+    inset: -5px;
+    z-index: -1;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+}
+.capa.favorita:is(.borda-neon, .borda-cyberpunk, .borda-eletrico, .borda-chamas, .borda-abissal, .borda-cristal, .borda-sombrio) .luz-da-moldura::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+/* andando de lado: o degrade se repete a cada metade da camada, que anda meia camada e volta sem pulo */
+.capa.favorita:is(.borda-neon, .borda-cyberpunk, .borda-eletrico) .luz-da-moldura::before { width: 600%; height: 100%; background-size: 50% 100%; animation: luz-de-lado 3s linear infinite; }
+.capa.favorita.borda-neon .luz-da-moldura::before { background-image: linear-gradient(90deg, #22d3ee, #f0abfc, #ec4899, #22d3ee); }
+.capa.favorita.borda-cyberpunk .luz-da-moldura::before { background-image: linear-gradient(90deg, #22ff88, #0b0f14 20%, #a855f7 40%, #0b0f14 60%, #22ff88 80%, #0b0f14); animation-duration: 2.6s; }
+.capa.favorita.borda-eletrico .luz-da-moldura::before { background-image: linear-gradient(90deg, #fde047, #60a5fa, #e0f2fe, #facc15, #3b82f6, #fde047); animation-duration: 1.2s; }
+@keyframes luz-de-lado {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+}
+/* chamas subindo e correnteza descendo: o mesmo, na vertical */
+.capa.favorita.borda-chamas .luz-da-moldura::before {
+    width: 100%;
+    height: 300%;
+    background: linear-gradient(0deg, #7f1d1d, #dc2626, #f97316, #facc15, #f97316, #dc2626, #7f1d1d);
+    animation: luz-subindo 1.8s linear infinite;
+}
+@keyframes luz-subindo {
+    from { transform: translateY(0); }
+    to { transform: translateY(-66.67%); }
+}
+.capa.favorita.borda-abissal .luz-da-moldura::before {
+    width: 100%;
+    height: 600%;
+    background: linear-gradient(180deg, #5eead4, #0d9488 25%, #0e7490 50%, #164e63 75%, #2dd4bf) 0 0 / 100% 50%;
+    animation: luz-correnteza 2s linear infinite;
+}
+@keyframes luz-correnteza {
+    from { transform: translateY(0); }
+    to { transform: translateY(-50%); }
+}
+/* o reflexo que vai e volta na diagonal (Cristal e Sombrio) */
+.capa.favorita.borda-cristal .luz-da-moldura::before {
+    width: 260%;
+    height: 260%;
+    background: linear-gradient(135deg, #f0fdff, #a5f3fc 18%, #38bdf8 36%, #e0f2fe 52%, #7dd3fc 70%, #0ea5e9 85%, #f0fdff);
+    animation: luz-reluz-cristal 4s ease-in-out infinite alternate;
+}
+@keyframes luz-reluz-cristal {
+    from { transform: translate(0, 0); }
+    to { transform: translate(-61.54%, -61.54%); }
+}
+.capa.favorita.borda-sombrio .luz-da-moldura::before {
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(160deg, #1e1b2e, #581c87 30%, #0f0a1a 50%, #6d28d9 70%, #1e1b2e);
+    animation: luz-reluz-sombrio 6s ease-in-out infinite alternate;
+}
+@keyframes luz-reluz-sombrio {
+    from { transform: translate(0, 0); }
+    to { transform: translate(-50%, -50%); }
+}
+/*
+ * (doc 100) o brilho que pulsa em volta da capa (Neon, Galaxia, Cristal, Sombrio e Eletrico): desenhado uma vez numa
+ * camada atras de tudo (::after da capa) e pulsando pela opacidade, em vez de animar a sombra da propria capa
+ */
+.capa.favorita:is(.borda-neon, .borda-galaxia, .borda-cristal, .borda-sombrio, .borda-eletrico)::after {
+    content: "";
+    inset: -5px;
+    width: auto;
+    z-index: -2;
+    border-radius: calc(var(--raio) + 1px);
+    background: none;
+    transform: none;
+    animation: brilho-pulsando 3s ease-in-out infinite;
+}
+.capa.favorita.borda-neon::after { box-shadow: 0 0 12px rgba(34, 211, 238, .8), 0 0 30px rgba(236, 72, 153, .55); animation-duration: 2.4s; }
+.capa.favorita.borda-galaxia::after { box-shadow: 0 0 0 1px rgba(165, 180, 252, .7), 0 6px 30px rgba(109, 40, 217, .65); }
+.capa.favorita.borda-cristal::after { box-shadow: 0 0 16px rgba(186, 230, 253, .85), 0 0 36px rgba(56, 189, 248, .4); }
+.capa.favorita.borda-sombrio::after { box-shadow: 0 0 26px rgba(124, 58, 237, .8), 0 0 54px rgba(46, 16, 101, .8); animation-duration: 4s; }
+.capa.favorita.borda-eletrico::after { box-shadow: 0 0 18px rgba(224, 242, 254, .95), 0 0 34px rgba(96, 165, 250, .7); animation: voltagem 2.4s steps(1, end) infinite; }
+@keyframes brilho-pulsando {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+@keyframes voltagem {
+    0%, 14%, 64%, 100% { opacity: 0; }
+    10% { opacity: 1; }
+    60% { opacity: .85; }
 }
 @media (prefers-reduced-motion: reduce) {
     .capa.favorita[class*=" borda-"], .capa.favorita[class*=" borda-"]::after { animation: none; }
@@ -2829,19 +2954,22 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 /* Synthwave: um sol listrado no horizonte e a grade neon vindo na direcao de quem olha */
 :root[data-tema="synthwave"] body::before, [data-tema="synthwave"] > .fundo-da-previa {
     top: auto;
-    height: 42%;
+    /* a grade passa da beira de baixo da tela (o pedaco que anda em direcao a quem olha nunca deixa buraco) */
+    bottom: -80px;
+    height: calc(42% + 80px);
     background:
         linear-gradient(rgba(255, 62, 165, .55) 2px, transparent 2px) 0 0 / 100% 40px,
         linear-gradient(90deg, rgba(255, 62, 165, .55) 2px, transparent 2px) 50% 0 / 60px 100%;
-    transform: perspective(300px) rotateX(60deg);
+    transform: perspective(300px) rotateX(60deg) translateY(-40px);
     transform-origin: 50% 0;
     -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%);
     mask-image: linear-gradient(to bottom, transparent, #000 30%);
     animation: grade-vindo 2.2s linear infinite;
 }
+/* a grade inteira anda um quadradinho (40 px no plano) e volta sem pulo: transform, sem redesenhar (doc 100) */
 @keyframes grade-vindo {
-    from { background-position: 0 0, 50% 0; }
-    to { background-position: 0 40px, 50% 0; }
+    from { transform: perspective(300px) rotateX(60deg) translateY(-40px); }
+    to { transform: perspective(300px) rotateX(60deg) translateY(0); }
 }
 :root[data-tema="synthwave"] body::after, [data-tema="synthwave"] > .fundo-da-previa-2 {
     inset: auto 0 30% 0;
@@ -2859,8 +2987,8 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 }
 [data-tema="synthwave"] > .fundo-da-previa-2 { width: 46%; bottom: 34%; }
 @keyframes sol-pulsando {
-    from { filter: brightness(.95); }
-    to { filter: brightness(1.15); }
+    from { opacity: .72; }
+    to { opacity: .95; }
 }
 /* as cores dos temas Galaxia (cosmos) e Fazenda */
 [data-tema="cosmos"] {
@@ -3057,9 +3185,11 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
     50% { transform: translate(50cqw, -5cqh); }
     100% { transform: translate(calc(100cqw + 20px), 1cqh); }
 }
+/* (doc 100) as asas batem achatando o bando na vertical (scale, feito pela placa de video), em vez de trocar o
+   quadro do desenho com background-position */
 @keyframes asas-batendo {
-    0% { background-position: 0 0; }
-    50% { background-position: 100% 0; }
+    0% { scale: 1 1; }
+    50% { scale: 1 .55; }
 }
 /* a cidade ao longe, os postes e os fios, contra o ceu (parados). O traco nao estica com a tela (non-scaling-stroke) */
 :root[data-tema="entardecer"] body::after, [data-tema="entardecer"] > .fundo-da-previa-2 {
@@ -3544,3 +3674,15 @@ a.banner-de-anuncio:hover { transform: translateY(-2px); }
 .previas-do-banner .previa-do-banner.horizontal { flex: 1 1 auto; min-width: 0; }
 .previas-do-banner .previa-do-banner.vertical { flex: 0 0 auto; }
 .previas-do-banner .previa-do-banner.vertical img { max-height: 140px; width: auto; }
+
+
+/* ------------------------------------------------------------ desempenho (doc 100)
+ * o que esta fora da tela nao anima: o app.js marca com data-fora as capas favoritas e as previas da loja que nao
+ * aparecem, e as animacoes delas (e das camadas de dentro) ficam pausadas, sem custar nada
+ */
+[data-fora], [data-fora]::before, [data-fora]::after,
+[data-fora] *, [data-fora] *::before, [data-fora] *::after { animation-play-state: paused !important; }
+/* com a janela do navegador sem foco (usando outro programa, com o site aparecendo do lado), tudo pausa; volta ao
+   clicar no site. Com a aba escondida, o navegador ja pausa sozinho */
+html.sem-foco, html.sem-foco::before, html.sem-foco::after,
+html.sem-foco *, html.sem-foco *::before, html.sem-foco *::after { animation-play-state: paused !important; }

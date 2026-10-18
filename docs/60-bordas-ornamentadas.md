@@ -54,3 +54,5 @@ no lado direito.
 > Depois, entrou a Celestial, a primeira borda feita de imagem: veja [Borda Celestial, feita de imagem](62-borda-celestial-de-imagem.md).
 
 > Depois vieram as bordas animadas Aurora Boreal e Eclipse: veja [Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md).
+
+> Depois, as animações foram reescritas para pesar muito menos no processador: veja [O site muito mais leve para o processador](100-site-muito-mais-leve.md).

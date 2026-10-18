@@ -85,3 +85,5 @@ o desfoque da aurora e da nebulosa) e depois só move, sem redesenhar a página 
 - A estrutura: a primeira partida guardou a versão e criou o índice novo; as seguintes só leram a linha.
 - O acesso: uma abertura sem conta, duas com conta e uma do Googlebot deram 1 sem conta, 2 com conta e 1 ativo.
 - Os 88 testes da versão JavaScript passam.
+
+> Depois, as animações foram reescritas para pesar muito menos no processador: veja [O site muito mais leve para o processador](100-site-muito-mais-leve.md).

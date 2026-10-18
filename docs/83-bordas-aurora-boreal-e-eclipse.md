@@ -44,3 +44,5 @@ as duas desenham só na moldura e no brilho por fora, e a imagem do mangá fica 
 - No navegador, na loja e numa capa de verdade da biblioteca, no tema escuro e no claro, com quadros parados em
   momentos escolhidos da animação: a luz do Eclipse no canto junto com o anel de diamante, e no meio da volta; o
   brilho da Aurora sem passar por cima da imagem e sem cantos cortados. O site compactado também foi conferido.
+
+> Depois, as animações foram reescritas para pesar muito menos no processador: veja [O site muito mais leve para o processador](100-site-muito-mais-leve.md).

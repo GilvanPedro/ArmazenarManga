@@ -127,6 +127,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Banner vertical com as medidas do horizontal](docs/97-banner-vertical-com-as-medidas-do-horizontal.md) | |
 | [O "+ Adicionar" dos recomendados alinhado](docs/98-botao-adicionar-alinhado.md) | |
 | [Barras de rolagem na cor do tema](docs/99-barras-de-rolagem-do-tema.md) | |
+| [O site muito mais leve para o processador](docs/100-site-muito-mais-leve.md) | |
 
 ## Testes
 

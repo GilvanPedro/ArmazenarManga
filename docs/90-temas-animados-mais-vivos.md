@@ -36,3 +36,5 @@ ganharam uma camada nova (usando as camadas `:root::before` e `:root::after`, qu
 Numa página de teste com o `app.css` do site, o tema no `<html>`, cartões falsos e a prévia da loja: os nove temas,
 com os quadros parados em momentos escolhidos (as estrelas cadentes no meio do caminho, os fogos abertos, os pássaros
 cruzando), conferindo também a lista das animações rodando em cada tema. O site compactado também foi conferido.
+
+> Depois, as animações foram reescritas para pesar muito menos no processador: veja [O site muito mais leve para o processador](100-site-muito-mais-leve.md).

@@ -306,7 +306,11 @@ function capa(manga, comoLink) {
  * Camada dos enfeites que algumas bordas da loja desenham em volta da capa (cristais, vinhas, raios, nevoa...). Fica
  * vazia e escondida nas outras; o CSS de cada borda diz o que aparece nela.
  */
-const enfeiteDaBorda = () => h('span', {class: 'enfeite-da-borda', 'aria-hidden': 'true'});
+// as camadas de um favorito: a do efeito da loja (cortada no formato da capa, para o efeito andar sem passar para fora,
+// doc 100) e a do enfeite da borda (que pode sair da capa)
+// doc 100), a da luz que anda na moldura (atras da imagem) e a do enfeite da borda (que pode sair da capa)
+const enfeiteDaBorda = () => [h('span', {class: 'camada-do-efeito', 'aria-hidden': 'true'}), h('span', {class: 'luz-da-moldura', 'aria-hidden': 'true'}),
+    h('span', {class: 'enfeite-da-borda', 'aria-hidden': 'true'})];
 
 /** Miniatura de um manga que veio na lista guardada (a pagina do manga nao traz a miniatura). */
 function miniaturaGuardada(id) {
@@ -651,9 +655,39 @@ const agendarBanners = () => {
     clearTimeout(esperaDosBanners);
     esperaDosBanners = setTimeout(arrumarBanners, 120);
 };
+// ------------------------------------------------------------------ animacoes so do que esta na tela (doc 100)
+
+/*
+ * As capas favoritas (com bordas e efeitos animados) e as previas da loja so animam enquanto aparecem na tela: as que
+ * estao fora (mais para baixo na lista, em outra parte da loja) ganham data-fora e o CSS pausa as animacoes delas.
+ * Animacao pausada nao custa nada para o navegador. Com 40 favoritos na pagina, so os ~12 visiveis animam.
+ */
+const vigiaDaTela = 'IntersectionObserver' in window
+    ? new IntersectionObserver(entradas => {
+        for (const entrada of entradas) {
+            // a capa saiu da pagina (trocou de tela): para de vigiar
+            if (!entrada.target.isConnected) vigiaDaTela.unobserve(entrada.target);
+            else entrada.target.toggleAttribute('data-fora', !entrada.isIntersecting);
+        }
+    }, {rootMargin: '120px 0px'})
+    : null;
+// a janela sem foco (outro programa na frente, o site aparecendo do lado): pausa as animacoes (o CSS faz o resto)
+window.addEventListener('blur', () => document.documentElement.classList.add('sem-foco'));
+window.addEventListener('focus', () => document.documentElement.classList.remove('sem-foco'));
+
+function vigiarAnimacoes() {
+    if (!vigiaDaTela) return;
+    for (const elemento of app.querySelectorAll('.capa.favorita:not([data-vigiada]), .previa-do-item:not([data-vigiada]), .previa-do-tema:not([data-vigiada])')) {
+        elemento.dataset.vigiada = '1';
+        elemento.setAttribute('data-fora', '');
+        vigiaDaTela.observe(elemento);
+    }
+}
+
 new MutationObserver(() => {
     if (banners.trilhos && !banners.trilhos.referencia.isConnected) banners.trilhos = null;
     agendarBanners();
+    vigiarAnimacoes();
 }).observe(app, {childList: true, subtree: true});
 window.addEventListener('resize', agendarBanners);
 
@@ -1211,8 +1245,8 @@ async function telaDetalhes(id, aviso) {
         naCapa.classList.toggle('favorita', manga.favorite);
         // a borda e o efeito da loja so valem nos favoritos
         for (const classe of classesDaLoja(meusEquipados()).trim().split(' ').filter(Boolean)) naCapa.classList.toggle(classe, manga.favorite);
-        naCapa.querySelectorAll('.estrela-de-favorito, .enfeite-da-borda').forEach(enfeite => enfeite.remove());
-        if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'), enfeiteDaBorda());
+        naCapa.querySelectorAll('.estrela-de-favorito, .enfeite-da-borda, .camada-do-efeito, .luz-da-moldura').forEach(enfeite => enfeite.remove());
+        if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'), ...enfeiteDaBorda());
     };
     favoritar.addEventListener('click', async () => {
         favoritar.disabled = true;
