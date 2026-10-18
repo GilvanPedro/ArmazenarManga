@@ -89,3 +89,5 @@ um id não pode servir para dois itens; os testes conferem isso).
 
 > Depois, entrou o tema Silhueta (de imagem, do banco) e as regras dos temas passaram a valer para qualquer elemento
 > com `data-tema`: veja [Tema Silhueta e o tema no perfil](70-tema-silhueta-e-tema-no-perfil.md).
+
+> Depois vieram os temas Entardecer, Festival de Verão e Página de Mangá: veja [Temas Entardecer, Festival de Verão e Página de Mangá](87-temas-entardecer-festival-e-pagina-de-manga.md).

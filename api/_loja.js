@@ -57,6 +57,9 @@ export const ITENS_DA_LOJA = [
     { id: 'glitch', tipo: 'efeito', nome: 'Glitch', descricao: 'Faixas de cor que tremem e pulam, como uma tela com defeito.', preco: PRECO_DO_EFEITO },
     { id: 'crt', tipo: 'efeito', nome: 'Tela CRT', descricao: 'As linhas de uma TV antiga, com uma faixa de luz passando de cima para baixo.', preco: PRECO_DO_EFEITO },
     { id: 'confete', tipo: 'efeito', nome: 'Confete', descricao: 'Confetes coloridos caindo sem parar, para comemorar.', preco: PRECO_DO_EFEITO },
+    { id: 'reticula', tipo: 'efeito', nome: 'Retícula', descricao: 'Os pontinhos da impressão de mangá surgindo dos cantos, como uma sombra de retícula que respira.', preco: PRECO_DO_EFEITO },
+    { id: 'foco', tipo: 'efeito', nome: 'Linhas de Ação', descricao: 'As linhas de foco do anime nas beiradas, tremendo como se fossem desenhadas à mão. O meio fica limpo.', preco: PRECO_DO_EFEITO },
+    { id: 'feixes', tipo: 'efeito', nome: 'Feixes de Luz', descricao: 'Raios de sol quentes entrando pelo canto de cima e balançando devagar, como luz pela janela.', preco: PRECO_DO_EFEITO },
     { id: 'verde', tipo: 'tema', nome: 'Verde pastel', descricao: 'O site todo em tons claros de verde-menta, leve para ler de dia.', preco: PRECO_DO_TEMA },
     { id: 'rosa', tipo: 'tema', nome: 'Rosa pastel', descricao: 'Rosa e lilás claros, com os painéis meio transparentes sobre um degradê.', preco: PRECO_DO_TEMA },
     { id: 'vermelho', tipo: 'tema', nome: 'Vermelho', descricao: 'Escuro, com detalhes em vermelho intenso.', preco: PRECO_DO_TEMA },
@@ -68,6 +71,9 @@ export const ITENS_DA_LOJA = [
     { id: 'cosmos', tipo: 'tema', nome: 'Galáxia', descricao: 'Fundo animado: nebulosas roxas, azuis e rosas girando devagar, com estrelas piscando.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'fazenda', tipo: 'tema', nome: 'Fazenda', descricao: 'Fundo animado: céu azul com nuvens passando, sol, morros verdes e uma cerca de madeira.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'synthwave', tipo: 'tema', nome: 'Synthwave', descricao: 'Fundo animado: sol retrô no horizonte e uma grade neon vindo na sua direção.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'entardecer', tipo: 'tema', nome: 'Entardecer', descricao: 'Fundo animado: o pôr do sol dos animes, com postes e fios contra o céu laranja e rosa, nuvens passando e um avião riscando o céu.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'matsuri', tipo: 'tema', nome: 'Festival de Verão', descricao: 'Fundo animado: uma noite de matsuri, com lanternas de papel acesas balançando e fogos de artifício abrindo ao longe.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'pagina', tipo: 'tema', nome: 'Página de Mangá', descricao: 'Fundo animado: o site vira uma página de mangá, com papel, tinta preta, quadrinhos, retícula e um ドキドキ batendo no canto.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
 ];
 
 /** Os temas de graca, que toda conta tem: o escuro (o de sempre) e o claro. Sem tema, o site segue o sistema. */

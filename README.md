@@ -113,6 +113,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Bordas Aurora Boreal e Eclipse](docs/83-bordas-aurora-boreal-e-eclipse.md) | |
 | [Quatro molduras de imagem na loja](docs/84-quatro-molduras-de-imagem.md) | |
 | [Capas altas esticando e molduras encostando](docs/85-capas-altas-e-molduras-vizinhas.md) | |
+| [Efeitos Retícula, Linhas de Ação e Feixes de Luz](docs/86-efeitos-reticula-linhas-de-acao-e-feixes.md) | |
+| [Temas Entardecer, Festival de Verão e Página de Mangá](docs/87-temas-entardecer-festival-e-pagina-de-manga.md) | |
 
 ## Testes
 

@@ -43,3 +43,5 @@ quantidade entre parênteses (contando os de sempre: a borda Roxa, o Brilho e os
 - No navegador, com a conta de exemplo (dona do site, então com todos os itens): a aba Efeitos com os 11 efeitos; na
   mochila, os botões "Todos (38)", "Bordas (14)", "Efeitos (12)" e "Temas (12)", e cada um mostrou só itens do tipo
   dele, com o endereço mudando para `?tipo=...`.
+
+> Depois vieram os efeitos Retícula, Linhas de Ação e Feixes de Luz: veja [Efeitos Retícula, Linhas de Ação e Feixes de Luz](86-efeitos-reticula-linhas-de-acao-e-feixes.md).

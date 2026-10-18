@@ -58,3 +58,5 @@ deixando a regra da Celestial mais específica). Os 85 testes da versão JavaScr
 > Depois vieram mais quatro molduras de imagem no mesmo esquema: veja [Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md).
 
 > Depois, as molduras de imagem passaram a encolher a capa para 84%, para não encostar nas vizinhas: veja [Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md).
+
+> Depois, o brilho da Celestial deixou de esbranquiçar a capa: veja [Efeitos Retícula, Linhas de Ação e Feixes de Luz](86-efeitos-reticula-linhas-de-acao-e-feixes.md).

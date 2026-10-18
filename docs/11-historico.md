@@ -254,6 +254,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   enviadas pelo Gerenciar. Detalhes em [Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md).
 - **Capas altas e molduras vizinhas.** Imagens altas esticavam a capa nas bordas com enfeite, e as molduras de imagem
   encostavam nas vizinhas. Detalhes em [Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md).
+- **Efeitos Retícula, Linhas de Ação e Feixes de Luz.** Três efeitos novos na loja. Detalhes em
+  [Efeitos Retícula, Linhas de Ação e Feixes de Luz](86-efeitos-reticula-linhas-de-acao-e-feixes.md).
+- **Temas Entardecer, Festival de Verão e Página de Mangá.** Três temas animados novos. Detalhes em
+  [Temas Entardecer, Festival de Verão e Página de Mangá](87-temas-entardecer-festival-e-pagina-de-manga.md).
 
 ## O que foi removido ou abandonado
 
