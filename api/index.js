@@ -8,6 +8,7 @@ import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, 
 import { criarBuscadorDeSinopse } from './_sinopse.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
+import { ESTRUTURA_DOS_BANNERS, criarBanners } from './_banners.js';
 import { ESTRUTURA_DAS_FINANCAS } from './_financas.js';
 import { ESTRUTURA_DA_LOJA, criarLoja, temaQueExiste } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
@@ -111,7 +112,7 @@ const ESTRUTURA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
-` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA + ESTRUTURA_DAS_FINANCAS;
+` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA + ESTRUTURA_DAS_FINANCAS + ESTRUTURA_DOS_BANNERS;
 
 async function banco() {
     if (!conexoes) {
@@ -1036,6 +1037,11 @@ async function rotear(request) {
         const resposta = await loja().semLogin(request, url, partes.slice(1));
         if (resposta) return resposta;
     }
+    // a imagem de um banner e o relatorio da empresa (pelo link privado) tambem
+    if (recurso === 'banners') {
+        const resposta = await banners().semLogin(request, url, partes.slice(1));
+        if (resposta) return resposta;
+    }
     // tudo o que o site precisa para abrir, em uma chamada so: a sessao e as listas fixas (nenhuma tem dados da lista)
     if (recurso === 'inicio' && partes.length === 1 && metodo === 'GET') {
         const sessaoDoInicio = await sessaoValida(request);
@@ -1058,6 +1064,7 @@ async function rotear(request) {
     if (recurso === 'conta' && partes.length <= 2) return tratarConta(request, sessao, id);
     if (recurso === 'comunidade') return comunidade()(request, url, partes.slice(1), sessao.conta);
     if (recurso === 'loja') return loja().comLogin(request, url, partes.slice(1), sessao.conta);
+    if (recurso === 'banners') return banners().comLogin(request, url, partes.slice(1), sessao.conta);
 
     if (recurso === 'status' && partes.length === 1 && metodo === 'GET') {
         return json(200, listaDeStatus());
@@ -1364,6 +1371,13 @@ function comunidade() {
         miniaturasDe: miniaturas, mangasDeOutraConta, capaDeOutraConta,
     });
     return rotasDaComunidade;
+}
+
+// os banners de anuncio e os relatorios deles (api/_banners.js), so do dono do site
+let rotasDosBanners;
+function banners() {
+    rotasDosBanners ??= criarBanners({ banco, json, Recusa, lerCorpo, semCache, ehDono });
+    return rotasDosBanners;
 }
 
 // a loja de bordas (api/_loja.js), com o pagamento pelo Mercado Pago

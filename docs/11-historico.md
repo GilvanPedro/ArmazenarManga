@@ -231,6 +231,11 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Otimização geral.** O site passou a ir para o ar compactado (35% menos JavaScript para baixar) e guardado por um ano
   no navegador; o servidor deixou de recriar as tabelas a cada partida a frio; contar o acesso virou uma ida ao banco; e
   os fundos animados ficaram mais leves. Detalhes em [Otimização geral do site](75-otimizacao-geral.md).
+- **Banners de anúncio.** O Gerenciar do dono ganhou a aba Banners: o cadastro dos banners horizontais e verticais, o
+  relatório geral do mês e um relatório de cada banner para a empresa, por um link privado. Os lugares do site onde
+  eles aparecem ainda não existem. Detalhes em [Banners de anúncio: cadastro e relatórios](76-banners-de-anuncio.md).
+- **Sem Imagens da loja.** A aba de enviar imagens saiu do Gerenciar; a imagem que a borda Celestial usa continua
+  sendo servida. Detalhes em [Sem a aba Imagens da loja](77-sem-a-aba-imagens-da-loja.md).
 
 ## O que foi removido ou abandonado
 

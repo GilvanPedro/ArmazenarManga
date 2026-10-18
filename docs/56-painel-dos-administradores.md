@@ -94,3 +94,6 @@ tipo de contagem por dia.
 
 > Depois, o Painel e as Finanças passaram a ser só do dono do site (os outros admins ficam com Contas e Registro):
 > veja [Efeitos, Loja no topo e painel do dono](59-efeitos-loja-no-topo-e-dono.md).
+
+> Depois, o Gerenciar do dono ganhou a aba Banners, com o cadastro dos banners de anúncio e os relatórios para as
+> empresas (o "próximo passo" acima): veja [Banners de anúncio: cadastro e relatórios](76-banners-de-anuncio.md).

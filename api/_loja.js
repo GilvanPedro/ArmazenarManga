@@ -95,8 +95,8 @@ export const ESTRUTURA_DA_LOJA = `
     CREATE TABLE IF NOT EXISTS mochila (conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, item TEXT NOT NULL,
         compra UUID REFERENCES compras(id) ON DELETE SET NULL, obtido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (conta, item));
-    -- as imagens das bordas e efeitos que nao sao feitos so com CSS (molduras desenhadas, animacoes): ficam no banco,
-    -- e nao no projeto. O dono do site envia pela aba "Imagens da loja" do Gerenciar
+    -- as imagens dos itens que nao sao feitos so com CSS (a moldura da borda Celestial): ficam no banco. A aba que
+    -- enviava as imagens saiu do Gerenciar; o que ja esta guardado continua sendo servido em /api/loja/imagens/{nome}
     CREATE TABLE IF NOT EXISTS imagens_da_loja (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL, tipo TEXT NOT NULL,
         tamanho INT NOT NULL, atualizada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     -- a borda e o efeito equipados (nulos: a borda roxa e o brilho de sempre)
@@ -105,35 +105,8 @@ export const ESTRUTURA_DA_LOJA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS tema TEXT;
 `;
 
-/** Imagens da loja: nome do arquivo (que o CSS usa em /api/loja/imagens/{nome}), formatos e tamanho maximo. */
+/** Imagens da loja: o nome do arquivo, que o CSS usa em /api/loja/imagens/{nome}. */
 export const NOME_DA_IMAGEM = /^[a-z0-9][a-z0-9-]{0,58}\.(webp|png|gif)$/;
-export const TAMANHO_MAXIMO_DA_IMAGEM_DA_LOJA = 3 * 1024 * 1024;
-
-/**
- * O formato de verdade de uma imagem, pelos primeiros bytes (nao pelo nome): 'image/webp', 'image/png' (inclusive
- * APNG, a PNG animada) ou 'image/gif'. Nulo se nao for nenhum desses.
- */
-export function formatoDaImagem(bytes) {
-    const b = Buffer.from(bytes.buffer ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) : bytes);
-    if (b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
-    if (b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
-    if (b.length >= 6 && ['GIF87a', 'GIF89a'].includes(b.toString('ascii', 0, 6))) return 'image/gif';
-    return null;
-}
-
-/** A extensao do nome tem que bater com o formato de verdade. */
-export function conferirImagemDaLoja(nome, bytes) {
-    if (!NOME_DA_IMAGEM.test(nome || '')) {
-        throw new ErroDaLoja(400, 'Nome inválido: use letras minúsculas, números e hífen, terminando em .webp, .png ou .gif (ex.: celestial.webp)');
-    }
-    if (!bytes || bytes.length === 0) throw new ErroDaLoja(400, 'Envie o arquivo da imagem');
-    if (bytes.length > TAMANHO_MAXIMO_DA_IMAGEM_DA_LOJA) throw new ErroDaLoja(413, 'A imagem pode ter no máximo 3 MB');
-    const tipo = formatoDaImagem(bytes);
-    if (!tipo) throw new ErroDaLoja(400, 'O arquivo não é uma imagem WebP, PNG ou GIF');
-    if (tipo !== 'image/' + nome.slice(nome.lastIndexOf('.') + 1)) throw new ErroDaLoja(400, `O arquivo é ${tipo.slice(6).toUpperCase()}, mas o nome termina em ${nome.slice(nome.lastIndexOf('.'))}`);
-    return tipo;
-}
-
 export class ErroDaLoja extends Error {
     constructor(status, mensagem) {
         super(mensagem);
@@ -330,33 +303,6 @@ export function criarLoja(f) {
         return { compra: compra.id, item: compra.item, status: compra.status };
     }
 
-    /**
-     * Imagens da loja, so para o dono: GET lista; PUT /{nome} envia ou troca (o corpo e o arquivo, como veio);
-     * DELETE /{nome} apaga.
-     */
-    async function imagensDaLoja(request, nome, eu) {
-        if (!temTudo(eu)) throw new ErroDaLoja(403, 'Só o dono do site gerencia as imagens da loja');
-        const db = await banco();
-        const metodo = request.method;
-        if (!nome && metodo === 'GET') {
-            const { rows } = await db.query('SELECT nome, tipo, tamanho, atualizada_em FROM imagens_da_loja ORDER BY nome');
-            return f.semCache(json(200, rows.map(linha => ({ nome: linha.nome, tipo: linha.tipo, tamanho: linha.tamanho,
-                atualizadaEm: linha.atualizada_em, endereco: '/api/loja/imagens/' + linha.nome }))));
-        }
-        if (nome && metodo === 'PUT') {
-            const bytes = Buffer.from(await request.arrayBuffer());
-            const tipo = conferirImagemDaLoja(nome, bytes);
-            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho) VALUES ($1, $2, $3, $4)
-                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, atualizada_em = now()`, [nome, bytes, tipo, bytes.length]);
-            return json(200, { nome, tipo, tamanho: bytes.length, endereco: '/api/loja/imagens/' + nome });
-        }
-        if (nome && metodo === 'DELETE') {
-            await db.query('DELETE FROM imagens_da_loja WHERE nome = $1', [nome]);
-            return new Response(null, { status: 204 });
-        }
-        throw new ErroDaLoja(404, 'Endereço não encontrado');
-    }
-
     /** { item } equipa um item da mochila; { tipo, item: null } volta ao de sempre daquele tipo. */
     async function equipar(request, eu) {
         const { item, tipo } = await f.lerCorpo(request);
@@ -420,7 +366,6 @@ export function criarLoja(f) {
                 if (acao === 'comprar' && !id && metodo === 'POST') return json(201, await comprar(request, eu));
                 if (acao === 'compras' && id && metodo === 'GET') return f.semCache(json(200, await conferirCompra(id, eu)));
                 if (acao === 'equipar' && !id && metodo === 'PUT') return json(200, await equipar(request, eu));
-                if (acao === 'imagens') return await imagensDaLoja(request, id, eu);
             } catch (erro) {
                 if (erro instanceof ErroDaLoja) throw new f.Recusa(erro.status, erro.message);
                 throw erro;

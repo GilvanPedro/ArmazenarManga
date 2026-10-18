@@ -2405,6 +2405,9 @@ function rota() {
     // uma busca digitada logo antes de trocar de tela nao pode disparar depois e atrapalhar a tela nova
     clearTimeout(estado.esperaDaBusca);
 
+    // a pagina do relatorio da empresa esconde o topo do site; qualquer outra tela volta com ele
+    document.body.classList.remove('pagina-de-relatorio');
+    if (partes[0] === 'relatorio-de-banner' && partes[1] && partes[2]) return telaRelatorioDaEmpresa(partes[1], partes[2]);
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;
     if (partes[0] === 'tag' && partes[1]) {
@@ -3650,7 +3653,7 @@ async function telaGerenciar(partes) {
     }
     // o painel e as financas sao so do dono do site (e o painel abre primeiro para ele); os outros admins moderam
     const dono = estado.sessao.conta.dono === true;
-    const permitidas = dono ? ['painel', 'financas', 'imagens', 'contas', 'registro'] : ['contas', 'registro'];
+    const permitidas = dono ? ['painel', 'financas', 'banners', 'contas', 'registro'] : ['contas', 'registro'];
     const aba = permitidas.includes(partes[0]) ? partes[0] : permitidas[0];
     const conteudo = h('div', {class: 'conteudo-do-gerenciamento'});
     const link = (nome, endereco, texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, texto);
@@ -3662,7 +3665,7 @@ async function telaGerenciar(partes) {
         rolagemDasAbas(h('nav', {class: 'abas', 'aria-label': 'Gerenciamento'},
             dono ? link('painel', '#/gerenciar/painel', 'Painel') : null,
             dono ? link('financas', '#/gerenciar/financas', 'Finanças') : null,
-            dono ? link('imagens', '#/gerenciar/imagens', 'Imagens da loja') : null,
+            dono ? link('banners', '#/gerenciar/banners', 'Banners') : null,
             link('contas', '#/gerenciar/contas', 'Contas'),
             link('registro', '#/gerenciar/registro', 'Registro'))),
         conteudo));
@@ -3670,7 +3673,7 @@ async function telaGerenciar(partes) {
     if (aba === 'registro') return registroDoGerenciamento(conteudo, vez);
     if (aba === 'contas') return contasDoGerenciamento(conteudo, vez);
     if (aba === 'financas') return financasDoGerenciamento(conteudo, vez, partes[1]);
-    if (aba === 'imagens') return imagensDaLojaNoGerenciamento(conteudo, vez);
+    if (aba === 'banners') return partes[1] ? relatorioDoBannerNoGerenciamento(conteudo, vez, partes[1]) : bannersNoGerenciamento(conteudo, vez);
     return painelDoGerenciamento(conteudo, vez);
 }
 
@@ -4227,85 +4230,315 @@ async function financasDoGerenciamento(conteudo, vez, mesPedido) {
                     h('td', {class: item.receitas - item.gastos < 0 ? 'negativo' : null}, (item.receitas - item.gastos < 0 ? '−' : '') + reais(Math.abs(item.receitas - item.gastos))))))))));
 }
 
-// ------------------------------------------------------------------ imagens da loja (so o dono)
+// ------------------------------------------------------------------ banners de anuncio (so o dono)
+
+const numeroInteiro = valor => (valor || 0).toLocaleString('pt-BR');
+const taxaEmTexto = taxa => (taxa == null ? '—' : taxa.toLocaleString('pt-BR', {maximumFractionDigits: 1}) + '%');
 
 /**
- * As imagens das bordas e efeitos que nao sao so CSS ficam no banco: aqui o dono envia, troca e apaga. Cada uma fica
- * em /api/loja/imagens/{nome}, que e o endereco que o CSS da borda usa. Trocar uma imagem leva ate uma hora para
- * aparecer para todo mundo (a CDN guarda por uma hora).
+ * O relatorio de um banner (o que a empresa ve): o banner, o mes (com as setas), exibicoes, cliques e a taxa de
+ * cliques, os graficos por dia e os lugares do site. dados: a resposta do relatorio. aoTrocarMes(mes) recarrega.
  */
-async function imagensDaLojaNoGerenciamento(conteudo, vez) {
-    const lista = h('div', {class: 'lista-de-imagens-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+function relatorioDeUmBanner(dados, aoTrocarMes) {
+    const b = dados.banner;
+    const t = dados.totais;
+    return h('div', {class: 'relatorio-do-banner'},
+        h('div', {class: 'cabecalho-do-relatorio'},
+            h('img', {class: 'banner-do-relatorio ' + b.formato, src: b.imagem, alt: b.texto || 'Banner de ' + b.empresa}),
+            h('div', {class: 'sobre-o-relatorio'},
+                h('span', {class: 'tipo-do-item'}, 'Relatório do anúncio'),
+                h('h1', null, b.empresa),
+                h('p', {class: 'subtitulo'}, 'Banner ' + (b.formato === 'vertical' ? 'vertical' : 'horizontal') + ' (' + b.largura + ' × ' + b.altura + ' px) no Viracap'
+                    + (b.desde ? ', desde ' + new Date(b.desde).toLocaleDateString('pt-BR') : '') + (b.pausado ? '. Pausado no momento.' : '.')),
+                b.link ? h('p', {class: 'subtitulo'}, 'Leva a: ', h('a', {href: b.link, target: '_blank', rel: 'noopener noreferrer'}, b.link)) : null)),
+        navegacaoDoMes(dados.mes, dados.atual, aoTrocarMes),
+        h('div', {class: 'numeros-das-financas'},
+            h('div', {class: 'quadro-do-painel'}, h('span', {class: 'rotulo-do-quadro'}, 'Exibições'), h('b', {class: 'valor-do-quadro'}, numeroInteiro(t.exibicoes))),
+            h('div', {class: 'quadro-do-painel'}, h('span', {class: 'rotulo-do-quadro'}, 'Cliques'), h('b', {class: 'valor-do-quadro'}, numeroInteiro(t.cliques))),
+            h('div', {class: 'quadro-do-painel'}, h('span', {class: 'rotulo-do-quadro'}, 'Taxa de cliques'), h('b', {class: 'valor-do-quadro'}, taxaEmTexto(t.taxa)),
+                h('small', null, 'cliques a cada 100 exibições'))),
+        h('div', {class: 'graficos-do-painel'},
+            graficoDeColunas('Exibições por dia', dados.porDia, 'exibicoes'),
+            graficoDeColunas('Cliques por dia', dados.porDia, 'cliques')),
+        h('section', {class: 'meses-do-painel'},
+            h('h3', null, 'Por lugar do site'),
+            dados.porPosicao.length === 0 ? h('p', {class: 'subtitulo'}, 'Nenhuma exibição neste mês.')
+                : h('div', {class: 'rolagem-da-tabela'}, h('table', null,
+                    h('thead', null, h('tr', null, ...['Lugar', 'Exibições', 'Cliques', 'Taxa de cliques'].map(texto => h('th', {scope: 'col'}, texto)))),
+                    h('tbody', null, ...dados.porPosicao.map(item => h('tr', null, h('th', {scope: 'row'}, item.posicao),
+                        h('td', null, numeroInteiro(item.exibicoes)), h('td', null, numeroInteiro(item.cliques)), h('td', null, taxaEmTexto(item.taxa)))))))),
+        h('p', {class: 'nota-do-painel'}, 'Contagens anônimas, por dia: quantas vezes o banner apareceu no site e quantas vezes foi clicado. '
+            + 'Nenhuma pessoa é identificada (sem conta, endereço ou aparelho), então os números não medem pessoas diferentes, só exibições e cliques.'));
+}
+
+/** As setas do mes (sem passar do mes atual) e o nome do mes. */
+function navegacaoDoMes(mes, atual, aoTrocarMes) {
+    return h('div', {class: 'navegacao-do-mes'},
+        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Mês anterior', onclick: () => aoTrocarMes(somarMesesNoSite(mes, -1))}, '‹'),
+        h('h2', null, mesPorExtenso(mes)),
+        h('button', {type: 'button', class: 'botao pequeno', 'aria-label': 'Próximo mês', disabled: mes >= atual, onclick: () => aoTrocarMes(somarMesesNoSite(mes, 1))}, '›'),
+        mes !== atual ? h('button', {type: 'button', class: 'botao pequeno', onclick: () => aoTrocarMes(atual)}, 'Mês atual') : null);
+}
+
+/**
+ * O relatorio de um banner para a empresa (#/relatorio-de-banner/{id}/{codigo}), aberto pelo link privado: sem login,
+ * so aquele banner. Da para imprimir ou salvar em PDF.
+ */
+async function telaRelatorioDaEmpresa(id, codigo, mes) {
+    const vez = ++estado.render;
+    document.title = 'Relatório do anúncio · Viracap';
+    document.body.classList.add('pagina-de-relatorio');
+    const conteudo = h('div', {class: 'pagina-do-relatorio'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+    app.replaceChildren(conteudo);
+    let dados;
+    try {
+        dados = await chamar('GET', `/api/banners/relatorio-da-empresa/${encodeURIComponent(id)}/${encodeURIComponent(codigo)}` + (mes ? '?mes=' + mes : ''));
+    } catch (e) {
+        if (vez === estado.render) conteudo.replaceChildren(vazio('Relatório não encontrado', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    document.title = 'Relatório do anúncio de ' + dados.banner.empresa + ' · Viracap';
+    conteudo.replaceChildren(
+        h('div', {class: 'topo-do-relatorio'},
+            h('span', {class: 'marca-do-relatorio'}, h('img', {src: 'favicon.svg', alt: '', width: '24', height: '24'}), 'Viracap'),
+            h('button', {type: 'button', class: 'botao pequeno', onclick: () => window.print()}, 'Imprimir ou salvar em PDF')),
+        relatorioDeUmBanner(dados, novo => telaRelatorioDaEmpresa(id, codigo, novo)));
+}
+
+/** O relatorio de um banner no Gerenciar (#/gerenciar/banners/{id}), com o link para mandar a empresa. */
+async function relatorioDoBannerNoGerenciamento(conteudo, vez, id, mes) {
+    let dados;
+    try {
+        dados = await chamar('GET', '/api/banners/' + encodeURIComponent(id) + '/relatorio' + (mes ? '?mes=' + mes : ''));
+    } catch (e) {
+        if (vez === estado.render) conteudo.replaceChildren(vazio('Não deu para abrir o relatório', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    const endereco = location.origin + '/' + dados.linkDaEmpresa;
+    const campo = h('input', {type: 'text', readonly: true, value: endereco, 'aria-label': 'Link do relatório para a empresa'});
+    conteudo.replaceChildren(
+        h('a', {class: 'voltar', href: '#/gerenciar/banners'}, '← Banners'),
+        h('section', {class: 'caixa-de-lancamentos link-da-empresa'},
+            h('h3', null, 'Link para a empresa'),
+            h('p', {class: 'subtitulo'}, 'Quem tiver este link vê só o relatório deste banner, sem precisar de conta. Gerar um novo link desliga o antigo.'),
+            h('div', {class: 'linha-do-link'}, campo,
+                h('button', {type: 'button', class: 'botao pequeno primario', onclick: async () => {
+                    try {
+                        await navigator.clipboard.writeText(endereco);
+                        avisar('Link copiado');
+                    } catch {
+                        campo.select();
+                    }
+                }}, 'Copiar'),
+                h('button', {type: 'button', class: 'botao pequeno', onclick: async () => {
+                    if (!await confirmar('Gerar um link novo?', 'O link que a empresa já tem para de funcionar. Mande o novo para ela.', 'Gerar link novo', false)) return;
+                    try {
+                        await chamar('POST', '/api/banners/' + encodeURIComponent(id) + '/novo-link');
+                        avisar('Link novo gerado');
+                        relatorioDoBannerNoGerenciamento(conteudo, vez, id, dados.mes);
+                    } catch (e) {
+                        avisar(e.message, true);
+                    }
+                }}, 'Gerar link novo'),
+                h('a', {class: 'botao pequeno', href: dados.linkDaEmpresa, target: '_blank', rel: 'noopener'}, 'Abrir como a empresa vê'))),
+        relatorioDeUmBanner(dados, novo => relatorioDoBannerNoGerenciamento(conteudo, vez, id, novo)));
+}
+
+/**
+ * A aba Banners do Gerenciar: o relatorio geral do mes (todos os banners), a planilha, e os banners cadastrados, com
+ * os botoes de adicionar, editar, pausar, ver o relatorio e apagar.
+ */
+async function bannersNoGerenciamento(conteudo, vez, mes) {
+    let lista;
+    let relatorio;
+    try {
+        [lista, relatorio] = await Promise.all([chamar('GET', '/api/banners'), chamar('GET', '/api/banners/relatorio' + (mes ? '?mes=' + mes : ''))]);
+    } catch (e) {
+        if (vez === estado.render) conteudo.replaceChildren(vazio('Não deu para carregar os banners', e.message));
+        return;
+    }
+    if (vez !== estado.render) return;
+    const recarregar = () => bannersNoGerenciamento(conteudo, vez, relatorio.mes);
+    const t = relatorio.totais;
+
+    const cartaoDoBanner = banner => h('article', {class: 'cartao-de-banner' + (banner.pausado ? ' pausado' : '')},
+        h('a', {class: 'previa-do-banner ' + banner.formato, href: '#/gerenciar/banners/' + encodeURIComponent(banner.id)},
+            h('img', {src: banner.imagem, alt: banner.texto || 'Banner de ' + banner.empresa, loading: 'lazy'})),
+        h('div', {class: 'sobre-o-banner'},
+            h('div', {class: 'linha'}, h('b', null, banner.empresa),
+                h('span', {class: 'selo-na-mochila'}, banner.formato === 'vertical' ? 'Vertical' : 'Horizontal'),
+                banner.pausado ? h('span', {class: 'selo-de-pausa'}, 'Pausado') : h('span', {class: 'selo-ativo'}, 'No ar')),
+            h('small', null, banner.largura + ' × ' + banner.altura + ' px · peso ' + banner.peso + (banner.link ? ' · ' + banner.link : ' · sem link')),
+            h('small', null, 'Este mês: ' + numeroInteiro(banner.exibicoes) + ' exibições, ' + numeroInteiro(banner.cliques) + ' cliques (' + taxaEmTexto(banner.taxa) + ')'),
+            h('div', {class: 'acoes-do-lancamento'},
+                h('a', {class: 'botao pequeno primario', href: '#/gerenciar/banners/' + encodeURIComponent(banner.id)}, 'Relatório'),
+                h('button', {type: 'button', class: 'botao pequeno', onclick: () => janelaDoBanner(lista.formatos, banner, recarregar)}, 'Editar'),
+                h('button', {type: 'button', class: 'botao pequeno', onclick: async () => {
+                    try {
+                        await chamar('PUT', '/api/banners/' + encodeURIComponent(banner.id) + '/pausa', {pausado: !banner.pausado});
+                        avisar(banner.empresa + (banner.pausado ? ' de volta ao ar' : ' pausado'));
+                        recarregar();
+                    } catch (e) {
+                        avisar(e.message, true);
+                    }
+                }}, banner.pausado ? 'Ativar' : 'Pausar'),
+                h('button', {type: 'button', class: 'botao pequeno perigo', onclick: async () => {
+                    if (!await confirmar('Apagar o banner de ' + banner.empresa + '?', 'O banner sai do cadastro e o link da empresa para de funcionar. Os números dos meses em que ele apareceu continuam no relatório geral.', 'Apagar')) return;
+                    try {
+                        await chamar('DELETE', '/api/banners/' + encodeURIComponent(banner.id));
+                        avisar('Banner apagado');
+                        recarregar();
+                    } catch (e) {
+                        avisar(e.message, true);
+                    }
+                }}, 'Apagar'))));
+
+    conteudo.replaceChildren(
+        h('div', {class: 'topo-do-grafico'},
+            h('p', {class: 'subtitulo'}, 'Os banners de anúncio do site, horizontais e verticais, e os relatórios para as empresas. '
+                + 'Os lugares do site onde eles aparecem ainda não existem: por enquanto, aqui é só o cadastro.'),
+            h('div', {class: 'acoes-do-lancamento'},
+                h('a', {class: 'botao pequeno', href: '/api/banners/planilha?mes=' + relatorio.mes, download: true}, 'Baixar planilha do mês'),
+                h('button', {type: 'button', class: 'botao pequeno primario', disabled: lista.banners.length >= lista.maximo,
+                    onclick: () => janelaDoBanner(lista.formatos, null, recarregar)}, '+ Banner'))),
+        navegacaoDoMes(relatorio.mes, relatorio.atual, novo => bannersNoGerenciamento(conteudo, vez, novo)),
+        h('div', {class: 'numeros-do-painel numeros-dos-banners'},
+            quadroDoPainel('Exibições no mês', t.exibicoes),
+            quadroDoPainel('Cliques no mês', t.cliques),
+            h('div', {class: 'quadro-do-painel'}, h('span', {class: 'rotulo-do-quadro'}, 'Taxa de cliques'), h('b', {class: 'valor-do-quadro'}, taxaEmTexto(t.taxa))),
+            quadroDoPainel('Banners no ar', relatorio.ativos, 'de ' + relatorio.cadastrados + ' cadastrados (máximo ' + lista.maximo + ')')),
+        h('div', {class: 'graficos-do-painel'}, graficoDeColunas('Exibições por dia', relatorio.porDia, 'exibicoes',
+            {detalhe: item => item.cliques + (item.cliques === 1 ? ' clique' : ' cliques')})),
+        h('section', {class: 'meses-do-painel'},
+            h('h3', null, 'Por banner em ' + mesPorExtenso(relatorio.mes)),
+            relatorio.porBanner.length === 0 ? h('p', {class: 'subtitulo'}, 'Nenhum banner cadastrado ainda.')
+                : h('div', {class: 'rolagem-da-tabela'}, h('table', {class: 'tabela-dos-banners'},
+                    h('thead', null, h('tr', null, ...['Banner', 'Formato', 'Exibições', 'Cliques', 'Taxa de cliques', 'Parte das exibições'].map(texto => h('th', {scope: 'col'}, texto)))),
+                    h('tbody', null, ...relatorio.porBanner.map(item => h('tr', null,
+                        h('th', {scope: 'row'}, item.foraDoCadastro ? item.banner + ' (apagado)' : h('a', {href: '#/gerenciar/banners/' + encodeURIComponent(item.banner)}, item.empresa)),
+                        h('td', null, item.formato === 'vertical' ? 'Vertical' : item.formato === 'horizontal' ? 'Horizontal' : '—'),
+                        h('td', null, numeroInteiro(item.exibicoes)), h('td', null, numeroInteiro(item.cliques)),
+                        h('td', null, taxaEmTexto(item.taxa)), h('td', null, item.parte.toLocaleString('pt-BR') + '%'))))))),
+        h('section', {class: 'caixa-de-lancamentos'},
+            h('h3', null, 'Banners cadastrados (' + lista.banners.length + ')'),
+            lista.banners.length === 0 ? h('p', {class: 'subtitulo'}, 'Nenhum banner ainda. Clique em "+ Banner" para cadastrar o primeiro.')
+                : h('div', {class: 'lista-de-banners'}, ...lista.banners.map(cartaoDoBanner))));
+}
+
+/**
+ * Janela para cadastrar ou editar um banner: empresa, descricao (para leitores de tela), link, formato, peso e a imagem,
+ * com a previa e as medidas conferidas na hora (o servidor confere de novo). formatos: as regras de cada formato.
+ */
+function janelaDoBanner(formatos, banner, aoSalvar) {
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
-    const arquivo = h('input', {type: 'file', id: 'imagem-da-loja-arquivo', accept: 'image/webp,image/png,image/gif', required: true});
-    const nome = h('input', {type: 'text', id: 'imagem-da-loja-nome', required: true, placeholder: 'celestial.webp', maxlength: '64',
-        pattern: '[a-z0-9][a-z0-9-]*\\.(webp|png|gif)', autocomplete: 'off', spellcheck: 'false'});
-    // o nome sai do arquivo: minusculas, sem acento, espacos viram hifen
+    const empresa = h('input', {type: 'text', id: 'banner-empresa', maxlength: '120', required: true, value: banner?.empresa || '', placeholder: 'Ex.: Loja do Otaku'});
+    const texto = h('input', {type: 'text', id: 'banner-texto', maxlength: '200', value: banner?.texto || '', placeholder: 'Ex.: Mangás com 20% de desconto'});
+    const link = h('input', {type: 'url', id: 'banner-link', maxlength: '500', value: banner?.link || '', placeholder: 'https://… (ou vazio)'});
+    const peso = h('input', {type: 'number', id: 'banner-peso', min: '1', max: '100', step: '1', value: String(banner?.peso || 1)});
+    const arquivo = h('input', {type: 'file', id: 'banner-imagem', accept: 'image/png,image/jpeg,image/webp'});
+    const previa = h('div', {class: 'previa-do-banner grande'}, banner ? h('img', {src: banner.imagem, alt: ''}) : h('span', {class: 'subtitulo'}, 'A imagem aparece aqui'));
+    const medidas = h('small', {class: 'medidas-do-banner'});
+    let formato = banner?.formato || 'horizontal';
+    let escolhida = null;
+    const opcoes = h('div', {class: 'filtros', role: 'group', 'aria-label': 'Formato'});
+    const regra = () => formatos[formato];
+    const conferir = () => {
+        previa.className = 'previa-do-banner grande ' + formato;
+        const r = regra();
+        const dica = 'Recomendado: ' + r.exemplos + ' px. PNG, JPEG ou WebP, até 1 MB.';
+        if (!escolhida) {
+            medidas.textContent = dica;
+            return true;
+        }
+        const {largura, altura} = escolhida;
+        const proporcao = formato === 'horizontal' ? largura / altura : altura / largura;
+        const ok = largura >= r.largura[0] && largura <= r.largura[1] && altura >= r.altura[0] && altura <= r.altura[1] && proporcao >= r.proporcao[0] && proporcao <= r.proporcao[1];
+        medidas.textContent = largura + ' × ' + altura + ' px ' + (ok ? '✓ serve para um banner ' + r.nome.toLowerCase() : '✗ não serve para um banner ' + r.nome.toLowerCase() + '. ' + dica);
+        medidas.classList.toggle('erro', !ok);
+        return ok;
+    };
+    const desenharOpcoes = () => opcoes.replaceChildren(...Object.entries(formatos).map(([valor, r]) =>
+        h('button', {type: 'button', class: 'filtro', 'aria-pressed': String(formato === valor), onclick: () => {
+            formato = valor;
+            desenharOpcoes();
+            conferir();
+        }}, r.nome)));
+    desenharOpcoes();
+    conferir();
     arquivo.addEventListener('change', () => {
         const escolhido = arquivo.files[0];
-        if (!escolhido || nome.value) return;
-        nome.value = escolhido.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9.]+/g, '-').replace(/^-+|-+(?=\.)/g, '');
+        escolhida = null;
+        if (!escolhido) return conferir();
+        const endereco = URL.createObjectURL(escolhido);
+        const img = h('img', {src: endereco, alt: ''});
+        img.addEventListener('load', () => {
+            escolhida = {largura: img.naturalWidth, altura: img.naturalHeight};
+            // a imagem escolhida ja mostra o formato que ela tem
+            const deitada = escolhida.largura >= escolhida.altura;
+            if ((deitada ? 'horizontal' : 'vertical') !== formato) {
+                formato = deitada ? 'horizontal' : 'vertical';
+                desenharOpcoes();
+            }
+            conferir();
+        });
+        img.addEventListener('error', () => {
+            medidas.textContent = 'Não deu para ler essa imagem';
+            medidas.classList.add('erro');
+        });
+        previa.replaceChildren(img);
     });
-    const enviar = h('button', {type: 'submit', class: 'botao primario'}, 'Enviar');
-    const formulario = h('form', {class: 'envio-de-imagem-da-loja'},
-        h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-arquivo'}, 'Arquivo (WebP, PNG ou GIF, até 3 MB)'), arquivo),
-        h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-nome'}, 'Nome'), nome,
-            h('small', null, 'Letras minúsculas, números e hífen. Enviar com um nome que já existe troca a imagem.')),
-        erro, h('div', null, enviar));
-    const carregar = async () => {
-        try {
-            const imagens = await chamar('GET', '/api/loja/imagens');
-            if (vez !== estado.render) return;
-            lista.replaceChildren(...(imagens.length === 0 ? [h('p', {class: 'subtitulo'}, 'Nenhuma imagem enviada ainda.')] : imagens.map(imagem =>
-                h('article', {class: 'imagem-da-loja'},
-                    h('a', {href: imagem.endereco, target: '_blank', rel: 'noopener', class: 'miniatura-da-imagem'},
-                        h('img', {src: imagem.endereco + '?v=' + encodeURIComponent(imagem.atualizadaEm), alt: imagem.nome, loading: 'lazy'})),
-                    h('div', {class: 'sobre-a-imagem'},
-                        h('b', null, imagem.nome),
-                        h('small', null, imagem.tipo.slice(6).toUpperCase() + ' · ' + (imagem.tamanho / 1024).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + ' KB · ' + dataEHora(imagem.atualizadaEm)),
-                        h('code', null, imagem.endereco)),
-                    h('button', {type: 'button', class: 'botao pequeno perigo', onclick: async () => {
-                        if (!await confirmar('Apagar ' + imagem.nome + '?', 'A borda ou o efeito que usa essa imagem fica sem ela até você enviar de novo.', 'Apagar')) return;
-                        try {
-                            await chamar('DELETE', '/api/loja/imagens/' + encodeURIComponent(imagem.nome));
-                            avisar(imagem.nome + ' apagada');
-                            carregar();
-                        } catch (e) {
-                            avisar(e.message, true);
-                        }
-                    }}, 'Apagar')))));
-        } catch (e) {
-            if (vez === estado.render) lista.replaceChildren(vazio('Não deu para carregar as imagens', e.message));
-        }
-    };
+    const salvar = h('button', {type: 'submit', class: 'botao primario'}, banner ? 'Salvar' : 'Cadastrar');
+    const formulario = h('form', {class: 'formulario-de-lancamento'},
+        h('div', {class: 'campo'}, h('label', {for: 'banner-empresa'}, 'Empresa'), empresa),
+        h('div', {class: 'campo'}, h('span', {class: 'rotulo'}, 'Formato'), opcoes),
+        h('div', {class: 'campo'}, h('label', {for: 'banner-imagem'}, banner ? 'Imagem (escolha só para trocar)' : 'Imagem'), arquivo, medidas),
+        previa,
+        h('div', {class: 'campo'}, h('label', {for: 'banner-texto'}, 'Descrição (para leitores de tela)'), texto),
+        h('div', {class: 'campo'}, h('label', {for: 'banner-link'}, 'Link ao clicar'), link,
+            h('small', null, 'https:// ou mailto:. Vazio: o banner não é clicável.')),
+        h('div', {class: 'campo'}, h('label', {for: 'banner-peso'}, 'Peso'), peso,
+            h('small', null, 'A parte das exibições: um banner de peso 2 aparece o dobro de um de peso 1.')),
+        erro,
+        h('div', {class: 'acoes'}, h('button', {type: 'button', class: 'botao', onclick: () => dialogo.close()}, 'Cancelar'), salvar));
+    const dialogo = h('dialog', {class: 'janela-de-lancamento janela-do-banner'},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, banner ? 'Editar banner' : 'Novo banner'),
+            h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar', onclick: () => dialogo.close()}, '×')),
+        formulario);
     formulario.addEventListener('submit', async evento => {
         evento.preventDefault();
         erro.textContent = '';
-        const escolhido = arquivo.files[0];
-        if (!escolhido) return;
-        enviar.disabled = true;
-        enviar.textContent = 'Enviando…';
+        if (!banner && !arquivo.files[0]) {
+            erro.textContent = 'Escolha a imagem do banner';
+            return;
+        }
+        if (escolhida && !conferir()) {
+            erro.textContent = 'A imagem não tem as medidas de um banner ' + regra().nome.toLowerCase();
+            return;
+        }
+        const envio = new FormData();
+        envio.append('empresa', empresa.value);
+        envio.append('texto', texto.value);
+        envio.append('link', link.value);
+        envio.append('formato', formato);
+        envio.append('peso', peso.value);
+        if (arquivo.files[0]) envio.append('imagem', arquivo.files[0]);
+        salvar.disabled = true;
         try {
-            // o corpo e o arquivo como veio: o servidor confere o formato pelos primeiros bytes
-            const resposta = await fetch('/api/loja/imagens/' + encodeURIComponent(nome.value.trim()), {method: 'PUT', body: escolhido,
-                headers: {'Content-Type': escolhido.type || 'application/octet-stream'}});
-            const corpo = await resposta.json().catch(() => ({}));
-            if (!resposta.ok) throw new Error(corpo.mensagem || 'Não deu para enviar a imagem');
-            avisar(corpo.nome + ' enviada');
-            formulario.reset();
-            carregar();
+            await chamar(banner ? 'PUT' : 'POST', '/api/banners' + (banner ? '/' + encodeURIComponent(banner.id) : ''), envio);
+            dialogo.close();
+            avisar(banner ? 'Banner salvo' : 'Banner cadastrado');
+            aoSalvar();
         } catch (e) {
             erro.textContent = e.message;
+            salvar.disabled = false;
         }
-        enviar.disabled = false;
-        enviar.textContent = 'Enviar';
     });
-    conteudo.replaceChildren(
-        h('p', {class: 'subtitulo'}, 'As imagens das bordas e efeitos que não são feitos só com código (molduras desenhadas, animações) ficam guardadas no banco. '
-            + 'Cada uma fica em /api/loja/imagens/{nome}, o endereço que a borda usa. Trocar uma imagem leva até uma hora para aparecer para todo mundo.'),
-        h('section', {class: 'caixa-de-lancamentos'}, h('h3', null, 'Enviar imagem'), formulario),
-        h('section', {class: 'caixa-de-lancamentos'}, h('h3', null, 'Imagens enviadas'), lista));
-    await carregar();
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    empresa.focus();
 }
 
 async function contasDoGerenciamento(conteudo, vez) {
@@ -5339,6 +5572,13 @@ async function iniciar() {
             recarregarAba();
         }
     });
+    // o relatorio de um banner, aberto pela empresa pelo link privado: nao precisa de login (com login, o site abre
+    // normalmente e a rota mostra o relatorio)
+    if (!estado.sessao.logado && /^#\/relatorio-de-banner\/[^/]+\/[^/?]+/.test(location.hash)) {
+        window.addEventListener('hashchange', rota);
+        rota();
+        return;
+    }
     if (!estado.sessao.logado) {
         telaLogin();
         return;

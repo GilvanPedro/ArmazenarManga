@@ -62,3 +62,6 @@ nome só aceita letras minúsculas, números e hífen, terminando em `.webp`, `.
   nome veio `celestial.webp`; depois de enviar, a imagem apareceu na lista e o endereço passou a responder (sem
   login) com `image/webp` e o cache de uma hora, e a borda Celestial da loja passou a mostrar a moldura vinda do
   banco. Um WebP com o nome `teste.png` foi recusado. Uma conta que não é a do dono recebeu 403 ao enviar e ao listar.
+
+> Depois, a aba Imagens da loja e as rotas de enviar e apagar saíram; a rota que serve as imagens já guardadas (a da
+> Celestial) continua: veja [Sem a aba Imagens da loja](77-sem-a-aba-imagens-da-loja.md).

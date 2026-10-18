@@ -2150,17 +2150,7 @@ dialog.janela-de-lancamento { width: min(440px, calc(100vw - 24px)); }
 .historico-de-vendas th, .historico-de-vendas td { text-align: left; white-space: nowrap; }
 .historico-de-vendas th:nth-child(4), .historico-de-vendas td:nth-child(4) { text-align: right; }
 
-/* ------------------------------------------------------------ imagens da loja (gerenciar) */
-.envio-de-imagem-da-loja { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
-.envio-de-imagem-da-loja small { color: var(--texto-fraco); font-size: 12.5px; }
 .caixa-de-lancamentos + .caixa-de-lancamentos { margin-top: 14px; }
-.lista-de-imagens-da-loja { display: flex; flex-direction: column; margin-top: 6px; }
-.imagem-da-loja { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--borda); }
-.miniatura-da-imagem { display: block; width: 64px; height: 88px; border-radius: 8px; background: repeating-conic-gradient(var(--superficie-2) 0 25%, var(--superficie) 0 50%) 0 0 / 12px 12px; }
-.miniatura-da-imagem img { width: 100%; height: 100%; object-fit: contain; }
-.sobre-a-imagem { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.sobre-a-imagem small { color: var(--texto-fraco); font-size: 12.5px; }
-.sobre-a-imagem code { overflow-wrap: anywhere; color: var(--texto-fraco); font-size: 12px; }
 
 /* mangas do perfil: a mesma janela de montar lista, so para ver; as partes escondidas somem de verdade */
 .janela-dos-mangas-do-perfil [hidden] { display: none !important; }
@@ -2657,3 +2647,49 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 
 /* filtro da mochila (todos, bordas, efeitos ou temas), centralizado como o resto da loja */
 .filtro-da-mochila { justify-content: center; margin: 0 0 16px; }
+
+/* ------------------------------------------------------------ banners de anuncio (gerenciar) e o relatorio da empresa */
+.lista-de-banners { display: flex; flex-direction: column; margin-top: 6px; }
+.cartao-de-banner { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--borda); }
+.cartao-de-banner.pausado .previa-do-banner { opacity: .55; }
+.previa-do-banner { display: grid; place-items: center; min-height: 70px; border: 1px solid var(--borda); border-radius: 8px; background: repeating-conic-gradient(var(--superficie-2) 0 25%, var(--superficie) 0 50%) 0 0 / 12px 12px; overflow: hidden; }
+.previa-do-banner img { display: block; max-width: 100%; max-height: 200px; }
+.previa-do-banner.vertical { justify-self: center; width: 110px; }
+.previa-do-banner.grande { min-height: 110px; padding: 6px; }
+.previa-do-banner.grande img { max-height: 260px; }
+.sobre-o-banner { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.sobre-o-banner .linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sobre-o-banner small { color: var(--texto-fraco); font-size: 12.5px; overflow-wrap: anywhere; }
+.selo-ativo, .selo-de-pausa { padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.selo-ativo { background: color-mix(in srgb, var(--lendo) 18%, transparent); color: var(--lendo); }
+.selo-de-pausa { background: var(--superficie-2); color: var(--texto-fraco); }
+.numeros-dos-banners { margin-bottom: 14px; }
+.numeros-dos-banners .quadro-do-painel.principal { grid-column: auto; grid-row: auto; }
+.tabela-dos-banners th, .tabela-dos-banners td { white-space: nowrap; }
+.medidas-do-banner { color: var(--texto-fraco); font-size: 12.5px; }
+.medidas-do-banner.erro { color: var(--perigo); }
+.janela-do-banner { width: min(560px, calc(100vw - 24px)); }
+.link-da-empresa { margin-bottom: 14px; }
+.linha-do-link { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.linha-do-link input { flex: 1 1 280px; min-width: 0; font-size: 13px; }
+.relatorio-do-banner { display: flex; flex-direction: column; gap: 14px; }
+.cabecalho-do-relatorio { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.banner-do-relatorio { max-width: min(100%, 520px); max-height: 180px; border-radius: 8px; border: 1px solid var(--borda); }
+.banner-do-relatorio.vertical { max-height: 260px; }
+.sobre-o-relatorio h1 { margin: 2px 0 4px; }
+.sobre-o-relatorio .subtitulo { margin: 0; }
+/* a pagina que a empresa abre pelo link: so o relatorio, sem o topo do site */
+body.pagina-de-relatorio .topo { display: none; }
+.pagina-do-relatorio { max-width: 980px; margin: 0 auto; padding: 8px 0 32px; }
+.topo-do-relatorio { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+.marca-do-relatorio { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; }
+@media (max-width: 620px) {
+    .cartao-de-banner { grid-template-columns: 1fr; }
+}
+/* impressao (ou salvar em PDF): fundo branco, sem botoes nem topo */
+@media print {
+    body { background: #fff !important; color: #000; }
+    body::before, body::after, :root::before, :root::after { display: none !important; }
+    .topo, .topo-do-relatorio .botao, .navegacao-do-mes button, .tabela-do-grafico summary, .avisos { display: none !important; }
+    .quadro-do-painel, .grafico-do-painel, .meses-do-painel { break-inside: avoid; border-color: #ccc; background: #fff; }
+}

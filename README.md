@@ -105,7 +105,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Temas animados Galáxia e Fazenda](docs/69-temas-galaxia-e-fazenda.md) | [Tema Silhueta e o tema no perfil](docs/70-tema-silhueta-e-tema-no-perfil.md) |
 | [Meteoros no tema Galáxia](docs/71-meteoros-na-galaxia.md) | [Sem tema de imagem de fundo](docs/72-sem-tema-de-imagem.md) |
 | [O tema da pessoa no perfil e nas listas](docs/73-tema-da-pessoa-no-perfil-e-nas-listas.md) | [Curtir sem abrir o post](docs/74-curtir-sem-abrir-o-post.md) |
-| [Otimização geral do site](docs/75-otimizacao-geral.md) | |
+| [Otimização geral do site](docs/75-otimizacao-geral.md) | [Banners de anúncio: cadastro e relatórios](docs/76-banners-de-anuncio.md) |
+| [Sem a aba Imagens da loja](docs/77-sem-a-aba-imagens-da-loja.md) | |
 
 ## Testes
 
