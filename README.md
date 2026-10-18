@@ -111,6 +111,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [A receita dos banners e a pizza das Finanças](docs/81-receita-dos-banners-e-pizza-das-financas.md) | |
 | [O término do banner e o seletor de mês](docs/82-termino-do-banner-e-seletor-de-mes.md) | |
 | [Bordas Aurora Boreal e Eclipse](docs/83-bordas-aurora-boreal-e-eclipse.md) | |
+| [Quatro molduras de imagem na loja](docs/84-quatro-molduras-de-imagem.md) | |
 
 ## Testes
 

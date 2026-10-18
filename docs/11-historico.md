@@ -250,6 +250,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md).
 - **Bordas Aurora Boreal e Eclipse.** Duas bordas animadas novas na loja. Detalhes em
   [Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md).
+- **Quatro molduras de imagem.** Arte Derretida, Relíquia, Bosque Élfico e Portão do Inferno, feitas das imagens
+  enviadas pelo Gerenciar. Detalhes em [Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md).
 
 ## O que foi removido ou abandonado
 

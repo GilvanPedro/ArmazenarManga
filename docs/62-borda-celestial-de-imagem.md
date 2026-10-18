@@ -54,3 +54,5 @@ deixando a regra da Celestial mais específica). Os 85 testes da versão JavaScr
 
 > Depois, a moldura passou a vir da imagem `canvas.png` guardada no banco: veja
 > [A borda Celestial usa o canvas.png](79-celestial-com-canvas-png.md).
+
+> Depois vieram mais quatro molduras de imagem no mesmo esquema: veja [Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md).

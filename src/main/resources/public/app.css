@@ -531,21 +531,21 @@ a.capa.favorita:hover::after { animation: reflexo-de-favorito-rapido .9s ease-ou
  * na camada .enfeite-da-borda (e no ::before e ::after dela), que nas outras bordas nao aparece.
  */
 .enfeite-da-borda { display: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) {
     overflow: visible;
     isolation: isolate;
     border-width: 5px;
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse) > :is(img, .capa-vazia, .capa-de-exemplo) {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) > :is(img, .capa-vazia, .capa-de-exemplo) {
     border-radius: calc(var(--raio) - 5px);
 }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse)::after,
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse)::before {
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno)::after,
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno)::before {
     border-radius: calc(var(--raio) - 5px);
 }
 /* a imagem nao cresce no hover: sem o corte da capa, ela passaria por cima da moldura */
-a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse):hover img { transform: none; }
-.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse) .enfeite-da-borda {
+a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno):hover img { transform: none; }
+.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-floresta, .borda-eletrico, .borda-arcano, .borda-galaxia, .borda-celestial, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .enfeite-da-borda {
     display: block;
     position: absolute;
     inset: 0;
@@ -885,6 +885,120 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 .capa.favorita.borda-celestial .nota { z-index: 4; right: 8%; bottom: 6%; }
 
 /*
+ * Molduras de imagem (como a Celestial): Arte Derretida, Relíquia, Bosque Élfico e Portão do Inferno. As quatro sao
+ * PNGs de 378 x 540 com o meio transparente, guardados no banco (Imagens da loja), e saem do mesmo molde: a faixa da
+ * moldura vai de x 14 a 47 e de 332 a 365, e de y 19 a 52 e de 492 a 525. O meio da faixa fica em cima da beira da capa,
+ * entao a capa ocupa, na imagem, de x 30,5 a 348,5 e de y 35,5 a 508,5 (318 x 473, quase 2:3). Dai as medidas abaixo,
+ * em porcentagem da capa. Cada uma tem um brilho que respira na cor dela, e o enfeite do canto (a estrela, o sol, a
+ * esmeralda e os olhos do demonio) ganha uma luz propria no ::after (posicao em porcentagem da imagem).
+ */
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) {
+    border-width: 0;
+    background: var(--superficie-2);
+    box-shadow: 0 0 16px var(--brilho-da-moldura), 0 6px 22px rgba(0, 0, 0, .35);
+}
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) > :is(img, .capa-vazia, .capa-de-exemplo) { border-radius: calc(var(--raio) - 2px); }
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .enfeite-da-borda {
+    inset: auto;
+    left: -9.59%;
+    top: -7.51%;
+    width: 118.87%;
+    height: 114.16%;
+    background: var(--imagem-da-moldura) 0 0 / 100% 100% no-repeat;
+}
+/*
+ * o brilho em volta: uma copia da moldura com o drop-shadow, sem o miolo (a mascara tira o retangulo da capa: 84,13% x
+ * 87,59% da imagem, comecando em 8,07% e 6,57%; em mask-position, isso da 50,85% e 52,94%). Sem isso, o brilho da
+ * beira de dentro da moldura cairia em cima da imagem do manga e a deixaria esbranquicada.
+ */
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .enfeite-da-borda::before {
+    /* 20px de folga em volta (o padding), para o brilho nao ser cortado; a moldura e o buraco contam do content-box */
+    inset: -20px;
+    padding: 20px;
+    background: var(--imagem-da-moldura) content-box 0 0 / 100% 100% no-repeat;
+    -webkit-mask: linear-gradient(#000 0 0) content-box 50.85% 52.94% / 84.13% 87.59% no-repeat, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box 50.85% 52.94% / 84.13% 87.59% no-repeat exclude, linear-gradient(#000 0 0);
+    animation: moldura-respirando 4s ease-in-out infinite;
+}
+@keyframes moldura-respirando {
+    0%, 100% { filter: drop-shadow(0 0 2px var(--brilho-da-moldura)); }
+    50% { filter: drop-shadow(0 0 7px var(--brilho-forte-da-moldura)); }
+}
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .enfeite-da-borda::after {
+    left: var(--x-do-enfeite);
+    top: var(--y-do-enfeite);
+    width: var(--tamanho-do-enfeite, 9%);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--luz-do-enfeite) 0 12%, var(--brilho-forte-da-moldura) 28%, transparent 68%);
+    mix-blend-mode: screen;
+    animation: luz-do-enfeite 2.6s ease-in-out infinite;
+}
+@keyframes luz-do-enfeite {
+    0%, 100% { opacity: .2; transform: translate(-50%, -50%) scale(.85); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+}
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .estrela-de-favorito { display: none; }
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .status { z-index: 4; top: 7%; left: 8%; }
+.capa.favorita:is(.borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno) .nota { z-index: 4; right: 8%; bottom: 6%; }
+
+.capa.favorita.borda-derretida {
+    --roxo: #7dd3fc;
+    --imagem-da-moldura: url("/api/loja/imagens/arte-derretendo.png");
+    --brilho-da-moldura: rgba(125, 211, 252, .35);
+    --brilho-forte-da-moldura: rgba(186, 230, 253, .85);
+    --luz-do-enfeite: #fff;
+    --x-do-enfeite: 79.6%;
+    --y-do-enfeite: 12%;
+}
+.capa.favorita.borda-reliquia {
+    --roxo: #d4a017;
+    --imagem-da-moldura: url("/api/loja/imagens/moldura-antiga.png");
+    --brilho-da-moldura: rgba(180, 140, 60, .3);
+    --brilho-forte-da-moldura: rgba(253, 224, 140, .75);
+    --luz-do-enfeite: #fff7d6;
+    --x-do-enfeite: 81%;
+    --y-do-enfeite: 11.7%;
+    --tamanho-do-enfeite: 11%;
+}
+.capa.favorita.borda-elfica {
+    --roxo: #34d399;
+    --imagem-da-moldura: url("/api/loja/imagens/moldura-madeira.png");
+    --brilho-da-moldura: rgba(52, 211, 153, .3);
+    --brilho-forte-da-moldura: rgba(110, 231, 183, .8);
+    --luz-do-enfeite: #ecfdf5;
+    --x-do-enfeite: 84.4%;
+    --y-do-enfeite: 11%;
+}
+.capa.favorita.borda-inferno {
+    --roxo: #f97316;
+    --imagem-da-moldura: url("/api/loja/imagens/portao-inferno.png");
+    --brilho-da-moldura: rgba(239, 68, 68, .35);
+    --brilho-forte-da-moldura: rgba(249, 115, 22, .85);
+    --luz-do-enfeite: #fde68a;
+    --x-do-enfeite: 80.5%;
+    --y-do-enfeite: 14.8%;
+    --tamanho-do-enfeite: 12%;
+}
+/* no Inferno, o brilho tremula como brasa em vez de respirar, e os olhos acendem no ritmo */
+.capa.favorita.borda-inferno .enfeite-da-borda::before { animation: brasa-da-moldura 2.2s ease-in-out infinite; }
+.capa.favorita.borda-inferno .enfeite-da-borda::after { animation: brasa-dos-olhos 2.2s ease-in-out infinite; }
+@keyframes brasa-da-moldura {
+    0%, 100% { filter: drop-shadow(0 0 3px rgba(239, 68, 68, .45)); }
+    30% { filter: drop-shadow(0 0 8px rgba(249, 115, 22, .9)); }
+    45% { filter: drop-shadow(0 0 4px rgba(239, 68, 68, .6)); }
+    65% { filter: drop-shadow(0 0 9px rgba(251, 146, 60, .85)); }
+}
+@keyframes brasa-dos-olhos {
+    0%, 100% { opacity: .35; }
+    30% { opacity: .95; }
+    45% { opacity: .55; }
+    65% { opacity: 1; }
+}
+
+/*
  * Aurora Boreal e Eclipse: a luz da volta na capa vem de um angulo que gira (--aurora e --eclipse, registrados com
  * @property para poderem ser animados; navegador sem @property mostra a moldura parada, sem quebrar). As duas desenham
  * so na faixa da moldura (e no brilho por fora): a capa fica limpa.
@@ -1014,7 +1128,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-eletrico, .borda-arcano, .borda-boreal, .borda-eclipse),
+    .capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-sombrio, .borda-eletrico, .borda-arcano, .borda-boreal, .borda-eclipse, .borda-derretida, .borda-reliquia, .borda-elfica, .borda-inferno),
     .enfeite-da-borda, .enfeite-da-borda::before, .enfeite-da-borda::after, .capa.favorita.borda-arcano::after { animation: none; }
 }
 

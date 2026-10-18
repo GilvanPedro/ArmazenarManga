@@ -87,6 +87,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [81 · A receita dos banners e a pizza das Finanças](81-receita-dos-banners-e-pizza-das-financas.md) | A pizza de receita e despesa (do mês ou geral), e no banner o peso melhor, o valor que ele rende (nas Finanças) e a data em que acaba |
 | [82 · O término do banner e o seletor de mês](82-termino-do-banner-e-seletor-de-mes.md) | O quadro "Quando ele acaba" com atalhos e resumo, e o seletor de mês com calendário |
 | [83 · Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md) | Duas bordas animadas novas: as cores da aurora correndo pela moldura, e a luz dourada do eclipse com o anel de diamante |
+| [84 · Quatro molduras de imagem na loja](84-quatro-molduras-de-imagem.md) | Arte Derretida, Relíquia, Bosque Élfico e Portão do Inferno, feitas das imagens enviadas, com brilho e luz no canto |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
