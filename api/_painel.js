@@ -30,15 +30,24 @@ export function ehRobo(userAgent) {
 /** Conta uma abertura do site (e, com conta, marca a conta como ativa hoje). Nunca derruba a abertura do site. */
 export async function registrarAcesso(db, contaId, userAgent) {
     if (ehRobo(userAgent)) return;
+    // a conta ainda nao marcada hoje nesta instancia e marcada no mesmo comando do acesso: uma ida ao banco, e nao duas
+    const chave = contaId ? contaId + '|' + diaDeHoje() : null;
+    const marcar = Boolean(chave) && !marcadas.has(chave);
     try {
         await db.query(`
-            INSERT INTO acessos_por_dia (dia, com_conta, sem_conta) VALUES (${HOJE}, $1, $2)
-            ON CONFLICT (dia) DO UPDATE SET com_conta = acessos_por_dia.com_conta + $1, sem_conta = acessos_por_dia.sem_conta + $2`,
-        [contaId ? 1 : 0, contaId ? 0 : 1]);
+            WITH acesso AS (
+                INSERT INTO acessos_por_dia (dia, com_conta, sem_conta) VALUES (${HOJE}, $1, $2)
+                ON CONFLICT (dia) DO UPDATE SET com_conta = acessos_por_dia.com_conta + $1, sem_conta = acessos_por_dia.sem_conta + $2
+            )
+            INSERT INTO atividade (conta, dia) SELECT $3::uuid, ${HOJE} WHERE $3::uuid IS NOT NULL ON CONFLICT DO NOTHING`,
+        [contaId ? 1 : 0, contaId ? 0 : 1, marcar ? contaId : null]);
+        if (marcar) {
+            if (marcadas.size > 5000) marcadas.clear();
+            marcadas.add(chave);
+        }
     } catch (erro) {
         console.error('Não deu para contar o acesso:', erro.message);
     }
-    if (contaId) await marcarAtividade(db, contaId);
 }
 
 /** "2026-10-17", no horario de Brasilia (o mesmo dia que o banco usa). */

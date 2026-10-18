@@ -2625,6 +2625,16 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(160% 40% at 50% 100%, #5a9e3f 0 50%, transparent 51%);
 }
 
+/*
+ * as camadas que se mexem ganham uma camada propria na placa de video: o navegador desenha a nevoa, as estrelas ou
+ * a aurora (com o desfoque) uma vez so, e depois so move a camada, sem redesenhar a pagina a cada quadro
+ */
+:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"]) body::before,
+:root:is([data-tema="aurora"], [data-tema="estrelas"], [data-tema="petalas"], [data-tema="synthwave"], [data-tema="cosmos"], [data-tema="fazenda"]) body::after,
+:root[data-tema="cosmos"]::before, :root[data-tema="cosmos"]::after {
+    will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
     body::before, body::after, .fundo-da-previa, .fundo-da-previa-2 { animation: none !important; }
 }

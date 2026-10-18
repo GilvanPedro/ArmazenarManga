@@ -90,6 +90,8 @@ export const ESTRUTURA_DA_LOJA = `
         item TEXT NOT NULL, preco INT NOT NULL, status TEXT NOT NULL DEFAULT 'pendente', pagamento TEXT,
         criada_em TIMESTAMPTZ NOT NULL DEFAULT now(), atualizada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE INDEX IF NOT EXISTS compras_conta ON compras (conta, criada_em DESC);
+    -- as financas e o painel do dono contam as vendas por situacao e pelo mes em que foram aprovadas
+    CREATE INDEX IF NOT EXISTS compras_situacao ON compras (status, atualizada_em);
     CREATE TABLE IF NOT EXISTS mochila (conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, item TEXT NOT NULL,
         compra UUID REFERENCES compras(id) ON DELETE SET NULL, obtido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (conta, item));

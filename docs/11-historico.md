@@ -228,6 +228,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   o de quem vê. Detalhes em [O tema da pessoa no perfil e nas listas](73-tema-da-pessoa-no-perfil-e-nas-listas.md).
 - **Curtir sem abrir.** Curtir um post no feed não abre mais o post, e os botões de curtir e comentar ficaram maiores.
   Detalhes em [Curtir sem abrir o post](74-curtir-sem-abrir-o-post.md).
+- **Otimização geral.** O site passou a ir para o ar compactado (35% menos JavaScript para baixar) e guardado por um ano
+  no navegador; o servidor deixou de recriar as tabelas a cada partida a frio; contar o acesso virou uma ida ao banco; e
+  os fundos animados ficaram mais leves. Detalhes em [Otimização geral do site](75-otimizacao-geral.md).
 
 ## O que foi removido ou abandonado
 

@@ -47,3 +47,6 @@ node_modules/
 # pacotes da extensao, gerados por ferramentas/empacotar-extensao.mjs
 extensao-firefox.zip
 extensao-chrome.zip
+
+# o site montado para o Vercel (ferramentas/construir-site.mjs)
+.saida-vercel/

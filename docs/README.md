@@ -78,6 +78,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [72 · Sem tema de imagem de fundo](72-sem-tema-de-imagem.md) | O tema Silhueta saiu da loja; quem o tinha equipado volta ao Automático |
 | [73 · O tema da pessoa no perfil e nas listas](73-tema-da-pessoa-no-perfil-e-nas-listas.md) | O perfil, os mangás e as listas de outra pessoa aparecem com o tema, a borda e o efeito dela |
 | [74 · Curtir sem abrir o post](74-curtir-sem-abrir-o-post.md) | Curtir não abre mais o post (só comentar abre), e os botões de curtir e comentar ficaram maiores |
+| [75 · Otimização geral do site](75-otimizacao-geral.md) | Site compactado no Vercel com cache de um ano, a estrutura do banco só quando muda, acesso numa ida ao banco e fundos animados mais leves |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

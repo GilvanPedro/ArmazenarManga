@@ -119,13 +119,38 @@ async function banco() {
         conexoes = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 2, idleTimeoutMillis: 10_000 });
     }
     if (!tabelasProntas) {
-        tabelasProntas = conexoes.query(ESTRUTURA).then(() => preencherColunasDeBusca(conexoes)).catch(erro => {
+        tabelasProntas = prepararEstrutura(conexoes).catch(erro => {
             tabelasProntas = null;
             throw erro;
         });
     }
     await tabelasProntas;
     return conexoes;
+}
+
+/**
+ * A versao da estrutura: um resumo (hash) do texto de ESTRUTURA. Muda sozinha quando alguem muda uma tabela, coluna ou
+ * indice no codigo.
+ */
+const VERSAO_DA_ESTRUTURA = createHash('sha256').update(ESTRUTURA).digest('hex').slice(0, 16);
+
+/**
+ * Cria e atualiza as tabelas so quando a estrutura mudou. Cada instancia nova da funcao (a cada "partida a frio" do
+ * Vercel) rodava o ESTRUTURA inteiro (dezenas de comandos) e procurava mangas sem as colunas de busca (lendo a tabela
+ * toda). Agora ela le uma linha: se a versao guardada e a do codigo, nao ha nada a fazer. Para forcar de novo, apague
+ * a linha 'versao_da_estrutura' da tabela configuracoes.
+ */
+async function prepararEstrutura(db) {
+    try {
+        const { rows } = await db.query("SELECT valor FROM configuracoes WHERE chave = 'versao_da_estrutura'");
+        if (rows[0]?.valor === VERSAO_DA_ESTRUTURA) return;
+    } catch {
+        // banco novo, ainda sem a tabela configuracoes: cria tudo abaixo
+    }
+    await db.query(ESTRUTURA);
+    await preencherColunasDeBusca(db);
+    await db.query(`INSERT INTO configuracoes (chave, valor) VALUES ('versao_da_estrutura', $1)
+        ON CONFLICT (chave) DO UPDATE SET valor = $1`, [VERSAO_DA_ESTRUTURA]);
 }
 
 /** Colunas que o banco usa para buscar e ordenar sem abrir o JSON de cada manga. Atualizadas a cada gravacao. */

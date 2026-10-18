@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": null,
-  "outputDirectory": "src/main/resources/public",
+  "buildCommand": "node ferramentas/construir-site.mjs",
+  "outputDirectory": ".saida-vercel",
   "functions": {
     "api/index.js": {
       "maxDuration": 30,
@@ -30,6 +30,15 @@
         {
           "key": "Referrer-Policy",
           "value": "no-referrer"
+        }
+      ]
+    },
+    {
+      "source": "/app-(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }

@@ -7,7 +7,8 @@
     "node": "22.x"
   },
   "scripts": {
-    "test": "node --test test-api/*.test.mjs"
+    "test": "node --test test-api/*.test.mjs",
+    "construir": "node ferramentas/construir-site.mjs"
   },
   "dependencies": {
     "@tensorflow/tfjs": "4.22.0",
@@ -16,5 +17,8 @@
     "nsfwjs": "^4.4.0",
     "pg": "^8.13.0",
     "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
   }
 }

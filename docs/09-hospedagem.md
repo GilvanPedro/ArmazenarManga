@@ -96,3 +96,6 @@ proxy reverso. Abrir a porta direto expõe a senha sem criptografia.
 
 > Depois, a loja de bordas trouxe as variáveis `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET`: veja
 > [Loja de bordas e mochila](57-loja-de-bordas.md).
+
+> Depois, o Vercel passou a montar o site antes de publicar (`buildCommand`), compactando o `app.js` e o `app.css` na
+> pasta `.saida-vercel`: veja [Otimização geral do site](75-otimizacao-geral.md).
