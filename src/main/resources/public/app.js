@@ -4724,8 +4724,10 @@ function cartaoDePost(post, {maximizado} = {}) {
     const cartao = h('article', {class: 'post' + (maximizado ? ' maximizado' : ' clicavel'), 'data-id': post.id});
     if (!maximizado) {
         cartao.addEventListener('click', evento => {
-            // botoes, links, imagens e texto selecionado continuam fazendo o que fazem
-            if (evento.target.closest('a, button, input, textarea, select, label') || String(window.getSelection()).trim()) return;
+            // botoes, links, imagens e texto selecionado continuam fazendo o que fazem. O caminho do clique e o de quando
+            // ele comecou: o botao de curtir redesenha o que tem dentro no clique, e o alvo ja nao estaria mais na pagina
+            const caminho = evento.composedPath();
+            if (caminho.some(no => no instanceof Element && no.matches('a, button, input, textarea, select, label')) || String(window.getSelection()).trim()) return;
             abrirPost(post.id);
         });
     }
@@ -4735,7 +4737,9 @@ function cartaoDePost(post, {maximizado} = {}) {
         curtir.replaceChildren(h('span', {'aria-hidden': 'true'}, post.curti ? '♥' : '♡'), ' ', String(post.curtidas), h('span', {class: 'so-leitor'}, ' curtidas'));
         curtir.title = post.curti ? 'Descurtir' : 'Curtir';
     };
-    curtir.addEventListener('click', async () => {
+    curtir.addEventListener('click', async evento => {
+        // curtir nunca abre o post (so o comentario abre)
+        evento.stopPropagation();
         // muda na hora e confirma com o servidor
         post.curti = !post.curti;
         post.curtidas += post.curti ? 1 : -1;

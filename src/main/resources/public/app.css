@@ -1726,11 +1726,14 @@ a.quando:hover { text-decoration: underline; }
 .imagem-do-post { border: 0; padding: 0; background: var(--superficie-2); cursor: zoom-in; min-height: 0; }
 .imagem-do-post img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .imagens-do-post.quantas-1 img { max-height: 520px; object-fit: contain; background: #000; }
-.acoes-do-post { display: flex; align-items: center; gap: 18px; margin-top: 2px; }
-.acao-do-post { border: 0; background: none; color: var(--texto-fraco); font: inherit; font-size: 14px; padding: 4px 6px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+.acoes-do-post { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+/* curtir e comentar: botoes grandes, faceis de acertar (o icone maior que o numero) */
+.acao-do-post { border: 0; background: none; color: var(--texto-fraco); font: inherit; font-size: 16px; font-weight: 600; min-height: 42px; padding: 8px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.acao-do-post > span[aria-hidden] { font-size: 21px; line-height: 1; }
 .acao-do-post:hover { color: var(--texto); background: color-mix(in srgb, var(--texto) 7%, transparent); }
 .acao-do-post.curtir[aria-pressed=true] { color: #f43f5e; }
 .acao-do-post.apagar { margin-left: auto; }
+.acao-do-post.apagar > span[aria-hidden] { font-size: 17px; }
 .carregar-mais { align-self: center; }
 .fim-do-feed { text-align: center; color: var(--texto-fraco); margin: 8px 0 24px; }
 /* aviso de posts novos: fica preso no alto, por cima do feed, ate a pessoa clicar */
@@ -2037,7 +2040,7 @@ dialog.janela-de-punir { max-width: 460px; }
    area maior para o dedo */
 @media (pointer: coarse) {
     input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
-    .acao-do-post { min-height: 38px; padding: 6px 10px; }
+    .acao-do-post { min-height: 44px; padding: 8px 12px; }
     .fechar { min-width: 40px; min-height: 40px; }
     .apagar-comentario { min-width: 36px; min-height: 36px; }
     .voltar, .voltar-para-a-lista { padding: 8px 0; }

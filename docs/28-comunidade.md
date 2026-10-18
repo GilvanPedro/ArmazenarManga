@@ -149,3 +149,6 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 > Depois, o número de mangás do perfil passou a abrir os mangás da pessoa (a Biblioteca deixou de ser só da pessoa,
 > sem os links de leitura), e uma lista de um mangá só passou a abrir direto nele: veja
 > [Os mangás do perfil e a lista de um só](64-mangas-do-perfil-e-lista-de-um.md).
+
+> Depois, curtir deixou de abrir o post (só comentar abre) e os botões ficaram maiores: veja
+> [Curtir sem abrir o post](74-curtir-sem-abrir-o-post.md).

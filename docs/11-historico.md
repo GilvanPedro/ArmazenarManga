@@ -226,6 +226,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Sem tema de imagem de fundo](72-sem-tema-de-imagem.md).
 - **O tema da pessoa.** O perfil, os mangás e as listas de outra pessoa passaram a aparecer com o tema dela, e não com
   o de quem vê. Detalhes em [O tema da pessoa no perfil e nas listas](73-tema-da-pessoa-no-perfil-e-nas-listas.md).
+- **Curtir sem abrir.** Curtir um post no feed não abre mais o post, e os botões de curtir e comentar ficaram maiores.
+  Detalhes em [Curtir sem abrir o post](74-curtir-sem-abrir-o-post.md).
 
 ## O que foi removido ou abandonado
 
