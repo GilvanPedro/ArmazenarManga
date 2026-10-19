@@ -47,3 +47,5 @@ usada assim (ou trocar por uma arte própria ou licenciada).
 No navegador, com o tema equipado: o vídeo tocou (o tempo andou 1 s em 1 s), pausou com a janela sem foco e voltou;
 a Comunidade e a Biblioteca ficaram com o fundo meio escuro e a pintura aparecendo; a prévia da loja mostrou a imagem
 parada; trocando para o tema escuro, o vídeo saiu da página. Os testes passam e o site compactado foi conferido.
+
+> Depois, o vídeo foi para o banco e o tema ganhou as cores da pintura: veja [Palácio Zen: o vídeo no banco e as cores da pintura](108-tema-palacio-no-banco-e-cores.md).

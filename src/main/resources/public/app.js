@@ -2876,6 +2876,8 @@ function mostrarConta(conta) {
     document.querySelector('.secoes').hidden = false;
     document.getElementById('secao-gerenciar').hidden = !conta?.admin;
     aplicarTema(conta?.tema);
+    estado.temaConfirmado = true;
+    sincronizarFundoEmVideo();
     // a loja so existe na versao do Vercel (a mesma que tem a Comunidade)
     document.getElementById('secao-loja').hidden = estado.temComunidade !== true;
     if (conta) {
@@ -2975,12 +2977,16 @@ const meuTema = () => (typeof estado.sessao?.conta?.tema === 'string' ? estado.s
 /*
  * Temas com fundo em video (doc 107): um <video> fixo atras de tudo, em loop, sem som. Ele so existe enquanto o tema
  * esta na pagina (o data-tema do <html>), pausa com a janela sem foco ou a aba escondida, e quem prefere menos
- * movimento ve so a imagem parada. O video vem dos arquivos do site (CDN), nao do banco.
+ * movimento ve so a imagem parada. O video e a imagem ficam no banco, nas imagens da loja (doc 108), e so sao baixados
+ * quando o tema esta na pagina: com outro tema, nada disso carrega.
  */
 const FUNDOS_EM_VIDEO = {
-    palacio: {webm: 'temas/palacio-zen-1.webm', mp4: 'temas/palacio-zen-1.mp4', imagem: 'temas/palacio-zen-1.jpg'},
+    palacio: {webm: '/api/loja/imagens/palacio-zen-1.webm', mp4: '/api/loja/imagens/palacio-zen-1.mp4', imagem: '/api/loja/imagens/palacio-zen-1.jpg'},
 };
 function sincronizarFundoEmVideo() {
+    // so depois de o site saber o tema da conta (o guardado no navegador pode ser de outro login): assim o video nao
+    // comeca a baixar se a conta usa outro tema
+    if (!estado.temaConfirmado) return;
     const tema = document.documentElement.dataset.tema;
     const fundo = FUNDOS_EM_VIDEO[tema];
     let video = document.getElementById('fundo-em-video');
@@ -3001,8 +3007,6 @@ function sincronizarFundoEmVideo() {
 }
 new MutationObserver(sincronizarFundoEmVideo).observe(document.documentElement, {attributes: true, attributeFilter: ['data-tema', 'class']});
 document.addEventListener('visibilitychange', sincronizarFundoEmVideo);
-document.addEventListener('DOMContentLoaded', sincronizarFundoEmVideo);
-if (document.body) sincronizarFundoEmVideo();
 
 /** As camadas do fundo animado de um tema, para uma janela com o tema de outra pessoa. */
 const camadasDoTema = () => [1, 2, 3, 4].map(n => h('div', {class: 'fundo-da-previa' + (n > 1 ? '-' + n : ''), 'aria-hidden': 'true'}));
@@ -5136,7 +5140,7 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
 async function imagensDaLojaNoGerenciamento(conteudo, vez) {
     const lista = h('div', {class: 'lista-de-imagens-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
-    const arquivo = h('input', {type: 'file', id: 'imagem-da-loja-arquivo', accept: 'image/webp,image/png,image/gif', required: true});
+    const arquivo = h('input', {type: 'file', id: 'imagem-da-loja-arquivo', accept: 'image/webp,image/png,image/gif,image/jpeg,video/webm,video/mp4', required: true});
     const nome = h('input', {type: 'text', id: 'imagem-da-loja-nome', required: true, placeholder: 'celestial.webp', maxlength: '64',
         pattern: '[a-z0-9][a-z0-9-]*\\.(webp|png|gif)', autocomplete: 'off', spellcheck: 'false'});
     // o nome sai do arquivo: minusculas, sem acento, espacos viram hifen
@@ -5147,7 +5151,7 @@ async function imagensDaLojaNoGerenciamento(conteudo, vez) {
     });
     const enviar = h('button', {type: 'submit', class: 'botao primario'}, 'Enviar');
     const formulario = h('form', {class: 'envio-de-imagem-da-loja'},
-        h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-arquivo'}, 'Arquivo (WebP, PNG ou GIF, até 3 MB)'), arquivo),
+        h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-arquivo'}, 'Arquivo (imagem WebP, PNG, GIF ou JPEG, ou vídeo WebM ou MP4, até 3 MB)'), arquivo),
         h('div', {class: 'campo'}, h('label', {for: 'imagem-da-loja-nome'}, 'Nome'), nome,
             h('small', null, 'Letras minúsculas, números e hífen. Enviar com um nome que já existe troca a imagem.')),
         erro, h('div', null, enviar));

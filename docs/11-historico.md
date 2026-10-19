@@ -301,6 +301,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   ["Todos os mangás" sem conta leva para criar conta](106-todos-os-mangas-sem-conta.md).
 - **Tema Palácio Zen.** O primeiro tema com vídeo de fundo. Detalhes em
   [Tema Palácio Zen, com fundo em vídeo](107-tema-palacio-zen-em-video.md).
+- **Palácio Zen no banco e com as cores da pintura.** O vídeo foi para o banco e o tema ganhou as cores da pintura.
+  Detalhes em [Palácio Zen: o vídeo no banco e as cores da pintura](108-tema-palacio-no-banco-e-cores.md).
 
 ## O que foi removido ou abandonado
 

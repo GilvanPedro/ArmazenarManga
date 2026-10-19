@@ -118,8 +118,13 @@ export const ESTRUTURA_DA_LOJA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS tema TEXT;
 `;
 
-/** Imagens da loja: nome do arquivo (que o CSS usa em /api/loja/imagens/{nome}), formatos e tamanho maximo. */
-export const NOME_DA_IMAGEM = /^[a-z0-9][a-z0-9-]{0,58}\.(webp|png|gif)$/;
+/**
+ * Imagens (e videos) da loja: nome do arquivo (que o CSS e o site usam em /api/loja/imagens/{nome}), formatos e
+ * tamanho maximo. Os videos (doc 108) sao os fundos dos temas em video; ate 3 MB, porque a funcao do Vercel nao devolve
+ * mais que 4,5 MB.
+ */
+export const NOME_DA_IMAGEM = /^[a-z0-9][a-z0-9-]{0,58}\.(webp|png|gif|jpg|webm|mp4)$/;
+const TIPO_DA_EXTENSAO = { webp: 'image/webp', png: 'image/png', gif: 'image/gif', jpg: 'image/jpeg', webm: 'video/webm', mp4: 'video/mp4' };
 export const TAMANHO_MAXIMO_DA_IMAGEM_DA_LOJA = 3 * 1024 * 1024;
 
 /**
@@ -131,19 +136,50 @@ export function formatoDaImagem(bytes) {
     if (b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
     if (b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'image/png';
     if (b.length >= 6 && ['GIF87a', 'GIF89a'].includes(b.toString('ascii', 0, 6))) return 'image/gif';
+    if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+    // video: WebM (Matroska, que comeca com 1A 45 DF A3) e MP4 ("ftyp" a partir do 5o byte)
+    if (b.length >= 4 && b.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) return 'video/webm';
+    if (b.length >= 12 && b.toString('ascii', 4, 8) === 'ftyp') return 'video/mp4';
     return null;
+}
+
+/**
+ * A resposta com um arquivo da loja. Imagens: guardadas por uma hora (trocar uma imagem com o mesmo nome aparece em
+ * ate uma hora). Videos (doc 108): guardados por uma semana (o nome leva a versao, "palacio-zen-1.webm": um video novo
+ * vai com outro nome), e com pedidos por pedaco (Range), que o Safari exige para tocar video.
+ */
+export function respostaDoArquivo(conteudo, tipo, range) {
+    const bytes = Buffer.from(conteudo);
+    const video = tipo.startsWith('video/');
+    const cabecalhos = {
+        'Content-Type': tipo, 'X-Content-Type-Options': 'nosniff', 'Accept-Ranges': 'bytes',
+        'Cache-Control': video ? 'public, max-age=604800, s-maxage=604800, immutable' : 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+    };
+    const pedaco = /^bytes=(\d*)-(\d*)$/.exec(range || '');
+    if (pedaco && (pedaco[1] || pedaco[2])) {
+        let inicio = pedaco[1] ? Number(pedaco[1]) : bytes.length - Number(pedaco[2]);
+        let fim = pedaco[1] && pedaco[2] ? Number(pedaco[2]) : bytes.length - 1;
+        inicio = Math.max(0, inicio);
+        fim = Math.min(fim, bytes.length - 1);
+        if (inicio > fim || inicio >= bytes.length) {
+            return new Response(null, { status: 416, headers: { ...cabecalhos, 'Content-Range': `bytes */${bytes.length}` } });
+        }
+        return new Response(bytes.subarray(inicio, fim + 1), { status: 206, headers: { ...cabecalhos, 'Content-Range': `bytes ${inicio}-${fim}/${bytes.length}`, 'Content-Length': String(fim - inicio + 1) } });
+    }
+    return new Response(bytes, { status: 200, headers: { ...cabecalhos, 'Content-Length': String(bytes.length) } });
 }
 
 /** A extensao do nome tem que bater com o formato de verdade. */
 export function conferirImagemDaLoja(nome, bytes) {
     if (!NOME_DA_IMAGEM.test(nome || '')) {
-        throw new ErroDaLoja(400, 'Nome inválido: use letras minúsculas, números e hífen, terminando em .webp, .png ou .gif (ex.: celestial.webp)');
+        throw new ErroDaLoja(400, 'Nome inválido: use letras minúsculas, números e hífen, terminando em .webp, .png, .gif, .jpg, .webm ou .mp4 (ex.: celestial.webp)');
     }
     if (!bytes || bytes.length === 0) throw new ErroDaLoja(400, 'Envie o arquivo da imagem');
-    if (bytes.length > TAMANHO_MAXIMO_DA_IMAGEM_DA_LOJA) throw new ErroDaLoja(413, 'A imagem pode ter no máximo 3 MB');
+    if (bytes.length > TAMANHO_MAXIMO_DA_IMAGEM_DA_LOJA) throw new ErroDaLoja(413, 'O arquivo pode ter no máximo 3 MB');
     const tipo = formatoDaImagem(bytes);
-    if (!tipo) throw new ErroDaLoja(400, 'O arquivo não é uma imagem WebP, PNG ou GIF');
-    if (tipo !== 'image/' + nome.slice(nome.lastIndexOf('.') + 1)) throw new ErroDaLoja(400, `O arquivo é ${tipo.slice(6).toUpperCase()}, mas o nome termina em ${nome.slice(nome.lastIndexOf('.'))}`);
+    if (!tipo) throw new ErroDaLoja(400, 'O arquivo não é uma imagem WebP, PNG, GIF ou JPEG, nem um vídeo WebM ou MP4');
+    const extensao = nome.slice(nome.lastIndexOf('.') + 1);
+    if (tipo !== TIPO_DA_EXTENSAO[extensao]) throw new ErroDaLoja(400, `O arquivo é ${tipo.split('/')[1].toUpperCase()}, mas o nome termina em .${extensao}`);
     return tipo;
 }
 
@@ -420,8 +456,7 @@ export function criarLoja(f) {
                 if (!NOME_DA_IMAGEM.test(nome)) return new Response('Imagem não encontrada', { status: 404 });
                 const { rows } = await (await banco()).query('SELECT conteudo, tipo FROM imagens_da_loja WHERE nome = $1', [nome]);
                 if (!rows.length) return new Response('Imagem não encontrada', { status: 404, headers: { 'Cache-Control': 'no-store' } });
-                return new Response(rows[0].conteudo, { status: 200, headers: { 'Content-Type': rows[0].tipo, 'X-Content-Type-Options': 'nosniff',
-                    'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' } });
+                return respostaDoArquivo(rows[0].conteudo, rows[0].tipo, request.headers.get('range'));
             }
             return null;
         },

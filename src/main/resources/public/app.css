@@ -3707,22 +3707,56 @@ html.sem-foco *, html.sem-foco *::before, html.sem-foco *::after { animation-pla
  * o vídeo (claro, em tinta) fica atrás de tudo; uma camada escura por cima deixa o fundo "meio escuro" para a leitura,
  * com o vermelho dos bordos aparecendo. Nas prévias da loja, a imagem parada com a mesma camada.
  */
+/* as cores tiradas da pintura (doc 108): tinta preta #181818, grafite #303030, nevoa #a8a8a8, papel de arroz #ece8e4 e o
+   vermelho fundo dos bordos #901830 (o destaque, mais vivo para ler bem no escuro) */
 [data-tema="palacio"] {
-    --fundo: #121014;
+    --fundo: #141314;
     --fundo-imagem: none;
-    --superficie: rgba(22, 18, 22, .82);
-    --superficie-2: rgba(40, 32, 36, .8);
-    --borda: rgba(220, 120, 110, .22);
-    --texto: #f4ece8;
-    --texto-fraco: #c2b4b0;
-    --destaque: #e0483e;
-    --destaque-forte: #ff7a6e;
-    --sobre-destaque: #ffffff;
+    --superficie: rgba(20, 19, 20, .84);
+    --superficie-2: rgba(46, 44, 46, .8);
+    --borda: rgba(200, 196, 192, .18);
+    --texto: #ece8e4;
+    --texto-fraco: #a8a39f;
+    --destaque: #b8283c;
+    --destaque-forte: #d6455a;
+    --sobre-destaque: #fbf7f2;
     --perigo: #ff8a8a;
-    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
-    --lendo: #3ecf8e; --ler: #5aa9ff; --concluido: #b08cff; --hiatus: #f5b942; --dropado: #ef7a7a; --cancelado: #9aa1b0;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .55);
+    --roxo: #b8283c;
+    --lendo: #7fbf9a; --ler: #9fb4cc; --concluido: #c9b6a6; --hiatus: #d9b36a; --dropado: #e07a7a; --cancelado: #9a9a9a;
+    --serie-1: #b8283c; --serie-2: #8c8c8c; --serie-3: #d6455a; --serie-4: #5e5a58; --serie-5: #e8a0a8; --serie-6: #c9c4bf;
     color-scheme: dark;
 }
+/* o resto do site no estilo da pintura: tinta, papel e o vermelho dos bordos */
+[data-tema="palacio"] .topo { background: rgba(14, 13, 14, .94); border-bottom: 1px solid rgba(184, 40, 60, .45); }
+[data-tema="palacio"] .botao { border-radius: 6px; }
+[data-tema="palacio"] .botao.primario {
+    background: linear-gradient(180deg, #c4344a, #8f1a2e);
+    border-color: #6e1222;
+    box-shadow: 0 2px 10px rgba(144, 24, 48, .45), inset 0 1px 0 rgba(255, 220, 220, .18);
+    letter-spacing: .01em;
+}
+[data-tema="palacio"] .botao.primario:hover { background: linear-gradient(180deg, #d6455a, #a3213a); border-color: #8f1a2e; }
+[data-tema="palacio"] .botao:not(.primario):not(.perigo):not(.seguir) { background: rgba(236, 232, 228, .05); border-color: rgba(236, 232, 228, .2); color: var(--texto); }
+[data-tema="palacio"] .botao:not(.primario):not(.perigo):not(.seguir):hover { border-color: rgba(214, 69, 90, .7); color: #fff; }
+/* "Seguir": papel de arroz com a tinta; "Seguindo": so o contorno */
+[data-tema="palacio"] .seguir:not(.seguindo) { background: #ece8e4; border-color: #ece8e4; color: #181818; }
+[data-tema="palacio"] .botao.favoritar[aria-pressed=true] { border-color: #c4344a; color: #f08a98; }
+/* as iniciais no lugar da foto: tinta com o vermelho dos bordos, em vez do roxo */
+[data-tema="palacio"] .inicial:not(.foto) { background: linear-gradient(145deg, #c4344a, #3a0a12); color: #fbf7f2; }
+[data-tema="palacio"] .secao[aria-current=page] { background: rgba(184, 40, 60, .2); box-shadow: inset 0 0 0 1px rgba(214, 69, 90, .55); }
+[data-tema="palacio"] .aba[aria-current=page] { border-bottom-color: #c4344a; }
+[data-tema="palacio"] .filtro[aria-pressed=true] { background: #ece8e4; border-color: #ece8e4; color: #181818; }
+[data-tema="palacio"] :is(input, select, textarea) { background: rgba(14, 13, 14, .7); border-color: rgba(200, 196, 192, .22); }
+[data-tema="palacio"] :is(input, select, textarea):focus { border-color: #c4344a; box-shadow: 0 0 0 3px rgba(184, 40, 60, .25); }
+[data-tema="palacio"] ::selection { background: rgba(184, 40, 60, .55); color: #fff; }
+/* a borda de sempre dos favoritos vira tinta com o vermelho dos bordos (as bordas da loja continuam as delas) */
+[data-tema="palacio"] .capa.favorita:not([class*=" borda-"]) {
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(150deg, #e8e4e0, #8f1a2e 30%, #181818 55%, #c4344a 80%, #ece8e4) border-box;
+}
+[data-tema="palacio"] .capa.favorita:not([class*=" borda-"]) .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #e05a6c, #8f1a2e 65%, #3a0a12); }
 #fundo-em-video { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 :root[data-tema="palacio"] body::before {
     content: "";
@@ -3732,4 +3766,4 @@ html.sem-foco *, html.sem-foco *::before, html.sem-foco *::after { animation-pla
     pointer-events: none;
     background: linear-gradient(180deg, rgba(10, 8, 12, .7), rgba(10, 8, 12, .58) 45%, rgba(10, 8, 12, .72));
 }
-[data-tema="palacio"] > .fundo-da-previa { background: linear-gradient(rgba(10, 8, 12, .6), rgba(10, 8, 12, .6)), url("temas/palacio-zen-1.jpg") center / cover; }
+[data-tema="palacio"] > .fundo-da-previa { background: linear-gradient(rgba(10, 8, 12, .6), rgba(10, 8, 12, .6)), url("/api/loja/imagens/palacio-zen-1.jpg") center / cover; }
