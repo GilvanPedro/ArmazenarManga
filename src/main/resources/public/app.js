@@ -1345,10 +1345,11 @@ async function carregarSemelhantes(manga, secao, vez) {
  * marcadas), sem as tags que nao quero (a obra nao pode ter nenhuma) e em varias ordens. Quem ja esta cadastrado
  * nao aparece.
  */
-async function telaDescobrir() {
+async function telaDescobrir(comBoasVindas) {
     const vez = ++estado.render;
     const escolhas = estado.descobrir;
-    document.title = 'Descobrir · Viracap';
+    // a pagina inicial de quem esta sem conta (doc 105): o Descobrir com as boas-vindas em cima
+    document.title = comBoasVindas ? 'Viracap · sua lista de mangás, manhwas e manhuas' : 'Descobrir · Viracap';
     let todasAsTags = [];
     try {
         // as que ja uso vem primeiro; as outras tambem entram, porque o que nao quero ler quase nunca esta na lista
@@ -1406,6 +1407,7 @@ async function telaDescobrir() {
         quadroDeTags('Não quero com estas tags', 'nao-quero', todasAsTags, () => escolhas.sem, lista => escolhas.sem = lista, () => escolhas.tags, 'Já está em “Quero”', mudou, abertura));
 
     app.replaceChildren(
+        comBoasVindas ? boasVindas() : null,
         abas('descobrir'),
         h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar),
         todasAsTags.length ? h('div', {class: 'quadros-de-tags'}, quadros.map(quadro => quadro.elemento)) : null,
@@ -2611,6 +2613,10 @@ function rota() {
     if (ehVisitante()) {
         const motivo = motivoParaConta(partes);
         if (motivo === 'criar') return telaLogin(null, true);
+        if (motivo === 'inicio') {
+            document.body.classList.remove('tela-de-conta');
+            return telaDescobrir(true);
+        }
         if (motivo === '') return telaLogin();
         if (motivo !== null) return telaLogin(motivo, true);
     } else if (partes[0] === 'entrar' || partes[0] === 'criar-conta') {
@@ -2707,9 +2713,10 @@ function telaLogin(aviso, criando) {
         explorando ? h('a', {href: '#', class: 'trocar-de-modo', onclick: evento => {
             evento.preventDefault();
             const [caminho] = location.hash.replace(/^#\/?/, '').split('?');
-            if (motivoParaConta(caminho.split('/')) === null) rota();
-            else location.hash = '#/comunidade';
-        }}, 'Continuar sem conta: ver a Comunidade e a loja') : null,
+            const motivo = motivoParaConta(caminho.split('/'));
+            if (motivo === null || motivo === 'inicio') rota();
+            else location.hash = '#/';
+        }}, 'Continuar sem conta') : null,
         h('p', {class: 'nota-de-login'}, 'Você continua conectado por 30 dias neste navegador, mesmo desligando o computador.'));
     formulario.addEventListener('submit', async evento => {
         evento.preventDefault();
@@ -2773,6 +2780,22 @@ function exigirConta(motivo) {
     return true;
 }
 
+/**
+ * As boas-vindas da pagina inicial para quem esta sem conta (doc 105): o que e o site, criar conta e entrar. Embaixo
+ * vem o Descobrir, para a pessoa ja ver obras de verdade.
+ */
+function boasVindas() {
+    return h('section', {class: 'boas-vindas', 'aria-labelledby': 'titulo-boas-vindas'},
+        h('div', {class: 'texto-das-boas-vindas'},
+            h('h1', {id: 'titulo-boas-vindas'}, 'Sua lista de mangás, manhwas e manhuas'),
+            h('p', null, 'O Viracap guarda em que capítulo você parou em cada obra e leva direto ao próximo com um toque. '
+                + 'Veja o que lança hoje, descubra obras novas e converse com outros leitores na Comunidade.')),
+        h('div', {class: 'acoes-das-boas-vindas'},
+            h('a', {class: 'botao primario', href: '#/criar-conta'}, 'Criar conta grátis'),
+            h('a', {class: 'botao', href: '#/entrar'}, 'Entrar'),
+            h('a', {class: 'botao', href: '#/comunidade'}, 'Ver a Comunidade')));
+}
+
 /** No lugar de um campo que precisa de conta (escrever post, comentar): um convite para criar a conta. */
 function conviteParaConta(texto, rotuloDoBotao, motivo) {
     return h('div', {class: 'convite-para-conta'},
@@ -2789,7 +2812,9 @@ function conviteParaConta(texto, rotuloDoBotao, motivo) {
 function motivoParaConta(partes) {
     const [tela, sub] = partes;
     if (tela === 'criar-conta') return 'criar';
-    if (tela === '' || tela === 'entrar' || tela === 'tag') return '';
+    // a pagina inicial abre o site (doc 105); so "Entrar" mostra a tela de entrar
+    if (tela === '') return 'inicio';
+    if (tela === 'entrar' || tela === 'tag') return '';
     if (tela === 'comunidade') return sub === 'seguindo' ? 'Crie uma conta para seguir leitores e ver os posts deles aqui.' : null;
     if (tela === 'loja') return sub === 'mochila' ? 'Crie uma conta para ter a sua mochila e comprar itens da loja.' : null;
     if (['descobrir', 'atalho', 'relatorio-de-banner'].includes(tela)) return null;

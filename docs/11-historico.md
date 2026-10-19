@@ -295,6 +295,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   em [Descrição e tags de vários sites](103-descricao-e-tags-de-varios-sites.md).
 - **Site aberto sem conta.** Quem não tem conta vê a Comunidade, a loja e o Descobrir; o resto leva para criar conta.
   Detalhes em [O site aberto para quem não tem conta](104-site-aberto-sem-conta.md).
+- **Página inicial sem conta.** Sem conta, o site abre direto nas boas-vindas e no Descobrir. Detalhes em
+  [A página inicial abre o site, sem pedir conta](105-pagina-inicial-sem-conta.md).
 
 ## O que foi removido ou abandonado
 

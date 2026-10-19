@@ -64,3 +64,5 @@ inclusive os mangás e as capas de um perfil, postar, curtir, comentar, seguir, 
   Adicionar" do Descobrir também; num post aberto, o convite apareceu no lugar do campo de comentar. Criando a conta
   pelo convite de curtir, voltou para a Comunidade já com a conta, e curtir funcionou.
 - Com conta, as telas de sempre abriram como antes. O site compactado também foi conferido.
+
+> Depois, a página inicial passou a abrir o site direto, sem a tela de entrar: veja [A página inicial abre o site, sem pedir conta](105-pagina-inicial-sem-conta.md).
