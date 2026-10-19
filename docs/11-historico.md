@@ -293,6 +293,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   inglês é traduzida ao salvar. Detalhes em [Descrição sempre em português](102-descricao-sempre-em-portugues.md).
 - **Descrição e tags de vários sites.** A busca passou a usar cinco sites ao mesmo tempo e a juntar as tags. Detalhes
   em [Descrição e tags de vários sites](103-descricao-e-tags-de-varios-sites.md).
+- **Site aberto sem conta.** Quem não tem conta vê a Comunidade, a loja e o Descobrir; o resto leva para criar conta.
+  Detalhes em [O site aberto para quem não tem conta](104-site-aberto-sem-conta.md).
 
 ## O que foi removido ou abandonado
 

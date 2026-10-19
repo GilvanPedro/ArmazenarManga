@@ -86,6 +86,8 @@ async function chamar(metodo, caminho, corpo) {
     const dados = await resposta.json().catch(() => null);
     // o login venceu (30 dias) ou foi desfeito em outro lugar: volta para a tela de entrada
     if (resposta.status === 401 && !['/api/sessao', '/api/inicio', '/api/contas'].includes(caminho) && estado.sessao) {
+        // quem esta sem conta (doc 104): so a mensagem; quem pede a conta e o botao que a pessoa clicou
+        if (!estado.sessao.logado) throw new Error((dados && dados.mensagem) || 'Crie uma conta ou entre para continuar');
         estado.sessao.logado = false;
         // varias chamadas podem voltar recusadas juntas: a tela de entrada aparece uma vez so
         if (!document.body.classList.contains('entrando')) telaLogin('Seu login venceu. Entre de novo para continuar.');
@@ -2580,7 +2582,7 @@ function marcarSecao(parte) {
         if (nome === parte) elemento.setAttribute('aria-current', 'page');
         else elemento.removeAttribute('aria-current');
     }
-    document.getElementById('adicionar').hidden = parte !== 'biblioteca';
+    document.getElementById('adicionar').hidden = parte !== 'biblioteca' || ehVisitante();
 }
 
 function rota() {
@@ -2605,6 +2607,17 @@ function rota() {
     // a pagina do relatorio da empresa esconde o topo do site; qualquer outra tela volta com ele
     document.body.classList.remove('pagina-de-relatorio');
     if (partes[0] === 'relatorio-de-banner' && partes[1] && partes[2]) return telaRelatorioDaEmpresa(partes[1], partes[2]);
+    // sem conta (doc 104): a Comunidade, a loja, o Descobrir e a extensao abrem; o resto mostra criar conta ou entrar
+    if (ehVisitante()) {
+        const motivo = motivoParaConta(partes);
+        if (motivo === 'criar') return telaLogin(null, true);
+        if (motivo === '') return telaLogin();
+        if (motivo !== null) return telaLogin(motivo, true);
+    } else if (partes[0] === 'entrar' || partes[0] === 'criar-conta') {
+        location.replace('#/');
+        return;
+    }
+    document.body.classList.remove('tela-de-conta');
     if (partes[0] === 'manga' && partes[1]) return telaDetalhes(partes[1], partes[2]);
     estado.sorteado = null;
     if (partes[0] === 'tag' && partes[1]) {
@@ -2653,7 +2666,10 @@ function campoDeSenha(id, autocomplete, rotulo, dica) {
 function telaLogin(aviso, criando) {
     estado.render++;
     for (const dialogo of document.querySelectorAll('dialog')) dialogo.close();
-    document.body.classList.add('entrando');
+    // com o site ja aberto para quem esta sem conta (doc 104), o topo continua na tela: da para voltar a explorar
+    const explorando = estado.siteAberto === true;
+    document.body.classList.toggle('entrando', !explorando);
+    document.body.classList.toggle('tela-de-conta', explorando);
     mostrarConta(null);
     // a tela de entrar e a pagina inicial que o Google mostra: fica com o titulo completo do site
     document.title = criando ? 'Criar conta · Viracap' : 'Viracap · sua lista de mangás, manhwas e manhuas';
@@ -2665,7 +2681,9 @@ function telaLogin(aviso, criando) {
     const confirmar = campoDeSenha('login-confirmar', 'new-password', 'Repita a senha');
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
     const enviar = h('button', {type: 'submit', class: 'botao primario entrar'}, criando ? 'Criar conta' : 'Entrar');
-    if (aviso) erro.textContent = aviso;
+    // o motivo de pedir a conta (doc 104) aparece em destaque em cima, e nao como erro; os outros avisos, como antes
+    const motivo = criando && aviso ? h('p', {class: 'motivo-de-login', role: 'status'}, aviso) : null;
+    if (aviso && !criando) erro.textContent = aviso;
     const trocar = h('a', {href: '#', class: 'trocar-de-modo', onclick: evento => {
         evento.preventDefault();
         telaLogin(null, !criando);
@@ -2677,6 +2695,7 @@ function telaLogin(aviso, criando) {
         h('p', {class: 'chamada-de-login'}, criando
             ? 'Sua lista é só sua: cada conta vê apenas os mangás que ela mesma cadastrou.'
             : 'Entre para ver sua lista, continuar de onde parou e marcar o que leu.'),
+        motivo,
         criando ? h('div', {class: 'campo'}, h('label', {for: 'login-nick'}, 'Nick'), nick, h('small', null, 'Como você quer ser chamado. Dá para mudar depois.')) : null,
         h('div', {class: 'campo'}, h('label', {for: 'login-email'}, 'E-mail'), email),
         senha.elemento,
@@ -2684,6 +2703,13 @@ function telaLogin(aviso, criando) {
         erro,
         enviar,
         trocar,
+        // sem conta, da para continuar vendo a Comunidade, a loja e o Descobrir
+        explorando ? h('a', {href: '#', class: 'trocar-de-modo', onclick: evento => {
+            evento.preventDefault();
+            const [caminho] = location.hash.replace(/^#\/?/, '').split('?');
+            if (motivoParaConta(caminho.split('/')) === null) rota();
+            else location.hash = '#/comunidade';
+        }}, 'Continuar sem conta: ver a Comunidade e a loja') : null,
         h('p', {class: 'nota-de-login'}, 'Você continua conectado por 30 dias neste navegador, mesmo desligando o computador.'));
     formulario.addEventListener('submit', async evento => {
         evento.preventDefault();
@@ -2731,6 +2757,48 @@ function telaLogin(aviso, criando) {
     (criando ? nick : email.value ? senha.entrada : email).focus();
 }
 
+// ------------------------------------------------------------------ quem nao tem conta (doc 104)
+
+/** Sem conta: pode ver a Comunidade, a loja, o Descobrir e a extensao; o resto pede para criar uma conta. */
+const ehVisitante = () => !estado.sessao?.logado || !estado.sessao?.conta;
+
+/**
+ * Para as acoes que precisam de conta (curtir, comentar, seguir, postar, abrir listas, comprar...): sem conta, abre a
+ * tela de criar conta com o motivo, e devolve true (quem chamou para ali). Criando a conta, a pessoa volta para a
+ * mesma tela.
+ */
+function exigirConta(motivo) {
+    if (!ehVisitante()) return false;
+    telaLogin(motivo || 'Crie uma conta para continuar.', true);
+    return true;
+}
+
+/** No lugar de um campo que precisa de conta (escrever post, comentar): um convite para criar a conta. */
+function conviteParaConta(texto, rotuloDoBotao, motivo) {
+    return h('div', {class: 'convite-para-conta'},
+        h('p', null, texto),
+        h('div', {class: 'acoes-do-convite'},
+            h('button', {type: 'button', class: 'botao primario', onclick: () => exigirConta(motivo || texto)}, rotuloDoBotao || 'Criar conta'),
+            h('button', {type: 'button', class: 'botao', onclick: () => telaLogin()}, 'Já tenho conta')));
+}
+
+/**
+ * As telas que pedem conta, para quem esta sem: o motivo mostrado na tela de criar conta; '' abre a tela de entrar (a
+ * pagina inicial); null deixa abrir.
+ */
+function motivoParaConta(partes) {
+    const [tela, sub] = partes;
+    if (tela === 'criar-conta') return 'criar';
+    if (tela === '' || tela === 'entrar' || tela === 'tag') return '';
+    if (tela === 'comunidade') return sub === 'seguindo' ? 'Crie uma conta para seguir leitores e ver os posts deles aqui.' : null;
+    if (tela === 'loja') return sub === 'mochila' ? 'Crie uma conta para ter a sua mochila e comprar itens da loja.' : null;
+    if (['descobrir', 'atalho', 'relatorio-de-banner'].includes(tela)) return null;
+    if (tela === 'hoje') return 'Crie uma conta para ver o que lança hoje dos mangás que você lê.';
+    if (tela === 'novo' || tela === 'capturar') return 'Crie uma conta para cadastrar os seus mangás.';
+    if (tela === 'manga' || tela === 'editar') return 'Crie uma conta para ter a sua própria lista de mangás.';
+    return '';
+}
+
 /** As capturas da tela de entrar: arquivo em public/capturas, titulo e o que mostram (tambem no index.html e no sitemap). */
 const CAPTURAS_DO_SITE = [
     ['biblioteca.webp', 'Biblioteca', 'sua lista de mangás, manhwas e manhuas com capa, status, nota e o próximo capítulo de cada um.'],
@@ -2753,7 +2821,7 @@ function esquecerDadosDaConta() {
 async function comecarSessao(sessao) {
     esquecerDadosDaConta();
     estado.sessao = sessao;
-    document.body.classList.remove('entrando');
+    document.body.classList.remove('entrando', 'tela-de-conta');
     app.replaceChildren();
     mostrarConta(sessao.conta);
     await abrirSite();
@@ -2771,11 +2839,13 @@ function mostrarConta(conta) {
     const link = document.getElementById('minha-conta');
     const sair = document.getElementById('sair');
     link.hidden = sair.hidden = !conta;
-    document.querySelector('.secoes').hidden = !conta;
+    // sem conta (doc 104): as partes do site aparecem, com Entrar e Criar conta no lugar da conta
+    document.getElementById('entrar').hidden = document.getElementById('criar-conta').hidden = !!conta;
+    document.querySelector('.secoes').hidden = false;
     document.getElementById('secao-gerenciar').hidden = !conta?.admin;
     aplicarTema(conta?.tema);
     // a loja so existe na versao do Vercel (a mesma que tem a Comunidade)
-    document.getElementById('secao-loja').hidden = !conta || estado.temComunidade !== true;
+    document.getElementById('secao-loja').hidden = estado.temComunidade !== true;
     if (conta) {
         link.replaceChildren(avatar(conta), h('span', {class: 'nick'}, conta.nick));
         // com a Comunidade (versao do Vercel), o nick leva ao proprio perfil; sem ela (versao Java), as configuracoes
@@ -2954,6 +3024,7 @@ async function telaLoja(partes, consulta) {
     mostrarContador();
 
     const equipar = async (item, botao) => {
+        if (exigirConta('Crie uma conta para equipar itens da loja.')) return;
         botao.disabled = true;
         try {
             const {equipados} = await chamar('PUT', '/api/loja/equipar', item.id ? {item: item.id} : {tipo: item.tipo, item: null});
@@ -2968,6 +3039,7 @@ async function telaLoja(partes, consulta) {
         }
     };
     const comprar = async (item, botao) => {
+        if (exigirConta('Crie uma conta para comprar na loja. O item fica na sua mochila para sempre.')) return;
         botao.disabled = true;
         botao.textContent = 'Abrindo o pagamento…';
         try {
@@ -3330,6 +3402,7 @@ function botaoDeSeguir(contaId, sigo, aoMudar) {
     botao.addEventListener('mouseenter', () => { if (sigo) botao.textContent = 'Deixar de seguir'; });
     botao.addEventListener('mouseleave', () => mostrar(sigo));
     botao.addEventListener('click', async () => {
+        if (exigirConta('Crie uma conta para seguir leitores.')) return;
         botao.disabled = true;
         try {
             const perfil = await chamar(sigo ? 'DELETE' : 'POST', '/api/comunidade/contas/' + contaId + '/seguir');
@@ -3704,6 +3777,7 @@ function descricaoDaPunicao(punicao) {
  * assim a pessoa sabe antes de tentar).
  */
 function avisarSePunido(editor) {
+    if (ehVisitante()) return editor;
     chamar('GET', '/api/comunidade/situacao').then(({punicao}) => {
         if (!punicao || !editor.isConnected) return;
         const banida = punicao.tipo === 'banida';
@@ -5246,6 +5320,7 @@ function detalheDoMangaDeOutro(item, autor, observacao) {
  * abre direto nele, sem a volta para a lista.
  */
 function abrirListaDoPost(lista, autor) {
+    if (exigirConta('Crie uma conta para abrir as listas de mangás da Comunidade.')) return;
     const conteudo = h('div', {class: 'conteudo-da-lista'});
     const titulo = h('h2', null);
     const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
@@ -5297,6 +5372,7 @@ function abrirListaDoPost(lista, autor) {
  * fechar (× ou Esc) volta para as capas.
  */
 function janelaDosMangasDoPerfil(perfil) {
+    if (exigirConta('Crie uma conta para ver os mangás de outros leitores.')) return;
     const filtro = {busca: '', status: '', ordem: 'CADASTRO'};
     const busca = h('input', {type: 'search', placeholder: 'Buscar pelo nome…', 'aria-label': 'Buscar mangá'});
     const ordenar = seletor(estado.ordens, filtro.ordem);
@@ -5501,6 +5577,7 @@ function cartaoDePost(post, {maximizado} = {}) {
     curtir.addEventListener('click', async evento => {
         // curtir nunca abre o post (so o comentario abre)
         evento.stopPropagation();
+        if (exigirConta('Crie uma conta para curtir posts.')) return;
         // muda na hora e confirma com o servidor
         post.curti = !post.curti;
         post.curtidas += post.curti ? 1 : -1;
@@ -5571,7 +5648,10 @@ async function carregarComentarios(post, area, aoContar, formularioAntes) {
     const lista = h('div', {class: 'lista-de-comentarios'});
     const campo = h('textarea', {rows: '1', maxlength: String(TEXTO_DO_POST_MAXIMO), placeholder: 'Escreva um comentário…', 'aria-label': 'Comentário'});
     const enviar = h('button', {type: 'submit', class: 'botao pequeno primario'}, 'Comentar');
-    const formulario = h('form', {class: 'novo-comentario'}, avatar(estado.sessao.conta), campo, enviar);
+    // sem conta (doc 104): os comentarios aparecem, e no lugar do campo, o convite
+    const formulario = ehVisitante()
+        ? conviteParaConta('Crie uma conta para comentar.', 'Comentar')
+        : h('form', {class: 'novo-comentario'}, avatar(estado.sessao.conta), campo, enviar);
     const desenhar = comentarios => {
         aoContar(comentarios.length);
         lista.replaceChildren(...comentarios.map(comentario => {
@@ -5623,6 +5703,7 @@ async function carregarComentarios(post, area, aoContar, formularioAntes) {
 function botaoDeEscrever() {
     const botao = h('button', {type: 'button', class: 'botao-de-escrever', title: 'Escrever um post', 'aria-label': 'Escrever um post'}, '✎');
     botao.addEventListener('click', () => {
+        if (exigirConta('Crie uma conta para postar na Comunidade.')) return;
         const dialogo = h('dialog', {class: 'janela-de-escrever'});
         const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
         fechar.addEventListener('click', () => dialogo.close());
@@ -5647,6 +5728,10 @@ function botaoDeEscrever() {
  * da Biblioteca. As imagens sao diminuidas aqui antes de enviar.
  */
 function editorDePost(aoPublicar, naJanela) {
+    if (ehVisitante()) {
+        return conviteParaConta('Crie uma conta para postar o que você está lendo, compartilhar listas, curtir, comentar e seguir leitores.',
+            'Criar conta e postar', 'Crie uma conta para postar na Comunidade.');
+    }
     const imagens = []; // {nome, url} ja enviadas
     let lista = null; // {titulo, mangas: [{id, title, imageUrl, thumbUrl}]}
     const texto = h('textarea', {rows: naJanela ? '5' : '2', maxlength: String(TEXTO_DO_POST_MAXIMO), placeholder: 'O que você está lendo?', 'aria-label': 'Texto do post'});
@@ -6107,11 +6192,8 @@ async function iniciar() {
         rota();
         return;
     }
-    if (!estado.sessao.logado) {
-        telaLogin();
-        return;
-    }
-    mostrarConta(estado.sessao.conta);
+    // sem conta tambem (doc 104): a Comunidade, a loja e o Descobrir abrem; a pagina inicial mostra a tela de entrar
+    mostrarConta(estado.sessao.logado ? estado.sessao.conta : null);
     await abrirSite();
 }
 

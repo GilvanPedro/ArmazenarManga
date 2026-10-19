@@ -107,6 +107,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [101 · Obra nova com o começo do nome de uma da lista](101-obra-nova-com-nome-parecido.md) | Ao marcar capítulo lido, uma obra nova que começa com o nome de outra não é mais confundida, e há um botão para cadastrar como nova |
 | [102 · Descrição sempre em português](102-descricao-sempre-em-portugues.md) | A descrição buscada é traduzida pelo Google (com o MyMemory de reserva), conferida, e traduzida de novo ao salvar se ainda estiver em inglês |
 | [103 · Descrição e tags de vários sites](103-descricao-e-tags-de-varios-sites.md) | A busca usa MangaDex, AniList, MangaUpdates, MyAnimeList e Kitsu ao mesmo tempo, e junta as tags de todos os que acharam a mesma obra |
+| [104 · O site aberto para quem não tem conta](104-site-aberto-sem-conta.md) | Sem conta, dá para ver a Comunidade, a loja e o Descobrir; cadastrar, postar, curtir, comentar, seguir, abrir listas, ver os mangás de alguém e comprar levam para criar conta |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

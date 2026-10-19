@@ -6,6 +6,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, mesmoEndereco } from './_verificador.js';
 import { criarBuscadorDeSinopse, criarTradutorDeDescricao } from './_sinopse.js';
+import { VISITANTE, rotaDeVisitante } from './_visitante.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
 import { ESTRUTURA_DOS_BANNERS, criarBanners } from './_banners.js';
@@ -1057,16 +1058,18 @@ async function rotear(request) {
             comunidade: true,
         }));
     }
-    // daqui em diante, so com login: a conta da sessao vale para todas as consultas desta requisicao
+    // daqui em diante, com login: a conta da sessao vale para todas as consultas desta requisicao. Sem login, so as
+    // rotas de leitura de ROTA_DE_VISITANTE (doc 104), como um "visitante" sem lista, sem posts e sem nada na loja
     const sessao = await sessaoValida(request);
-    if (!sessao) throw new Recusa(401, 'Entre na sua conta');
-    contexto.getStore().conta = sessao.conta.id;
+    if (!sessao && !rotaDeVisitante(recurso, partes, metodo)) throw new Recusa(401, 'Crie uma conta ou entre para continuar');
+    const eu = sessao ? sessao.conta : VISITANTE;
+    contexto.getStore().conta = eu.id;
     // para o painel: a conta usou o site hoje (uma gravacao por conta por dia)
-    await marcarAtividade(await banco(), sessao.conta.id);
+    if (sessao) await marcarAtividade(await banco(), sessao.conta.id);
     if (recurso === 'conta' && partes.length <= 2) return tratarConta(request, sessao, id);
-    if (recurso === 'comunidade') return comunidade()(request, url, partes.slice(1), sessao.conta);
-    if (recurso === 'loja') return loja().comLogin(request, url, partes.slice(1), sessao.conta);
-    if (recurso === 'banners') return banners().comLogin(request, url, partes.slice(1), sessao.conta);
+    if (recurso === 'comunidade') return comunidade()(request, url, partes.slice(1), eu);
+    if (recurso === 'loja') return loja().comLogin(request, url, partes.slice(1), eu);
+    if (recurso === 'banners') return banners().comLogin(request, url, partes.slice(1), eu);
 
     if (recurso === 'status' && partes.length === 1 && metodo === 'GET') {
         return json(200, listaDeStatus());

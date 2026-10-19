@@ -1810,6 +1810,14 @@ dialog form { display: flex; flex-direction: column; gap: 16px; }
 
 body.entrando .topo, body.entrando .avisos:empty { display: none; }
 body.entrando main { max-width: none; padding: 0; }
+/* a tela de entrar ou criar conta com o site aberto para quem esta sem conta (doc 104): o topo continua */
+body.tela-de-conta main { max-width: none; padding: 0; }
+/* o convite para criar conta, no lugar do campo de postar ou de comentar */
+.convite-para-conta { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px dashed color-mix(in srgb, var(--destaque) 50%, var(--borda));
+    border-radius: var(--raio); background: color-mix(in srgb, var(--destaque) 7%, var(--superficie)); }
+.convite-para-conta p { margin: 0; }
+.acoes-do-convite { display: flex; flex-wrap: wrap; gap: 8px; }
+.motivo-de-login { margin: 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--destaque) 14%, transparent); color: var(--texto); font-weight: 600; text-align: center; }
 .fundo-de-login {
     position: relative;
     display: grid;

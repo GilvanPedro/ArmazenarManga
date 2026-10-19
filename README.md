@@ -131,6 +131,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Obra nova com o começo do nome de uma da lista](docs/101-obra-nova-com-nome-parecido.md) | |
 | [Descrição sempre em português](docs/102-descricao-sempre-em-portugues.md) | |
 | [Descrição e tags de vários sites](docs/103-descricao-e-tags-de-varios-sites.md) | |
+| [O site aberto para quem não tem conta](docs/104-site-aberto-sem-conta.md) | |
 
 ## Testes
 
