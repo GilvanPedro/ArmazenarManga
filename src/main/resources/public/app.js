@@ -2982,6 +2982,8 @@ const meuTema = () => (typeof estado.sessao?.conta?.tema === 'string' ? estado.s
  */
 const FUNDOS_EM_VIDEO = {
     palacio: {webm: '/api/loja/imagens/palacio-zen-1.webm', mp4: '/api/loja/imagens/palacio-zen-1.mp4', imagem: '/api/loja/imagens/palacio-zen-1.jpg'},
+    kyoto: {webm: '/api/loja/imagens/kyoto-1.webm', mp4: '/api/loja/imagens/kyoto-1.mp4', imagem: '/api/loja/imagens/kyoto-1.jpg'},
+    lamina: {webm: '/api/loja/imagens/lamina-1.webm', mp4: '/api/loja/imagens/lamina-1.mp4', imagem: '/api/loja/imagens/lamina-1.jpg'},
 };
 function sincronizarFundoEmVideo() {
     // so depois de o site saber o tema da conta (o guardado no navegador pode ser de outro login): assim o video nao
@@ -3002,11 +3004,24 @@ function sincronizarFundoEmVideo() {
         document.body.prepend(video);
     }
     const parado = matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden || document.documentElement.classList.contains('sem-foco');
+    // com a pre-visualizacao da loja aberta (doc 110), so o video dela toca
+    if (parado || document.querySelector('dialog.janela-de-previa[open]')) video.pause();
+    else video.play().catch(() => {});
+}
+/** O video da pre-visualizacao da loja: toca com a janela aberta e para nas mesmas horas que o fundo da pagina. */
+function sincronizarVideoDaPrevia() {
+    const video = document.querySelector('dialog.janela-de-previa[open] .video-da-previa');
+    if (!video) return;
+    const parado = matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden || document.documentElement.classList.contains('sem-foco');
     if (parado) video.pause();
     else video.play().catch(() => {});
 }
-new MutationObserver(sincronizarFundoEmVideo).observe(document.documentElement, {attributes: true, attributeFilter: ['data-tema', 'class']});
-document.addEventListener('visibilitychange', sincronizarFundoEmVideo);
+const sincronizarVideos = () => {
+    sincronizarFundoEmVideo();
+    sincronizarVideoDaPrevia();
+};
+new MutationObserver(sincronizarVideos).observe(document.documentElement, {attributes: true, attributeFilter: ['data-tema', 'class']});
+document.addEventListener('visibilitychange', sincronizarVideos);
 
 /** As camadas do fundo animado de um tema, para uma janela com o tema de outra pessoa. */
 const camadasDoTema = () => [1, 2, 3, 4].map(n => h('div', {class: 'fundo-da-previa' + (n > 1 ? '-' + n : ''), 'aria-hidden': 'true'}));
@@ -3021,6 +3036,113 @@ function previaDoTema(tema) {
             h('div', {class: 'previa-capas'}, h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'}), h('span', {class: 'previa-capa'})),
             h('div', {class: 'previa-cartao'}, h('div', {class: 'previa-linhas'}, h('span', {class: 'previa-linha'}), h('span', {class: 'previa-linha curta'})), h('span', {class: 'previa-botao'}))));
 }
+/*
+ * Pre-visualizacao de um item da loja (doc 110): uma janela com a Biblioteca da pessoa como ela fica com aquele item.
+ * O item mostrado entra no lugar do equipado do mesmo tipo (o tema, a borda ou o efeito), e o resto continua o que ela
+ * usa. As capas sao os mangas dela (os favoritos primeiro); sem conta ou sem mangas, capas desenhadas. Um tipo novo de
+ * item so precisa dizer, em equipadosDaPrevia, o que ele troca.
+ */
+const MANGAS_DE_EXEMPLO = ['Lâmina do Vento', 'Café às Três', 'O Último Dragão', 'Cidade de Neon', 'Jardim de Inverno', 'Eco do Mar',
+    'Céu Partido', 'Pétalas e Aço', 'Raposa de Papel', 'Noite em Tóquio', 'Mapa Estelar', 'Sombra Azul']
+    .map((title, i) => ({id: 'exemplo-' + i, title, favorite: i < 3, readingStatus: ['LENDO', 'LENDO', 'PARA_LER', 'CONCLUIDO', 'LENDO', 'HIATUS'][i % 6], lastChapter: 12 + i * 7}));
+
+/** O que fica equipado na pre-visualizacao: o que a pessoa usa, com o item mostrado no lugar do do mesmo tipo. */
+function equipadosDaPrevia(item) {
+    const atuais = {tema: document.documentElement.dataset.tema || temaParaVer(null), ...meusEquipados()};
+    if (item.tipo === 'tema') atuais.tema = item.id || temaParaVer(null);
+    else if (item.tipo in atuais || ['borda', 'efeito'].includes(item.tipo)) atuais[item.tipo] = item.id;
+    return atuais;
+}
+
+/** Uma capa da pre-visualizacao, com a borda e o efeito dela (nao os equipados). */
+function capaDaPrevia(manga, equipados) {
+    const imagem = manga.thumbUrl || manga.imageUrl;
+    return h('div', {class: 'capa' + (manga.favorite ? ' favorita' + classesDaLoja(equipados) : '')},
+        imagem
+            ? h('img', {src: imagem, alt: '', loading: 'lazy', decoding: 'async', width: '300', height: '450'})
+            : h('div', {class: 'capa-de-exemplo', 'aria-hidden': 'true'}, h('span', null, (manga.title || '?').charAt(0)), h('small', null, 'Exemplo')),
+        etiquetaStatus(manga.readingStatus),
+        manga.favorite ? h('span', {class: 'estrela-de-favorito', 'aria-hidden': 'true'}, '★') : null,
+        manga.favorite ? enfeiteDaBorda() : null);
+}
+
+/**
+ * Abre a pre-visualizacao. `acao` (opcional) monta o botao de equipar ou comprar do cartao, para fazer isso dali
+ * mesmo.
+ */
+async function abrirPreviaDoItem(item, acao) {
+    const equipados = equipadosDaPrevia(item);
+    const tema = equipados.tema;
+    const video = FUNDOS_EM_VIDEO[tema];
+    const grade = h('div', {class: 'grade'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+    const status = [{valor: '', descricao: 'Todos'}, ...(estado.status?.length ? estado.status : [{descricao: 'Lendo'}, {descricao: 'Para Ler'}, {descricao: 'Concluído'}])];
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar a pré-visualização'}, '×');
+    const conta = estado.sessao?.conta;
+    const site = h('div', {class: 'site-da-previa', inert: true},
+        h('header', {class: 'topo'},
+            h('span', {class: 'marca'}, h('img', {src: 'favicon.svg', alt: '', width: '28', height: '28'}), h('span', null, 'Viracap')),
+            h('nav', {class: 'secoes'},
+                h('span', {class: 'secao', 'aria-current': 'page'}, 'Biblioteca'), h('span', {class: 'secao'}, 'Comunidade'), h('span', {class: 'secao'}, 'Loja')),
+            h('div', {class: 'acoes-do-topo'},
+                h('span', {class: 'botao primario'}, '+ Adicionar'),
+                conta ? h('span', {class: 'botao minha-conta'}, h('span', {class: 'inicial'}, (conta.nick || '?').charAt(0).toUpperCase()), conta.nick || '') : null)),
+        h('div', {class: 'pagina-da-previa'},
+            h('nav', {class: 'abas'}, h('span', {class: 'aba', 'aria-current': 'page'}, 'Todos os mangás'), h('span', {class: 'aba'}, 'Lançam hoje'), h('span', {class: 'aba'}, 'Descobrir')),
+            h('div', {class: 'ferramentas'},
+                h('input', {type: 'search', placeholder: 'Buscar pelo nome…', tabindex: '-1'}),
+                h('span', {class: 'espaco'}),
+                h('span', {class: 'botao'}, '🏷️ Tags'), h('span', {class: 'botao'}, '🎲 Sortear')),
+            h('div', {class: 'filtros'}, ...status.map((opcao, i) => h('span', {class: 'filtro', 'aria-pressed': String(i === 0)}, opcao.descricao))),
+            grade));
+    const fundo = video ? [
+        h('video', {class: 'video-da-previa', muted: true, loop: true, playsinline: true, preload: 'auto', poster: video.imagem, 'aria-hidden': 'true', tabindex: '-1'},
+            h('source', {src: video.webm, type: 'video/webm'}), h('source', {src: video.mp4, type: 'video/mp4'})),
+        h('div', {class: 'veu-do-video', 'aria-hidden': 'true'}),
+    ] : [];
+    const dialogo = h('dialog', {class: 'janela-de-previa janela-com-tema', 'data-tema': tema, 'aria-label': 'Pré-visualização: ' + item.nome},
+        ...camadasDoTema(), ...fundo,
+        h('div', {class: 'barra-da-previa'},
+            h('div', {class: 'sobre-a-previa'},
+                h('strong', null, 'Pré-visualização: ' + item.nome),
+                h('span', null, 'Assim fica a sua Biblioteca' + (item.tipo === 'tema' ? ' com este tema.' : item.tipo === 'borda' ? ' com esta borda nos favoritos.' : item.tipo === 'efeito' ? ' com este efeito nos favoritos.' : ' com este item.'))),
+            acao ? acao() : null,
+            fechar),
+        site);
+    if (video) dialogo.querySelector('video').muted = true;
+    fechar.addEventListener('click', () => dialogo.close());
+    // clicar fora da janela (no fundo escurecido) tambem fecha
+    dialogo.addEventListener('click', evento => { if (evento.target === dialogo) dialogo.close(); });
+    dialogo.addEventListener('close', () => {
+        dialogo.remove();
+        sincronizarFundoEmVideo();
+    });
+    document.body.append(dialogo);
+    dialogo.showModal();
+    sincronizarVideos();
+
+    // as capas: os mangas da pessoa, os favoritos primeiro (sem conta, ou sem mangas, as desenhadas)
+    let mangas = [];
+    if (!ehVisitante()) {
+        try {
+            mangas = (await chamar('GET', '/api/mangas?ordem=FAVORITOS&resumo=1&pagina=1&tamanho=12')).itens || [];
+        } catch (e) {
+            mangas = [];
+        }
+    }
+    if (!dialogo.isConnected) return;
+    if (mangas.length === 0) mangas = MANGAS_DE_EXEMPLO;
+    // para ver uma borda ou um efeito, pelo menos tres favoritos (so aqui; a Biblioteca nao muda)
+    if (['borda', 'efeito'].includes(item.tipo) && mangas.filter(manga => manga.favorite).length < 3) {
+        mangas = mangas.map((manga, i) => (i < 3 ? {...manga, favorite: true} : manga));
+    }
+    grade.replaceChildren(...mangas.map(manga => h('article', {class: 'cartao'},
+        capaDaPrevia(manga, equipados),
+        h('span', {class: 'cartao-titulo'}, manga.title),
+        h('div', {class: 'cartao-acoes'},
+            h('span', {class: 'botao pequeno'}, 'Cap. ' + mostrarCapitulo(manga.lastChapter)),
+            h('span', {class: 'botao primario pequeno'}, 'Ler ' + mostrarCapitulo((Number(manga.lastChapter) || 0) + 1))))));
+}
+
 /** Na loja, cada pagina mostra ate 6 linhas de 5 itens. */
 const ITENS_POR_PAGINA_NA_LOJA = 30;
 
@@ -3124,23 +3246,36 @@ async function telaLoja(partes, consulta) {
     const cartaoDoItem = item => {
         const equipado = (dados.equipados[item.tipo] || null) === item.id;
         const meu = item.id === null || item.preco === 0 || tenho(item.id);
-        let acao;
-        if (aba === 'mochila' || meu) {
-            acao = equipado
-                ? h('button', {type: 'button', class: 'botao', disabled: true}, '✓ Equipado')
-                : h('button', {type: 'button', class: 'botao primario', onclick: evento => equipar(item, evento.currentTarget)}, 'Equipar');
-        } else {
-            acao = h('button', {type: 'button', class: 'botao primario', disabled: !dados.pagamentoConfigurado,
-                onclick: evento => comprar(item, evento.currentTarget)}, 'Comprar por ' + PRECO_EM_REAIS(item.preco));
-        }
+        // o botao de equipar ou comprar (montado de novo para a pre-visualizacao, que tem o dela)
+        const botaoDaAcao = () => {
+            if (aba === 'mochila' || meu) {
+                return equipado
+                    ? h('button', {type: 'button', class: 'botao', disabled: true}, '✓ Equipado')
+                    : h('button', {type: 'button', class: 'botao primario', onclick: evento => {
+                        evento.currentTarget.closest('dialog.janela-de-previa')?.close();
+                        equipar(item, evento.currentTarget);
+                    }}, 'Equipar');
+            }
+            return h('button', {type: 'button', class: 'botao primario', disabled: !dados.pagamentoConfigurado,
+                onclick: evento => {
+                    // de dentro da pre-visualizacao: fecha antes (sem conta, comprar leva para criar conta)
+                    evento.currentTarget.closest('dialog.janela-de-previa')?.close();
+                    comprar(item, evento.currentTarget);
+                }}, 'Comprar por ' + PRECO_EM_REAIS(item.preco));
+        };
+        const acao = botaoDaAcao();
+        const previsualizar = () => abrirPreviaDoItem(item, botaoDaAcao);
         return h('article', {class: 'item-da-loja' + (equipado ? ' equipado' : '')},
-            previaDoItem(item, exemplo),
+            h('button', {type: 'button', class: 'abrir-previa', title: 'Pré-visualizar na sua Biblioteca', 'aria-label': 'Pré-visualizar ' + item.nome + ' na sua Biblioteca', onclick: previsualizar},
+                previaDoItem(item, exemplo)),
             h('div', {class: 'sobre-o-item'},
                 h('span', {class: 'tipo-do-item'}, (NOME_DO_TIPO[item.tipo] || 'Item') + (item.animado ? ' animado' : '')),
                 h('h2', null, item.nome),
                 h('p', null, item.descricao),
                 aba !== 'mochila' && meu && !equipado ? h('span', {class: 'selo-na-mochila'}, 'Na mochila') : null,
-                acao));
+                h('div', {class: 'acoes-do-item'},
+                    h('button', {type: 'button', class: 'botao', onclick: previsualizar}, '👁 Pré-visualizar'),
+                    acao)));
     };
 
     /** A grade da pagina atual e, com mais de uma pagina, os botoes de anterior e proxima. */

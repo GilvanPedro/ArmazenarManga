@@ -136,6 +136,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | ["Todos os mangás" sem conta leva para criar conta](docs/106-todos-os-mangas-sem-conta.md) | |
 | [Tema Palácio Zen, com fundo em vídeo](docs/107-tema-palacio-zen-em-video.md) | |
 | [Palácio Zen: o vídeo no banco e as cores da pintura](docs/108-tema-palacio-no-banco-e-cores.md) | |
+| [Temas Primavera em Kyoto e Lâmina Sombria](docs/109-temas-kyoto-e-lamina-sombria.md) | |
+| [Pré-visualizar os itens da loja na sua Biblioteca](docs/110-pre-visualizar-itens-da-loja.md) | |
 
 ## Testes
 

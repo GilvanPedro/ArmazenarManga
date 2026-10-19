@@ -303,6 +303,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Tema Palácio Zen, com fundo em vídeo](107-tema-palacio-zen-em-video.md).
 - **Palácio Zen no banco e com as cores da pintura.** O vídeo foi para o banco e o tema ganhou as cores da pintura.
   Detalhes em [Palácio Zen: o vídeo no banco e as cores da pintura](108-tema-palacio-no-banco-e-cores.md).
+- **Temas Primavera em Kyoto e Lâmina Sombria.** Mais dois temas com vídeo de fundo, um claro e um escuro. Detalhes em
+  [Temas Primavera em Kyoto e Lâmina Sombria](109-temas-kyoto-e-lamina-sombria.md).
+- **Pré-visualizar na Biblioteca.** Os itens da loja podem ser vistos na Biblioteca da pessoa antes de comprar.
+  Detalhes em [Pré-visualizar os itens da loja na sua Biblioteca](110-pre-visualizar-itens-da-loja.md).
 
 ## O que foi removido ou abandonado
 

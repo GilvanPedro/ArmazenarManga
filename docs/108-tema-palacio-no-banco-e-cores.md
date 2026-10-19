@@ -65,3 +65,5 @@ As cores do tema saíram da própria pintura: tinta preta (#181818), grafite (#3
 - No navegador: com o tema, o vídeo veio do banco e tocou; com o tema escuro, **nenhum** arquivo do tema foi pedido; na
   loja, só a imagem parada. A Biblioteca, a página do mangá e a Comunidade com as cores da pintura.
 - Os três arquivos foram enviados para o banco de verdade (o do site no ar).
+
+> Mais dois temas em vídeo seguiram este modelo: veja [Temas Primavera em Kyoto e Lâmina Sombria](109-temas-kyoto-e-lamina-sombria.md).

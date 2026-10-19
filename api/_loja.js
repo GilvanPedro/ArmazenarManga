@@ -75,6 +75,8 @@ export const ITENS_DA_LOJA = [
     { id: 'matsuri', tipo: 'tema', nome: 'Festival de Verão', descricao: 'Fundo animado: uma noite de matsuri, com lanternas de papel acesas balançando e fogos de artifício abrindo ao longe.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'pagina', tipo: 'tema', nome: 'Página de Mangá', descricao: 'Fundo animado: o site vira uma página de mangá, com papel, tinta preta, quadrinhos, retícula e um ドキドキ batendo no canto.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'palacio', tipo: 'tema', nome: 'Palácio Zen', descricao: 'Fundo animado em vídeo: um palácio japonês sobre a água, bordos vermelhos e pássaros voando, numa pintura em tinta. Escurecido, para a leitura.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'kyoto', tipo: 'tema', nome: 'Primavera em Kyoto', descricao: 'Fundo animado em vídeo, em pixel art: uma cerejeira em flor ao lado de uma casinha japonesa, com lanternas, um cachorro dormindo e pétalas caindo. Tema claro, em creme e rosa.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'lamina', tipo: 'tema', nome: 'Lâmina Sombria', descricao: 'Fundo animado em vídeo, em preto e branco: uma espadachim na sombra, com a luz correndo pela lâmina da katana. Tema escuro, em aço e prata.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
 ];
 
 /** Os temas de graca, que toda conta tem: o escuro (o de sempre) e o claro. Sem tema, o site segue o sistema. */

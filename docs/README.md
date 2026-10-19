@@ -112,6 +112,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [106 · "Todos os mangás" sem conta leva para criar conta](106-todos-os-mangas-sem-conta.md) | A aba que não fazia nada sem conta agora abre criar conta |
 | [107 · Tema Palácio Zen, com fundo em vídeo](107-tema-palacio-zen-em-video.md) | O primeiro tema com vídeo de fundo, escurecido, que pausa sem foco |
 | [108 · Palácio Zen: o vídeo no banco e as cores da pintura](108-tema-palacio-no-banco-e-cores.md) | O vídeo no banco (só carrega com o tema), e os botões, o topo e os favoritos com as cores da pintura |
+| [109 · Temas Primavera em Kyoto e Lâmina Sombria](109-temas-kyoto-e-lamina-sombria.md) | Mais dois temas em vídeo: um claro em pixel art e um escuro em preto e branco |
+| [110 · Pré-visualizar os itens da loja na sua Biblioteca](110-pre-visualizar-itens-da-loja.md) | Uma janela com a sua Biblioteca com o tema, a borda ou o efeito, antes de comprar |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

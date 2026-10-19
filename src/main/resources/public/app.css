@@ -3767,3 +3767,160 @@ html.sem-foco *, html.sem-foco *::before, html.sem-foco *::after { animation-pla
     background: linear-gradient(180deg, rgba(10, 8, 12, .7), rgba(10, 8, 12, .58) 45%, rgba(10, 8, 12, .72));
 }
 [data-tema="palacio"] > .fundo-da-previa { background: linear-gradient(rgba(10, 8, 12, .6), rgba(10, 8, 12, .6)), url("/api/loja/imagens/palacio-zen-1.jpg") center / cover; }
+
+/* ------------------------------------------------------------ tema Primavera em Kyoto (doc 109): vídeo em pixel art, claro
+ * cores da cena: creme do fundo #f9f6ef, rosa da cerejeira #e89ab8 / #c2557f, madeira da casa #5a3e36, telhado #4a4a55 e
+ * o laranja das lanternas #f3a24a. Uma névoa creme leve e igual em toda a tela suaviza a cena atrás do texto.
+ */
+[data-tema="kyoto"] {
+    --fundo: #f9f6ef;
+    --fundo-imagem: none;
+    --superficie: rgba(255, 253, 248, .9);
+    --superficie-2: rgba(246, 236, 232, .92);
+    --borda: #e8d8d4;
+    --texto: #3a2a26;
+    --texto-fraco: #7d6660;
+    --destaque: #c2557f;
+    --destaque-forte: #a63f68;
+    --sobre-destaque: #ffffff;
+    --perigo: #c53030;
+    --sombra: 0 8px 24px rgba(90, 62, 54, .12);
+    --roxo: #c2557f;
+    --lendo: #3f8a52; --ler: #4a6fa5; --concluido: #8a5aa8; --hiatus: #c27a1a; --dropado: #c24848; --cancelado: #7d7570;
+    --serie-1: #c2557f; --serie-2: #f3a24a; --serie-3: #5a3e36; --serie-4: #e89ab8; --serie-5: #4a4a55; --serie-6: #8fb07a;
+    --lucro: #3f8a52; --prejuizo: #c24848;
+    color-scheme: light;
+}
+#fundo-em-video[data-tema="kyoto"] { image-rendering: pixelated; }
+:root[data-tema="kyoto"] body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: rgba(249, 246, 239, .18);
+}
+[data-tema="kyoto"] .topo { background: rgba(255, 252, 246, .95); border-bottom: 2px solid #e89ab8; }
+/* botões de pixel art: cantos retos e a sombra dura embaixo, como num jogo */
+[data-tema="kyoto"] .botao { border-radius: 4px; }
+[data-tema="kyoto"] .botao.primario { background: #c2557f; border-color: #8e3a5c; box-shadow: 0 3px 0 #8e3a5c; }
+[data-tema="kyoto"] .botao.primario:hover { background: #d4688f; }
+[data-tema="kyoto"] .botao.primario:active { transform: translateY(2px); box-shadow: 0 1px 0 #8e3a5c; }
+[data-tema="kyoto"] .botao:not(.primario):not(.perigo):not(.seguir) { background: #fffdf8; border-color: #d9c4bc; color: #5a3e36; box-shadow: 0 2px 0 #e3d2ca; }
+[data-tema="kyoto"] .botao:not(.primario):not(.perigo):not(.seguir):hover { border-color: #e89ab8; background: #fdf0f4; }
+[data-tema="kyoto"] .seguir:not(.seguindo) { background: #5a3e36; border-color: #5a3e36; color: #fff8f0; }
+[data-tema="kyoto"] .botao.favoritar[aria-pressed=true] { border-color: #f3a24a; color: #b5650f; }
+[data-tema="kyoto"] .inicial:not(.foto) { background: linear-gradient(145deg, #e89ab8, #c2557f); color: #fff; }
+[data-tema="kyoto"] .secao[aria-current=page] { background: rgba(232, 154, 184, .22); box-shadow: inset 0 0 0 1px rgba(194, 85, 127, .5); }
+[data-tema="kyoto"] .aba[aria-current=page] { border-bottom-color: #c2557f; }
+[data-tema="kyoto"] .filtro[aria-pressed=true] { background: #5a3e36; border-color: #5a3e36; color: #fff8f0; }
+[data-tema="kyoto"] :is(input, select, textarea) { background: #fffdf8; border-color: #e0cec6; }
+[data-tema="kyoto"] :is(input, select, textarea):focus { border-color: #c2557f; box-shadow: 0 0 0 3px rgba(232, 154, 184, .35); }
+[data-tema="kyoto"] ::selection { background: #f6c6d8; color: #3a2a26; }
+[data-tema="kyoto"] .capa.favorita:not([class*=" borda-"]) {
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(150deg, #ffd6e4, #e89ab8 30%, #c2557f 55%, #f3a24a 80%, #ffe6c4) border-box;
+    box-shadow: 0 4px 0 rgba(90, 62, 54, .18), 0 6px 18px rgba(194, 85, 127, .25);
+}
+[data-tema="kyoto"] .capa.favorita:not([class*=" borda-"]) .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #ffc27a, #f3a24a 55%, #b5650f); }
+[data-tema="kyoto"] > .fundo-da-previa { background: url("/api/loja/imagens/kyoto-1.jpg") 40% 70% / cover; image-rendering: pixelated; }
+
+/* ------------------------------------------------------------ tema Lâmina Sombria (doc 109): vídeo em preto e branco, escuro
+ * só preto, cinzas e o brilho prateado da lâmina; nada de cor, a não ser nos status (que precisam ser diferentes).
+ */
+[data-tema="lamina"] {
+    --fundo: #050505;
+    --fundo-imagem: none;
+    --superficie: rgba(12, 12, 12, .86);
+    --superficie-2: rgba(30, 30, 30, .82);
+    --borda: rgba(255, 255, 255, .14);
+    --texto: #f2f2f2;
+    --texto-fraco: #9c9c9c;
+    --destaque: #e6e6e6;
+    --destaque-forte: #ffffff;
+    --sobre-destaque: #0a0a0a;
+    --perigo: #ff8a8a;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .7);
+    --roxo: #d0d0d0;
+    --lendo: #8fd4ae; --ler: #a8c4e6; --concluido: #cbb8e8; --hiatus: #e6cf8f; --dropado: #e69a9a; --cancelado: #8c8c8c;
+    --serie-1: #f2f2f2; --serie-2: #9c9c9c; --serie-3: #5c5c5c; --serie-4: #cfcfcf; --serie-5: #7a7a7a; --serie-6: #b8b8b8;
+    color-scheme: dark;
+}
+:root[data-tema="lamina"] body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .4) 45%, rgba(0, 0, 0, .6));
+}
+[data-tema="lamina"] .topo { background: rgba(0, 0, 0, .94); border-bottom: 1px solid rgba(255, 255, 255, .22); }
+/* botões de aço: o principal é a lâmina (prata com o brilho na diagonal), os outros só o fio de luz no contorno */
+[data-tema="lamina"] .botao { border-radius: 3px; letter-spacing: .02em; }
+[data-tema="lamina"] .botao.primario {
+    background: linear-gradient(115deg, #9a9a9a, #f4f4f4 42%, #ffffff 50%, #c8c8c8 58%, #8a8a8a);
+    border-color: #f0f0f0;
+    color: #0a0a0a;
+    box-shadow: 0 0 14px rgba(255, 255, 255, .22);
+}
+[data-tema="lamina"] .botao.primario:hover { box-shadow: 0 0 22px rgba(255, 255, 255, .4); }
+[data-tema="lamina"] .botao:not(.primario):not(.perigo):not(.seguir) { background: rgba(0, 0, 0, .5); border-color: rgba(255, 255, 255, .28); color: #f2f2f2; }
+[data-tema="lamina"] .botao:not(.primario):not(.perigo):not(.seguir):hover { border-color: #ffffff; box-shadow: 0 0 10px rgba(255, 255, 255, .2); }
+[data-tema="lamina"] .seguir:not(.seguindo) { background: #f2f2f2; border-color: #f2f2f2; color: #0a0a0a; }
+[data-tema="lamina"] .botao.favoritar[aria-pressed=true] { border-color: #ffffff; color: #ffffff; }
+[data-tema="lamina"] .inicial:not(.foto) { background: linear-gradient(145deg, #e6e6e6, #3a3a3a); color: #0a0a0a; }
+[data-tema="lamina"] .secao[aria-current=page] { background: rgba(255, 255, 255, .1); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45); }
+[data-tema="lamina"] .aba[aria-current=page] { border-bottom-color: #ffffff; }
+[data-tema="lamina"] .filtro[aria-pressed=true] { background: #f2f2f2; border-color: #f2f2f2; color: #0a0a0a; }
+[data-tema="lamina"] :is(input, select, textarea) { background: rgba(0, 0, 0, .7); border-color: rgba(255, 255, 255, .2); }
+[data-tema="lamina"] :is(input, select, textarea):focus { border-color: #ffffff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .15); }
+[data-tema="lamina"] ::selection { background: #f2f2f2; color: #0a0a0a; }
+[data-tema="lamina"] .capa.favorita:not([class*=" borda-"]) {
+    background:
+        linear-gradient(var(--superficie-2), var(--superficie-2)) padding-box,
+        linear-gradient(150deg, #ffffff, #6a6a6a 30%, #111111 55%, #d8d8d8 80%, #ffffff) border-box;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .25), 0 6px 22px rgba(255, 255, 255, .12);
+}
+[data-tema="lamina"] .capa.favorita:not([class*=" borda-"]) .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #ffffff, #9a9a9a 60%, #2a2a2a); color: #0a0a0a; }
+[data-tema="lamina"] > .fundo-da-previa { background: linear-gradient(rgba(0, 0, 0, .4), rgba(0, 0, 0, .4)), url("/api/loja/imagens/lamina-1.jpg") 60% 30% / cover; }
+
+/* ------------------------------------------------------------ pré-visualização de um item da loja (doc 110)
+ * uma janela grande com a Biblioteca da pessoa (as classes de verdade do site, então cada tema pinta igual) com o item.
+ */
+.acoes-do-item { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.acoes-do-item .botao { margin-top: 0; }
+.abrir-previa { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: zoom-in; border-radius: var(--raio); }
+.abrir-previa:focus-visible { outline: 2px solid var(--destaque); outline-offset: 3px; }
+.abrir-previa > * { transition: transform .15s; }
+.abrir-previa:hover > * { transform: translateY(-2px); }
+dialog.janela-de-previa {
+    width: min(1240px, calc(100vw - 24px));
+    height: min(90vh, 880px);
+    max-height: 90vh;
+    padding: 0;
+    display: none;
+    flex-direction: column;
+}
+dialog.janela-de-previa[open] { display: flex; }
+dialog.janela-de-previa::backdrop { background: rgba(0, 0, 0, .7); }
+.janela-de-previa > .video-da-previa { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.janela-de-previa[data-tema="kyoto"] > .video-da-previa { image-rendering: pixelated; }
+.janela-de-previa > .veu-do-video { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.janela-de-previa[data-tema="palacio"] > .veu-do-video { background: linear-gradient(180deg, rgba(10, 8, 12, .7), rgba(10, 8, 12, .58) 45%, rgba(10, 8, 12, .72)); }
+.janela-de-previa[data-tema="kyoto"] > .veu-do-video { background: rgba(249, 246, 239, .18); }
+.janela-de-previa[data-tema="lamina"] > .veu-do-video { background: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .4) 45%, rgba(0, 0, 0, .6)); }
+.barra-da-previa {
+    display: flex; align-items: center; gap: 12px; flex: none;
+    padding: 10px 14px 10px 18px;
+    background: var(--superficie); border-bottom: 1px solid var(--borda);
+}
+.sobre-a-previa { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.sobre-a-previa strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sobre-a-previa span { font-size: 13px; color: var(--texto-fraco); }
+.site-da-previa { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; user-select: none; }
+.site-da-previa .topo { position: static; padding: 10px 18px; }
+.site-da-previa .secoes { display: flex; }
+.site-da-previa .minha-conta { gap: 8px; }
+.pagina-da-previa { padding: 16px 22px 26px; }
+.pagina-da-previa .grade { --colunas: 6; }
+@media (max-width: 640px) {
+    .barra-da-previa { flex-wrap: wrap; }
+    .barra-da-previa .sobre-a-previa { flex-basis: calc(100% - 44px); }
+    .barra-da-previa .botao { flex: 1; }
+    .site-da-previa .secoes, .site-da-previa .acoes-do-topo { display: none; }
+    .pagina-da-previa { padding: 12px; }
+}
+.site-da-previa .capa-de-exemplo { width: 100%; aspect-ratio: 2 / 3; height: auto; }
