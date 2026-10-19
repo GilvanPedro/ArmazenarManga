@@ -422,11 +422,13 @@ a.capa:hover img { transform: scale(1.035); }
     right: auto;
     width: 280%;
     transform: translateX(-83.6%);
-    animation: reflexo-de-favorito 7s ease-in-out infinite;
 }
+/* a passada do reflexo, de 7 em 7 segundos: o app.js poe a classe .reflexo e tira no fim (doc 111). Antes era uma
+   animacao sem fim com 4,3 s parada, mas parada ou nao ela fazia o navegador redesenhar a tela o tempo todo */
+.capa.favorita.reflexo::after { animation: reflexo-de-favorito 2.7s ease-in-out 1; }
 @keyframes reflexo-de-favorito {
-    0%, 62% { transform: translateX(-83.6%); }
-    100% { transform: translateX(25.7%); }
+    from { transform: translateX(-83.6%); }
+    to { transform: translateX(25.7%); }
 }
 .estrela-de-favorito {
     position: absolute;
@@ -2890,10 +2892,10 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 :root[data-tema="aurora"] body::before, [data-tema="aurora"] > .fundo-da-previa {
     inset: -30%;
     background:
-        radial-gradient(40% 30% at 30% 30%, rgba(52, 211, 153, .45), transparent 70%),
-        radial-gradient(35% 28% at 70% 40%, rgba(56, 189, 248, .4), transparent 70%),
-        radial-gradient(45% 30% at 50% 70%, rgba(168, 85, 247, .35), transparent 70%);
-    filter: blur(40px);
+        radial-gradient(40% 30% at 30% 30%, rgba(52, 211, 153, .42), rgba(52, 211, 153, .12) 45%, transparent 75%),
+        radial-gradient(35% 28% at 70% 40%, rgba(56, 189, 248, .38), rgba(56, 189, 248, .1) 45%, transparent 75%),
+        radial-gradient(45% 30% at 50% 70%, rgba(168, 85, 247, .32), rgba(168, 85, 247, .09) 45%, transparent 75%);
+    /* sem filter: blur (doc 111): os degradês já são macios, e o desfoque refeito a cada quadro pesava muito */
     animation: aurora-andando 13s ease-in-out infinite alternate;
 }
 @keyframes aurora-andando {
@@ -3035,8 +3037,8 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
         radial-gradient(30% 22% at 35% 40%, rgba(168, 85, 247, .45), transparent 70%),
         radial-gradient(26% 20% at 62% 55%, rgba(59, 130, 246, .4), transparent 70%),
         radial-gradient(22% 16% at 50% 48%, rgba(244, 114, 182, .35), transparent 70%),
-        conic-gradient(from 0deg at 50% 50%, transparent, rgba(129, 140, 248, .12), transparent 25%, rgba(192, 132, 252, .12), transparent 50%, rgba(129, 140, 248, .12), transparent 75%);
-    filter: blur(30px);
+        conic-gradient(from 0deg at 50% 50%, transparent, rgba(129, 140, 248, .1), transparent 25%, rgba(192, 132, 252, .1), transparent 50%, rgba(129, 140, 248, .1), transparent 75%);
+    /* sem filter: blur (doc 111) */
     animation: galaxia-girando 45s linear infinite;
 }
 @keyframes galaxia-girando {
@@ -3820,7 +3822,7 @@ html.sem-foco *, html.sem-foco *::before, html.sem-foco *::after { animation-pla
     box-shadow: 0 4px 0 rgba(90, 62, 54, .18), 0 6px 18px rgba(194, 85, 127, .25);
 }
 [data-tema="kyoto"] .capa.favorita:not([class*=" borda-"]) .estrela-de-favorito { background: radial-gradient(circle at 35% 30%, #ffc27a, #f3a24a 55%, #b5650f); }
-[data-tema="kyoto"] > .fundo-da-previa { background: url("/api/loja/imagens/kyoto-1.jpg") 40% 70% / cover; image-rendering: pixelated; }
+[data-tema="kyoto"] > .fundo-da-previa { background: url("/api/loja/imagens/kyoto-2.jpg") 40% 70% / cover; image-rendering: pixelated; }
 
 /* ------------------------------------------------------------ tema Lâmina Sombria (doc 109): vídeo em preto e branco, escuro
  * só preto, cinzas e o brilho prateado da lâmina; nada de cor, a não ser nos status (que precisam ser diferentes).
@@ -3910,7 +3912,9 @@ dialog.janela-de-previa::backdrop { background: rgba(0, 0, 0, .7); }
 .sobre-a-previa { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .sobre-a-previa strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sobre-a-previa span { font-size: 13px; color: var(--texto-fraco); }
-.site-da-previa { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; user-select: none; }
+.site-da-previa { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; user-select: none; }
+/* com a pré-visualização aberta, a página de trás não rola */
+html:has(dialog.janela-de-previa[open]) { overflow: hidden; }
 .site-da-previa .topo { position: static; padding: 10px 18px; }
 .site-da-previa .secoes { display: flex; }
 .site-da-previa .minha-conta { gap: 8px; }

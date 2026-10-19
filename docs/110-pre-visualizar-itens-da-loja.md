@@ -49,3 +49,5 @@ No navegador, com a conta de teste:
 - **Equipar** de dentro da janela: fechou a janela e equipou o tema.
 - Sem conta, no celular: a janela com as capas de exemplo e o efeito, e o "Comprar" no alto.
 - Os testes passam.
+
+> Mais otimizações e os vídeos em pé no celular: veja [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).

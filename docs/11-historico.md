@@ -307,6 +307,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Temas Primavera em Kyoto e Lâmina Sombria](109-temas-kyoto-e-lamina-sombria.md).
 - **Pré-visualizar na Biblioteca.** Os itens da loja podem ser vistos na Biblioteca da pessoa antes de comprar.
   Detalhes em [Pré-visualizar os itens da loja na sua Biblioteca](110-pre-visualizar-itens-da-loja.md).
+- **Otimização dos temas e celular.** Menos processador com os temas animados, vídeos em pé no celular e a rolagem da
+  pré-visualização. Detalhes em [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).
 
 ## O que foi removido ou abandonado
 

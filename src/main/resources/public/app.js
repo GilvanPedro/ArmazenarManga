@@ -684,6 +684,28 @@ const vigiaDaTela = 'IntersectionObserver' in window
 window.addEventListener('blur', () => document.documentElement.classList.add('sem-foco'));
 window.addEventListener('focus', () => document.documentElement.classList.remove('sem-foco'));
 
+/*
+ * O reflexo que passa pelos favoritos (doc 111): de 7 em 7 segundos, uma passada de 2,7 s nas capas que estao na
+ * tela. Entre uma e outra nada anima, e a tela fica parada. As capas com um efeito ou borda da loja que ja anima o
+ * proprio brilho ficam de fora. Para com a janela sem foco, a aba escondida ou quem prefere menos movimento.
+ */
+const menosMovimento = matchMedia('(prefers-reduced-motion: reduce)');
+setInterval(() => {
+    if (document.hidden || menosMovimento.matches || document.documentElement.classList.contains('sem-foco')) return;
+    const capas = [...document.querySelectorAll('.capa.favorita:not([data-fora]):not(.reflexo)')]
+        .filter(capa => getComputedStyle(capa, '::after').animationName === 'none');
+    for (const capa of capas) {
+        capa.classList.add('reflexo');
+        // o fim de outras animacoes de dentro da capa (os enfeites das bordas) tambem chega aqui: so o do reflexo conta
+        const fim = evento => {
+            if (evento.animationName !== 'reflexo-de-favorito') return;
+            capa.classList.remove('reflexo');
+            capa.removeEventListener('animationend', fim);
+        };
+        capa.addEventListener('animationend', fim);
+    }
+}, 7000);
+
 function vigiarAnimacoes() {
     if (!vigiaDaTela) return;
     for (const elemento of app.querySelectorAll('.capa.favorita:not([data-vigiada]), .previa-do-item:not([data-vigiada]), .previa-do-tema:not([data-vigiada])')) {
@@ -2981,10 +3003,34 @@ const meuTema = () => (typeof estado.sessao?.conta?.tema === 'string' ? estado.s
  * quando o tema esta na pagina: com outro tema, nada disso carrega.
  */
 const FUNDOS_EM_VIDEO = {
-    palacio: {webm: '/api/loja/imagens/palacio-zen-1.webm', mp4: '/api/loja/imagens/palacio-zen-1.mp4', imagem: '/api/loja/imagens/palacio-zen-1.jpg'},
-    kyoto: {webm: '/api/loja/imagens/kyoto-1.webm', mp4: '/api/loja/imagens/kyoto-1.mp4', imagem: '/api/loja/imagens/kyoto-1.jpg'},
-    lamina: {webm: '/api/loja/imagens/lamina-1.webm', mp4: '/api/loja/imagens/lamina-1.mp4', imagem: '/api/loja/imagens/lamina-1.jpg'},
+    palacio: {nome: 'palacio-zen-1', retrato: 'palacio-zen-retrato-1', imagem: 'palacio-zen-1.jpg'},
+    // pixel art: o video vem no tamanho de verdade da arte (640x360, doc 111) e o navegador amplia sem borrar
+    kyoto: {nome: 'kyoto-2', retrato: 'kyoto-retrato-2', imagem: 'kyoto-2.jpg'},
+    lamina: {nome: 'lamina-2', retrato: 'lamina-retrato-1', imagem: 'lamina-1.jpg'},
 };
+/*
+ * Qual video de um tema tocar (doc 111): em tela em pe (celular), uma versao vertical, recortada no que importa da
+ * cena (o palacio, a cerejeira, o rosto), menor e mais leve; deitada, a horizontal. Com a economia de dados ligada, so a
+ * imagem parada.
+ */
+const telaEmPe = matchMedia('(orientation: portrait)');
+function fontesDoFundo(fundo) {
+    const endereco = arquivo => '/api/loja/imagens/' + arquivo;
+    const nome = telaEmPe.matches && fundo.retrato ? fundo.retrato : fundo.nome;
+    return {
+        forma: nome,
+        imagem: endereco(fundo.imagem),
+        fontes: navigator.connection?.saveData ? [] : [
+            h('source', {src: endereco(nome + '.webm'), type: 'video/webm'}), h('source', {src: endereco(nome + '.mp4'), type: 'video/mp4'})],
+    };
+}
+function videoDeFundo(fundo, atributos) {
+    const {forma, imagem, fontes} = fontesDoFundo(fundo);
+    const video = h('video', {...atributos, 'data-forma': forma, muted: true, loop: true, playsinline: true, preload: fontes.length ? 'auto' : 'none',
+        poster: imagem, 'aria-hidden': 'true', tabindex: '-1'}, ...fontes);
+    video.muted = true;
+    return video;
+}
 function sincronizarFundoEmVideo() {
     // so depois de o site saber o tema da conta (o guardado no navegador pode ser de outro login): assim o video nao
     // comeca a baixar se a conta usa outro tema
@@ -2996,11 +3042,10 @@ function sincronizarFundoEmVideo() {
         video?.remove();
         return;
     }
-    if (!video || video.dataset.tema !== tema) {
+    // tema novo, ou a tela virou (em pe ou deitada): troca o video
+    if (!video || video.dataset.tema !== tema || video.dataset.forma !== fontesDoFundo(fundo).forma) {
         video?.remove();
-        video = h('video', {id: 'fundo-em-video', 'data-tema': tema, muted: true, loop: true, playsinline: true, preload: 'auto', poster: fundo.imagem, 'aria-hidden': 'true', tabindex: '-1'},
-            h('source', {src: fundo.webm, type: 'video/webm'}), h('source', {src: fundo.mp4, type: 'video/mp4'}));
-        video.muted = true;
+        video = videoDeFundo(fundo, {id: 'fundo-em-video', 'data-tema': tema});
         document.body.prepend(video);
     }
     const parado = matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden || document.documentElement.classList.contains('sem-foco');
@@ -3022,6 +3067,7 @@ const sincronizarVideos = () => {
 };
 new MutationObserver(sincronizarVideos).observe(document.documentElement, {attributes: true, attributeFilter: ['data-tema', 'class']});
 document.addEventListener('visibilitychange', sincronizarVideos);
+telaEmPe.addEventListener('change', sincronizarVideos);
 
 /** As camadas do fundo animado de um tema, para uma janela com o tema de outra pessoa. */
 const camadasDoTema = () => [1, 2, 3, 4].map(n => h('div', {class: 'fundo-da-previa' + (n > 1 ? '-' + n : ''), 'aria-hidden': 'true'}));
@@ -3078,7 +3124,7 @@ async function abrirPreviaDoItem(item, acao) {
     const status = [{valor: '', descricao: 'Todos'}, ...(estado.status?.length ? estado.status : [{descricao: 'Lendo'}, {descricao: 'Para Ler'}, {descricao: 'Concluído'}])];
     const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar a pré-visualização'}, '×');
     const conta = estado.sessao?.conta;
-    const site = h('div', {class: 'site-da-previa', inert: true},
+    const site = h('div', {class: 'site-da-previa'}, h('div', {class: 'miniatura-do-site', inert: true},
         h('header', {class: 'topo'},
             h('span', {class: 'marca'}, h('img', {src: 'favicon.svg', alt: '', width: '28', height: '28'}), h('span', null, 'Viracap')),
             h('nav', {class: 'secoes'},
@@ -3093,12 +3139,8 @@ async function abrirPreviaDoItem(item, acao) {
                 h('span', {class: 'espaco'}),
                 h('span', {class: 'botao'}, '🏷️ Tags'), h('span', {class: 'botao'}, '🎲 Sortear')),
             h('div', {class: 'filtros'}, ...status.map((opcao, i) => h('span', {class: 'filtro', 'aria-pressed': String(i === 0)}, opcao.descricao))),
-            grade));
-    const fundo = video ? [
-        h('video', {class: 'video-da-previa', muted: true, loop: true, playsinline: true, preload: 'auto', poster: video.imagem, 'aria-hidden': 'true', tabindex: '-1'},
-            h('source', {src: video.webm, type: 'video/webm'}), h('source', {src: video.mp4, type: 'video/mp4'})),
-        h('div', {class: 'veu-do-video', 'aria-hidden': 'true'}),
-    ] : [];
+            grade)));
+    const fundo = video ? [videoDeFundo(video, {class: 'video-da-previa'}), h('div', {class: 'veu-do-video', 'aria-hidden': 'true'})] : [];
     const dialogo = h('dialog', {class: 'janela-de-previa janela-com-tema', 'data-tema': tema, 'aria-label': 'Pré-visualização: ' + item.nome},
         ...camadasDoTema(), ...fundo,
         h('div', {class: 'barra-da-previa'},
@@ -3108,7 +3150,6 @@ async function abrirPreviaDoItem(item, acao) {
             acao ? acao() : null,
             fechar),
         site);
-    if (video) dialogo.querySelector('video').muted = true;
     fechar.addEventListener('click', () => dialogo.close());
     // clicar fora da janela (no fundo escurecido) tambem fecha
     dialogo.addEventListener('click', evento => { if (evento.target === dialogo) dialogo.close(); });

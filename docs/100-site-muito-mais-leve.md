@@ -76,3 +76,5 @@ Quem prefere menos movimento (configuração do aparelho) continua vendo tudo pa
 - A pausa: rolando até o fim da lista, as 24 animações das capas de cima pausaram; voltando, rodaram; com a janela sem
   foco, pausaram; com foco, voltaram.
 - Todas as páginas abertas sem erro, e os 101 testes passam.
+
+> Mais otimizações e os vídeos em pé no celular: veja [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).

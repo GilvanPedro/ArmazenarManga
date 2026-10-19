@@ -58,3 +58,5 @@ confirmar que a arte pode ser usada assim.
 - Os seis arquivos foram enviados para o banco do site no ar.
 
 > Os itens agora podem ser vistos na Biblioteca antes de comprar: veja [Pré-visualizar os itens da loja na sua Biblioteca](110-pre-visualizar-itens-da-loja.md).
+
+> Mais otimizações e os vídeos em pé no celular: veja [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).
