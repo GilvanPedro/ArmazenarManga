@@ -143,6 +143,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Sem a borda Arte Derretida](docs/113-sem-a-borda-arte-derretida.md) | |
 | [Sorteio no estilo de abrir um baú](docs/114-sorteio-estilo-abrir-bau.md) | |
 | [Roleta da loja](docs/115-roleta-da-loja.md) | |
+| [Roleta para quem já tem todos os itens](docs/116-roleta-com-todos-os-itens.md) | |
+| ["Roleta" sem emoji](docs/117-roleta-sem-emoji.md) | |
 
 ## Testes
 

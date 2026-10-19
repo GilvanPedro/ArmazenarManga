@@ -3419,7 +3419,7 @@ async function telaLoja(partes, consulta) {
             aviso,
             rolagemDasAbas(h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'},
                 link('bordas', '#/loja/bordas', 'Bordas'), link('efeitos', '#/loja/efeitos', 'Efeitos'), link('temas', '#/loja/temas', 'Temas'),
-                link('roleta', '#/loja/roleta', '🎰 Roleta'),
+                link('roleta', '#/loja/roleta', 'Roleta'),
                 link('mochila', '#/loja/mochila', 'Mochila', contador))),
             lugarDeBanner('loja-topo', 'horizontal', 'so-sem-trilhos'),
             conteudo,
@@ -3712,7 +3712,7 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
         h('span', {class: 'chance-da-roleta', 'data-tipo': tipo}, NOME_DO_TIPO_NA_ROLETA[tipo] + ' ' + porcento(chance)));
     return h('section', {class: 'pagina-da-roleta'},
         h('div', {class: 'topo-da-roleta'},
-            h('h2', null, '🎰 Roleta'),
+            h('h2', null, 'Roleta'),
             h('p', null, 'Cada giro sorteia um item da loja que você ainda não tem: uma borda, um efeito ou um tema. Nunca sai repetido.'),
             chances.length ? h('div', {class: 'chances-da-roleta'}, ...chances) : null,
             roleta.faltam && !roleta.demonstracao ? h('p', {class: 'subtitulo'}, `Faltam ${roleta.faltam} itens para você.`) : null),

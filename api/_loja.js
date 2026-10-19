@@ -400,7 +400,8 @@ export function criarLoja(f) {
             ]);
             const faltam = ITENS_DA_LOJA.filter(itemDaLista => !meus.some(meu => meu.item === itemDaLista.id)).length;
             if (faltam < guardados + quantos) {
-                throw new ErroDaLoja(409, faltam <= guardados ? 'Seus giros guardados já dão para todos os itens que faltam'
+                throw new ErroDaLoja(409, faltam === 0 ? 'Você já tem todos os itens da loja!'
+                    : faltam <= guardados ? 'Seus giros guardados já dão para todos os itens que faltam'
                     : `Faltam só ${faltam} itens para você: dá para comprar até ${faltam - guardados} giro${faltam - guardados > 1 ? 's' : ''}`);
             }
             item = { id: 'giros-' + quantos, tipo: 'giros', nome: quantos + (quantos > 1 ? ' giros' : ' giro') + ' da roleta',

@@ -317,6 +317,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [Sorteio no estilo de abrir um baú](114-sorteio-estilo-abrir-bau.md).
 - **Roleta da loja.** Um giro grátis para cada conta e giros pagos, até 3 ao mesmo tempo. Detalhes em
   [Roleta da loja](115-roleta-da-loja.md).
+- **Roleta com todos os itens.** Conferido que quem tem tudo não paga nem gira, com a mensagem corrigida. Detalhes em
+  [Roleta para quem já tem todos os itens](116-roleta-com-todos-os-itens.md).
+- **"Roleta" sem emoji.** A aba e o título da roleta só com o nome. Detalhes em ["Roleta" sem emoji](117-roleta-sem-emoji.md).
 
 ## O que foi removido ou abandonado
 

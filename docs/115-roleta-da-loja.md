@@ -1,6 +1,6 @@
 # 115 · Roleta da loja
 
-Uma nova aba na loja, **🎰 Roleta**, no estilo de abrir uma caixa do CS: os itens correm de um lado para o outro e
+Uma nova aba na loja, **Roleta**, no estilo de abrir uma caixa do CS: os itens correm de um lado para o outro e
 param no sorteado. É um incentivo para quem cria a conta: **o primeiro giro é de graça**. Os próximos custam
 **R$ 5,00 cada**, e dá para girar **até 3 ao mesmo tempo**, com as três fitas uma em cima da outra, como linhas de
 caderno, cada uma com o seu sorteio.
@@ -77,3 +77,7 @@ sem giros também (402); com uma compra de 3 giros aprovada, "Girar 3 de uma vez
 cada uma no seu prêmio (os três diferentes), os 3 giros foram gastos e os itens entraram na mochila; **Equipar** num
 prêmio equipou e manteve os prêmios na tela. O dono girou 3 de demonstração sem nada ser guardado e não conseguiu
 comprar giros. Os testes passam.
+
+> Quem já tem todos os itens não paga nem gira: veja [Roleta para quem já tem todos os itens](116-roleta-com-todos-os-itens.md).
+
+> A aba e o título passaram a ser só "Roleta", sem o emoji: veja ["Roleta" sem emoji](117-roleta-sem-emoji.md).

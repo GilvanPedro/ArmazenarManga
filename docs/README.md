@@ -119,6 +119,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [113 · Sem a borda Arte Derretida](113-sem-a-borda-arte-derretida.md) | A borda que era a mesma moldura da Celestial saiu da loja |
 | [114 · Sorteio no estilo de abrir um baú](114-sorteio-estilo-abrir-bau.md) | A fita de capas que para no sorteado, a moldura dourada, o confete e os botões de ler |
 | [115 · Roleta da loja](115-roleta-da-loja.md) | Um giro grátis por conta e giros a R$ 5,00 (até 3 ao mesmo tempo) que sorteiam um item que a pessoa não tem |
+| [116 · Roleta para quem já tem todos os itens](116-roleta-com-todos-os-itens.md) | Sem itens faltando, a roleta não vende nem gira; a mensagem certa |
+| [117 · "Roleta" sem emoji](117-roleta-sem-emoji.md) | A aba e o título da roleta só com o nome |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
