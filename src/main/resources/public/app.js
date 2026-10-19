@@ -3733,70 +3733,63 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
  * parou. Quem prefere menos movimento ve so as fitas ja paradas.
  */
 function animarRoleta(palco, premios, todos, exemplo) {
-    const linhas = premios.map((premio, indice) => {
+    // cada item diferente e montado uma vez so; as casas da fita sao copias dele (doc 121: montar as 120 casas uma a
+    // uma levava 240 ms)
+    const moldes = new Map();
+    const casa = item => {
+        if (!moldes.has(item.id)) moldes.set(item.id, casaDaRoleta(item, exemplo));
+        return moldes.get(item.id).cloneNode(true);
+    };
+    const linhas = premios.map(premio => {
         // itens misturados, com o tipo mais ou menos na proporcao da roleta (mais bordas, menos temas)
         const pesos = {borda: 5, efeito: 3, tema: 1};
         const urna = todos.flatMap(item => Array(pesos[item.tipo] || 1).fill(item));
         const itens = Array.from({length: ITENS_ANTES_DO_PREMIO + 5}, () => urna[Math.floor(Math.random() * urna.length)]);
         itens.splice(ITENS_ANTES_DO_PREMIO, 0, premio);
-        const fita = h('div', {class: 'fita-da-roleta'}, ...itens.map(item => casaDaRoleta(item, exemplo)));
-        const linha = h('div', {class: 'linha-da-roleta', style: `--atraso:${indice}`},
+        const fita = h('div', {class: 'fita-da-roleta'}, ...itens.map(casa));
+        const linha = h('div', {class: 'linha-da-roleta'},
             h('span', {class: 'seta-da-roleta de-cima', 'aria-hidden': 'true'}), h('span', {class: 'seta-da-roleta de-baixo', 'aria-hidden': 'true'}),
             h('span', {class: 'mira-da-roleta', 'aria-hidden': 'true'}), fita);
         return {linha, fita};
     });
     palco.replaceChildren(...linhas.map(({linha}) => linha));
     palco.classList.toggle('varias', linhas.length > 1);
+    /*
+     * Leve (doc 121): a fita anda com uma animacao so de transform, feita pela placa de video, e nada dentro dela muda
+     * enquanto anda (antes, a casa que passava pela mira acendia e crescia: isso redesenhava a fita a cada troca e
+     * pedia a posicao dela a cada quadro). O premio so acende quando a fita para.
+     */
     return new Promise(pronto => requestAnimationFrame(() => {
-        const animacoes = linhas.map(({linha, fita}, indice) => {
-            const casas = fita.children;
-            const alvo = casas[ITENS_ANTES_DO_PREMIO];
+        const paradas = linhas.map(({linha, fita}, indice) => {
+            const alvo = fita.children[ITENS_ANTES_DO_PREMIO];
             const largura = alvo.offsetWidth;
             const meio = linha.clientWidth / 2;
-            const desvio = (Math.random() - 0.5) * largura * 0.7;
-            const fim = -(alvo.offsetLeft + largura / 2 - meio + desvio);
+            const centro = -(alvo.offsetLeft + largura / 2 - meio);
+            const acabar = () => {
+                // parada: a fita deixa de ser uma camada separada e o premio acende
+                fita.style.transform = `translateX(${centro}px)`;
+                fita.classList.add('parou');
+                alvo.classList.add('premio-da-fita');
+            };
             if (menosMovimento.matches) {
-                fita.style.transform = `translateX(${fim + desvio}px)`;
-                alvo.classList.add('na-mira', 'premio-da-fita');
-                return null;
+                acabar();
+                return Promise.resolve();
             }
-            // as linhas param uma depois da outra, com 0,7 s entre elas
-            const animacao = fita.animate([{transform: 'translateX(0)'}, {transform: `translateX(${fim}px)`}],
-                {duration: 5200 + indice * 700, easing: 'cubic-bezier(.08, .72, .16, 1)', fill: 'forwards'});
-            // parou um pouco para o lado (o suspense): desliza o resto ate o premio ficar no meio exato da mira
-            animacao.finished.then(() => {
-                const centro = -(alvo.offsetLeft + largura / 2 - meio);
-                animacao.commitStyles?.();
+            // para um pouco para o lado (o suspense) e desliza o resto ate o premio ficar no meio exato da mira; as
+            // linhas param uma depois da outra, com 0,7 s entre elas
+            const desvio = (Math.random() - 0.5) * largura * 0.7;
+            const duracao = 5200 + indice * 700;
+            const animacao = fita.animate([
+                {transform: 'translateX(0)', easing: 'cubic-bezier(.08, .72, .16, 1)'},
+                {transform: `translateX(${centro - desvio}px)`, offset: duracao / (duracao + 450), easing: 'cubic-bezier(.3, 0, .2, 1)'},
+                {transform: `translateX(${centro}px)`},
+            ], {duration: duracao + 450, fill: 'forwards'});
+            return animacao.finished.then(() => {
+                acabar();
                 animacao.cancel();
-                const ajuste = fita.animate([{transform: `translateX(${fim}px)`}, {transform: `translateX(${centro}px)`}],
-                    {duration: 450, easing: 'cubic-bezier(.3, 0, .2, 1)', fill: 'forwards'});
-                ajuste.finished.then(() => alvo.classList.add('premio-da-fita')).catch(() => {});
             }).catch(() => {});
-            return {animacao, fita, casas, meio, inicio: casas[0].offsetLeft + largura / 2, passo: largura + parseFloat(getComputedStyle(fita).columnGap || '0'), acesa: null};
-        }).filter(Boolean);
-        if (!animacoes.length) {
-            pronto();
-            return;
-        }
-        // a casa que esta passando pela mira de cada linha acende
-        let quadro = 0;
-        const seguir = () => {
-            for (const a of animacoes) {
-                const andou = -new DOMMatrixReadOnly(getComputedStyle(a.fita).transform).m41;
-                const indice = Math.max(0, Math.min(a.casas.length - 1, Math.round((a.meio + andou - a.inicio) / a.passo)));
-                if (a.casas[indice] !== a.acesa) {
-                    a.acesa?.classList.remove('na-mira');
-                    a.acesa = a.casas[indice];
-                    a.acesa.classList.add('na-mira');
-                }
-            }
-            if (animacoes.some(a => a.animacao.playState === 'running')) quadro = requestAnimationFrame(seguir);
-        };
-        quadro = requestAnimationFrame(seguir);
-        Promise.all(animacoes.map(a => a.animacao.finished.catch(() => {}))).then(() => {
-            cancelAnimationFrame(quadro);
-            setTimeout(pronto, 500);
         });
+        Promise.all(paradas).then(() => setTimeout(pronto, menosMovimento.matches ? 0 : 450));
     }));
 }
 

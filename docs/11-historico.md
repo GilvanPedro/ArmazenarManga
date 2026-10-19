@@ -326,6 +326,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   blocos. Detalhes em [Botões da roleta e as partes do site no celular](119-roleta-e-partes-do-site-no-celular.md).
 - **Prêmio da roleta centralizado.** A capa no meio do cartão e sem o "null". Detalhes em
   [O prêmio da roleta centralizado](120-premio-da-roleta-centralizado.md).
+- **Roleta mais leve.** Menos processador parada e girando. Detalhes em [Roleta mais leve](121-roleta-mais-leve.md).
 
 ## O que foi removido ou abandonado
 

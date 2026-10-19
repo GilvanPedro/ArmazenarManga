@@ -4119,12 +4119,24 @@ dialog.janela-do-sorteio::backdrop { background: rgba(8, 8, 12, .84); backdrop-f
     position: relative;
     padding: 22px 0;
     overflow: hidden;
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
 }
+/* as pontas somem em degrades parados por cima da fita (doc 121): antes era um mask-image, que a placa de video
+   refazia a cada quadro com a fita andando por baixo */
+.linha-da-roleta::before, .linha-da-roleta::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 16%;
+    z-index: 1;
+    pointer-events: none;
+}
+.linha-da-roleta::before { left: 0; background: linear-gradient(90deg, var(--superficie), transparent); }
+.linha-da-roleta::after { right: 0; background: linear-gradient(270deg, var(--superficie), transparent); }
 /* a pauta entre as linhas */
 .linha-da-roleta + .linha-da-roleta { border-top: 2px solid color-mix(in srgb, #5aa9ff 35%, transparent); }
 .fita-da-roleta { display: flex; gap: 10px; width: max-content; will-change: transform; }
+.fita-da-roleta.parou, .linha-da-roleta.parada .fita-da-roleta { will-change: auto; }
 .linha-da-roleta.parada .fita-da-roleta { margin-left: 50%; transform: translateX(-62px); }
 /* na fita nada anima: sao muitas casas andando */
 .fita-da-roleta *, .fita-da-roleta *::before, .fita-da-roleta *::after { animation: none !important; transition: none !important; }
@@ -4138,11 +4150,8 @@ dialog.janela-do-sorteio::backdrop { background: rgba(8, 8, 12, .84); backdrop-f
     border-radius: 10px;
     background: linear-gradient(180deg, var(--superficie-2), color-mix(in srgb, var(--cor-do-tipo) 18%, var(--superficie-2)));
     border-bottom: 4px solid var(--cor-do-tipo);
-    opacity: .55;
-    transition: opacity .12s, transform .12s !important;
 }
-.casa-da-roleta.na-mira { opacity: 1; transform: scale(1.06); }
-.casa-da-roleta.premio-da-fita { opacity: 1; transform: scale(1.1); box-shadow: 0 0 0 2px var(--cor-do-tipo), 0 0 26px color-mix(in srgb, var(--cor-do-tipo) 70%, transparent); }
+.casa-da-roleta.premio-da-fita { transform: scale(1.1); box-shadow: 0 0 0 2px var(--cor-do-tipo), 0 0 26px color-mix(in srgb, var(--cor-do-tipo) 70%, transparent); }
 .previa-da-casa { height: 112px; display: grid; place-items: center; overflow: hidden; }
 .previa-da-casa .previa-do-item { width: auto; height: 100%; }
 .previa-da-casa .previa-do-item .capa-de-exemplo span { font-size: 30px; }
@@ -4160,9 +4169,9 @@ dialog.janela-do-sorteio::backdrop { background: rgba(8, 8, 12, .84); backdrop-f
     border-radius: 14px;
     box-shadow: 0 0 18px color-mix(in srgb, var(--destaque) 50%, transparent);
     pointer-events: none;
-    z-index: 1;
+    z-index: 2;
 }
-.seta-da-roleta { position: absolute; left: 50%; z-index: 2; transform: translateX(-50%); border-left: 11px solid transparent; border-right: 11px solid transparent; }
+.seta-da-roleta { position: absolute; left: 50%; z-index: 3; transform: translateX(-50%); border-left: 11px solid transparent; border-right: 11px solid transparent; }
 .seta-da-roleta.de-cima { top: 0; border-top: 13px solid var(--destaque); }
 .seta-da-roleta.de-baixo { bottom: 0; border-bottom: 13px solid var(--destaque); }
 /* com tres fitas, casas um pouco menores, para caber na tela */
@@ -4174,8 +4183,20 @@ dialog.janela-do-sorteio::backdrop { background: rgba(8, 8, 12, .84); backdrop-f
 .controles-da-roleta { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
 .controles-da-roleta .nota-da-loja, .controles-da-roleta .situacao { margin: 0; }
 .botao.grande { min-height: 50px; padding: 0 28px; font-size: 18px; border-radius: 12px; }
-.girar-gratis { animation: girar-gratis-chamando 1.6s ease-in-out infinite; }
-@keyframes girar-gratis-chamando { 50% { transform: scale(1.05); box-shadow: 0 0 26px color-mix(in srgb, var(--destaque) 60%, transparent); } }
+.girar-gratis { position: relative; animation: girar-gratis-chamando 1.6s ease-in-out infinite; }
+/* o brilho em volta e uma camada que so muda de opacidade (doc 121): animar o box-shadow redesenhava o botao a cada quadro */
+.girar-gratis::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: 0 0 26px color-mix(in srgb, var(--destaque) 70%, transparent);
+    opacity: 0;
+    animation: brilho-do-giro-gratis 1.6s ease-in-out infinite;
+    pointer-events: none;
+}
+@keyframes girar-gratis-chamando { 50% { transform: scale(1.05); } }
+@keyframes brilho-do-giro-gratis { 50% { opacity: 1; } }
 /* os blocos de botoes da roleta (doc 119): titulo em cima e tres botoes do mesmo tamanho */
 .bloco-da-roleta { display: flex; flex-direction: column; gap: 8px; width: min(100%, 460px); }
 .titulo-do-bloco { font-weight: 800; font-size: 15px; }
@@ -4239,4 +4260,4 @@ dialog.janela-do-sorteio::backdrop { background: rgba(8, 8, 12, .84); backdrop-f
     .premio { width: min(100%, 260px); }
     .convite-da-roleta { flex-wrap: wrap; }
 }
-@media (prefers-reduced-motion: reduce) { .girar-gratis { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .girar-gratis, .girar-gratis::after { animation: none; } }
