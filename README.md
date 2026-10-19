@@ -134,6 +134,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [O site aberto para quem não tem conta](docs/104-site-aberto-sem-conta.md) | |
 | [A página inicial abre o site, sem pedir conta](docs/105-pagina-inicial-sem-conta.md) | |
 | ["Todos os mangás" sem conta leva para criar conta](docs/106-todos-os-mangas-sem-conta.md) | |
+| [Tema Palácio Zen, com fundo em vídeo](docs/107-tema-palacio-zen-em-video.md) | |
 
 ## Testes
 

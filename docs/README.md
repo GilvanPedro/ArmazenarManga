@@ -110,6 +110,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [104 · O site aberto para quem não tem conta](104-site-aberto-sem-conta.md) | Sem conta, dá para ver a Comunidade, a loja e o Descobrir; cadastrar, postar, curtir, comentar, seguir, abrir listas, ver os mangás de alguém e comprar levam para criar conta |
 | [105 · A página inicial abre o site, sem pedir conta](105-pagina-inicial-sem-conta.md) | Sem conta, a página inicial mostra as boas-vindas e o Descobrir; entrar e criar conta só quando a pessoa pede ou precisa |
 | [106 · "Todos os mangás" sem conta leva para criar conta](106-todos-os-mangas-sem-conta.md) | A aba que não fazia nada sem conta agora abre criar conta |
+| [107 · Tema Palácio Zen, com fundo em vídeo](107-tema-palacio-zen-em-video.md) | O primeiro tema com vídeo de fundo, escurecido, que pausa sem foco |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

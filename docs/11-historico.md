@@ -299,6 +299,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [A página inicial abre o site, sem pedir conta](105-pagina-inicial-sem-conta.md).
 - **"Todos os mangás" sem conta.** A aba, que não fazia nada sem conta, leva para criar conta. Detalhes em
   ["Todos os mangás" sem conta leva para criar conta](106-todos-os-mangas-sem-conta.md).
+- **Tema Palácio Zen.** O primeiro tema com vídeo de fundo. Detalhes em
+  [Tema Palácio Zen, com fundo em vídeo](107-tema-palacio-zen-em-video.md).
 
 ## O que foi removido ou abandonado
 

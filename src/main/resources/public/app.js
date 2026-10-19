@@ -2972,6 +2972,38 @@ function mostrarTemaNaPagina(tema) {
 }
 const meuTema = () => (typeof estado.sessao?.conta?.tema === 'string' ? estado.sessao.conta.tema : null);
 
+/*
+ * Temas com fundo em video (doc 107): um <video> fixo atras de tudo, em loop, sem som. Ele so existe enquanto o tema
+ * esta na pagina (o data-tema do <html>), pausa com a janela sem foco ou a aba escondida, e quem prefere menos
+ * movimento ve so a imagem parada. O video vem dos arquivos do site (CDN), nao do banco.
+ */
+const FUNDOS_EM_VIDEO = {
+    palacio: {webm: 'temas/palacio-zen-1.webm', mp4: 'temas/palacio-zen-1.mp4', imagem: 'temas/palacio-zen-1.jpg'},
+};
+function sincronizarFundoEmVideo() {
+    const tema = document.documentElement.dataset.tema;
+    const fundo = FUNDOS_EM_VIDEO[tema];
+    let video = document.getElementById('fundo-em-video');
+    if (!fundo) {
+        video?.remove();
+        return;
+    }
+    if (!video || video.dataset.tema !== tema) {
+        video?.remove();
+        video = h('video', {id: 'fundo-em-video', 'data-tema': tema, muted: true, loop: true, playsinline: true, preload: 'auto', poster: fundo.imagem, 'aria-hidden': 'true', tabindex: '-1'},
+            h('source', {src: fundo.webm, type: 'video/webm'}), h('source', {src: fundo.mp4, type: 'video/mp4'}));
+        video.muted = true;
+        document.body.prepend(video);
+    }
+    const parado = matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden || document.documentElement.classList.contains('sem-foco');
+    if (parado) video.pause();
+    else video.play().catch(() => {});
+}
+new MutationObserver(sincronizarFundoEmVideo).observe(document.documentElement, {attributes: true, attributeFilter: ['data-tema', 'class']});
+document.addEventListener('visibilitychange', sincronizarFundoEmVideo);
+document.addEventListener('DOMContentLoaded', sincronizarFundoEmVideo);
+if (document.body) sincronizarFundoEmVideo();
+
 /** As camadas do fundo animado de um tema, para uma janela com o tema de outra pessoa. */
 const camadasDoTema = () => [1, 2, 3, 4].map(n => h('div', {class: 'fundo-da-previa' + (n > 1 ? '-' + n : ''), 'aria-hidden': 'true'}));
 

@@ -74,6 +74,7 @@ export const ITENS_DA_LOJA = [
     { id: 'entardecer', tipo: 'tema', nome: 'Entardecer', descricao: 'Fundo animado: o pôr do sol dos animes, com postes e fios contra o céu laranja e rosa, nuvens passando e um avião riscando o céu.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'matsuri', tipo: 'tema', nome: 'Festival de Verão', descricao: 'Fundo animado: uma noite de matsuri, com lanternas de papel acesas balançando e fogos de artifício abrindo ao longe.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
     { id: 'pagina', tipo: 'tema', nome: 'Página de Mangá', descricao: 'Fundo animado: o site vira uma página de mangá, com papel, tinta preta, quadrinhos, retícula e um ドキドキ batendo no canto.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
+    { id: 'palacio', tipo: 'tema', nome: 'Palácio Zen', descricao: 'Fundo animado em vídeo: um palácio japonês sobre a água, bordos vermelhos e pássaros voando, numa pintura em tinta. Escurecido, para a leitura.', preco: PRECO_DO_TEMA_ANIMADO, animado: true },
 ];
 
 /** Os temas de graca, que toda conta tem: o escuro (o de sempre) e o claro. Sem tema, o site segue o sistema. */

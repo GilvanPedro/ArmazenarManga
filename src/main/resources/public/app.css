@@ -3702,3 +3702,34 @@ html.sem-foco *, html.sem-foco *::before, html.sem-foco *::after { animation-pla
 .boas-vindas h1 { margin: 0 0 6px; font-size: clamp(22px, 3vw, 28px); letter-spacing: -.02em; }
 .boas-vindas p { margin: 0; color: var(--texto-fraco); max-width: 70ch; }
 .acoes-das-boas-vindas { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ------------------------------------------------------------ tema Palácio Zen (doc 107): fundo em vídeo
+ * o vídeo (claro, em tinta) fica atrás de tudo; uma camada escura por cima deixa o fundo "meio escuro" para a leitura,
+ * com o vermelho dos bordos aparecendo. Nas prévias da loja, a imagem parada com a mesma camada.
+ */
+[data-tema="palacio"] {
+    --fundo: #121014;
+    --fundo-imagem: none;
+    --superficie: rgba(22, 18, 22, .82);
+    --superficie-2: rgba(40, 32, 36, .8);
+    --borda: rgba(220, 120, 110, .22);
+    --texto: #f4ece8;
+    --texto-fraco: #c2b4b0;
+    --destaque: #e0483e;
+    --destaque-forte: #ff7a6e;
+    --sobre-destaque: #ffffff;
+    --perigo: #ff8a8a;
+    --sombra: 0 10px 30px rgba(0, 0, 0, .5);
+    --lendo: #3ecf8e; --ler: #5aa9ff; --concluido: #b08cff; --hiatus: #f5b942; --dropado: #ef7a7a; --cancelado: #9aa1b0;
+    color-scheme: dark;
+}
+#fundo-em-video { position: fixed; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+:root[data-tema="palacio"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(10, 8, 12, .7), rgba(10, 8, 12, .58) 45%, rgba(10, 8, 12, .72));
+}
+[data-tema="palacio"] > .fundo-da-previa { background: linear-gradient(rgba(10, 8, 12, .6), rgba(10, 8, 12, .6)), url("temas/palacio-zen-1.jpg") center / cover; }
