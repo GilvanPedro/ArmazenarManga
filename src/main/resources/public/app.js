@@ -685,11 +685,70 @@ window.addEventListener('blur', () => document.documentElement.classList.add('se
 window.addEventListener('focus', () => document.documentElement.classList.remove('sem-foco'));
 
 /*
+ * Os fundos animados dos temas a 30 quadros por segundo (doc 112). Um fundo que se mexe na tela toda faz o navegador
+ * redesenhar a tela inteira a cada quadro, 60 vezes por segundo. Para um fundo lento, 30 bastam e quase nao se nota a
+ * diferenca, e o trabalho cai pela metade. O CSS nao tem como baixar o ritmo, entao as animacoes das camadas do tema
+ * (as do <html> e do <body>, e as das janelas com o tema de outra pessoa) sao pausadas e o app.js as adianta 30 vezes
+ * por segundo. Sem foco, com a aba escondida ou com menos movimento, o relogio para; ao voltar, segue de onde parou.
+ */
+const QUADROS_DO_FUNDO = 30;
+const menosMovimento = matchMedia('(prefers-reduced-motion: reduce)');
+const fundoAnimado = {animacoes: [], relogio: 0, ultimo: 0, voltas: 0};
+// as que entram no relogio: as sem fim das camadas do tema, das janelas com tema, das previas de tema da loja e dos
+// enfeites dos favoritos (bordas e efeitos). As de uma vez so (o reflexo, as de abrir janela) continuam no ritmo normal
+function ehAnimacaoDeFundo(animacao) {
+    const alvo = animacao.effect?.target;
+    if (!alvo || !(animacao instanceof CSSAnimation) || animacao.effect.getTiming().iterations !== Infinity) return false;
+    return alvo === document.documentElement || alvo === document.body || Boolean(alvo.parentElement?.classList.contains('janela-com-tema'))
+        || Boolean(alvo.closest('.capa.favorita, .previa-do-tema'));
+}
+function pegarAnimacoesDoFundo() {
+    fundoAnimado.animacoes = fundoAnimado.animacoes.filter(item => item.animacao.playState !== 'idle' && item.animacao.effect?.target?.isConnected);
+    for (const animacao of document.getAnimations()) {
+        if (animacao.playState !== 'running' || !ehAnimacaoDeFundo(animacao)) continue;
+        // cada uma guarda onde estava, para continuar dali no relogio comum; as de dentro da pagina (capas e previas)
+        // param fora da tela, como antes (o data-fora, doc 100)
+        const alvo = animacao.effect.target;
+        const naPagina = alvo !== document.documentElement && alvo !== document.body;
+        fundoAnimado.animacoes.push({animacao, alvo: naPagina ? alvo : null, inicio: (animacao.currentTime || 0) - fundoAnimado.relogio});
+        animacao.pause();
+    }
+}
+setInterval(() => {
+    const agora = performance.now();
+    const passou = Math.min(agora - (fundoAnimado.ultimo || agora), 250);
+    fundoAnimado.ultimo = agora;
+    // de tempos em tempos (e quando o tema muda), pega as animacoes novas: tema trocado, janela aberta, tela girada
+    if (++fundoAnimado.voltas % (QUADROS_DO_FUNDO * 2) === 1) pegarAnimacoesDoFundo();
+    if (!fundoAnimado.animacoes.length || document.hidden || menosMovimento.matches || document.documentElement.classList.contains('sem-foco')) return;
+    fundoAnimado.relogio += passou;
+    for (const item of fundoAnimado.animacoes) {
+        if (item.alvo?.closest('[data-fora]')) {
+            // parada fora da tela: quando voltar, segue de onde parou
+            item.inicio -= passou;
+            continue;
+        }
+        item.animacao.currentTime = item.inicio + fundoAnimado.relogio;
+    }
+}, 1000 / QUADROS_DO_FUNDO);
+// tema trocado ou janela com tema aberta: pega as animacoes novas ja no proximo quadro (sem esperar os 2 s)
+// pagina nova ou janela com tema aberta: pega as animacoes novas no proximo quadro
+let pegarDepois = 0;
+const pegarLogo = () => {
+    if (pegarDepois) return;
+    pegarDepois = requestAnimationFrame(() => {
+        pegarDepois = 0;
+        pegarAnimacoesDoFundo();
+    });
+};
+new MutationObserver(pegarLogo).observe(document.body, {childList: true, subtree: true});
+new MutationObserver(pegarLogo).observe(document.documentElement, {attributes: true, attributeFilter: ['data-tema']});
+
+/*
  * O reflexo que passa pelos favoritos (doc 111): de 7 em 7 segundos, uma passada de 2,7 s nas capas que estao na
  * tela. Entre uma e outra nada anima, e a tela fica parada. As capas com um efeito ou borda da loja que ja anima o
  * proprio brilho ficam de fora. Para com a janela sem foco, a aba escondida ou quem prefere menos movimento.
  */
-const menosMovimento = matchMedia('(prefers-reduced-motion: reduce)');
 setInterval(() => {
     if (document.hidden || menosMovimento.matches || document.documentElement.classList.contains('sem-foco')) return;
     const capas = [...document.querySelectorAll('.capa.favorita:not([data-fora]):not(.reflexo)')]
@@ -3003,10 +3062,11 @@ const meuTema = () => (typeof estado.sessao?.conta?.tema === 'string' ? estado.s
  * quando o tema esta na pagina: com outro tema, nada disso carrega.
  */
 const FUNDOS_EM_VIDEO = {
-    palacio: {nome: 'palacio-zen-1', retrato: 'palacio-zen-retrato-1', imagem: 'palacio-zen-1.jpg'},
+    // a 24 quadros por segundo (doc 112): menos para decodificar e desenhar, e a cena lenta fica igual
+    palacio: {nome: 'palacio-zen-2', retrato: 'palacio-zen-retrato-2', imagem: 'palacio-zen-1.jpg'},
     // pixel art: o video vem no tamanho de verdade da arte (640x360, doc 111) e o navegador amplia sem borrar
-    kyoto: {nome: 'kyoto-2', retrato: 'kyoto-retrato-2', imagem: 'kyoto-2.jpg'},
-    lamina: {nome: 'lamina-2', retrato: 'lamina-retrato-1', imagem: 'lamina-1.jpg'},
+    kyoto: {nome: 'kyoto-3', retrato: 'kyoto-retrato-3', imagem: 'kyoto-2.jpg'},
+    lamina: {nome: 'lamina-3', retrato: 'lamina-retrato-2', imagem: 'lamina-1.jpg'},
 };
 /*
  * Qual video de um tema tocar (doc 111): em tela em pe (celular), uma versao vertical, recortada no que importa da

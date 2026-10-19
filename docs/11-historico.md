@@ -309,6 +309,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes em [Pré-visualizar os itens da loja na sua Biblioteca](110-pre-visualizar-itens-da-loja.md).
 - **Otimização dos temas e celular.** Menos processador com os temas animados, vídeos em pé no celular e a rolagem da
   pré-visualização. Detalhes em [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).
+- **Temas animados a 30 quadros.** Os fundos e enfeites animados a 30 quadros por segundo e os vídeos a 24. Detalhes em
+  [Temas animados a 30 quadros por segundo e vídeos a 24](112-temas-animados-a-30-quadros.md).
 
 ## O que foi removido ou abandonado
 

@@ -139,6 +139,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Temas Primavera em Kyoto e Lâmina Sombria](docs/109-temas-kyoto-e-lamina-sombria.md) | |
 | [Pré-visualizar os itens da loja na sua Biblioteca](docs/110-pre-visualizar-itens-da-loja.md) | |
 | [Otimização dos temas animados e dos vídeos no celular](docs/111-otimizacao-dos-temas-e-celular.md) | |
+| [Temas animados a 30 quadros por segundo e vídeos a 24](docs/112-temas-animados-a-30-quadros.md) | |
 
 ## Testes
 

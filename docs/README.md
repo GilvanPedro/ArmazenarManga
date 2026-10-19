@@ -115,6 +115,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [109 · Temas Primavera em Kyoto e Lâmina Sombria](109-temas-kyoto-e-lamina-sombria.md) | Mais dois temas em vídeo: um claro em pixel art e um escuro em preto e branco |
 | [110 · Pré-visualizar os itens da loja na sua Biblioteca](110-pre-visualizar-itens-da-loja.md) | Uma janela com a sua Biblioteca com o tema, a borda ou o efeito, antes de comprar |
 | [111 · Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md) | O reflexo dos favoritos, Aurora e Galáxia sem blur, Kyoto em 640 × 360, vídeos em pé no celular e a rolagem da pré-visualização |
+| [112 · Temas animados a 30 quadros por segundo e vídeos a 24](112-temas-animados-a-30-quadros.md) | Os fundos e enfeites animados num relógio de 30 quadros por segundo, e os vídeos a 24 |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

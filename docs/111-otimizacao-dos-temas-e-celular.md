@@ -92,3 +92,5 @@ no centro). Virando o celular, o vídeo troca para o deitado.
   a horizontal.
 - Aurora e Galáxia sem o blur, conferidas na tela.
 - Os testes passam.
+
+> Uma segunda rodada (os fundos a 30 quadros por segundo e os vídeos a 24): veja [Temas animados a 30 quadros por segundo e vídeos a 24](112-temas-animados-a-30-quadros.md).
