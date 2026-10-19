@@ -121,6 +121,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [115 · Roleta da loja](115-roleta-da-loja.md) | Um giro grátis por conta e giros a R$ 5,00 (até 3 ao mesmo tempo) que sorteiam um item que a pessoa não tem |
 | [116 · Roleta para quem já tem todos os itens](116-roleta-com-todos-os-itens.md) | Sem itens faltando, a roleta não vende nem gira; a mensagem certa |
 | [117 · "Roleta" sem emoji](117-roleta-sem-emoji.md) | A aba e o título da roleta só com o nome |
+| [118 · Roleta: o prêmio no meio da mira e só o que falta na fita](118-roleta-premio-no-meio-e-so-o-que-falta.md) | O prêmio desliza até o meio da mira, e a fita só mostra os itens que a pessoa ainda não tem |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

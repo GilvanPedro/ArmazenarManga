@@ -81,3 +81,5 @@ comprar giros. Os testes passam.
 > Quem já tem todos os itens não paga nem gira: veja [Roleta para quem já tem todos os itens](116-roleta-com-todos-os-itens.md).
 
 > A aba e o título passaram a ser só "Roleta", sem o emoji: veja ["Roleta" sem emoji](117-roleta-sem-emoji.md).
+
+> O prêmio passou a parar no meio da mira, e a fita só mostra o que ainda pode sair: veja [Roleta: o prêmio no meio da mira e só o que falta na fita](118-roleta-premio-no-meio-e-so-o-que-falta.md).

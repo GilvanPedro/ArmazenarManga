@@ -3613,11 +3613,17 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
     const controles = h('div', {class: 'controles-da-roleta'});
     const premios = h('div', {class: 'premios-da-roleta', hidden: true});
     let girando = false;
+    // so o que ainda pode sair: os itens que a pessoa ja tem nao aparecem nas fitas (o dono ve todos)
+    const quePodemSair = () => (roleta.demonstracao ? dados.itens : dados.itens.filter(item => !dados.mochila.some(m => m.item === item.id)));
 
     // fita parada, so para mostrar o que pode sair, antes do primeiro giro
     const fitaParada = () => {
         const fita = h('div', {class: 'fita-da-roleta'});
-        const itens = dados.itens.slice().sort(() => Math.random() - 0.5).slice(0, 12);
+        const podem = quePodemSair();
+        if (!podem.length) return h('div', {class: 'linha-da-roleta parada vazia'}, h('p', {class: 'nota-da-loja'}, 'Nada mais para sair: a mochila está completa.'));
+        const itens = [];
+        while (itens.length < 12) itens.push(...podem.slice().sort(() => Math.random() - 0.5));
+        itens.length = 12;
         fita.append(...itens.map(item => casaDaRoleta(item, exemplo)));
         return h('div', {class: 'linha-da-roleta parada'}, h('span', {class: 'mira-da-roleta', 'aria-hidden': 'true'}), fita);
     };
@@ -3679,7 +3685,9 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
             depoisDeGirar?.();
         }
         premios.hidden = true;
-        await animarRoleta(palco, resposta.itens, dados.itens, exemplo);
+        // as casas da fita: o que ainda podia sair antes deste giro (os premios dele inclusive)
+        const daFita = [...quePodemSair(), ...resposta.itens.filter(item => !quePodemSair().includes(item))];
+        await animarRoleta(palco, resposta.itens, daFita, exemplo);
         mostrarPremios(resposta.itens, resposta.demonstracao);
         girando = false;
         desenharControles();
@@ -3747,14 +3755,22 @@ function animarRoleta(palco, premios, todos, exemplo) {
             const desvio = (Math.random() - 0.5) * largura * 0.7;
             const fim = -(alvo.offsetLeft + largura / 2 - meio + desvio);
             if (menosMovimento.matches) {
-                fita.style.transform = `translateX(${fim}px)`;
+                fita.style.transform = `translateX(${fim + desvio}px)`;
                 alvo.classList.add('na-mira', 'premio-da-fita');
                 return null;
             }
             // as linhas param uma depois da outra, com 0,7 s entre elas
             const animacao = fita.animate([{transform: 'translateX(0)'}, {transform: `translateX(${fim}px)`}],
                 {duration: 5200 + indice * 700, easing: 'cubic-bezier(.08, .72, .16, 1)', fill: 'forwards'});
-            animacao.finished.then(() => alvo.classList.add('premio-da-fita')).catch(() => {});
+            // parou um pouco para o lado (o suspense): desliza o resto ate o premio ficar no meio exato da mira
+            animacao.finished.then(() => {
+                const centro = -(alvo.offsetLeft + largura / 2 - meio);
+                animacao.commitStyles?.();
+                animacao.cancel();
+                const ajuste = fita.animate([{transform: `translateX(${fim}px)`}, {transform: `translateX(${centro}px)`}],
+                    {duration: 450, easing: 'cubic-bezier(.3, 0, .2, 1)', fill: 'forwards'});
+                ajuste.finished.then(() => alvo.classList.add('premio-da-fita')).catch(() => {});
+            }).catch(() => {});
             return {animacao, fita, casas, meio, inicio: casas[0].offsetLeft + largura / 2, passo: largura + parseFloat(getComputedStyle(fita).columnGap || '0'), acesa: null};
         }).filter(Boolean);
         if (!animacoes.length) {

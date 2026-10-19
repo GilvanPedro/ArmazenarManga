@@ -320,6 +320,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Roleta com todos os itens.** Conferido que quem tem tudo não paga nem gira, com a mensagem corrigida. Detalhes em
   [Roleta para quem já tem todos os itens](116-roleta-com-todos-os-itens.md).
 - **"Roleta" sem emoji.** A aba e o título da roleta só com o nome. Detalhes em ["Roleta" sem emoji](117-roleta-sem-emoji.md).
+- **Roleta: prêmio no meio e só o que falta.** O prêmio para no meio da mira, e a fita só mostra o que ainda pode
+  sair. Detalhes em [Roleta: o prêmio no meio da mira e só o que falta na fita](118-roleta-premio-no-meio-e-so-o-que-falta.md).
 
 ## O que foi removido ou abandonado
 
