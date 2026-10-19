@@ -322,6 +322,10 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **"Roleta" sem emoji.** A aba e o título da roleta só com o nome. Detalhes em ["Roleta" sem emoji](117-roleta-sem-emoji.md).
 - **Roleta: prêmio no meio e só o que falta.** O prêmio para no meio da mira, e a fita só mostra o que ainda pode
   sair. Detalhes em [Roleta: o prêmio no meio da mira e só o que falta na fita](118-roleta-premio-no-meio-e-so-o-que-falta.md).
+- **Partes do site e roleta no celular.** As partes viraram uma barra com ícones, e os botões da roleta ficaram em
+  blocos. Detalhes em [Botões da roleta e as partes do site no celular](119-roleta-e-partes-do-site-no-celular.md).
+- **Prêmio da roleta centralizado.** A capa no meio do cartão e sem o "null". Detalhes em
+  [O prêmio da roleta centralizado](120-premio-da-roleta-centralizado.md).
 
 ## O que foi removido ou abandonado
 

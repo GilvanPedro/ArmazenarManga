@@ -60,3 +60,5 @@ Conferido em um navegador: as partes não aparecem na tela de entrada; a parte c
 Lançam hoje, em Descobrir e na Comunidade, e nenhuma em Minha conta; "+ Adicionar" some na Comunidade; o botão
 "Ir para a Biblioteca" e o clique em Biblioteca levam à lista; e o topo no celular (375 e 640 px), sem rolagem para
 o lado. Não há teste automático.
+
+> No celular, as partes do site viraram uma barra com ícones: veja [Botões da roleta e as partes do site no celular](119-roleta-e-partes-do-site-no-celular.md).

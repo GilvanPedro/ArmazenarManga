@@ -83,3 +83,7 @@ comprar giros. Os testes passam.
 > A aba e o título passaram a ser só "Roleta", sem o emoji: veja ["Roleta" sem emoji](117-roleta-sem-emoji.md).
 
 > O prêmio passou a parar no meio da mira, e a fita só mostra o que ainda pode sair: veja [Roleta: o prêmio no meio da mira e só o que falta na fita](118-roleta-premio-no-meio-e-so-o-que-falta.md).
+
+> Os botões passaram a ficar em blocos: veja [Botões da roleta e as partes do site no celular](119-roleta-e-partes-do-site-no-celular.md).
+
+> A capa do prêmio passou a ficar no meio do cartão: veja [O prêmio da roleta centralizado](120-premio-da-roleta-centralizado.md).

@@ -3629,36 +3629,36 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
     };
     palco.append(fitaParada());
 
+    // os botoes em blocos (doc 119): "Girar" com 1, 2 e 3 do mesmo tamanho, e "Comprar giros" com a quantidade e o
+    // preco em duas linhas; no celular, cada bloco ocupa a largura toda e nada fica sobrando sozinho numa linha
+    const bloco = (titulo, ...conteudo) => h('div', {class: 'bloco-da-roleta'}, titulo ? h('span', {class: 'titulo-do-bloco'}, titulo) : null, ...conteudo);
+    const botoesDeGirar = ate => h('div', {class: 'grade-de-giros'}, ...Array.from({length: roleta.porVez}, (_, i) => i + 1).map(n =>
+        h('button', {type: 'button', class: 'botao primario', disabled: n > ate, onclick: () => girar(n, false)},
+            h('b', null, n > 1 ? `Girar ${n}` : 'Girar 1'), h('small', null, n > 1 ? 'de uma vez' : 'giro'))));
     const desenharControles = () => {
-        const botoes = [];
+        const blocos = [];
         if (roleta.demonstracao) {
-            botoes.push(h('p', {class: 'nota-da-loja'}, 'Como dono do site, você já tem tudo: seus giros são só para ver a roleta (nada é gasto nem guardado).'));
-            for (let n = 1; n <= roleta.porVez; n++) botoes.push(h('button', {type: 'button', class: 'botao primario', onclick: () => girar(n, false)}, n > 1 ? `Girar ${n} de uma vez` : 'Girar'));
+            blocos.push(bloco('Girar', botoesDeGirar(roleta.porVez)),
+                h('p', {class: 'nota-da-loja'}, 'Como dono do site, você já tem tudo: seus giros são só para ver a roleta (nada é gasto nem guardado).'));
         } else if (roleta.faltam === 0) {
-            botoes.push(h('p', {class: 'nota-da-loja'}, '🏆 Você já tem todos os itens da loja!'));
+            blocos.push(h('p', {class: 'nota-da-loja'}, '🏆 Você já tem todos os itens da loja!'));
         } else if (roleta.gratis) {
-            botoes.push(h('button', {type: 'button', class: 'botao primario grande girar-gratis', onclick: () => girar(1, true)}, '🎁 Girar de graça'));
-            botoes.push(h('p', {class: 'nota-da-loja'}, ehVisitante() ? 'Crie sua conta e ganhe um giro grátis.' : 'Toda conta ganha um giro grátis. Os próximos custam ' + PRECO_EM_REAIS(roleta.preco) + ' cada.'));
+            blocos.push(h('button', {type: 'button', class: 'botao primario grande girar-gratis', onclick: () => girar(1, true)}, '🎁 Girar de graça'),
+                h('p', {class: 'nota-da-loja'}, ehVisitante() ? 'Crie sua conta e ganhe um giro grátis.' : 'Toda conta ganha um giro grátis. Os próximos custam ' + PRECO_EM_REAIS(roleta.preco) + ' cada.'));
         } else {
             if (roleta.giros > 0) {
-                botoes.push(h('p', {class: 'giros-guardados'}, `Você tem ${roleta.giros} giro${roleta.giros > 1 ? 's' : ''}`));
-                const ate = Math.min(roleta.giros, roleta.porVez, roleta.faltam);
-                const linha = h('div', {class: 'linha-de-botoes'});
-                for (let n = 1; n <= ate; n++) linha.append(h('button', {type: 'button', class: 'botao primario', onclick: () => girar(n, false)}, n > 1 ? `Girar ${n} de uma vez` : 'Girar'));
-                botoes.push(linha);
+                blocos.push(bloco(`Você tem ${roleta.giros} giro${roleta.giros > 1 ? 's' : ''}`, botoesDeGirar(Math.min(roleta.giros, roleta.porVez, roleta.faltam))));
             }
-            const compra = h('div', {class: 'comprar-giros'},
-                h('span', null, roleta.giros > 0 ? 'Comprar mais giros:' : 'Comprar giros:'));
             const podeComprar = Math.min(roleta.porVez, roleta.faltam - roleta.giros);
-            for (let n = 1; n <= roleta.porVez; n++) {
-                compra.append(h('button', {type: 'button', class: 'botao' + (n === 1 && roleta.giros === 0 ? ' primario' : ''),
-                    disabled: !dados.pagamentoConfigurado || n > podeComprar,
-                    onclick: evento => comprarGiros(n, evento.currentTarget)}, `${n} giro${n > 1 ? 's' : ''} · ${PRECO_EM_REAIS(roleta.preco * n)}`));
-            }
-            botoes.push(compra);
-            if (!dados.pagamentoConfigurado) botoes.push(h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'));
+            blocos.push(bloco(roleta.giros > 0 ? 'Comprar mais giros' : 'Comprar giros',
+                h('div', {class: 'grade-de-giros'}, ...Array.from({length: roleta.porVez}, (_, i) => i + 1).map(n =>
+                    h('button', {type: 'button', class: 'botao' + (n === 1 && roleta.giros === 0 ? ' primario' : ''),
+                        disabled: !dados.pagamentoConfigurado || n > podeComprar,
+                        onclick: evento => comprarGiros(n, evento.currentTarget)},
+                    h('b', null, `${n} giro${n > 1 ? 's' : ''}`), h('small', null, PRECO_EM_REAIS(roleta.preco * n)))))));
+            if (!dados.pagamentoConfigurado) blocos.push(h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'));
         }
-        controles.replaceChildren(...botoes);
+        controles.replaceChildren(...blocos);
     };
     desenharControles();
 
@@ -3694,7 +3694,8 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
     };
 
     const mostrarPremios = (itens, demonstracao) => {
-        premios.replaceChildren(
+        // replaceChildren escreveria "null" como texto: o que nao vale fica de fora (doc 120)
+        premios.replaceChildren(...[
             h('h2', null, itens.length > 1 ? 'Você ganhou:' : 'Você ganhou'),
             h('div', {class: 'cartoes-dos-premios'}, ...itens.map(item => {
                 const botao = demonstracao ? null : h('button', {type: 'button', class: 'botao primario', onclick: async evento => {
@@ -3710,7 +3711,7 @@ function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) 
                     h('div', {class: 'acoes-do-premio'}, botao,
                         h('button', {type: 'button', class: 'botao', onclick: () => abrirPreviaDoItem(item, null)}, '👁 Pré-visualizar')));
             })),
-            demonstracao ? null : h('p', {class: 'nota-da-loja'}, 'Já está na sua mochila.'));
+            demonstracao ? null : h('p', {class: 'nota-da-loja'}, 'Já está na sua mochila.')].filter(Boolean));
         premios.hidden = false;
         if (!menosMovimento.matches) confete(premios);
         premios.scrollIntoView({behavior: menosMovimento.matches ? 'auto' : 'smooth', block: 'nearest'});

@@ -146,6 +146,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Roleta para quem já tem todos os itens](docs/116-roleta-com-todos-os-itens.md) | |
 | ["Roleta" sem emoji](docs/117-roleta-sem-emoji.md) | |
 | [Roleta: o prêmio no meio da mira e só o que falta na fita](docs/118-roleta-premio-no-meio-e-so-o-que-falta.md) | |
+| [Botões da roleta e as partes do site no celular](docs/119-roleta-e-partes-do-site-no-celular.md) | |
+| [O prêmio da roleta centralizado](docs/120-premio-da-roleta-centralizado.md) | |
 
 ## Testes
 
