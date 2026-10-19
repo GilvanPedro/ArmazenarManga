@@ -22,6 +22,40 @@ export const PRECO_DO_EFEITO = 250;
 export const PRECO_DO_TEMA = 500;
 export const PRECO_DO_TEMA_ANIMADO = 750;
 
+/*
+ * Roleta (doc 115): um giro sorteia um item da loja que a pessoa ainda nao tem. Toda conta ganha um giro de graca; os
+ * outros custam R$ 5,00 cada, comprados de 1 a 3 por vez (e girados ate 3 ao mesmo tempo). O tipo do item sai pelos
+ * pesos (borda 5, efeito 3, tema 1: 55,6%, 33,3% e 11,1%); um tipo que a pessoa ja tem inteiro sai da conta, e os pesos
+ * dos outros se dividem de novo. Dentro do tipo, qualquer item que falta, com a mesma chance. Nunca sai repetido.
+ */
+export const PRECO_DO_GIRO = 500;
+export const GIROS_POR_VEZ = 3;
+export const PESOS_DA_ROLETA = { borda: 5, efeito: 3, tema: 1 };
+
+/** Os giros de uma compra da roleta ('giros-2' = 2 giros); 0 se a compra e de um item. */
+export function girosDaCompra(item) {
+    const encontrado = /^giros-([1-9])$/.exec(item || '');
+    return encontrado && Number(encontrado[1]) <= GIROS_POR_VEZ ? Number(encontrado[1]) : 0;
+}
+
+/** A chance de cada tipo (de 0 a 1), so entre os tipos que ainda tem item para sair. */
+export function chancesDaRoleta(disponiveis) {
+    const tipos = Object.keys(PESOS_DA_ROLETA).filter(tipo => disponiveis.some(item => item.tipo === tipo));
+    const total = tipos.reduce((soma, tipo) => soma + PESOS_DA_ROLETA[tipo], 0);
+    return Object.fromEntries(tipos.map(tipo => [tipo, PESOS_DA_ROLETA[tipo] / total]));
+}
+
+/** Sorteia um item entre os disponiveis: primeiro o tipo, pelos pesos; depois o item, por igual. */
+export function sortearDaRoleta(disponiveis, aleatorio = Math.random) {
+    const chances = chancesDaRoleta(disponiveis);
+    const tipos = Object.keys(chances);
+    if (!tipos.length) return null;
+    let sorteio = aleatorio();
+    const tipo = tipos.find(t => (sorteio -= chances[t]) < 0) || tipos.at(-1);
+    const doTipo = disponiveis.filter(item => item.tipo === tipo);
+    return doTipo[Math.min(doTipo.length - 1, Math.floor(aleatorio() * doTipo.length))];
+}
+
 /**
  * O que a loja vende. O id vira a classe "borda-{id}" ou "efeito-{id}" das capas (app.css). A pessoa equipa uma borda
  * e um efeito ao mesmo tempo; sem nenhum, a borda roxa e o brilho de sempre.
@@ -42,7 +76,6 @@ export const ITENS_DA_LOJA = [
     { id: 'celestial', tipo: 'borda', nome: 'Celestial', descricao: 'Moldura dourada com arabescos, runas azuis brilhando e uma estrela com a lua no canto.', preco: PRECO_DA_BORDA },
     { id: 'boreal', tipo: 'borda', nome: 'Aurora Boreal', descricao: 'Luzes verdes, azuis e violeta que correm devagar em volta da capa, com um brilho suave por fora.', preco: PRECO_DA_BORDA },
     { id: 'eclipse', tipo: 'borda', nome: 'Eclipse', descricao: 'Moldura de obsidiana com um ponto de luz dourada que dá a volta, e um anel de diamante que faísca no canto.', preco: PRECO_DA_BORDA },
-    { id: 'derretida', tipo: 'borda', nome: 'Arte Derretida', descricao: 'Moldura de ouro e cristal azul que derrete em gotas, com runas e uma estrela brilhando no canto.', preco: PRECO_DA_BORDA },
     { id: 'reliquia', tipo: 'borda', nome: 'Relíquia', descricao: 'Moldura antiga de bronze, gasta pelo tempo, com runas gravadas e o sol e a lua no canto.', preco: PRECO_DA_BORDA },
     { id: 'elfica', tipo: 'borda', nome: 'Bosque Élfico', descricao: 'Moldura de madeira com vinhas, flores, runas verdes acesas e uma esmeralda no canto.', preco: PRECO_DA_BORDA },
     { id: 'inferno', tipo: 'borda', nome: 'Portão do Inferno', descricao: 'Pedra escura com lava nas rachaduras, correntes e um demônio de olhos em brasa no canto.', preco: PRECO_DA_BORDA },
@@ -118,6 +151,9 @@ export const ESTRUTURA_DA_LOJA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS borda TEXT;
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS efeito TEXT;
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS tema TEXT;
+    -- a roleta (doc 115): o giro de graca de cada conta, e quantos giros pagos de cada compra ainda nao foram usados
+    ALTER TABLE contas ADD COLUMN IF NOT EXISTS giro_gratis_usado BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE compras ADD COLUMN IF NOT EXISTS giros_restantes INT NOT NULL DEFAULT 0;
 `;
 
 /**
@@ -280,8 +316,22 @@ export function criarLoja(f) {
             const nova = situacaoDoPagamento(pagamento, compra);
             if (podeMudar(compra.status, nova)) {
                 await cliente.query('UPDATE compras SET status = $2, pagamento = $3, atualizada_em = now() WHERE id = $1', [compra.id, nova, String(pagamento.id)]);
-                if (nova === 'aprovada') {
+                const giros = girosDaCompra(compra.item);
+                if (nova === 'aprovada' && giros) {
+                    // giros da roleta: ficam guardados na compra ate a pessoa girar
+                    await cliente.query('UPDATE compras SET giros_restantes = $2 WHERE id = $1', [compra.id, giros]);
+                } else if (nova === 'aprovada') {
                     await cliente.query('INSERT INTO mochila (conta, item, compra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [compra.conta, compra.item, compra.id]);
+                } else if (nova === 'reembolsada' && giros) {
+                    // giros devolvidos: os que sobraram somem, e os itens que sairam deles saem da mochila (e das capas)
+                    await cliente.query('UPDATE compras SET giros_restantes = 0 WHERE id = $1', [compra.id]);
+                    const { rows: tirados } = await cliente.query('DELETE FROM mochila WHERE conta = $1 AND compra = $2 RETURNING item', [compra.conta, compra.id]);
+                    const itens = tirados.map(linha => linha.item);
+                    if (itens.length) {
+                        await cliente.query(`UPDATE contas SET borda = CASE WHEN borda = ANY($2) THEN NULL ELSE borda END,
+                            efeito = CASE WHEN efeito = ANY($2) THEN NULL ELSE efeito END, tema = CASE WHEN tema = ANY($2) THEN NULL ELSE tema END
+                            WHERE id = $1`, [compra.conta, itens]);
+                    }
                 } else if (nova === 'reembolsada') {
                     // devolvido: o item sai da mochila (e de cima das capas, se estava equipado)
                     await cliente.query('DELETE FROM mochila WHERE conta = $1 AND item = $2 AND compra = $3', [compra.conta, compra.item, compra.id]);
@@ -306,12 +356,24 @@ export function criarLoja(f) {
     /** O que a pessoa tem e o que a loja vende. */
     async function vitrine(eu) {
         const db = await banco();
-        const [{ rows: meus }, { rows: conta }] = await Promise.all([
+        const [{ rows: meus }, { rows: conta }, { rows: [{ giros }] }] = await Promise.all([
             db.query('SELECT item, obtido_em FROM mochila WHERE conta = $1 ORDER BY obtido_em', [eu.id]),
-            db.query('SELECT borda, efeito, tema FROM contas WHERE id = $1', [eu.id]),
+            db.query('SELECT borda, efeito, tema, giro_gratis_usado FROM contas WHERE id = $1', [eu.id]),
+            db.query(`SELECT coalesce(sum(giros_restantes), 0)::int AS giros FROM compras WHERE conta = $1 AND status = 'aprovada'`, [eu.id]),
         ]);
         const comprados = meus.filter(linha => itemDaLoja(linha.item)).map(linha => ({ item: linha.item, obtidoEm: linha.obtido_em }));
+        const disponiveis = temTudo(eu) ? ITENS_DA_LOJA : ITENS_DA_LOJA.filter(item => !comprados.some(meu => meu.item === item.id));
         return {
+            roleta: {
+                gratis: temTudo(eu) || !conta[0]?.giro_gratis_usado,
+                giros,
+                preco: PRECO_DO_GIRO,
+                porVez: GIROS_POR_VEZ,
+                chances: chancesDaRoleta(disponiveis),
+                faltam: disponiveis.length,
+                // o dono tem tudo: os giros dele sao so para ver a roleta (nao gastam nada nem guardam o item)
+                demonstracao: temTudo(eu),
+            },
             itens: ITENS_DA_LOJA,
             gratis: TEMAS_GRATIS,
             mochila: temTudo(eu) ? ITENS_DA_LOJA.map(item => ({ item: item.id, obtidoEm: null })) : comprados,
@@ -323,13 +385,33 @@ export function criarLoja(f) {
 
     async function comprar(request, eu) {
         if (!pagamentoConfigurado()) throw new ErroDaLoja(503, 'A loja ainda não está recebendo pagamentos. Tente mais tarde.');
-        const { item: id } = await f.lerCorpo(request);
-        const item = itemDaLoja(id);
-        if (!item) throw new ErroDaLoja(404, 'Item não encontrado na loja');
-        if (temTudo(eu)) throw new ErroDaLoja(409, 'Você é o dono do site: todos os itens já estão na sua mochila');
+        const corpo = await f.lerCorpo(request);
         const db = await banco();
-        const { rows: tem } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item.id]);
-        if (tem.length) throw new ErroDaLoja(409, 'Esse item já está na sua mochila');
+        let item;
+        if (corpo.giros !== undefined) {
+            // giros da roleta (doc 115): de 1 a 3, a R$ 5,00 cada
+            const quantos = Number(corpo.giros);
+            if (!Number.isInteger(quantos) || quantos < 1 || quantos > GIROS_POR_VEZ) throw new ErroDaLoja(400, `Compre de 1 a ${GIROS_POR_VEZ} giros por vez`);
+            if (temTudo(eu)) throw new ErroDaLoja(409, 'Você é o dono do site: já tem todos os itens');
+            // nao vende giro que nao tem o que dar: os itens que faltam tem que bastar para os giros guardados e os novos
+            const [{ rows: meus }, { rows: [{ guardados }] }] = await Promise.all([
+                db.query('SELECT item FROM mochila WHERE conta = $1', [eu.id]),
+                db.query(`SELECT coalesce(sum(giros_restantes), 0)::int AS guardados FROM compras WHERE conta = $1 AND status = 'aprovada'`, [eu.id]),
+            ]);
+            const faltam = ITENS_DA_LOJA.filter(itemDaLista => !meus.some(meu => meu.item === itemDaLista.id)).length;
+            if (faltam < guardados + quantos) {
+                throw new ErroDaLoja(409, faltam <= guardados ? 'Seus giros guardados já dão para todos os itens que faltam'
+                    : `Faltam só ${faltam} itens para você: dá para comprar até ${faltam - guardados} giro${faltam - guardados > 1 ? 's' : ''}`);
+            }
+            item = { id: 'giros-' + quantos, tipo: 'giros', nome: quantos + (quantos > 1 ? ' giros' : ' giro') + ' da roleta',
+                descricao: 'Cada giro sorteia um item da loja que você ainda não tem.', preco: PRECO_DO_GIRO * quantos };
+        } else {
+            item = itemDaLoja(corpo.item);
+            if (!item) throw new ErroDaLoja(404, 'Item não encontrado na loja');
+            if (temTudo(eu)) throw new ErroDaLoja(409, 'Você é o dono do site: todos os itens já estão na sua mochila');
+            const { rows: tem } = await db.query('SELECT 1 FROM mochila WHERE conta = $1 AND item = $2', [eu.id, item.id]);
+            if (tem.length) throw new ErroDaLoja(409, 'Esse item já está na sua mochila');
+        }
         // contra abuso: no maximo 10 compras abertas por hora
         const { rows: [{ abertas }] } = await db.query(
             `SELECT count(*)::int AS abertas FROM compras WHERE conta = $1 AND criada_em > now() - interval '1 hour'`, [eu.id]);
@@ -342,7 +424,7 @@ export function criarLoja(f) {
             metodo: 'POST',
             idempotencia: compraId,
             corpo: {
-                items: [{ id: item.id, title: `${{ efeito: 'Efeito', tema: 'Tema' }[item.tipo] || 'Borda'} ${item.nome} - Viracap`, description: item.descricao, category_id: 'virtual_goods',
+                items: [{ id: item.id, title: `${item.tipo === 'giros' ? 'Roleta:' : { efeito: 'Efeito', tema: 'Tema' }[item.tipo] || 'Borda'} ${item.nome} - Viracap`, description: item.descricao, category_id: 'virtual_goods',
                     quantity: 1, currency_id: 'BRL', unit_price: item.preco / 100 }],
                 external_reference: compraId,
                 back_urls: { success: retorno, pending: retorno, failure: retorno },
@@ -379,6 +461,71 @@ export function criarLoja(f) {
             }
         }
         return { compra: compra.id, item: compra.item, status: compra.status };
+    }
+
+    /**
+     * Gira a roleta (doc 115): { gratis: true } usa o giro de graca; { quantidade: 1 a 3 } usa giros comprados, todos
+     * de uma vez. O sorteio e feito aqui (nunca no navegador), sem repetir item, e os itens vao para a mochila na mesma
+     * transacao em que o giro e gasto. O dono so ve a roleta: nada e gasto nem guardado.
+     */
+    async function girar(request, eu) {
+        const { gratis, quantidade } = await f.lerCorpo(request);
+        const quantos = gratis ? 1 : Number(quantidade);
+        if (!Number.isInteger(quantos) || quantos < 1 || quantos > GIROS_POR_VEZ) throw new ErroDaLoja(400, `Gire de 1 a ${GIROS_POR_VEZ} vezes`);
+        const sortear = disponiveis => {
+            const saiu = [];
+            const restantes = [...disponiveis];
+            for (let i = 0; i < quantos && restantes.length; i++) {
+                const item = sortearDaRoleta(restantes);
+                saiu.push(item);
+                restantes.splice(restantes.indexOf(item), 1);
+            }
+            return saiu;
+        };
+        if (temTudo(eu)) return { itens: sortear(ITENS_DA_LOJA), demonstracao: true, gratis: true, giros: 0 };
+        const db = await banco();
+        const cliente = await db.connect();
+        try {
+            await cliente.query('BEGIN');
+            // uma conta gira de cada vez (dois cliques ao mesmo tempo nao gastam o mesmo giro)
+            const { rows: [conta] } = await cliente.query('SELECT giro_gratis_usado FROM contas WHERE id = $1 FOR UPDATE', [eu.id]);
+            const { rows: meus } = await cliente.query('SELECT item FROM mochila WHERE conta = $1', [eu.id]);
+            const disponiveis = ITENS_DA_LOJA.filter(item => !meus.some(meu => meu.item === item.id));
+            if (disponiveis.length < quantos) throw new ErroDaLoja(409, disponiveis.length ? `Faltam só ${disponiveis.length} itens para você` : 'Você já tem todos os itens da loja!');
+            const compras = [];
+            if (gratis) {
+                if (conta.giro_gratis_usado) throw new ErroDaLoja(409, 'Você já usou o seu giro grátis');
+                await cliente.query('UPDATE contas SET giro_gratis_usado = true WHERE id = $1', [eu.id]);
+                compras.push(null);
+            } else {
+                // os giros guardados, dos mais antigos para os mais novos; cada item fica marcado com a compra de onde saiu
+                const { rows: guardadas } = await cliente.query(
+                    `SELECT id, giros_restantes FROM compras WHERE conta = $1 AND status = 'aprovada' AND giros_restantes > 0 ORDER BY criada_em FOR UPDATE`, [eu.id]);
+                for (const compra of guardadas) {
+                    while (compra.giros_restantes > 0 && compras.length < quantos) {
+                        compra.giros_restantes--;
+                        compras.push(compra.id);
+                    }
+                }
+                if (compras.length < quantos) {
+                    throw new ErroDaLoja(402, compras.length ? `Você tem só ${compras.length} giro${compras.length > 1 ? 's' : ''}` : 'Você não tem giros. Compre giros para girar a roleta.');
+                }
+                for (const compra of guardadas) await cliente.query('UPDATE compras SET giros_restantes = $2 WHERE id = $1', [compra.id, compra.giros_restantes]);
+            }
+            const itens = sortear(disponiveis);
+            for (const [i, item] of itens.entries()) {
+                await cliente.query('INSERT INTO mochila (conta, item, compra) VALUES ($1, $2, $3)', [eu.id, item.id, compras[i]]);
+            }
+            const { rows: [{ giros }] } = await cliente.query(
+                `SELECT coalesce(sum(giros_restantes), 0)::int AS giros FROM compras WHERE conta = $1 AND status = 'aprovada'`, [eu.id]);
+            await cliente.query('COMMIT');
+            return { itens, gratis: false, giros };
+        } catch (erro) {
+            await cliente.query('ROLLBACK');
+            throw erro;
+        } finally {
+            cliente.release();
+        }
     }
 
     /**
@@ -470,6 +617,7 @@ export function criarLoja(f) {
                 if (acao === 'comprar' && !id && metodo === 'POST') return json(201, await comprar(request, eu));
                 if (acao === 'compras' && id && metodo === 'GET') return f.semCache(json(200, await conferirCompra(id, eu)));
                 if (acao === 'equipar' && !id && metodo === 'PUT') return json(200, await equipar(request, eu));
+                if (acao === 'roleta' && !id && metodo === 'POST') return json(200, await girar(request, eu));
                 if (acao === 'imagens') return await imagensDaLoja(request, id, eu);
             } catch (erro) {
                 if (erro instanceof ErroDaLoja) throw new f.Recusa(erro.status, erro.message);

@@ -311,6 +311,12 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   pré-visualização. Detalhes em [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).
 - **Temas animados a 30 quadros.** Os fundos e enfeites animados a 30 quadros por segundo e os vídeos a 24. Detalhes em
   [Temas animados a 30 quadros por segundo e vídeos a 24](112-temas-animados-a-30-quadros.md).
+- **Sem a Arte Derretida.** A borda, igual à Celestial, saiu da loja. Detalhes em
+  [Sem a borda Arte Derretida](113-sem-a-borda-arte-derretida.md).
+- **Sorteio estilo baú.** O Sortear virou uma fita de capas que para no sorteado. Detalhes em
+  [Sorteio no estilo de abrir um baú](114-sorteio-estilo-abrir-bau.md).
+- **Roleta da loja.** Um giro grátis para cada conta e giros pagos, até 3 ao mesmo tempo. Detalhes em
+  [Roleta da loja](115-roleta-da-loja.md).
 
 ## O que foi removido ou abandonado
 

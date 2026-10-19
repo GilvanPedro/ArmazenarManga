@@ -136,3 +136,27 @@ test('videos da loja: WebM e MP4 pelo conteudo, e o envio por pedaco (doc 108)',
     assert.equal(respostaDoArquivo(mp4, 'video/mp4', 'bytes=9999-').status, 416);
     assert.match(respostaDoArquivo(jpg, 'image/jpeg', null).headers.get('cache-control'), /max-age=3600/, 'imagem continua uma hora');
 });
+
+test('roleta: chances 5:3:1, sem tipo que acabou, e o sorteio pelos pesos (doc 115)', async () => {
+    const { chancesDaRoleta, sortearDaRoleta, girosDaCompra, PRECO_DO_GIRO, GIROS_POR_VEZ } = await import('../api/_loja.js');
+    assert.equal(PRECO_DO_GIRO, 500);
+    assert.equal(GIROS_POR_VEZ, 3);
+    const chances = chancesDaRoleta(ITENS_DA_LOJA);
+    assert.ok(Math.abs(chances.borda - 5 / 9) < 1e-9 && Math.abs(chances.efeito - 3 / 9) < 1e-9 && Math.abs(chances.tema - 1 / 9) < 1e-9);
+    // sem nenhum tema faltando, a chance do tema se divide entre borda e efeito
+    const semTema = ITENS_DA_LOJA.filter(item => item.tipo !== 'tema');
+    assert.deepEqual(Object.keys(chancesDaRoleta(semTema)).sort(), ['borda', 'efeito']);
+    assert.ok(Math.abs(chancesDaRoleta(semTema).borda - 5 / 8) < 1e-9);
+    assert.equal(sortearDaRoleta([]), null);
+    // o primeiro numero escolhe o tipo: 0 = borda, 0,6 = efeito, 0,95 = tema
+    assert.equal(sortearDaRoleta(ITENS_DA_LOJA, (() => { const n = [0, 0]; return () => n.shift(); })()).tipo, 'borda');
+    assert.equal(sortearDaRoleta(ITENS_DA_LOJA, (() => { const n = [0.6, 0]; return () => n.shift(); })()).tipo, 'efeito');
+    assert.equal(sortearDaRoleta(ITENS_DA_LOJA, (() => { const n = [0.95, 0.999]; return () => n.shift(); })()).tipo, 'tema');
+    // 9.000 giros: perto de 5/9, 3/9 e 1/9
+    const contagem = { borda: 0, efeito: 0, tema: 0 };
+    for (let i = 0; i < 9000; i++) contagem[sortearDaRoleta(ITENS_DA_LOJA).tipo]++;
+    assert.ok(Math.abs(contagem.borda - 5000) < 300 && Math.abs(contagem.efeito - 3000) < 300 && Math.abs(contagem.tema - 1000) < 200, JSON.stringify(contagem));
+    assert.equal(girosDaCompra('giros-3'), 3);
+    assert.equal(girosDaCompra('giros-4'), 0);
+    assert.equal(girosDaCompra('neon'), 0);
+});

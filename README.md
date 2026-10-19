@@ -9,7 +9,7 @@ confere e corrige esse link quando o site muda o endereço.
 ## O que ele faz
 
 - **Lista** com capa, status, último capítulo, tags, descrição e dia de lançamento, com busca, filtros,
-  ordenação, paginação e sorteio. A busca, os filtros e as páginas respondem na hora, e as capas usam
+  ordenação, paginação e sorteio (uma fita de capas que para no sorteado, como abrir um baú). A busca, os filtros e as páginas respondem na hora, e as capas usam
   miniaturas leves.
 - **Botão Ler**, que abre o próximo capítulo no site salvo e confere o link antes.
 - **Marcar como lido** direto da página do capítulo, por uma extensão de navegador ou um favorito.
@@ -140,6 +140,9 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Pré-visualizar os itens da loja na sua Biblioteca](docs/110-pre-visualizar-itens-da-loja.md) | |
 | [Otimização dos temas animados e dos vídeos no celular](docs/111-otimizacao-dos-temas-e-celular.md) | |
 | [Temas animados a 30 quadros por segundo e vídeos a 24](docs/112-temas-animados-a-30-quadros.md) | |
+| [Sem a borda Arte Derretida](docs/113-sem-a-borda-arte-derretida.md) | |
+| [Sorteio no estilo de abrir um baú](docs/114-sorteio-estilo-abrir-bau.md) | |
+| [Roleta da loja](docs/115-roleta-da-loja.md) | |
 
 ## Testes
 

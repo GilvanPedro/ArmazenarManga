@@ -148,3 +148,5 @@ A sessão (`/api/inicio`, `/api/sessao`) passou a trazer `conta.borda`, e o auto
 > Depois vieram as bordas animadas Aurora Boreal e Eclipse: veja [Bordas Aurora Boreal e Eclipse](83-bordas-aurora-boreal-e-eclipse.md).
 
 > Depois, as animações foram reescritas para pesar muito menos no processador: veja [O site muito mais leve para o processador](100-site-muito-mais-leve.md).
+
+> A loja ganhou a roleta, que usa a mesma compra pelo Mercado Pago: veja [Roleta da loja](115-roleta-da-loja.md).

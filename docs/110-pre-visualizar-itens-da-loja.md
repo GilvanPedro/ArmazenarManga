@@ -51,3 +51,7 @@ No navegador, com a conta de teste:
 - Os testes passam.
 
 > Mais otimizações e os vídeos em pé no celular: veja [Otimização dos temas animados e dos vídeos no celular](111-otimizacao-dos-temas-e-celular.md).
+
+> As capas de exemplo usavam um status que não existe; corrigido em [Sorteio no estilo de abrir um baú](114-sorteio-estilo-abrir-bau.md).
+
+> Os itens também saem na roleta, com a mesma pré-visualização: veja [Roleta da loja](115-roleta-da-loja.md).

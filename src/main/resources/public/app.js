@@ -1230,21 +1230,152 @@ function vazio(titulo, texto, acao) {
     return h('div', {class: 'vazio'}, h('strong', null, titulo), texto, acao ? h('div', null, acao) : null);
 }
 
+/*
+ * Sorteio no estilo de abrir um bau (doc 114): uma fita de capas corre de lado, rapida no comeco e cada vez mais
+ * devagar, e para no sorteado, entre as setas. Depois ele aparece grande, com a moldura dourada, confete, o nome, a
+ * nota e o botao de ler o proximo capitulo. O sorteado vem do servidor antes de a fita andar (o mesmo sorteio de
+ * antes, com o filtro de status); a fita so mostra o caminho ate ele.
+ */
+const CAPAS_ANTES_DO_SORTEADO = 40;
+const DURACAO_DO_SORTEIO = 6200;
+
 async function sortear() {
-    const parametros = estado.filtroStatus ? '?status=' + encodeURIComponent(estado.filtroStatus) : '';
+    const status = estado.filtroStatus ? 'status=' + encodeURIComponent(estado.filtroStatus) : '';
     const atual = estado.sorteado;
+    let manga;
+    let outros;
     try {
-        let manga = await chamar('GET', '/api/mangas/sorteio' + parametros);
+        [manga, outros] = await Promise.all([
+            chamar('GET', '/api/mangas/sorteio' + (status ? '?' + status : '')),
+            chamar('GET', '/api/mangas?resumo=1&pagina=1&tamanho=60' + (status ? '&' + status : '')).then(lista => lista.itens || []).catch(() => []),
+        ]);
         // evita repetir o mesmo quando ha mais de um para escolher
-        for (let i = 0; i < 6 && manga.id === atual; i++) {
-            manga = await chamar('GET', '/api/mangas/sorteio' + parametros);
+        for (let i = 0; i < 6 && manga.id === atual && outros.length > 1; i++) {
+            manga = await chamar('GET', '/api/mangas/sorteio' + (status ? '?' + status : ''));
         }
-        estado.sorteado = manga.id;
-        if (location.hash === '#/manga/' + manga.id) rota();
-        else location.hash = '#/manga/' + manga.id;
     } catch (e) {
         avisar(e.message, true);
+        return;
     }
+    estado.sorteado = manga.id;
+    abrirSorteio(manga, outros);
+}
+
+/** Uma capa da fita: a imagem, o status e a nota (sem bordas nem efeitos, que sao muitas capas andando). */
+function capaDaFita(manga) {
+    const imagem = manga.thumbUrl || manga.imageUrl;
+    return h('div', {class: 'capa capa-da-fita'},
+        imagem ? h('img', {src: imagem, alt: '', decoding: 'async', width: '300', height: '450', draggable: 'false'})
+            : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (manga.title || '?').trim().charAt(0).toUpperCase()),
+        etiquetaStatus(manga.readingStatus), etiquetaNota(manga.rating));
+}
+
+/** Confete saindo do meio da tela (so transform e opacity, e some sozinho). */
+function confete(onde) {
+    const cores = ['#ff6b3d', '#ffd166', '#06d6a0', '#4cc9f0', '#f72585', '#b388ff', '#ffffff'];
+    const pedacos = Array.from({length: 70}, () => {
+        const angulo = Math.random() * Math.PI * 2;
+        const distancia = 140 + Math.random() * 320;
+        return h('span', {class: 'confete', style: `--x:${Math.cos(angulo) * distancia}px;--y:${Math.sin(angulo) * distancia * 0.8 + 120}px;`
+            + `--giro:${Math.round(Math.random() * 720 - 360)}deg;--cor:${cores[Math.floor(Math.random() * cores.length)]};`
+            + `--atraso:${Math.round(Math.random() * 120)}ms;--largura:${6 + Math.round(Math.random() * 6)}px`});
+    });
+    const camada = h('div', {class: 'camada-de-confete', 'aria-hidden': 'true'}, ...pedacos);
+    onde.append(camada);
+    setTimeout(() => camada.remove(), 2600);
+}
+
+function abrirSorteio(manga, outros) {
+    const fita = h('div', {class: 'fita-do-sorteio'});
+    const selo = h('span', {class: 'selo-do-sorteio'}, 'Sorteando…');
+    const janelaDaFita = h('div', {class: 'janela-da-fita'},
+        h('span', {class: 'seta-do-sorteio de-cima', 'aria-hidden': 'true'}), h('span', {class: 'seta-do-sorteio de-baixo', 'aria-hidden': 'true'}),
+        h('span', {class: 'mira-do-sorteio', 'aria-hidden': 'true'}), fita);
+    const resultado = h('div', {class: 'resultado-do-sorteio', hidden: true});
+    const pular = h('button', {type: 'button', class: 'botao pular-sorteio'}, 'Pular');
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar o sorteio'}, '×');
+    const dialogo = h('dialog', {class: 'janela-do-sorteio', 'aria-label': 'Sorteio'},
+        fechar, selo, janelaDaFita, resultado, pular);
+
+    // a fita: capas misturadas (repetidas se forem poucas), o sorteado na posicao 40 e mais algumas depois dele
+    const sorteio = outros.filter(outro => outro.id !== manga.id);
+    const misturadas = [];
+    while (misturadas.length < CAPAS_ANTES_DO_SORTEADO + 6) {
+        const rodada = (sorteio.length ? sorteio : [manga]).slice().sort(() => Math.random() - 0.5);
+        misturadas.push(...rodada);
+    }
+    const capas = [...misturadas.slice(0, CAPAS_ANTES_DO_SORTEADO), manga, ...misturadas.slice(CAPAS_ANTES_DO_SORTEADO, CAPAS_ANTES_DO_SORTEADO + 6)];
+    fita.append(...capas.map(capaDaFita));
+
+    let animacao = null;
+    let acompanhar = 0;
+    const mostrarResultado = () => {
+        if (!dialogo.open || !resultado.hidden) return;
+        animacao?.finish();
+        cancelAnimationFrame(acompanhar);
+        selo.textContent = 'Hoje eu leio:';
+        selo.classList.add('saiu');
+        janelaDaFita.hidden = true;
+        pular.hidden = true;
+        const linhaDaNota = [manga.rating != null ? 'nota ' + manga.rating : null,
+            manga.readingStatus === 'CONCLUIDO' ? 'concluído' : 'Ler ' + mostrarCapitulo(manga.nextChapter)].filter(Boolean).join(' · ');
+        resultado.replaceChildren(
+            h('div', {class: 'capa-do-sorteado'}, capaDaFita(manga)),
+            h('h2', null, manga.title),
+            h('span', {class: 'linha-do-sorteado'}, linhaDaNota),
+            h('div', {class: 'acoes-do-sorteado'},
+                botaoLer(manga),
+                h('a', {class: 'botao', href: '#/manga/' + manga.id, onclick: () => dialogo.close()}, 'Ver o mangá'),
+                h('button', {type: 'button', class: 'botao', onclick: () => {
+                    dialogo.close();
+                    sortear();
+                }}, '🎲 Sortear de novo')));
+        resultado.hidden = false;
+        if (!menosMovimento.matches) confete(dialogo);
+    };
+    pular.addEventListener('click', mostrarResultado);
+    fechar.addEventListener('click', () => dialogo.close());
+    dialogo.addEventListener('click', evento => { if (evento.target === dialogo) dialogo.close(); });
+    dialogo.addEventListener('close', () => {
+        animacao?.cancel();
+        cancelAnimationFrame(acompanhar);
+        dialogo.remove();
+    });
+    document.body.append(dialogo);
+    dialogo.showModal();
+    pular.focus();
+
+    if (menosMovimento.matches) {
+        mostrarResultado();
+        return;
+    }
+    // onde a fita para: o meio do sorteado no meio da janela, com um desvio para nao parar sempre no centro exato
+    requestAnimationFrame(() => {
+        const itens = fita.children;
+        const alvo = itens[CAPAS_ANTES_DO_SORTEADO];
+        const largura = alvo.offsetWidth;
+        const meio = janelaDaFita.clientWidth / 2;
+        const desvio = (Math.random() - 0.5) * largura * 0.7;
+        const fim = -(alvo.offsetLeft + largura / 2 - meio + desvio);
+        animacao = fita.animate([{transform: 'translateX(0)'}, {transform: `translateX(${fim}px)`}],
+            {duration: DURACAO_DO_SORTEIO, easing: 'cubic-bezier(.08, .72, .16, 1)', fill: 'forwards'});
+        animacao.finished.then(() => setTimeout(mostrarResultado, 450)).catch(() => {});
+        // a capa que esta passando pela mira fica acesa (como o clique de cada item no bau)
+        const passo = largura + parseFloat(getComputedStyle(fita).columnGap || '0');
+        const inicio = itens[0].offsetLeft + largura / 2;
+        let acesa = null;
+        const seguir = () => {
+            const andou = -new DOMMatrixReadOnly(getComputedStyle(fita).transform).m41;
+            const indice = Math.max(0, Math.min(itens.length - 1, Math.round((meio + andou - inicio) / passo)));
+            if (itens[indice] !== acesa) {
+                acesa?.classList.remove('na-mira');
+                acesa = itens[indice];
+                acesa.classList.add('na-mira');
+            }
+            if (resultado.hidden) acompanhar = requestAnimationFrame(seguir);
+        };
+        acompanhar = requestAnimationFrame(seguir);
+    });
 }
 
 // ------------------------------------------------------------------ detalhes
@@ -3150,7 +3281,7 @@ function previaDoTema(tema) {
  */
 const MANGAS_DE_EXEMPLO = ['Lâmina do Vento', 'Café às Três', 'O Último Dragão', 'Cidade de Neon', 'Jardim de Inverno', 'Eco do Mar',
     'Céu Partido', 'Pétalas e Aço', 'Raposa de Papel', 'Noite em Tóquio', 'Mapa Estelar', 'Sombra Azul']
-    .map((title, i) => ({id: 'exemplo-' + i, title, favorite: i < 3, readingStatus: ['LENDO', 'LENDO', 'PARA_LER', 'CONCLUIDO', 'LENDO', 'HIATUS'][i % 6], lastChapter: 12 + i * 7}));
+    .map((title, i) => ({id: 'exemplo-' + i, title, favorite: i < 3, readingStatus: ['LENDO', 'LENDO', 'LER', 'CONCLUIDO', 'LENDO', 'HIATUS'][i % 6], lastChapter: 12 + i * 7}));
 
 /** O que fica equipado na pre-visualizacao: o que a pessoa usa, com o item mostrado no lugar do do mesmo tipo. */
 function equipadosDaPrevia(item) {
@@ -3268,13 +3399,13 @@ function previaDoItem(item, exemplo) {
  */
 async function telaLoja(partes, consulta) {
     const vez = ++estado.render;
-    const aba = ['efeitos', 'temas', 'mochila'].includes(partes[0]) ? partes[0] : 'bordas';
+    const aba = ['efeitos', 'temas', 'roleta', 'mochila'].includes(partes[0]) ? partes[0] : 'bordas';
     const parametros = new URLSearchParams(consulta || '');
     const compraVoltando = parametros.get('compra');
     let pagina = Math.max(1, Number.parseInt(parametros.get('pagina'), 10) || 1);
     // na mochila, o filtro por tipo (todos, bordas, efeitos ou temas) fica no endereco: ?tipo=borda
     const tipoNaMochila = ['borda', 'efeito', 'tema'].includes(parametros.get('tipo')) ? parametros.get('tipo') : '';
-    document.title = (aba === 'mochila' ? 'Mochila' : 'Loja') + ' · Viracap';
+    document.title = ({mochila: 'Mochila', roleta: 'Roleta'}[aba] || 'Loja') + ' · Viracap';
     const aviso = h('div', {class: 'aviso-da-compra', role: 'status', hidden: true});
     const conteudo = h('div', {class: 'conteudo-da-loja'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
     const link = (nome, endereco, ...texto) => h('a', {class: 'aba', href: endereco, 'aria-current': aba === nome ? 'page' : null}, ...texto);
@@ -3288,6 +3419,7 @@ async function telaLoja(partes, consulta) {
             aviso,
             rolagemDasAbas(h('nav', {class: 'abas abas-da-loja', 'aria-label': 'Loja'},
                 link('bordas', '#/loja/bordas', 'Bordas'), link('efeitos', '#/loja/efeitos', 'Efeitos'), link('temas', '#/loja/temas', 'Temas'),
+                link('roleta', '#/loja/roleta', '🎰 Roleta'),
                 link('mochila', '#/loja/mochila', 'Mochila', contador))),
             lugarDeBanner('loja-topo', 'horizontal', 'so-sem-trilhos'),
             conteudo,
@@ -3341,6 +3473,21 @@ async function telaLoja(partes, consulta) {
             avisar(e.message, true);
             botao.disabled = false;
             botao.textContent = 'Comprar por ' + PRECO_EM_REAIS(item.preco);
+        }
+    };
+
+    const comprarGiros = async (quantos, botao) => {
+        if (exigirConta('Crie uma conta para girar a roleta. O primeiro giro é de graça!')) return;
+        botao.disabled = true;
+        const texto = botao.textContent;
+        botao.textContent = 'Abrindo o pagamento…';
+        try {
+            const {endereco} = await chamar('POST', '/api/loja/comprar', {giros: quantos});
+            location.href = endereco;
+        } catch (e) {
+            avisar(e.message, true);
+            botao.disabled = false;
+            botao.textContent = texto;
         }
     };
 
@@ -3400,10 +3547,24 @@ async function telaLoja(partes, consulta) {
     };
 
     const desenhar = () => {
+        if (aba === 'roleta') {
+            // depois de equipar um premio, a roleta continua como esta (com os premios na tela)
+            if (!conteudo.querySelector('.pagina-da-roleta')) conteudo.replaceChildren(painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar: mostrarContador}));
+            return;
+        }
+        // o convite do giro gratis (doc 115), nas outras abas da loja
+        const convite = dados.roleta?.gratis && !dados.temTudo
+            ? h('a', {class: 'convite-da-roleta', href: '#/loja/roleta'},
+                h('span', {class: 'presente', 'aria-hidden': 'true'}, '🎁'),
+                h('span', null, h('b', null, ehVisitante() ? 'Crie sua conta e ganhe um giro grátis na roleta!' : 'Você tem um giro grátis na roleta!'),
+                    ' Ele sorteia uma borda, um efeito ou um tema para você.'),
+                h('span', {class: 'botao primario pequeno'}, 'Girar'))
+            : null;
         // replaceChildren escreveria "null" como texto: o que nao vale fica de fora
         if (aba !== 'mochila') {
             const tipo = {efeitos: 'efeito', temas: 'tema'}[aba] || 'borda';
             conteudo.replaceChildren(...[
+                convite,
                 dados.pagamentoConfigurado ? null : h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'),
                 ...gradePaginada(dados.itens.filter(item => item.tipo === tipo)),
                 h('p', {class: 'nota-da-loja'}, 'O pagamento é feito no Mercado Pago, por Pix ou cartão: o Viracap não vê os dados do seu cartão. '
@@ -3430,6 +3591,198 @@ async function telaLoja(partes, consulta) {
     if (compraVoltando) acompanharCompra(compraVoltando, aviso, vez, dados, () => { mostrarContador(); desenhar(); });
 }
 
+/*
+ * Roleta da loja (doc 115), no estilo de abrir uma caixa: de 1 a 3 fitas de itens, uma em cima da outra como linhas de
+ * caderno, correm ao mesmo tempo e param uma depois da outra no item sorteado (o servidor sorteia antes; a fita so
+ * mostra o caminho). Cada tipo tem a sua cor, como a raridade das caixas: borda azul, efeito roxo e tema dourado.
+ */
+const NOME_DO_TIPO_NA_ROLETA = {borda: 'Borda', efeito: 'Efeito', tema: 'Tema'};
+const ITENS_ANTES_DO_PREMIO = 34;
+
+/** Uma casa da fita: a previa do item (parada, sem animacao) e o nome, com a cor do tipo embaixo. */
+function casaDaRoleta(item, exemplo) {
+    return h('div', {class: 'casa-da-roleta', 'data-tipo': item.tipo},
+        h('div', {class: 'previa-da-casa'}, previaDoItem(item, exemplo)),
+        h('span', {class: 'nome-da-casa'}, item.nome));
+}
+
+function painelDaRoleta(dados, exemplo, {equipar, comprarGiros, depoisDeGirar}) {
+    const roleta = dados.roleta || {gratis: false, giros: 0, preco: 500, porVez: 3, chances: {}, faltam: 0};
+    const porcento = valor => (valor * 100).toLocaleString('pt-BR', {maximumFractionDigits: 1}) + '%';
+    const palco = h('div', {class: 'palco-da-roleta'});
+    const controles = h('div', {class: 'controles-da-roleta'});
+    const premios = h('div', {class: 'premios-da-roleta', hidden: true});
+    let girando = false;
+
+    // fita parada, so para mostrar o que pode sair, antes do primeiro giro
+    const fitaParada = () => {
+        const fita = h('div', {class: 'fita-da-roleta'});
+        const itens = dados.itens.slice().sort(() => Math.random() - 0.5).slice(0, 12);
+        fita.append(...itens.map(item => casaDaRoleta(item, exemplo)));
+        return h('div', {class: 'linha-da-roleta parada'}, h('span', {class: 'mira-da-roleta', 'aria-hidden': 'true'}), fita);
+    };
+    palco.append(fitaParada());
+
+    const desenharControles = () => {
+        const botoes = [];
+        if (roleta.demonstracao) {
+            botoes.push(h('p', {class: 'nota-da-loja'}, 'Como dono do site, você já tem tudo: seus giros são só para ver a roleta (nada é gasto nem guardado).'));
+            for (let n = 1; n <= roleta.porVez; n++) botoes.push(h('button', {type: 'button', class: 'botao primario', onclick: () => girar(n, false)}, n > 1 ? `Girar ${n} de uma vez` : 'Girar'));
+        } else if (roleta.faltam === 0) {
+            botoes.push(h('p', {class: 'nota-da-loja'}, '🏆 Você já tem todos os itens da loja!'));
+        } else if (roleta.gratis) {
+            botoes.push(h('button', {type: 'button', class: 'botao primario grande girar-gratis', onclick: () => girar(1, true)}, '🎁 Girar de graça'));
+            botoes.push(h('p', {class: 'nota-da-loja'}, ehVisitante() ? 'Crie sua conta e ganhe um giro grátis.' : 'Toda conta ganha um giro grátis. Os próximos custam ' + PRECO_EM_REAIS(roleta.preco) + ' cada.'));
+        } else {
+            if (roleta.giros > 0) {
+                botoes.push(h('p', {class: 'giros-guardados'}, `Você tem ${roleta.giros} giro${roleta.giros > 1 ? 's' : ''}`));
+                const ate = Math.min(roleta.giros, roleta.porVez, roleta.faltam);
+                const linha = h('div', {class: 'linha-de-botoes'});
+                for (let n = 1; n <= ate; n++) linha.append(h('button', {type: 'button', class: 'botao primario', onclick: () => girar(n, false)}, n > 1 ? `Girar ${n} de uma vez` : 'Girar'));
+                botoes.push(linha);
+            }
+            const compra = h('div', {class: 'comprar-giros'},
+                h('span', null, roleta.giros > 0 ? 'Comprar mais giros:' : 'Comprar giros:'));
+            const podeComprar = Math.min(roleta.porVez, roleta.faltam - roleta.giros);
+            for (let n = 1; n <= roleta.porVez; n++) {
+                compra.append(h('button', {type: 'button', class: 'botao' + (n === 1 && roleta.giros === 0 ? ' primario' : ''),
+                    disabled: !dados.pagamentoConfigurado || n > podeComprar,
+                    onclick: evento => comprarGiros(n, evento.currentTarget)}, `${n} giro${n > 1 ? 's' : ''} · ${PRECO_EM_REAIS(roleta.preco * n)}`));
+            }
+            botoes.push(compra);
+            if (!dados.pagamentoConfigurado) botoes.push(h('p', {class: 'situacao'}, 'A loja ainda não está recebendo pagamentos. Volte em breve!'));
+        }
+        controles.replaceChildren(...botoes);
+    };
+    desenharControles();
+
+    const girar = async (quantos, gratis) => {
+        if (girando) return;
+        if (exigirConta('Crie uma conta para girar a roleta. O primeiro giro é de graça!')) return;
+        girando = true;
+        for (const botao of controles.querySelectorAll('button')) botao.disabled = true;
+        let resposta;
+        try {
+            resposta = await chamar('POST', '/api/loja/roleta', gratis ? {gratis: true} : {quantidade: quantos});
+        } catch (e) {
+            avisar(e.message, true);
+            girando = false;
+            desenharControles();
+            return;
+        }
+        // o que mudou: os itens na mochila, o giro gratis e os giros guardados
+        if (!resposta.demonstracao) {
+            for (const item of resposta.itens) if (!dados.mochila.some(m => m.item === item.id)) dados.mochila.push({item: item.id});
+            roleta.gratis = false;
+            roleta.giros = resposta.giros;
+            roleta.faltam -= resposta.itens.length;
+            depoisDeGirar?.();
+        }
+        premios.hidden = true;
+        await animarRoleta(palco, resposta.itens, dados.itens, exemplo);
+        mostrarPremios(resposta.itens, resposta.demonstracao);
+        girando = false;
+        desenharControles();
+    };
+
+    const mostrarPremios = (itens, demonstracao) => {
+        premios.replaceChildren(
+            h('h2', null, itens.length > 1 ? 'Você ganhou:' : 'Você ganhou'),
+            h('div', {class: 'cartoes-dos-premios'}, ...itens.map(item => {
+                const botao = demonstracao ? null : h('button', {type: 'button', class: 'botao primario', onclick: async evento => {
+                    const alvo = evento.currentTarget;
+                    await equipar(item, alvo);
+                    // equipou (no erro o botao volta a valer): fica marcado aqui, sem redesenhar a roleta
+                    if (alvo.disabled) alvo.textContent = '✓ Equipado';
+                }}, 'Equipar');
+                return h('article', {class: 'premio', 'data-tipo': item.tipo},
+                    h('button', {type: 'button', class: 'abrir-previa', title: 'Pré-visualizar na sua Biblioteca', onclick: () => abrirPreviaDoItem(item, null)}, previaDoItem(item, exemplo)),
+                    h('span', {class: 'tipo-do-premio'}, NOME_DO_TIPO_NA_ROLETA[item.tipo]),
+                    h('h3', null, item.nome),
+                    h('div', {class: 'acoes-do-premio'}, botao,
+                        h('button', {type: 'button', class: 'botao', onclick: () => abrirPreviaDoItem(item, null)}, '👁 Pré-visualizar')));
+            })),
+            demonstracao ? null : h('p', {class: 'nota-da-loja'}, 'Já está na sua mochila.'));
+        premios.hidden = false;
+        if (!menosMovimento.matches) confete(premios);
+        premios.scrollIntoView({behavior: menosMovimento.matches ? 'auto' : 'smooth', block: 'nearest'});
+    };
+
+    const chances = Object.entries(roleta.chances).map(([tipo, chance]) =>
+        h('span', {class: 'chance-da-roleta', 'data-tipo': tipo}, NOME_DO_TIPO_NA_ROLETA[tipo] + ' ' + porcento(chance)));
+    return h('section', {class: 'pagina-da-roleta'},
+        h('div', {class: 'topo-da-roleta'},
+            h('h2', null, '🎰 Roleta'),
+            h('p', null, 'Cada giro sorteia um item da loja que você ainda não tem: uma borda, um efeito ou um tema. Nunca sai repetido.'),
+            chances.length ? h('div', {class: 'chances-da-roleta'}, ...chances) : null,
+            roleta.faltam && !roleta.demonstracao ? h('p', {class: 'subtitulo'}, `Faltam ${roleta.faltam} itens para você.`) : null),
+        palco, controles, premios);
+}
+
+/**
+ * Anima de 1 a 3 fitas ao mesmo tempo, cada uma parando no seu premio, uma depois da outra. Devolve quando a ultima
+ * parou. Quem prefere menos movimento ve so as fitas ja paradas.
+ */
+function animarRoleta(palco, premios, todos, exemplo) {
+    const linhas = premios.map((premio, indice) => {
+        // itens misturados, com o tipo mais ou menos na proporcao da roleta (mais bordas, menos temas)
+        const pesos = {borda: 5, efeito: 3, tema: 1};
+        const urna = todos.flatMap(item => Array(pesos[item.tipo] || 1).fill(item));
+        const itens = Array.from({length: ITENS_ANTES_DO_PREMIO + 5}, () => urna[Math.floor(Math.random() * urna.length)]);
+        itens.splice(ITENS_ANTES_DO_PREMIO, 0, premio);
+        const fita = h('div', {class: 'fita-da-roleta'}, ...itens.map(item => casaDaRoleta(item, exemplo)));
+        const linha = h('div', {class: 'linha-da-roleta', style: `--atraso:${indice}`},
+            h('span', {class: 'seta-da-roleta de-cima', 'aria-hidden': 'true'}), h('span', {class: 'seta-da-roleta de-baixo', 'aria-hidden': 'true'}),
+            h('span', {class: 'mira-da-roleta', 'aria-hidden': 'true'}), fita);
+        return {linha, fita};
+    });
+    palco.replaceChildren(...linhas.map(({linha}) => linha));
+    palco.classList.toggle('varias', linhas.length > 1);
+    return new Promise(pronto => requestAnimationFrame(() => {
+        const animacoes = linhas.map(({linha, fita}, indice) => {
+            const casas = fita.children;
+            const alvo = casas[ITENS_ANTES_DO_PREMIO];
+            const largura = alvo.offsetWidth;
+            const meio = linha.clientWidth / 2;
+            const desvio = (Math.random() - 0.5) * largura * 0.7;
+            const fim = -(alvo.offsetLeft + largura / 2 - meio + desvio);
+            if (menosMovimento.matches) {
+                fita.style.transform = `translateX(${fim}px)`;
+                alvo.classList.add('na-mira', 'premio-da-fita');
+                return null;
+            }
+            // as linhas param uma depois da outra, com 0,7 s entre elas
+            const animacao = fita.animate([{transform: 'translateX(0)'}, {transform: `translateX(${fim}px)`}],
+                {duration: 5200 + indice * 700, easing: 'cubic-bezier(.08, .72, .16, 1)', fill: 'forwards'});
+            animacao.finished.then(() => alvo.classList.add('premio-da-fita')).catch(() => {});
+            return {animacao, fita, casas, meio, inicio: casas[0].offsetLeft + largura / 2, passo: largura + parseFloat(getComputedStyle(fita).columnGap || '0'), acesa: null};
+        }).filter(Boolean);
+        if (!animacoes.length) {
+            pronto();
+            return;
+        }
+        // a casa que esta passando pela mira de cada linha acende
+        let quadro = 0;
+        const seguir = () => {
+            for (const a of animacoes) {
+                const andou = -new DOMMatrixReadOnly(getComputedStyle(a.fita).transform).m41;
+                const indice = Math.max(0, Math.min(a.casas.length - 1, Math.round((a.meio + andou - a.inicio) / a.passo)));
+                if (a.casas[indice] !== a.acesa) {
+                    a.acesa?.classList.remove('na-mira');
+                    a.acesa = a.casas[indice];
+                    a.acesa.classList.add('na-mira');
+                }
+            }
+            if (animacoes.some(a => a.animacao.playState === 'running')) quadro = requestAnimationFrame(seguir);
+        };
+        quadro = requestAnimationFrame(seguir);
+        Promise.all(animacoes.map(a => a.animacao.finished.catch(() => {}))).then(() => {
+            cancelAnimationFrame(quadro);
+            setTimeout(pronto, 500);
+        });
+    }));
+}
+
 /**
  * Voltando do Mercado Pago: pergunta ao servidor (que confere no Mercado Pago) ate a compra sair de "pendente", por
  * ate 2 minutos. Um Pix pago depois disso tambem vale: o aviso do Mercado Pago poe o item na mochila sozinho.
@@ -3452,6 +3805,17 @@ async function acompanharCompra(id, aviso, vez, dados, redesenhar) {
         if (vez !== estado.render) return;
         const item = dados.itens.find(i => i.id === compra.item);
         const nome = item ? ({efeito: 'O efeito ', tema: 'O tema '}[item.tipo] || 'A borda ') + item.nome : 'O item';
+        const giros = Number(/^giros-(\d)$/.exec(compra.item || '')?.[1] || 0);
+        if (compra.status === 'aprovada' && giros) {
+            // giros da roleta (doc 115): ficam guardados ate a pessoa girar
+            aviso.className = 'aviso-da-compra aprovada';
+            if (dados.roleta) dados.roleta.giros += giros;
+            redesenhar();
+            aviso.replaceChildren(h('b', null, 'Pagamento aprovado!'),
+                h('span', null, giros > 1 ? `Seus ${giros} giros estão esperando na roleta.` : 'Seu giro está esperando na roleta.'),
+                h('a', {class: 'botao primario pequeno', href: '#/loja/roleta'}, '🎰 Girar agora'));
+            return;
+        }
         if (compra.status === 'aprovada') {
             aviso.className = 'aviso-da-compra aprovada';
             if (!dados.mochila.some(m => m.item === compra.item)) dados.mochila.push({item: compra.item});

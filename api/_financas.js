@@ -2,7 +2,7 @@
 // a mao, mensais ou de uma vez so (como um anuncio), mais as vendas da loja, que entram sozinhas. Tudo em centavos de
 // real; os meses sao 'AAAA-MM' no horario de Brasilia.
 import { randomUUID } from 'node:crypto';
-import { itemDaLoja } from './_loja.js';
+import { girosDaCompra, itemDaLoja } from './_loja.js';
 
 /** Tabela dos lancamentos, criada junto com as outras (so acrescenta). */
 export const ESTRUTURA_DAS_FINANCAS = `
@@ -168,7 +168,8 @@ export function criarFinancas(f) {
             receitas: receitasDoMes.map(linha),
             meses,
             historico: historico.map(item => ({
-                id: item.id, item: item.item, nome: itemDaLoja(item.item) ? `${itemDaLoja(item.item).tipo === 'efeito' ? 'Efeito' : 'Borda'} ${itemDaLoja(item.item).nome}` : item.item, valor: item.preco, status: item.status, pagamento: item.pagamento,
+                id: item.id, item: item.item, nome: itemDaLoja(item.item) ? `${{ efeito: 'Efeito', tema: 'Tema' }[itemDaLoja(item.item).tipo] || 'Borda'} ${itemDaLoja(item.item).nome}`
+                    : girosDaCompra(item.item) ? `Roleta: ${girosDaCompra(item.item)} giro${girosDaCompra(item.item) > 1 ? 's' : ''}` : item.item, valor: item.preco, status: item.status, pagamento: item.pagamento,
                 quando: item.atualizada_em, comprador: { id: item.conta, nick: item.nick },
             })),
         };

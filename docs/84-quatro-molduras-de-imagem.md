@@ -45,3 +45,5 @@ por cima.
   da estrela, do sol, da esmeralda e dos olhos. O site compactado também foi conferido.
 
 > Depois, as molduras de imagem passaram a encolher a capa para 84%, para não encostar nas vizinhas: veja [Capas altas esticando e molduras encostando](85-capas-altas-e-molduras-vizinhas.md).
+
+> A Arte Derretida saiu da loja depois, por ser a mesma moldura da Celestial: veja [Sem a borda Arte Derretida](113-sem-a-borda-arte-derretida.md).
