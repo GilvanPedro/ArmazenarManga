@@ -109,6 +109,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [103 · Descrição e tags de vários sites](103-descricao-e-tags-de-varios-sites.md) | A busca usa MangaDex, AniList, MangaUpdates, MyAnimeList e Kitsu ao mesmo tempo, e junta as tags de todos os que acharam a mesma obra |
 | [104 · O site aberto para quem não tem conta](104-site-aberto-sem-conta.md) | Sem conta, dá para ver a Comunidade, a loja e o Descobrir; cadastrar, postar, curtir, comentar, seguir, abrir listas, ver os mangás de alguém e comprar levam para criar conta |
 | [105 · A página inicial abre o site, sem pedir conta](105-pagina-inicial-sem-conta.md) | Sem conta, a página inicial mostra as boas-vindas e o Descobrir; entrar e criar conta só quando a pessoa pede ou precisa |
+| [106 · "Todos os mangás" sem conta leva para criar conta](106-todos-os-mangas-sem-conta.md) | A aba que não fazia nada sem conta agora abre criar conta |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

@@ -133,6 +133,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Descrição e tags de vários sites](docs/103-descricao-e-tags-de-varios-sites.md) | |
 | [O site aberto para quem não tem conta](docs/104-site-aberto-sem-conta.md) | |
 | [A página inicial abre o site, sem pedir conta](docs/105-pagina-inicial-sem-conta.md) | |
+| ["Todos os mangás" sem conta leva para criar conta](docs/106-todos-os-mangas-sem-conta.md) | |
 
 ## Testes
 

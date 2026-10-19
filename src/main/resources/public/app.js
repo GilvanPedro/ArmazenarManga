@@ -491,10 +491,17 @@ function abas(atual) {
         href: endereco,
         'aria-current': atual === nome ? 'page' : null,
         // clicar na aba que ja esta aberta recarrega o que ela mostra, buscando tudo de novo
-        onclick: atual === nome ? evento => {
-            evento.preventDefault();
-            recarregarAba();
-        } : null,
+        onclick: nome === 'todos' && ehVisitante()
+            // sem conta, "Todos os mangas" (a lista de quem tem conta) leva para criar conta (doc 106): o endereco dela e
+            // o da pagina inicial, em que a pessoa ja esta, e o clique nao faria nada
+            ? evento => {
+                evento.preventDefault();
+                exigirConta('Crie uma conta para ter a sua lista de mangás.');
+            }
+            : atual === nome ? evento => {
+                evento.preventDefault();
+                recarregarAba();
+            } : null,
     }, texto);
     return rolagemDasAbas(h('nav', {class: 'abas', 'aria-label': 'Listas'},
         aba('todos', '#/', 'Todos os mangás'),

@@ -297,6 +297,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   Detalhes em [O site aberto para quem não tem conta](104-site-aberto-sem-conta.md).
 - **Página inicial sem conta.** Sem conta, o site abre direto nas boas-vindas e no Descobrir. Detalhes em
   [A página inicial abre o site, sem pedir conta](105-pagina-inicial-sem-conta.md).
+- **"Todos os mangás" sem conta.** A aba, que não fazia nada sem conta, leva para criar conta. Detalhes em
+  ["Todos os mangás" sem conta leva para criar conta](106-todos-os-mangas-sem-conta.md).
 
 ## O que foi removido ou abandonado
 
