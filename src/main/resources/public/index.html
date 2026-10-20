@@ -2,6 +2,16 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
+    <!-- Google tag (gtag.js): a tag do Google Ads (doc 122). O script de dentro tem o resumo (sha256) liberado no
+         Content-Security-Policy do vercel.json: mudar uma letra dele exige trocar o resumo la -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18466219735"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'AW-18466219735');
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
     <!-- e por esta marca que a extensao de navegador (pasta extensao/) reconhece o site -->

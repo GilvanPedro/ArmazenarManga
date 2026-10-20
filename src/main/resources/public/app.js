@@ -2806,6 +2806,17 @@ function marcarSecao(parte) {
     document.getElementById('adicionar').hidden = parte !== 'biblioteca' || ehVisitante();
 }
 
+/*
+ * A tag do Google (doc 122) conta a primeira pagina sozinha. As outras abrem sem recarregar (pelo # do endereco):
+ * cada troca vira uma visualizacao de pagina, com o endereco e o titulo dela (o titulo chega depois que a tela monta).
+ */
+let paginaContada = location.href;
+window.addEventListener('hashchange', () => setTimeout(() => {
+    if (typeof window.gtag !== 'function' || location.href === paginaContada) return;
+    paginaContada = location.href;
+    window.gtag('event', 'page_view', {page_location: location.href, page_title: document.title});
+}, 600));
+
 function rota() {
     const [caminho, consulta] = location.hash.replace(/^#\/?/, '').split('?');
     const partes = caminho.split('/');

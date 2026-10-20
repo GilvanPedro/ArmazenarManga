@@ -250,9 +250,17 @@ public class ApiServer {
     // ------------------------------------------------------------------ seguranca
 
     private void protegerResposta(Context ctx) {
-        // o site so carrega scripts e estilos dele mesmo; capas podem vir de outros enderecos
+        // o site so carrega scripts e estilos dele mesmo (e a tag do Google, doc 122: o script do Google e o trecho do
+        // index.html pelo resumo sha256); capas podem vir de outros enderecos
         ctx.header("Content-Security-Policy",
-                "default-src 'self'; img-src 'self' https: http: blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+                "default-src 'self'; "
+                + "script-src 'self' 'sha256-Xl57WqSQMhMNZJ0fkTteA4KOU3fkWYBDkqsDrIxXiDo=' https://www.googletagmanager.com https://googleads.g.doubleclick.net https://www.googleadservices.com https://www.google.com; "
+                + "connect-src 'self' https://www.google.com https://www.google.com.br https://www.googleadservices.com https://googleads.g.doubleclick.net https://*.doubleclick.net https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; "
+                + "frame-src https://td.doubleclick.net https://bid.g.doubleclick.net https://www.googletagmanager.com; "
+                + "img-src 'self' https: http: blob: data:; "
+                + "object-src 'none'; "
+                + "base-uri 'none'; "
+                + "frame-ancestors 'none'");
         ctx.header("X-Content-Type-Options", "nosniff");
         ctx.header("Referrer-Policy", "no-referrer");
     }

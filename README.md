@@ -149,6 +149,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Botões da roleta e as partes do site no celular](docs/119-roleta-e-partes-do-site-no-celular.md) | |
 | [O prêmio da roleta centralizado](docs/120-premio-da-roleta-centralizado.md) | |
 | [Roleta mais leve](docs/121-roleta-mais-leve.md) | |
+| [Tag do Google (Google Ads)](docs/122-tag-do-google.md) | |
 
 ## Testes
 

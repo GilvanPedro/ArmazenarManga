@@ -327,6 +327,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Prêmio da roleta centralizado.** A capa no meio do cartão e sem o "null". Detalhes em
   [O prêmio da roleta centralizado](120-premio-da-roleta-centralizado.md).
 - **Roleta mais leve.** Menos processador parada e girando. Detalhes em [Roleta mais leve](121-roleta-mais-leve.md).
+- **Tag do Google.** A tag do Google Ads em todas as páginas. Detalhes em [Tag do Google (Google Ads)](122-tag-do-google.md).
 
 ## O que foi removido ou abandonado
 

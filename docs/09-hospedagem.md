@@ -99,3 +99,5 @@ proxy reverso. Abrir a porta direto expõe a senha sem criptografia.
 
 > Depois, o Vercel passou a montar o site antes de publicar (`buildCommand`), compactando o `app.js` e o `app.css` na
 > pasta `.saida-vercel`: veja [Otimização geral do site](75-otimizacao-geral.md).
+
+> A política de segurança passou a liberar a tag do Google e as imagens data: dos temas: veja [Tag do Google (Google Ads)](122-tag-do-google.md).

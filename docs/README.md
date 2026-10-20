@@ -125,6 +125,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [119 · Botões da roleta e as partes do site no celular](119-roleta-e-partes-do-site-no-celular.md) | Biblioteca, Comunidade e Loja numa barra com ícones no celular, e os botões da roleta em blocos |
 | [120 · O prêmio da roleta centralizado](120-premio-da-roleta-centralizado.md) | A capa do prêmio (e dos cartões da loja) no meio, e sem o "null" na demonstração |
 | [121 · Roleta mais leve](121-roleta-mais-leve.md) | O brilho do giro grátis, as pontas da fita e a mira sem redesenhar, e as casas copiadas |
+| [122 · Tag do Google (Google Ads)](122-tag-do-google.md) | A tag do Google Ads em todas as páginas, a política de segurança e as imagens dos temas que não apareciam |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.
