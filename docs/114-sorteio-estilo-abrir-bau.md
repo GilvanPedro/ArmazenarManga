@@ -49,3 +49,5 @@ No navegador, com uma conta de 20 mangás, no computador e no celular: a fita co
 na mira era a sorteada (conferido pela imagem), o resultado mostrou o nome, "nota 6 · Ler 14" e os três botões, o
 confete apareceu, o **Sortear de novo** abriu outro sorteio, o **Pular** levou direto ao resultado e o Esc fechou. Os
 testes passam.
+
+> O mesmo sorteio também existe na aba Descobrir, com obras que ainda não estão na lista: veja [Sorteio no Descobrir](123-sorteio-no-descobrir.md).

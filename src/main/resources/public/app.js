@@ -38,6 +38,7 @@ const estado = {
     filtroTags: [],    // tags escolhidas na Biblioteca: so aparecem os mangas que tem todas
     tagsDaBibliotecaAbertas: false, // a lista de tags do quadro da Biblioteca esta aberta
     sorteado: null,    // id do manga que acabou de sair no sorteio
+    obraSorteada: null, // link da obra que acabou de sair no sorteio do Descobrir (doc 123)
     render: 0,         // descarta respostas de telas que ja foram trocadas
     sessao: null,      // {exigeLogin, logado, usuario, expiraEm} vindo de /api/sessao
     siteAberto: false, // as listas fixas ja foram carregadas e a navegacao ja esta ligada
@@ -1285,7 +1286,20 @@ function confete(onde) {
     setTimeout(() => camada.remove(), 2600);
 }
 
-function abrirSorteio(manga, outros) {
+/*
+ * O que muda entre o sorteio da lista e o do Descobrir (doc 123): a capa de cada item da fita, o selo quando sai,
+ * a linha de baixo do nome e os botoes. "deNovo" sorteia outro.
+ */
+const SORTEIO_DA_LISTA = {
+    capa: capaDaFita,
+    saiu: 'Hoje eu leio:',
+    linha: manga => [manga.rating != null ? 'nota ' + manga.rating : null,
+        manga.readingStatus === 'CONCLUIDO' ? 'concluído' : 'Ler ' + mostrarCapitulo(manga.nextChapter)].filter(Boolean).join(' · '),
+    acoes: (manga, fechar) => [botaoLer(manga), h('a', {class: 'botao', href: '#/manga/' + manga.id, onclick: fechar}, 'Ver o mangá')],
+    deNovo: () => sortear(),
+};
+
+function abrirSorteio(manga, outros, jeito = SORTEIO_DA_LISTA) {
     const fita = h('div', {class: 'fita-do-sorteio'});
     const selo = h('span', {class: 'selo-do-sorteio'}, 'Sorteando…');
     const janelaDaFita = h('div', {class: 'janela-da-fita'},
@@ -1298,14 +1312,15 @@ function abrirSorteio(manga, outros) {
         fechar, selo, janelaDaFita, resultado, pular);
 
     // a fita: capas misturadas (repetidas se forem poucas), o sorteado na posicao 40 e mais algumas depois dele
-    const sorteio = outros.filter(outro => outro.id !== manga.id);
+    const chave = item => item.id ?? item.link;
+    const sorteio = outros.filter(outro => chave(outro) !== chave(manga));
     const misturadas = [];
     while (misturadas.length < CAPAS_ANTES_DO_SORTEADO + 6) {
         const rodada = (sorteio.length ? sorteio : [manga]).slice().sort(() => Math.random() - 0.5);
         misturadas.push(...rodada);
     }
     const capas = [...misturadas.slice(0, CAPAS_ANTES_DO_SORTEADO), manga, ...misturadas.slice(CAPAS_ANTES_DO_SORTEADO, CAPAS_ANTES_DO_SORTEADO + 6)];
-    fita.append(...capas.map(capaDaFita));
+    fita.append(...capas.map(jeito.capa));
 
     let animacao = null;
     let acompanhar = 0;
@@ -1313,23 +1328,21 @@ function abrirSorteio(manga, outros) {
         if (!dialogo.open || !resultado.hidden) return;
         animacao?.finish();
         cancelAnimationFrame(acompanhar);
-        selo.textContent = 'Hoje eu leio:';
+        selo.textContent = jeito.saiu;
         selo.classList.add('saiu');
         janelaDaFita.hidden = true;
         pular.hidden = true;
-        const linhaDaNota = [manga.rating != null ? 'nota ' + manga.rating : null,
-            manga.readingStatus === 'CONCLUIDO' ? 'concluído' : 'Ler ' + mostrarCapitulo(manga.nextChapter)].filter(Boolean).join(' · ');
-        resultado.replaceChildren(
-            h('div', {class: 'capa-do-sorteado'}, capaDaFita(manga)),
-            h('h2', null, manga.title),
-            h('span', {class: 'linha-do-sorteado'}, linhaDaNota),
+        const linha = jeito.linha(manga);
+        resultado.replaceChildren(...[
+            h('div', {class: 'capa-do-sorteado'}, jeito.capa(manga)),
+            h('h2', null, manga.title ?? manga.titulo),
+            linha ? h('span', {class: 'linha-do-sorteado'}, linha) : null,
             h('div', {class: 'acoes-do-sorteado'},
-                botaoLer(manga),
-                h('a', {class: 'botao', href: '#/manga/' + manga.id, onclick: () => dialogo.close()}, 'Ver o mangá'),
+                ...jeito.acoes(manga, () => dialogo.close()),
                 h('button', {type: 'button', class: 'botao', onclick: () => {
                     dialogo.close();
-                    sortear();
-                }}, '🎲 Sortear de novo')));
+                    jeito.deNovo();
+                }}, '🎲 Sortear de novo'))].filter(Boolean));
         resultado.hidden = false;
         if (!menosMovimento.matches) confete(dialogo);
     };
@@ -1625,16 +1638,20 @@ async function telaDescobrir(comBoasVindas) {
         quadroDeTags('Quero com estas tags', 'quero', todasAsTags, () => escolhas.tags, lista => escolhas.tags = lista, () => escolhas.sem, 'Já está em “Não quero”', mudou, abertura),
         quadroDeTags('Não quero com estas tags', 'nao-quero', todasAsTags, () => escolhas.sem, lista => escolhas.sem = lista, () => escolhas.tags, 'Já está em “Quero”', mudou, abertura));
 
-    app.replaceChildren(
+    const botaoDeSortear = h('button', {type: 'button', class: 'botao', onclick: () => sortearDescoberta(botaoDeSortear)}, '🎲 Sortear');
+    botaoDeSortear.title = 'Sorteia uma obra que ainda não está na sua lista, com a busca e as tags escolhidas';
+
+    // replaceChildren escreveria "null" na tela: as partes que faltam saem antes
+    app.replaceChildren(...[
         comBoasVindas ? boasVindas() : null,
         abas('descobrir'),
-        h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar),
+        h('div', {class: 'ferramentas'}, busca, h('span', {class: 'espaco'}), ordenar, botaoDeSortear),
         todasAsTags.length ? h('div', {class: 'quadros-de-tags'}, quadros.map(quadro => quadro.elemento)) : null,
         aviso,
         lugarDeBanner('descobrir-topo', 'horizontal', 'so-sem-trilhos'),
         lista,
         paginacao,
-        ...trilhosDeBanner(lista, 'descobrir'));
+        ...trilhosDeBanner(lista, 'descobrir')].filter(Boolean));
     carregar();
 }
 
@@ -1747,18 +1764,85 @@ async function carregarDescobertas(lista, aviso, paginacao) {
     ] : []));
 }
 
+/*
+ * Sorteio no Descobrir (doc 123): uma obra ao acaso entre as que a busca e as tags escolhidas acham, fora as que
+ * ja estao na lista. A fonte nao diz quantas paginas existem, entao pega uma pagina ao acaso entre as primeiras;
+ * se ela vier vazia (a busca acha pouca coisa), usa a primeira. A fita mostra as obras dessa mesma pagina.
+ */
+const PAGINAS_DO_SORTEIO = 10;
+
+async function sortearDescoberta(botao) {
+    const escolhas = estado.descobrir;
+    const pedir = pagina => {
+        const parametros = new URLSearchParams({ordem: escolhas.ordem, pagina});
+        if (escolhas.busca.trim()) parametros.set('busca', escolhas.busca.trim());
+        if (escolhas.tags.length) parametros.set('tags', escolhas.tags.join(','));
+        if (escolhas.sem.length) parametros.set('sem', escolhas.sem.join(','));
+        return chamar('GET', '/api/recomendacoes?' + parametros).then(resposta => resposta.itens || []);
+    };
+    if (botao) {
+        botao.disabled = true;
+        botao.textContent = 'Sorteando…';
+    }
+    let obras;
+    try {
+        const pagina = 1 + Math.floor(Math.random() * PAGINAS_DO_SORTEIO);
+        obras = await pedir(pagina);
+        if (obras.length === 0 && pagina > 1) obras = await pedir(1);
+    } catch (e) {
+        avisar(e.message, true);
+        return;
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = '🎲 Sortear';
+        }
+    }
+    if (obras.length === 0) {
+        avisar('Nada para sortear com essa busca. Tente outro nome ou menos tags.', true);
+        return;
+    }
+    // evita repetir a ultima sorteada quando ha outra para escolher
+    const opcoes = obras.length > 1 ? obras.filter(obra => obra.link !== estado.obraSorteada) : obras;
+    const obra = opcoes[Math.floor(Math.random() * opcoes.length)];
+    estado.obraSorteada = obra.link;
+    abrirSorteio(obra, obras, SORTEIO_DO_DESCOBRIR);
+}
+
+/** Uma obra do Descobrir na fita do sorteio: so a capa, como as da lista. */
+function capaDaObra(obra) {
+    return h('div', {class: 'capa capa-da-fita'},
+        obra.capa ? h('img', {src: obra.capa, alt: '', decoding: 'async', width: '300', height: '450', draggable: 'false', referrerpolicy: 'no-referrer'})
+            : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (obra.titulo || '?').trim().charAt(0).toUpperCase()));
+}
+
+/** Nota (de 0 a 100 no AniList, mostrada de 0 a 10), ano e os dois primeiros generos de uma obra do Descobrir. */
+const detalhesDaObra = obra => [obra.nota != null ? '★ ' + (obra.nota / 10).toFixed(1).replace('.', ',') : null, obra.ano, ...(obra.generos || []).slice(0, 2)].filter(Boolean);
+/** Link do cadastro ja preenchido com o nome, a capa e as tags da obra. */
+const linkParaAdicionar = obra => '#/novo?' + new URLSearchParams({t: obra.titulo, i: obra.capa || '', g: (obra.tags || []).join(',')});
+
+const SORTEIO_DO_DESCOBRIR = {
+    capa: capaDaObra,
+    saiu: 'Que tal ler:',
+    linha: obra => detalhesDaObra(obra).join(' · '),
+    acoes: (obra, fechar) => [
+        h('a', {class: 'botao primario', href: linkParaAdicionar(obra), onclick: fechar}, '+ Adicionar à lista'),
+        h('a', {class: 'botao', href: obra.link, target: '_blank', rel: 'noopener noreferrer'}, 'Ver no AniList'),
+    ],
+    deNovo: () => sortearDescoberta(),
+};
+
 /** Cartao de uma obra que ainda nao esta na lista: capa e nome abrem a pagina dela no AniList; "+ Adicionar" abre o cadastro. */
 function cartaoDeObra(obra) {
     const imagem = obra.capa
         ? h('img', {src: obra.capa, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'})
         : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, obra.titulo.charAt(0).toUpperCase());
-    const adicionar = new URLSearchParams({t: obra.titulo, i: obra.capa || '', g: (obra.tags || []).join(',')});
-    const detalhes = [obra.nota != null ? '★ ' + (obra.nota / 10).toFixed(1).replace('.', ',') : null, obra.ano, ...obra.generos.slice(0, 2)].filter(Boolean);
+    const detalhes = detalhesDaObra(obra);
     return h('article', {class: 'cartao'},
         h('a', {class: 'capa', href: obra.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': obra.titulo + ' (abre o AniList)'}, imagem),
         h('a', {class: 'cartao-titulo', href: obra.link, target: '_blank', rel: 'noopener noreferrer', title: obra.titulo}, obra.titulo),
         h('small', {class: 'generos'}, detalhes.join(' · ')),
-        h('a', {class: 'botao pequeno', href: '#/novo?' + adicionar}, '+ Adicionar'));
+        h('a', {class: 'botao pequeno', href: linkParaAdicionar(obra)}, '+ Adicionar'));
 }
 
 /**

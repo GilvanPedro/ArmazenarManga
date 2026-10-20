@@ -328,6 +328,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
   [O prêmio da roleta centralizado](120-premio-da-roleta-centralizado.md).
 - **Roleta mais leve.** Menos processador parada e girando. Detalhes em [Roleta mais leve](121-roleta-mais-leve.md).
 - **Tag do Google.** A tag do Google Ads em todas as páginas. Detalhes em [Tag do Google (Google Ads)](122-tag-do-google.md).
+- **Sorteio no Descobrir.** Sorteia uma obra que ainda não está na lista, no estilo do baú. Detalhes em [Sorteio no Descobrir](123-sorteio-no-descobrir.md).
 
 ## O que foi removido ou abandonado
 

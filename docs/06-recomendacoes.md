@@ -96,3 +96,5 @@ da obra.
 - As recomendações de uma obra ficam guardadas em memória por 12 horas, e a lista de temas do AniList por um dia.
 - O AniList limita a cerca de 30 pedidos por minuto. Por isso os títulos da lista são consultados em lotes.
 - A cota gratuita de tradução é diária. Quando acaba, as descrições vêm em inglês.
+
+> A aba Descobrir também tem um botão para sortear uma dessas obras: veja [Sorteio no Descobrir](123-sorteio-no-descobrir.md).

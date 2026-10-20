@@ -150,6 +150,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [O prêmio da roleta centralizado](docs/120-premio-da-roleta-centralizado.md) | |
 | [Roleta mais leve](docs/121-roleta-mais-leve.md) | |
 | [Tag do Google (Google Ads)](docs/122-tag-do-google.md) | |
+| [Sorteio no Descobrir](docs/123-sorteio-no-descobrir.md) | |
 
 ## Testes
 
