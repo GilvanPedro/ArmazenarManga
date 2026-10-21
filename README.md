@@ -154,6 +154,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | ["Sortear de novo" com resposta na hora, e o confete de volta](docs/124-sortear-de-novo-e-confete.md) | |
 | [Imagens de banner de até 4 MB, e a imagem nova aparecendo na hora](docs/125-banners-maiores-e-imagem-nova-na-hora.md) | |
 | [As duas imagens no relatório do banner](docs/126-as-duas-imagens-no-relatorio-do-banner.md) | |
+| [Banner ampliado no relatório](docs/127-banner-ampliado-no-relatorio.md) | |
+| [Os banners trocam junto com a página](docs/128-banners-trocam-com-a-pagina.md) | |
 
 ## Testes
 

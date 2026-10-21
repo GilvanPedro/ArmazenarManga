@@ -13,3 +13,5 @@ rolar para o lado. Cada imagem tem a descrição do banner com o formato entre p
 |---------|-------------|
 | `public/app.js` | `relatorioDeUmBanner` mostra as imagens de `banner.imagens` |
 | `public/app.css` | `.imagens-do-relatorio`, com a horizontal e a vertical lado a lado |
+
+> Clicar numa das imagens abre ela grande, numa janela por cima: veja [doc 127](127-banner-ampliado-no-relatorio.md).

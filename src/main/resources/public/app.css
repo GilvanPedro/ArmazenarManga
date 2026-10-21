@@ -3574,11 +3574,39 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 .relatorio-do-banner { display: flex; flex-direction: column; gap: 14px; }
 .cabecalho-do-relatorio { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
 .imagens-do-relatorio { display: flex; align-items: center; gap: 12px; max-width: 100%; min-width: 0; }
-.banner-do-relatorio { max-width: min(100%, 520px); max-height: 180px; min-width: 0; border-radius: 8px; border: 1px solid var(--borda); }
+/* cada imagem vai dentro de um botao: clicar abre ela grande (doc 127) */
+.imagem-ampliavel { display: block; flex: none; min-width: 0; max-width: min(100%, 520px); padding: 0; margin: 0; border: 0; background: none; border-radius: 8px; cursor: zoom-in; }
+.banner-do-relatorio { display: block; max-width: 100%; max-height: 180px; border-radius: 8px; border: 1px solid var(--borda); transition: transform .15s, box-shadow .15s; }
 .banner-do-relatorio.vertical { max-height: 260px; }
+.imagem-ampliavel:hover .banner-do-relatorio { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, .18); }
+.imagem-ampliavel:focus-visible { outline: 3px solid var(--destaque); outline-offset: 2px; }
 /* com as duas, a horizontal encolhe para a vertical caber ao lado */
-.imagens-do-relatorio:has(.vertical) .banner-do-relatorio.horizontal { flex: 1 1 auto; max-width: 420px; }
-.imagens-do-relatorio .banner-do-relatorio.vertical { flex: none; }
+.imagens-do-relatorio:has(.vertical) .imagem-ampliavel.horizontal { flex: 0 1 auto; max-width: 420px; }
+dialog.janela-da-imagem {
+    width: fit-content;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 32px);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
+dialog.janela-da-imagem::backdrop { background: rgba(8, 8, 12, .86); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.janela-da-imagem img {
+    display: block;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 80px);
+    width: auto;
+    height: auto;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+    animation: imagem-abrindo .2s ease-out both;
+}
+.janela-da-imagem > .fechar { position: absolute; top: -44px; right: 0; color: rgba(255, 255, 255, .8); font-size: 32px; }
+.janela-da-imagem > .fechar:hover { color: #fff; }
+@keyframes imagem-abrindo { from { transform: scale(.92); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .janela-da-imagem img { animation: none; } }
 .sobre-o-relatorio h1 { margin: 2px 0 4px; }
 .sobre-o-relatorio .subtitulo { margin: 0; }
 /* a pagina que a empresa abre pelo link: so o relatorio, sem o topo do site */

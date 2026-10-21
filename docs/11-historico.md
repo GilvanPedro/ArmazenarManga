@@ -332,6 +332,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **"Sortear de novo" e confete.** O botão mostra "Sorteando…" até o próximo chegar, e o confete voltou no site no ar. Detalhes em ["Sortear de novo" com resposta na hora, e o confete de volta](124-sortear-de-novo-e-confete.md).
 - **Banners de até 4 MB.** As imagens de banner podem ter até 4 MB, e a imagem trocada aparece na hora. Detalhes em [Imagens de banner de até 4 MB, e a imagem nova aparecendo na hora](125-banners-maiores-e-imagem-nova-na-hora.md).
 - **As duas imagens no relatório do banner.** A vertical aparece ao lado da horizontal. Detalhes em [As duas imagens no relatório do banner](126-as-duas-imagens-no-relatorio-do-banner.md).
+- **Banner ampliado no relatório.** Clicar na imagem do banner abre ela grande. Detalhes em [Banner ampliado no relatório](127-banner-ampliado-no-relatorio.md).
+- **Banners trocam com a página.** Mudar de página numa lista sorteia os banners de novo. Detalhes em [Os banners trocam junto com a página](128-banners-trocam-com-a-pagina.md).
 
 ## O que foi removido ou abandonado
 

@@ -130,6 +130,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [124 · "Sortear de novo" com resposta na hora, e o confete de volta](124-sortear-de-novo-e-confete.md) | O botão mostra "Sorteando…" até o próximo chegar, e o confete que a política de segurança barrava |
 | [125 · Imagens de banner de até 4 MB, e a imagem nova na hora](125-banners-maiores-e-imagem-nova-na-hora.md) | O limite das imagens de banner foi de 1 para 4 MB, e a imagem trocada aparece sem esperar |
 | [126 · As duas imagens no relatório do banner](126-as-duas-imagens-no-relatorio-do-banner.md) | O relatório mostra a imagem horizontal e a vertical, não só a horizontal |
+| [127 · Banner ampliado no relatório](127-banner-ampliado-no-relatorio.md) | Clicar numa imagem do banner no relatório abre ela grande, numa janela por cima |
+| [128 · Os banners trocam junto com a página](128-banners-trocam-com-a-pagina.md) | Mudar de página na Biblioteca, em Lançam hoje e no Descobrir sorteia os banners de novo |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

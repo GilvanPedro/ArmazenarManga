@@ -677,6 +677,18 @@ const agendarBanners = () => {
     clearTimeout(esperaDosBanners);
     esperaDosBanners = setTimeout(arrumarBanners, 120);
 };
+
+/**
+ * Troca de pagina numa lista (doc 128): todos os lugares de banner da tela sorteiam de novo, pelo peso. Pode sair
+ * outro ou o mesmo, e cada um conta uma exibicao nova. O banner antigo fica ate o novo entrar, sem a tela pular.
+ */
+function trocarBanners() {
+    for (const lugar of app.querySelectorAll('.lugar-de-banner[data-pronto]')) {
+        delete lugar.dataset.pronto;
+        delete lugar.dataset.banner;
+    }
+    agendarBanners();
+}
 // ------------------------------------------------------------------ animacoes so do que esta na tela (doc 100)
 
 /*
@@ -1158,6 +1170,7 @@ function desenharGrade(lista, paginacao, todos, doServidor) {
     lista.replaceChildren(...cartoes);
     const irPara = pagina => {
         estado.pagina = pagina;
+        trocarBanners();
         if (doServidor) carregarGrade(lista, paginacao).then(() => window.scrollTo(0, 0));
         else {
             desenharGrade(lista, paginacao, todos);
@@ -1796,6 +1809,7 @@ async function carregarDescobertas(lista, aviso, paginacao) {
     }
     const irPara = pagina => {
         escolhas.pagina = pagina;
+        trocarBanners();
         carregarDescobertas(lista, aviso, paginacao).then(() => window.scrollTo(0, 0));
     };
     // a fonte nao diz quantas paginas existem, so se ha uma proxima
@@ -5378,16 +5392,34 @@ const taxaEmTexto = taxa => (taxa == null ? '—' : taxa.toLocaleString('pt-BR',
  * O relatorio de um banner (o que a empresa ve): o banner, o mes (com as setas), exibicoes, cliques e a taxa de
  * cliques, os graficos por dia e os lugares do site. dados: a resposta do relatorio. aoTrocarMes(mes) recarrega.
  */
+/** Uma imagem que, clicada, abre grande numa janela por cima da pagina (fecha no ×, no Esc ou clicando fora). */
+function imagemAmpliavel(src, alt, formato) {
+    return h('button', {type: 'button', class: 'imagem-ampliavel ' + formato, title: 'Clique para ver maior', 'aria-label': 'Ver maior: ' + alt,
+        onclick: () => ampliarImagem(src, alt)}, h('img', {class: 'banner-do-relatorio ' + formato, src, alt: ''}));
+}
+
+function ampliarImagem(src, alt) {
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const dialogo = h('dialog', {class: 'janela-da-imagem', 'aria-label': alt}, fechar, h('img', {src, alt}));
+    fechar.addEventListener('click', () => dialogo.close());
+    // clicar fora da imagem (no fundo escuro) fecha
+    dialogo.addEventListener('click', evento => { if (evento.target === dialogo) dialogo.close(); });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    fechar.focus();
+}
+
 function relatorioDeUmBanner(dados, aoTrocarMes) {
     const b = dados.banner;
     const t = dados.totais;
     return h('div', {class: 'relatorio-do-banner'},
         h('div', {class: 'cabecalho-do-relatorio'},
             // as imagens que o banner tem: a horizontal e a vertical lado a lado, ou so uma (doc 126)
+            // clicar numa delas abre grande, numa janela por cima (doc 127)
             h('div', {class: 'imagens-do-relatorio'}, ...(b.imagens ? ['horizontal', 'vertical'].filter(formato => b.imagens[formato])
-                .map(formato => h('img', {class: 'banner-do-relatorio ' + formato, src: b.imagens[formato].url,
-                    alt: (b.texto || 'Banner de ' + b.empresa) + ' (' + formato + ')'}))
-                : [h('img', {class: 'banner-do-relatorio horizontal', src: b.imagem, alt: b.texto || 'Banner de ' + b.empresa})])),
+                .map(formato => imagemAmpliavel(b.imagens[formato].url, (b.texto || 'Banner de ' + b.empresa) + ' (' + formato + ')', formato))
+                : [imagemAmpliavel(b.imagem, b.texto || 'Banner de ' + b.empresa, 'horizontal')])),
             h('div', {class: 'sobre-o-relatorio'},
                 h('span', {class: 'tipo-do-item'}, 'Relatório do anúncio'),
                 h('h1', null, b.empresa),

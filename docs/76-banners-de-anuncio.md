@@ -133,3 +133,5 @@ Só o dono do site, menos as duas abertas indicadas.
 > Depois, as medidas do vertical passaram a ser as do horizontal, trocadas: veja [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).
 
 > O relatório mostra a imagem horizontal e a vertical do banner, não só uma: veja [doc 126](126-as-duas-imagens-no-relatorio-do-banner.md).
+
+> Mudar de página numa lista sorteia os banners de novo (e conta exibições novas): veja [doc 128](128-banners-trocam-com-a-pagina.md).
