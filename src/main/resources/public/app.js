@@ -661,7 +661,10 @@ async function arrumarBanners() {
         }
         usados.add(banner.id);
         lugar.dataset.banner = banner.id;
-        const imagem = h('img', {src: banner.imagem, alt: banner.texto || 'Anúncio de ' + banner.empresa, width: banner.largura, height: banner.altura, decoding: 'async'});
+        // so baixa quando o lugar chega perto da tela (o do fim da lista espera a rolagem; o navegador comeca bem antes
+        // de ele aparecer) e com prioridade baixa, depois das capas (doc 131)
+        const imagem = h('img', {src: banner.imagem, alt: banner.texto || 'Anúncio de ' + banner.empresa, width: banner.largura, height: banner.altura,
+            decoding: 'async', loading: 'lazy', fetchpriority: 'low'});
         const selo = h('span', {class: 'selo-de-anuncio'}, 'Anúncio');
         lugar.replaceChildren(banner.temLink
             ? h('a', {class: 'banner-de-anuncio', href: '/api/banners/' + encodeURIComponent(banner.id) + '/clique?posicao=' + lugar.dataset.posicao,

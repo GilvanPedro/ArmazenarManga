@@ -32,3 +32,5 @@ Para quem está com o site aberto em outro aparelho, a troca aparece em até uns
 |---------|-------------|
 | `api/_banners.js` | O limite de 4 MB por imagem |
 | `public/app.js` | O aviso de 4 MB, o envio em duas partes e a lista de banners buscada de novo depois de uma mudança |
+
+> As imagens passaram a ser diminuídas e convertidas para WebP ao salvar, e ficam guardadas na CDN: veja [doc 131](131-banners-mais-leves.md).

@@ -1,7 +1,7 @@
 // Testes dos banners de anuncio: o cadastro (empresa, link, imagens horizontal e vertical) e os relatorios.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { celulaDoCsv, diasDoMes, idDaEmpresa, lerMesDoRelatorio, montarRelatorio, problemaNasMedidas, taxaDeCliques, tipoDaImagemDoBanner,
+import { otimizarImagemDoBanner, TAMANHO_SERVIDO_DO_BANNER, celulaDoCsv, diasDoMes, idDaEmpresa, lerMesDoRelatorio, montarRelatorio, problemaNasMedidas, taxaDeCliques, tipoDaImagemDoBanner,
     validarDadosDoBanner, validarLinkDeBanner } from '../api/_banners.js';
 
 test('o id vem do nome da empresa, sem acento, e ganha numero se ja existir', () => {
@@ -106,4 +106,26 @@ test('o relatorio mostra o nome do lugar', async () => {
     const { montarRelatorio } = await import('../api/_banners.js');
     const relatorio = montarRelatorio('2026-10', [{ dia: '2026-10-18', banner: 'a', posicao: 'loja-esquerda', exibicoes: 5, cliques: 1 }]);
     assert.equal(relatorio.porPosicao[0].posicao, 'Loja, lateral esquerda');
+});
+
+test('imagem de banner grande e diminuida e vira WebP; a pequena fica como esta se nao ganhar nada (doc 131)', async () => {
+    const { default: sharp } = await import('sharp');
+    const ruido = (width, height) => sharp({ create: { width, height, channels: 3, noise: { type: 'gaussian', mean: 128, sigma: 40 } } }).png().toBuffer();
+    const grande = await ruido(2400, 600);
+    const horizontal = await otimizarImagemDoBanner(grande, 'image/png', 'horizontal');
+    assert.equal(horizontal.tipo, 'image/webp');
+    assert.ok(horizontal.bytes.length < grande.length / 4);
+    const medidas = await sharp(horizontal.bytes).metadata();
+    assert.ok(medidas.width <= TAMANHO_SERVIDO_DO_BANNER.horizontal.width && medidas.height <= TAMANHO_SERVIDO_DO_BANNER.horizontal.height);
+    assert.equal(Math.round(medidas.width / medidas.height), 4); // a proporcao continua a mesma
+
+    const vertical = await otimizarImagemDoBanner(await ruido(600, 2400), 'image/png', 'vertical');
+    const emPe = await sharp(vertical.bytes).metadata();
+    assert.equal(emPe.width, TAMANHO_SERVIDO_DO_BANNER.vertical.width);
+
+    // nao aumenta a pequena, e se o WebP nao for menor, fica a original
+    const pequena = await sharp({ create: { width: 160, height: 600, channels: 3, background: '#cc3366' } }).webp().toBuffer();
+    const resultado = await otimizarImagemDoBanner(pequena, 'image/webp', 'vertical');
+    assert.ok(resultado.bytes.length <= pequena.length);
+    assert.equal((await sharp(resultado.bytes).metadata()).width, 160);
 });

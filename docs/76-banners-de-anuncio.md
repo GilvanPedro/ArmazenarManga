@@ -135,3 +135,5 @@ Só o dono do site, menos as duas abertas indicadas.
 > O relatório mostra a imagem horizontal e a vertical do banner, não só uma: veja [doc 126](126-as-duas-imagens-no-relatorio-do-banner.md).
 
 > Mudar de página numa lista sorteia os banners de novo (e conta exibições novas): veja [doc 128](128-banners-trocam-com-a-pagina.md).
+
+> As imagens passaram a ser diminuídas e convertidas para WebP ao salvar, e ficam guardadas na CDN: veja [doc 131](131-banners-mais-leves.md).

@@ -36,6 +36,9 @@ export const ESTRUTURA_DOS_BANNERS = `
         SELECT id, formato, imagem, tipo_imagem, largura, altura, atualizado_em FROM banners WHERE imagem IS NOT NULL AND formato IS NOT NULL
         ON CONFLICT DO NOTHING;
     UPDATE banners SET imagem = NULL, tipo_imagem = NULL, largura = NULL, altura = NULL, formato = NULL WHERE imagem IS NOT NULL;
+    -- otimizada (doc 131): a imagem ja foi diminuida e passada para WebP. As enviadas antes sao otimizadas na primeira
+    -- vez que alguem as pede
+    ALTER TABLE imagens_de_banner ADD COLUMN IF NOT EXISTS otimizada BOOLEAN NOT NULL DEFAULT false;
 `;
 
 export const BANNERS_MAXIMOS = 50;
@@ -97,6 +100,35 @@ export const FORMATOS_DE_BANNER = {
 };
 
 export class DadoInvalidoNoBanner extends Error {}
+
+/*
+ * O maior tamanho em que cada formato aparece no site, em dobro para telas de alta resolucao (doc 131): o horizontal
+ * ocupa ate 970 x 200 px e o vertical ate 200 px de largura (e a altura da tela). Maior que isso so pesa no download.
+ */
+export const TAMANHO_SERVIDO_DO_BANNER = {
+    horizontal: { width: 1940, height: 400 },
+    vertical: { width: 400, height: 2000 },
+};
+
+/**
+ * A imagem do banner do jeito que vai para o site: no maximo do tamanho servido e em WebP (qualidade 85, que nao borra
+ * texto). Banner animado continua animado. Se a otimizada sair maior que a original, fica a original.
+ * Devolve { bytes, tipo }.
+ */
+export async function otimizarImagemDoBanner(bytes, tipo, formato) {
+    const { default: sharp } = await import('sharp');
+    const limite = TAMANHO_SERVIDO_DO_BANNER[formato] || TAMANHO_SERVIDO_DO_BANNER.horizontal;
+    try {
+        const webp = await sharp(bytes, { animated: true, limitInputPixels: 40_000_000 })
+            .resize({ ...limite, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 85, effort: 4 })
+            .toBuffer();
+        if (webp.length < bytes.length) return { bytes: webp, tipo: 'image/webp' };
+    } catch {
+        // nao deu para converter: fica a original, que ja foi conferida
+    }
+    return { bytes: Buffer.from(bytes), tipo };
+}
 
 /** "Padaria do Zé!" -> "padaria-do-ze"; com numero no fim se ja existir. */
 export function idDaEmpresa(empresa, existentes = []) {
@@ -381,7 +413,8 @@ export function criarBanners(f) {
         }
         const problema = problemaNasMedidas(formato, largura, altura);
         if (problema) throw new DadoInvalidoNoBanner(problema);
-        return { bytes, tipo, largura, altura };
+        // largura e altura ficam as da enviada (os relatorios mostram essas); so os bytes sao os otimizados
+        return { ...(await otimizarImagemDoBanner(bytes, tipo, formato)), largura, altura };
     }
 
     async function linhasDoMes(mes, banner) {
@@ -452,8 +485,8 @@ export function criarBanners(f) {
             }
             if (tirar.length) await cliente.query('DELETE FROM imagens_de_banner WHERE banner = $1 AND formato = ANY($2)', [salvoId, tirar]);
             for (const [formato, imagem] of Object.entries(novas)) {
-                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura) VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (banner, formato) DO UPDATE SET imagem = $3, tipo = $4, largura = $5, altura = $6, atualizada_em = now()`,
+                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura, otimizada) VALUES ($1, $2, $3, $4, $5, $6, true)
+                    ON CONFLICT (banner, formato) DO UPDATE SET imagem = $3, tipo = $4, largura = $5, altura = $6, otimizada = true, atualizada_em = now()`,
                 [salvoId, formato, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura]);
             }
             await sincronizarReceita(cliente, { id: salvoId, lancamento: atual?.lancamento || null }, dados);
@@ -541,7 +574,8 @@ export function criarBanners(f) {
                 const resposta = json(200, { banners: rows.map(banner => ({ id: banner.id, empresa: banner.empresa, texto: banner.texto, formato: banner.formato,
                     peso: banner.peso, largura: banner.largura, altura: banner.altura, temLink: banner.tem_link,
                     imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${banner.formato}&v=${banner.v}` })) });
-                resposta.headers.set('Cache-Control', 'public, max-age=60');
+                // a CDN guarda um minuto e, passado esse tempo, ainda entrega a guardada enquanto busca a nova (doc 131)
+                resposta.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
                 return resposta;
             }
             // as exibicoes que a pagina mostrou (somam no dia, por banner e lugar; sem conta, IP ou aparelho)
@@ -573,13 +607,22 @@ export function criarBanners(f) {
             if (id && acao === 'imagem' && !codigo) {
                 // ?formato=horizontal ou vertical; sem ele (enderecos antigos), a horizontal ou, se nao tiver, a vertical
                 const formato = url.searchParams.get('formato');
-                const { rows } = await (await banco()).query(`SELECT imagem, tipo AS tipo_imagem FROM imagens_de_banner WHERE banner = $1
+                const db = await banco();
+                const { rows } = await db.query(`SELECT formato, imagem, tipo AS tipo_imagem, otimizada FROM imagens_de_banner WHERE banner = $1
                     ${Object.hasOwn(FORMATOS_DE_BANNER, formato) ? 'AND formato = $2' : ''} ORDER BY formato LIMIT 1`,
                 Object.hasOwn(FORMATOS_DE_BANNER, formato) ? [id, formato] : [id]);
                 if (!rows.length) return new Response('Banner não encontrado', { status: 404 });
-                // o endereco leva ?v= (a ultima mudanca): pode ficar guardado por um ano
-                return new Response(rows[0].imagem, { status: 200, headers: { 'Content-Type': rows[0].tipo_imagem, 'X-Content-Type-Options': 'nosniff',
-                    'Cache-Control': url.searchParams.has('v') ? 'public, max-age=31536000, immutable' : 'public, max-age=300' } });
+                let { imagem, tipo_imagem: tipo } = rows[0];
+                // enviada antes da otimizacao (doc 131): otimiza agora, uma vez so, e guarda. A data de atualizacao nao
+                // muda, entao o endereco (?v=) continua o mesmo
+                if (!rows[0].otimizada) {
+                    ({ bytes: imagem, tipo } = await otimizarImagemDoBanner(imagem, tipo, rows[0].formato));
+                    await db.query('UPDATE imagens_de_banner SET imagem = $3, tipo = $4, otimizada = true WHERE banner = $1 AND formato = $2',
+                        [id, rows[0].formato, imagem, tipo]);
+                }
+                // o endereco leva ?v= (a ultima mudanca): o navegador e a CDN guardam por um ano, sem chegar ao banco
+                return new Response(imagem, { status: 200, headers: { 'Content-Type': tipo, 'X-Content-Type-Options': 'nosniff',
+                    'Cache-Control': url.searchParams.has('v') ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=300, s-maxage=300' } });
             }
             if (id === 'relatorio-da-empresa' && acao && codigo) {
                 const { rows } = await (await banco()).query(`SELECT ${CAMPOS} FROM banners WHERE id = $1`, [acao]);
