@@ -329,6 +329,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Roleta mais leve.** Menos processador parada e girando. Detalhes em [Roleta mais leve](121-roleta-mais-leve.md).
 - **Tag do Google.** A tag do Google Ads em todas as páginas. Detalhes em [Tag do Google (Google Ads)](122-tag-do-google.md).
 - **Sorteio no Descobrir.** Sorteia uma obra que ainda não está na lista, no estilo do baú. Detalhes em [Sorteio no Descobrir](123-sorteio-no-descobrir.md).
+- **"Sortear de novo" e confete.** O botão mostra "Sorteando…" até o próximo chegar, e o confete voltou no site no ar. Detalhes em ["Sortear de novo" com resposta na hora, e o confete de volta](124-sortear-de-novo-e-confete.md).
+- **Banners de até 4 MB.** As imagens de banner podem ter até 4 MB, e a imagem trocada aparece na hora. Detalhes em [Imagens de banner de até 4 MB, e a imagem nova aparecendo na hora](125-banners-maiores-e-imagem-nova-na-hora.md).
+- **As duas imagens no relatório do banner.** A vertical aparece ao lado da horizontal. Detalhes em [As duas imagens no relatório do banner](126-as-duas-imagens-no-relatorio-do-banner.md).
 
 ## O que foi removido ou abandonado
 

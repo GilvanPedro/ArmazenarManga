@@ -3573,8 +3573,12 @@ body { background: var(--fundo-imagem, none) fixed, var(--fundo); }
 .linha-do-link input { flex: 1 1 280px; min-width: 0; font-size: 13px; }
 .relatorio-do-banner { display: flex; flex-direction: column; gap: 14px; }
 .cabecalho-do-relatorio { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
-.banner-do-relatorio { max-width: min(100%, 520px); max-height: 180px; border-radius: 8px; border: 1px solid var(--borda); }
+.imagens-do-relatorio { display: flex; align-items: center; gap: 12px; max-width: 100%; min-width: 0; }
+.banner-do-relatorio { max-width: min(100%, 520px); max-height: 180px; min-width: 0; border-radius: 8px; border: 1px solid var(--borda); }
 .banner-do-relatorio.vertical { max-height: 260px; }
+/* com as duas, a horizontal encolhe para a vertical caber ao lado */
+.imagens-do-relatorio:has(.vertical) .banner-do-relatorio.horizontal { flex: 1 1 auto; max-width: 420px; }
+.imagens-do-relatorio .banner-do-relatorio.vertical { flex: none; }
 .sobre-o-relatorio h1 { margin: 2px 0 4px; }
 .sobre-o-relatorio .subtitulo { margin: 0; }
 /* a pagina que a empresa abre pelo link: so o relatorio, sem o topo do site */

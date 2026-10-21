@@ -151,6 +151,9 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Roleta mais leve](docs/121-roleta-mais-leve.md) | |
 | [Tag do Google (Google Ads)](docs/122-tag-do-google.md) | |
 | [Sorteio no Descobrir](docs/123-sorteio-no-descobrir.md) | |
+| ["Sortear de novo" com resposta na hora, e o confete de volta](docs/124-sortear-de-novo-e-confete.md) | |
+| [Imagens de banner de até 4 MB, e a imagem nova aparecendo na hora](docs/125-banners-maiores-e-imagem-nova-na-hora.md) | |
+| [As duas imagens no relatório do banner](docs/126-as-duas-imagens-no-relatorio-do-banner.md) | |
 
 ## Testes
 

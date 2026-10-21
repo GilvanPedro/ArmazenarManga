@@ -20,7 +20,7 @@ O botão **+ Banner** abre uma janela com:
 - **Empresa** (1 a 120 caracteres): o nome que aparece nos relatórios. Dele sai o id do banner ("Padaria do Zé" vira
   `padaria-do-ze`, com número no fim se já existir);
 - **Formato**: **horizontal** ou **vertical**;
-- **Imagem**: PNG, JPEG ou WebP, até **1 MB**, com uma prévia e as medidas conferidas na hora;
+- **Imagem**: PNG, JPEG ou WebP, até **4 MB** (era 1 MB; [doc 125](125-banners-maiores-e-imagem-nova-na-hora.md)), com uma prévia e as medidas conferidas na hora;
 - **Descrição** (até 200 caracteres): o texto para leitores de tela;
 - **Link ao clicar**: vazio (o banner não é clicável), `https://...` ou `mailto:` (só destinatário, assunto e mensagem);
 - **Peso** (1 a 100): a parte das exibições quando houver rodízio; peso 2 aparece o dobro de peso 1.
@@ -131,3 +131,5 @@ Só o dono do site, menos as duas abertas indicadas.
 > Depois, um banner passou a poder ter as duas imagens (horizontal e vertical): veja [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).
 
 > Depois, as medidas do vertical passaram a ser as do horizontal, trocadas: veja [Banner vertical com as medidas do horizontal](97-banner-vertical-com-as-medidas-do-horizontal.md).
+
+> O relatório mostra a imagem horizontal e a vertical do banner, não só uma: veja [doc 126](126-as-duas-imagens-no-relatorio-do-banner.md).

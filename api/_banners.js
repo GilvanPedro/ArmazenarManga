@@ -77,7 +77,8 @@ export function lerExibicoes(corpo) {
     return itens.filter(item => typeof item?.banner === 'string' && item.banner.length <= 80 && Object.hasOwn(LUGARES_DE_BANNER, item?.posicao))
         .map(item => ({ banner: item.banner, posicao: item.posicao }));
 }
-export const TAMANHO_MAXIMO_DO_BANNER = 1024 * 1024;
+// 4 MB por imagem (doc 125): o Vercel recusa envios acima de 4,5 MB, entao com as duas grandes o site manda uma por vez
+export const TAMANHO_MAXIMO_DO_BANNER = 4 * 1024 * 1024;
 
 /**
  * As medidas aceitas de cada formato (em pixels), e as proporcoes. O vertical e o horizontal deitado em pe (doc 97):
@@ -361,7 +362,7 @@ export function criarBanners(f) {
     /** A imagem do formulario (multipart), conferida pelo conteudo: { bytes, tipo, largura, altura }. */
     async function lerImagem(arquivo, formato) {
         if (!arquivo || typeof arquivo === 'string' || arquivo.size === 0) return null;
-        if (arquivo.size > TAMANHO_MAXIMO_DO_BANNER) throw new DadoInvalidoNoBanner('A imagem pode ter no máximo 1 MB (o ideal é até uns 300 KB)');
+        if (arquivo.size > TAMANHO_MAXIMO_DO_BANNER) throw new DadoInvalidoNoBanner('A imagem pode ter no máximo 4 MB (o ideal é até uns 300 KB, para o site abrir rápido)');
         const bytes = Buffer.from(await arquivo.arrayBuffer());
         const tipo = tipoDaImagemDoBanner(bytes);
         if (!tipo) throw new DadoInvalidoNoBanner('A imagem precisa ser PNG, JPEG ou WebP');

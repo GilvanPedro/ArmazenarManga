@@ -54,6 +54,8 @@ function h(tag, atributos, ...filhos) {
         if (valor == null || valor === false) continue;
         if (nome.startsWith('on')) el.addEventListener(nome.slice(2), valor);
         else if (nome === 'class') el.className = valor;
+        // pelo CSSOM: a politica de seguranca do site barra o atributo style escrito direto (o confete sumia)
+        else if (nome === 'style') el.style.cssText = valor;
         else if (valor === true) el.setAttribute(nome, '');
         else el.setAttribute(nome, valor);
     }
@@ -69,6 +71,11 @@ async function chamar(metodo, caminho, corpo) {
     if (metodo !== 'GET') {
         estado.listaCompleta = null;
         paginasDoServidor.clear();
+        // mexeu num banner (doc 125): os banners no ar sao buscados de novo, sem cache, para a imagem nova ja aparecer
+        if (caminho.startsWith('/api/banners')) {
+            banners.lista = null;
+            banners.semCache = true;
+        }
     }
     const opcoes = {method: metodo, headers: {}};
     if (corpo instanceof FormData) {
@@ -555,18 +562,23 @@ function recarregarAba() {
  * a tela e estreita). Cada lugar sorteia um banner do formato dele, pelo peso, entre os que estao no ar, e conta uma
  * exibicao quando aparece. Sem nenhum banner no ar daquele formato, entra o banner padrao "Anuncie aqui".
  */
-const banners = {lista: null, buscadoEm: 0, buscando: null, trilhos: null, pendentes: [], envio: null};
+// o tamanho de cada imagem de banner e o que vai num envio so (doc 125; o Vercel recusa acima de 4,5 MB)
+const TAMANHO_MAXIMO_DO_BANNER = 4 * 1024 * 1024;
+const ENVIO_MAXIMO_DE_BANNER = 4 * 1024 * 1024;
+const banners = {lista: null, buscadoEm: 0, buscando: null, semCache: false, trilhos: null, pendentes: [], envio: null};
 
 /** O e-mail para quem quer anunciar (montado em partes, para nao ficar inteiro no codigo para robos de spam). */
 const EMAIL_PARA_ANUNCIAR = ['gilvanpedro2006', 'gmail.com'].join('@');
 
 async function bannersNoAr() {
     if (banners.lista && Date.now() - banners.buscadoEm < 120_000) return banners.lista;
-    banners.buscando ??= fetch('/api/banners/no-ar').then(resposta => resposta.ok ? resposta.json() : {banners: []})
+    // depois de mexer num banner, um endereco novo passa por cima do cache do navegador e da CDN
+    banners.buscando ??= fetch('/api/banners/no-ar' + (banners.semCache ? '?agora=' + Date.now() : ''), banners.semCache ? {cache: 'no-store'} : {}).then(resposta => resposta.ok ? resposta.json() : {banners: []})
         .then(dados => dados.banners || []).catch(() => []);
     banners.lista = await banners.buscando;
     banners.buscando = null;
     banners.buscadoEm = Date.now();
+    banners.semCache = false;
     return banners.lista;
 }
 
@@ -1240,7 +1252,39 @@ function vazio(titulo, texto, acao) {
 const CAPAS_ANTES_DO_SORTEADO = 40;
 const DURACAO_DO_SORTEIO = 6200;
 
-async function sortear() {
+/**
+ * Busca o proximo sorteio e so depois abre a janela. O botao clicado fica em "Sorteando…" enquanto isso, porque a
+ * busca pode levar alguns segundos e, sem sinal nenhum, parecia que o botao nao funcionava. antesDeAbrir roda quando
+ * o sorteado chega (o "Sortear de novo" fecha a janela anterior so nessa hora).
+ */
+async function sortearCom(jeito, botao, antesDeAbrir) {
+    const texto = botao?.textContent;
+    if (botao) {
+        if (botao.disabled) return;
+        botao.disabled = true;
+        botao.textContent = 'Sorteando…';
+    }
+    let saiu = null;
+    try {
+        saiu = await jeito.buscar();
+    } finally {
+        if (botao) {
+            botao.disabled = false;
+            botao.textContent = texto;
+        }
+    }
+    if (!saiu) return;
+    antesDeAbrir?.();
+    abrirSorteio(saiu.item, saiu.outros, jeito);
+}
+
+/** O botao "Sortear" da lista (o clique passa o evento, e dele sai o botao). */
+function sortear(evento) {
+    return sortearCom(SORTEIO_DA_LISTA, evento?.currentTarget instanceof HTMLButtonElement ? evento.currentTarget : null);
+}
+
+/** O sorteio da lista: um manga do servidor, com o filtro de status, e ate 60 outros para a fita. */
+async function buscarDaLista() {
     const status = estado.filtroStatus ? 'status=' + encodeURIComponent(estado.filtroStatus) : '';
     const atual = estado.sorteado;
     let manga;
@@ -1256,10 +1300,10 @@ async function sortear() {
         }
     } catch (e) {
         avisar(e.message, true);
-        return;
+        return null;
     }
     estado.sorteado = manga.id;
-    abrirSorteio(manga, outros);
+    return {item: manga, outros};
 }
 
 /** Uma capa da fita: a imagem, o status e a nota (sem bordas nem efeitos, que sao muitas capas andando). */
@@ -1288,7 +1332,7 @@ function confete(onde) {
 
 /*
  * O que muda entre o sorteio da lista e o do Descobrir (doc 123): a capa de cada item da fita, o selo quando sai,
- * a linha de baixo do nome e os botoes. "deNovo" sorteia outro.
+ * a linha de baixo do nome e os botoes. "buscar" traz o proximo sorteado ({item, outros}, ou null depois de avisar o erro).
  */
 const SORTEIO_DA_LISTA = {
     capa: capaDaFita,
@@ -1296,7 +1340,7 @@ const SORTEIO_DA_LISTA = {
     linha: manga => [manga.rating != null ? 'nota ' + manga.rating : null,
         manga.readingStatus === 'CONCLUIDO' ? 'concluído' : 'Ler ' + mostrarCapitulo(manga.nextChapter)].filter(Boolean).join(' · '),
     acoes: (manga, fechar) => [botaoLer(manga), h('a', {class: 'botao', href: '#/manga/' + manga.id, onclick: fechar}, 'Ver o mangá')],
-    deNovo: () => sortear(),
+    buscar: buscarDaLista,
 };
 
 function abrirSorteio(manga, outros, jeito = SORTEIO_DA_LISTA) {
@@ -1339,10 +1383,8 @@ function abrirSorteio(manga, outros, jeito = SORTEIO_DA_LISTA) {
             linha ? h('span', {class: 'linha-do-sorteado'}, linha) : null,
             h('div', {class: 'acoes-do-sorteado'},
                 ...jeito.acoes(manga, () => dialogo.close()),
-                h('button', {type: 'button', class: 'botao', onclick: () => {
-                    dialogo.close();
-                    jeito.deNovo();
-                }}, '🎲 Sortear de novo'))].filter(Boolean));
+                h('button', {type: 'button', class: 'botao', onclick: evento => sortearCom(jeito, evento.currentTarget, () => dialogo.close())},
+                    '🎲 Sortear de novo'))].filter(Boolean));
         resultado.hidden = false;
         if (!menosMovimento.matches) confete(dialogo);
     };
@@ -1638,7 +1680,7 @@ async function telaDescobrir(comBoasVindas) {
         quadroDeTags('Quero com estas tags', 'quero', todasAsTags, () => escolhas.tags, lista => escolhas.tags = lista, () => escolhas.sem, 'Já está em “Não quero”', mudou, abertura),
         quadroDeTags('Não quero com estas tags', 'nao-quero', todasAsTags, () => escolhas.sem, lista => escolhas.sem = lista, () => escolhas.tags, 'Já está em “Quero”', mudou, abertura));
 
-    const botaoDeSortear = h('button', {type: 'button', class: 'botao', onclick: () => sortearDescoberta(botaoDeSortear)}, '🎲 Sortear');
+    const botaoDeSortear = h('button', {type: 'button', class: 'botao', onclick: () => sortearCom(SORTEIO_DO_DESCOBRIR, botaoDeSortear)}, '🎲 Sortear');
     botaoDeSortear.title = 'Sorteia uma obra que ainda não está na sua lista, com a busca e as tags escolhidas';
 
     // replaceChildren escreveria "null" na tela: as partes que faltam saem antes
@@ -1770,20 +1812,25 @@ async function carregarDescobertas(lista, aviso, paginacao) {
  * se ela vier vazia (a busca acha pouca coisa), usa a primeira. A fita mostra as obras dessa mesma pagina.
  */
 const PAGINAS_DO_SORTEIO = 10;
+// paginas ja buscadas para o sorteio, por 10 minutos: sortear de novo nelas sai na hora, sem esperar a fonte
+const PAGINAS_GUARDADAS = new Map();
+const VALIDADE_DAS_PAGINAS = 10 * 60 * 1000;
 
-async function sortearDescoberta(botao) {
+async function buscarDescoberta() {
     const escolhas = estado.descobrir;
-    const pedir = pagina => {
+    const pedir = async pagina => {
         const parametros = new URLSearchParams({ordem: escolhas.ordem, pagina});
         if (escolhas.busca.trim()) parametros.set('busca', escolhas.busca.trim());
         if (escolhas.tags.length) parametros.set('tags', escolhas.tags.join(','));
         if (escolhas.sem.length) parametros.set('sem', escolhas.sem.join(','));
-        return chamar('GET', '/api/recomendacoes?' + parametros).then(resposta => resposta.itens || []);
+        const chave = parametros.toString();
+        const guardada = PAGINAS_GUARDADAS.get(chave);
+        if (guardada && Date.now() - guardada.quando < VALIDADE_DAS_PAGINAS) return guardada.itens;
+        const itens = (await chamar('GET', '/api/recomendacoes?' + parametros)).itens || [];
+        if (PAGINAS_GUARDADAS.size >= 40) PAGINAS_GUARDADAS.clear();
+        PAGINAS_GUARDADAS.set(chave, {quando: Date.now(), itens});
+        return itens;
     };
-    if (botao) {
-        botao.disabled = true;
-        botao.textContent = 'Sorteando…';
-    }
     let obras;
     try {
         const pagina = 1 + Math.floor(Math.random() * PAGINAS_DO_SORTEIO);
@@ -1791,22 +1838,17 @@ async function sortearDescoberta(botao) {
         if (obras.length === 0 && pagina > 1) obras = await pedir(1);
     } catch (e) {
         avisar(e.message, true);
-        return;
-    } finally {
-        if (botao) {
-            botao.disabled = false;
-            botao.textContent = '🎲 Sortear';
-        }
+        return null;
     }
     if (obras.length === 0) {
         avisar('Nada para sortear com essa busca. Tente outro nome ou menos tags.', true);
-        return;
+        return null;
     }
     // evita repetir a ultima sorteada quando ha outra para escolher
     const opcoes = obras.length > 1 ? obras.filter(obra => obra.link !== estado.obraSorteada) : obras;
     const obra = opcoes[Math.floor(Math.random() * opcoes.length)];
     estado.obraSorteada = obra.link;
-    abrirSorteio(obra, obras, SORTEIO_DO_DESCOBRIR);
+    return {item: obra, outros: obras};
 }
 
 /** Uma obra do Descobrir na fita do sorteio: so a capa, como as da lista. */
@@ -1829,7 +1871,7 @@ const SORTEIO_DO_DESCOBRIR = {
         h('a', {class: 'botao primario', href: linkParaAdicionar(obra), onclick: fechar}, '+ Adicionar à lista'),
         h('a', {class: 'botao', href: obra.link, target: '_blank', rel: 'noopener noreferrer'}, 'Ver no AniList'),
     ],
-    deNovo: () => sortearDescoberta(),
+    buscar: buscarDescoberta,
 };
 
 /** Cartao de uma obra que ainda nao esta na lista: capa e nome abrem a pagina dela no AniList; "+ Adicionar" abre o cadastro. */
@@ -5341,7 +5383,11 @@ function relatorioDeUmBanner(dados, aoTrocarMes) {
     const t = dados.totais;
     return h('div', {class: 'relatorio-do-banner'},
         h('div', {class: 'cabecalho-do-relatorio'},
-            h('img', {class: 'banner-do-relatorio ' + (b.imagens?.horizontal ? 'horizontal' : 'vertical'), src: b.imagem, alt: b.texto || 'Banner de ' + b.empresa}),
+            // as imagens que o banner tem: a horizontal e a vertical lado a lado, ou so uma (doc 126)
+            h('div', {class: 'imagens-do-relatorio'}, ...(b.imagens ? ['horizontal', 'vertical'].filter(formato => b.imagens[formato])
+                .map(formato => h('img', {class: 'banner-do-relatorio ' + formato, src: b.imagens[formato].url,
+                    alt: (b.texto || 'Banner de ' + b.empresa) + ' (' + formato + ')'}))
+                : [h('img', {class: 'banner-do-relatorio horizontal', src: b.imagem, alt: b.texto || 'Banner de ' + b.empresa})])),
             h('div', {class: 'sobre-o-relatorio'},
                 h('span', {class: 'tipo-do-item'}, 'Relatório do anúncio'),
                 h('h1', null, b.empresa),
@@ -5702,8 +5748,10 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
         const previa = h('div', {class: 'previa-do-banner ' + formato});
         const medidas = h('small', {class: 'medidas-do-banner'});
         const tirar = h('button', {type: 'button', class: 'botao pequeno perigo', hidden: true});
-        const dica = 'Recomendado: ' + r.exemplos + ' px. PNG, JPEG ou WebP, até 1 MB.';
+        const dica = 'Recomendado: ' + r.exemplos + ' px. PNG, JPEG ou WebP, até 4 MB.';
+        estado.grandeDemais = () => (estado.arquivo.files[0]?.size || 0) > TAMANHO_MAXIMO_DO_BANNER;
         estado.ok = () => {
+            if (estado.grandeDemais()) return false;
             if (!estado.escolhida) return true;
             const {largura, altura} = estado.escolhida;
             const proporcao = formato === 'horizontal' ? largura / altura : altura / largura;
@@ -5716,7 +5764,9 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
                 previa.replaceChildren(estado.existente && !estado.tirar ? h('img', {src: estado.existente.url, alt: ''})
                     : h('span', {class: 'subtitulo'}, estado.tirar ? 'Será tirada ao salvar' : 'Sem imagem ' + r.nome.toLowerCase()));
             }
-            if (estado.escolhida) {
+            if (estado.grandeDemais()) {
+                medidas.textContent = '✗ Esta imagem tem ' + (estado.arquivo.files[0].size / 1024 / 1024).toFixed(1).replace('.', ',') + ' MB; o máximo é 4 MB.';
+            } else if (estado.escolhida) {
                 const {largura, altura} = estado.escolhida;
                 medidas.textContent = largura + ' × ' + altura + ' px ' + (estado.ok() ? '✓ serve' : '✗ não serve para um banner ' + r.nome.toLowerCase() + '. ' + dica);
             } else {
@@ -5764,6 +5814,7 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
     };
     const imagens = [quadroDeImagem('horizontal'), quadroDeImagem('vertical')];
     const salvar = h('button', {type: 'submit', class: 'botao primario'}, banner ? 'Salvar' : 'Cadastrar');
+    let idSalvo = banner?.id || null;
     const formulario = h('form', {class: 'formulario-de-lancamento'},
         h('div', {class: 'campo'}, h('label', {for: 'banner-empresa'}, 'Empresa'), empresa),
         h('div', {class: 'campo'},
@@ -5800,32 +5851,52 @@ function janelaDoBanner(formatos, banner, aoSalvar, todos = []) {
             return;
         }
         const errada = imagens.find(imagem => !imagem.ok());
+        if (errada?.grandeDemais()) {
+            erro.textContent = 'A imagem ' + formatos[errada.formato].nome.toLowerCase() + ' passa de 4 MB';
+            return;
+        }
         if (errada) {
             erro.textContent = 'A imagem ' + formatos[errada.formato].nome.toLowerCase() + ' não tem as medidas de um banner ' + formatos[errada.formato].nome.toLowerCase();
             return;
         }
-        const envio = new FormData();
-        envio.append('empresa', empresa.value);
-        envio.append('texto', texto.value);
-        envio.append('link', link.value);
-        envio.append('peso', numeroDoPeso.value);
-        envio.append('valor', valor.value);
-        envio.append('cobranca', cobranca);
-        envio.append('terminaEm', comTermino ? terminaEm.value : '');
+        // os campos vao em todo envio; as imagens, juntas se couberem num envio so (o Vercel recusa acima de 4,5 MB) e,
+        // se nao, uma por vez: a primeira cria ou salva o banner e a segunda entra nele (doc 125)
+        const campos = () => {
+            const envio = new FormData();
+            envio.append('empresa', empresa.value);
+            envio.append('texto', texto.value);
+            envio.append('link', link.value);
+            envio.append('peso', numeroDoPeso.value);
+            envio.append('valor', valor.value);
+            envio.append('cobranca', cobranca);
+            envio.append('terminaEm', comTermino ? terminaEm.value : '');
+            return envio;
+        };
+        const sufixo = imagem => imagem.formato === 'horizontal' ? 'Horizontal' : 'Vertical';
+        const escolhidas = imagens.filter(imagem => imagem.arquivo.files[0]);
+        const juntas = escolhidas.reduce((soma, imagem) => soma + imagem.arquivo.files[0].size, 0) <= ENVIO_MAXIMO_DE_BANNER;
+        const envios = juntas || escolhidas.length < 2 ? [campos()] : [campos(), campos()];
         for (const imagem of imagens) {
-            const sufixo = imagem.formato === 'horizontal' ? 'Horizontal' : 'Vertical';
-            if (imagem.arquivo.files[0]) envio.append('imagem' + sufixo, imagem.arquivo.files[0]);
-            else if (imagem.tirar) envio.append('remover' + sufixo, '1');
+            if (imagem.arquivo.files[0]) envios[juntas ? 0 : escolhidas.indexOf(imagem)].append('imagem' + sufixo(imagem), imagem.arquivo.files[0]);
+            else if (imagem.tirar) envios[0].append('remover' + sufixo(imagem), '1');
         }
         salvar.disabled = true;
+        const textoDoBotao = salvar.textContent;
         try {
-            await chamar(banner ? 'PUT' : 'POST', '/api/banners' + (banner ? '/' + encodeURIComponent(banner.id) : ''), envio);
+            // se a segunda imagem falhar, o banner ja existe: tentar de novo edita ele, sem cadastrar outro
+            if (!idSalvo) idSalvo = (await chamar('POST', '/api/banners', envios[0])).id;
+            else await chamar('PUT', '/api/banners/' + encodeURIComponent(idSalvo), envios[0]);
+            if (envios[1]) {
+                salvar.textContent = 'Enviando a segunda imagem…';
+                await chamar('PUT', '/api/banners/' + encodeURIComponent(idSalvo), envios[1]);
+            }
             dialogo.close();
             avisar(banner ? 'Banner salvo' : 'Banner cadastrado');
             aoSalvar();
         } catch (e) {
             erro.textContent = e.message;
             salvar.disabled = false;
+            salvar.textContent = textoDoBotao;
         }
     });
     resumirTermino();

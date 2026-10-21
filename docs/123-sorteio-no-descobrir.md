@@ -39,3 +39,5 @@ conta (pelo endereço `#/descobrir`). Agora as partes vazias saem antes de monta
 | Arquivo | O que mudou |
 |---------|-------------|
 | `public/app.js` | O botão no Descobrir, o sorteio das obras, o sorteio em comum e o "null" |
+
+> O "Sortear de novo" passou a mostrar "Sorteando…" até o próximo chegar, e o confete voltou no site no ar: veja [doc 124](124-sortear-de-novo-e-confete.md).
