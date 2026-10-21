@@ -2568,10 +2568,9 @@ async function telaAtalho() {
     await conferirExtensao();
     if (vez !== estado.render) return;
     document.title = 'Extensão e atalho · Viracap';
-    app.replaceChildren(
-        abas('atalho'),
-        // o texto e, ao lado, dois banners verticais (em telas estreitas, um horizontal embaixo do texto)
-        h('div', {class: 'atalho-com-banners'}, h('div', {class: 'texto'},
+    // o texto no meio da tela e os banners como no Descobrir e na Loja (doc 130): um vertical de cada lado quando sobra
+    // espaco; sem espaco, um horizontal em cima e outro embaixo do texto
+    const texto = h('div', {class: 'texto texto-do-atalho'},
             h('h1', null, 'Extensão: próximo capítulo automático'),
             h('p', null, 'Alguns sites de leitura mudam o link a cada capítulo e só entregam as páginas a um navegador de verdade, então o servidor não consegue descobrir o link do próximo capítulo. '
                 + 'Com a extensão, o botão “Ler” faz isso no seu navegador: abre o último capítulo lido, acha o botão de próximo, vai direto para ele e salva o link certo.'),
@@ -2622,9 +2621,13 @@ async function telaAtalho() {
                     }
                 },
             }, 'Copiar código')),
-            h('textarea', {class: 'codigo', readonly: true, rows: '4', 'aria-label': 'Código do atalho'}, codigo)),
-        h('aside', {class: 'banners-do-atalho', 'aria-label': 'Anúncios'}, lugarDeBanner('atalho-1', 'vertical'), lugarDeBanner('atalho-2', 'vertical'))),
-        lugarDeBanner('atalho-fim', 'horizontal', 'so-sem-coluna no-fim'));
+            h('textarea', {class: 'codigo', readonly: true, rows: '4', 'aria-label': 'Código do atalho'}, codigo));
+    app.replaceChildren(
+        abas('atalho'),
+        lugarDeBanner('atalho-topo', 'horizontal', 'so-sem-trilhos'),
+        texto,
+        lugarDeBanner('atalho-fim', 'horizontal', 'so-sem-trilhos no-fim'),
+        ...trilhosDeBanner(texto, 'atalho'));
 }
 
 /** Entre os mangas do mesmo site, o que tem o endereco mais parecido com o da pagina capturada. */

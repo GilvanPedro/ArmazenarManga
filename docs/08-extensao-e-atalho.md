@@ -80,3 +80,5 @@ o botão de próximo do site não ser um link comum.
 
 > Depois, a aba Extensão e atalho do site trocou as instruções por arquivo pelo botão "Instalar no Firefox", que
 > leva à loja da Mozilla: veja [Link da extensão na loja do Firefox](55-link-da-extensao-no-firefox.md).
+
+> A aba Extensão e atalho passou a ter o texto no meio, um banner vertical de cada lado e, no celular, horizontais em cima e embaixo: veja [doc 130](130-atalho-centralizado-com-banners-dos-lados.md).

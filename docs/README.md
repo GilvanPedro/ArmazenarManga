@@ -132,6 +132,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [126 · As duas imagens no relatório do banner](126-as-duas-imagens-no-relatorio-do-banner.md) | O relatório mostra a imagem horizontal e a vertical, não só a horizontal |
 | [127 · Banner ampliado no relatório](127-banner-ampliado-no-relatorio.md) | Clicar numa imagem do banner no relatório abre ela grande, numa janela por cima |
 | [128 · Os banners trocam junto com a página](128-banners-trocam-com-a-pagina.md) | Mudar de página na Biblioteca, em Lançam hoje e no Descobrir sorteia os banners de novo |
+| [129 · A página atual na cor do tema](129-pagina-atual-na-cor-do-tema.md) | O número da página atual na paginação fica na cor de destaque do tema |
+| [130 · Extensão e atalho centralizada, com os banners dos lados](130-atalho-centralizado-com-banners-dos-lados.md) | O texto no meio, um banner vertical de cada lado na tela grande e horizontais em cima e embaixo no celular |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

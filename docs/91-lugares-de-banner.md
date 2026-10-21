@@ -81,3 +81,5 @@ O e-mail fica no código montado em duas partes, para não aparecer inteiro para
 > Depois vieram mais lugares, na página do mangá e no formulário: veja [Banners na página do mangá e no formulário](95-banners-na-pagina-do-manga-e-no-formulario.md).
 
 > Depois, um banner passou a poder ter as duas imagens (horizontal e vertical): veja [Banner com imagem horizontal e vertical](96-banner-com-imagem-horizontal-e-vertical.md).
+
+> A aba Extensão e atalho passou a ter o texto no meio, um banner vertical de cada lado e, no celular, horizontais em cima e embaixo: veja [doc 130](130-atalho-centralizado-com-banners-dos-lados.md).

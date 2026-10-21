@@ -156,6 +156,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [As duas imagens no relatório do banner](docs/126-as-duas-imagens-no-relatorio-do-banner.md) | |
 | [Banner ampliado no relatório](docs/127-banner-ampliado-no-relatorio.md) | |
 | [Os banners trocam junto com a página](docs/128-banners-trocam-com-a-pagina.md) | |
+| [A página atual na cor do tema](docs/129-pagina-atual-na-cor-do-tema.md) | |
+| [Extensão e atalho centralizada, com os banners dos lados](docs/130-atalho-centralizado-com-banners-dos-lados.md) | |
 
 ## Testes
 

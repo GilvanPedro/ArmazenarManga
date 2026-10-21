@@ -334,6 +334,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **As duas imagens no relatório do banner.** A vertical aparece ao lado da horizontal. Detalhes em [As duas imagens no relatório do banner](126-as-duas-imagens-no-relatorio-do-banner.md).
 - **Banner ampliado no relatório.** Clicar na imagem do banner abre ela grande. Detalhes em [Banner ampliado no relatório](127-banner-ampliado-no-relatorio.md).
 - **Banners trocam com a página.** Mudar de página numa lista sorteia os banners de novo. Detalhes em [Os banners trocam junto com a página](128-banners-trocam-com-a-pagina.md).
+- **Página atual na cor do tema.** O número da página atual fica na cor de destaque do tema. Detalhes em [A página atual na cor do tema](129-pagina-atual-na-cor-do-tema.md).
+- **Extensão e atalho centralizada.** O texto no meio e os banners dos lados, como na Comunidade. Detalhes em [Extensão e atalho centralizada, com os banners dos lados](130-atalho-centralizado-com-banners-dos-lados.md).
 
 ## O que foi removido ou abandonado
 

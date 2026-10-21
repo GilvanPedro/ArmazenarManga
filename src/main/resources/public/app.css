@@ -1626,7 +1626,17 @@ select.seletor-de-nota { width: auto; }
 .paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; margin-top: 40px; }
 .paginacao .botao { min-height: 46px; min-width: 46px; padding: 0 18px; font-size: 16px; border-radius: 10px; }
 .paginacao:empty { display: none; }
-.paginacao .botao[aria-current=page] { background: var(--texto); border-color: var(--texto); color: var(--fundo); }
+/* a pagina atual na cor de destaque do tema, com um brilho em volta, para achar de relance (doc 129). Os :not() deixam a
+ * regra mais forte que a dos botoes dos temas com botao proprio (Palacio, Kyoto, Lamina), que usam os mesmos :not() */
+.paginacao .botao[aria-current=page]:not(.primario):not(.perigo):not(.seguir),
+.paginacao .botao[aria-current=page]:not(.primario):not(.perigo):not(.seguir):hover {
+    background: var(--destaque);
+    border-color: var(--destaque);
+    color: var(--sobre-destaque);
+    font-weight: 800;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--destaque) 28%, transparent), 0 4px 14px color-mix(in srgb, var(--destaque) 40%, transparent);
+    cursor: default;
+}
 .paginacao .reticencias, .paginacao .total { color: var(--texto-fraco); padding: 0 4px; font-size: 16px; }
 .paginacao .total { flex-basis: 100%; text-align: center; font-size: 15px; margin-top: 6px; }
 @media (max-width: 480px) {
@@ -3718,12 +3728,8 @@ a.banner-de-anuncio:hover { transform: translateY(-2px); }
 .lugar-de-banner.so-sem-laterais { margin: 0 auto; }
 @media (min-width: 1181px) { .lugar-de-banner.so-sem-laterais { display: none; } }
 @media (max-width: 1180px) { .lateral-esquerda-da-comunidade { display: none; } }
-/* Extensao e atalho: dois verticais na coluna ao lado do texto; sem espaco, um horizontal embaixo */
-.atalho-com-banners { display: flex; align-items: flex-start; gap: 48px; }
-.banners-do-atalho { flex: none; width: 180px; display: flex; flex-direction: column; gap: 20px; margin-top: 8px; }
-.banners-do-atalho .banner-padrao.vertical { aspect-ratio: 1 / 1.8; }
-@media (max-width: 860px) { .banners-do-atalho { display: none; } }
-@media (min-width: 861px) { .lugar-de-banner.so-sem-coluna { display: none; } }
+/* Extensao e atalho (doc 130): o texto no meio da tela; os banners nos trilhos dos lados ou, sem espaco, em cima e embaixo */
+.texto-do-atalho { margin: 0 auto; }
 @media print { .lugar-de-banner { display: none !important; } }
 
 /* pagina do manga: "com tags em comum" e "recomendados" mostram ate 6 obras; capas menores, todas numa linha (6
