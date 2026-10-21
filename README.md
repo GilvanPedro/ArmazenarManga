@@ -159,6 +159,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [A página atual na cor do tema](docs/129-pagina-atual-na-cor-do-tema.md) | |
 | [Extensão e atalho centralizada, com os banners dos lados](docs/130-atalho-centralizado-com-banners-dos-lados.md) | |
 | [Banners mais leves](docs/131-banners-mais-leves.md) | |
+| [Kitsu quando o AniList cai](docs/132-kitsu-quando-o-anilist-cai.md) | |
+| [Título bagunçado ao marcar capítulo lido](docs/133-titulo-baguncado-na-captura.md) | |
 
 ## Testes
 

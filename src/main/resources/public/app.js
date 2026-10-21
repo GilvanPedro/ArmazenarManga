@@ -175,6 +175,8 @@ function limparTitulo(tituloDaPagina, endereco) {
     const palavrasDoComeco = new RegExp('^(?:(?:read|ler|leia|' + TIPO_DE_OBRA + ')(?![\\p{L}\\p{N}])\\s*[:\\-–—]?\\s*)+(?=\\S)', 'iu');
 
     titulo = titulo.replace(etiquetas, '');
+    // volume no comeco: "Vol. 2: Nome", "Volume 3 Chapter 12 - Nome" (doc 133)
+    titulo = titulo.replace(/^vol(?:ume)?\.?\s*\d+(?:[.,]\d+)?\s*(?:[|:\-–—,]\s*)?/iu, '');
     // capitulo no comeco: "Chapter 222 | Nome | Site", "Capítulo 5 - Nome"
     titulo = titulo.replace(new RegExp('^' + TOKEN_DE_CAPITULO + '\\s*[|:\\-–—]\\s*', 'iu'), '');
     // capitulo depois do nome: corta dali em diante ("Nome Chapter 7 - Read Online | Site", "Nome Ch.90 Page 1")
@@ -190,12 +192,19 @@ function limparTitulo(tituloDaPagina, endereco) {
         .filter(pedaco => pedaco && !ehOSite(pedaco) && !propaganda.test(pedaco));
     titulo = pedacos.join(' - ');
 
-    titulo = titulo.replace(etiquetas, '').replace(palavrasDoComeco, '');
-    // "... Manhwa Online", "... English Online Free", "... Raw", "... PT-BR" no fim
-    titulo = titulo.replace(new RegExp('\\s+(?:' + TIPO_DE_OBRA + '\\s+)?(?:online|free|gr[aá]tis|english|raw|pt[- ]?br)\\b.*$', 'iu'), '');
-    // "Nome Manga" (so quando sobra nome antes)
-    titulo = titulo.replace(new RegExp('(?<=\\S)\\s+' + TIPO_DE_OBRA + '$', 'iu'), '');
-    return titulo.replace(/[\s\-–—|:,]+$/, '').trim();
+    // pontuacao solta nas pontas (": Manga Nome Read", doc 133), etiquetas e "Read Manga" no comeco; "Online",
+    // "Read", "Raw"... e o tipo da obra no fim. Repete ate nao mudar mais, porque tirar um pedaco pode revelar outro
+    const pontaDoComeco = /^[\s:;\-–—|,•·~]+/;
+    const pontaDoFim = /[\s:;\-–—|,•·~]+$/;
+    const propagandaDoFim = new RegExp('\\s+(?:' + TIPO_DE_OBRA + '\\s+)?(?:online|free|gr[aá]tis|english|raw|pt[- ]?br)(?![\\p{L}\\p{N}]).*$', 'iu');
+    const leituraNoFim = /(?<=\S)\s+(?:read|ler|leia)$/iu;
+    const tipoNoFim = new RegExp('(?<=\\S)\\s+' + TIPO_DE_OBRA + '$', 'iu');
+    for (let antes = ''; antes !== titulo;) {
+        antes = titulo;
+        titulo = titulo.replace(pontaDoComeco, '').replace(etiquetas, '').replace(palavrasDoComeco, '');
+        titulo = titulo.replace(propagandaDoFim, '').replace(leituraNoFim, '').replace(tipoNoFim, '').replace(pontaDoFim, '').trim();
+    }
+    return titulo;
 }
 
 /**
@@ -1875,7 +1884,10 @@ function capaDaObra(obra) {
             : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (obra.titulo || '?').trim().charAt(0).toUpperCase()));
 }
 
-/** Nota (de 0 a 100 no AniList, mostrada de 0 a 10), ano e os dois primeiros generos de uma obra do Descobrir. */
+/** O site de onde a obra veio, pelo link: o AniList ou, quando ele esta fora do ar, o Kitsu (doc 132). */
+const fonteDaObra = obra => /(^|\.)kitsu\.(app|io)\//.test(String(obra.link || '').replace(/^https:\/\//, '')) ? 'Kitsu' : 'AniList';
+
+/** Nota (de 0 a 100, mostrada de 0 a 10), ano e os dois primeiros generos de uma obra do Descobrir. */
 const detalhesDaObra = obra => [obra.nota != null ? '★ ' + (obra.nota / 10).toFixed(1).replace('.', ',') : null, obra.ano, ...(obra.generos || []).slice(0, 2)].filter(Boolean);
 /** Link do cadastro ja preenchido com o nome, a capa e as tags da obra. */
 const linkParaAdicionar = obra => '#/novo?' + new URLSearchParams({t: obra.titulo, i: obra.capa || '', g: (obra.tags || []).join(',')});
@@ -1886,19 +1898,19 @@ const SORTEIO_DO_DESCOBRIR = {
     linha: obra => detalhesDaObra(obra).join(' · '),
     acoes: (obra, fechar) => [
         h('a', {class: 'botao primario', href: linkParaAdicionar(obra), onclick: fechar}, '+ Adicionar à lista'),
-        h('a', {class: 'botao', href: obra.link, target: '_blank', rel: 'noopener noreferrer'}, 'Ver no AniList'),
+        h('a', {class: 'botao', href: obra.link, target: '_blank', rel: 'noopener noreferrer'}, 'Ver no ' + fonteDaObra(obra)),
     ],
     buscar: buscarDescoberta,
 };
 
-/** Cartao de uma obra que ainda nao esta na lista: capa e nome abrem a pagina dela no AniList; "+ Adicionar" abre o cadastro. */
+/** Cartao de uma obra que ainda nao esta na lista: capa e nome abrem a pagina dela no AniList (ou no Kitsu); "+ Adicionar" abre o cadastro. */
 function cartaoDeObra(obra) {
     const imagem = obra.capa
         ? h('img', {src: obra.capa, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer'})
         : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, obra.titulo.charAt(0).toUpperCase());
     const detalhes = detalhesDaObra(obra);
     return h('article', {class: 'cartao'},
-        h('a', {class: 'capa', href: obra.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': obra.titulo + ' (abre o AniList)'}, imagem),
+        h('a', {class: 'capa', href: obra.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': obra.titulo + ' (abre o ' + fonteDaObra(obra) + ')'}, imagem),
         h('a', {class: 'cartao-titulo', href: obra.link, target: '_blank', rel: 'noopener noreferrer', title: obra.titulo}, obra.titulo),
         h('small', {class: 'generos'}, detalhes.join(' · ')),
         h('a', {class: 'botao pequeno', href: linkParaAdicionar(obra)}, '+ Adicionar'));
@@ -1925,7 +1937,7 @@ async function carregarRecomendacoes(manga, secao, vez) {
                 : h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, recomendado.titulo.charAt(0).toUpperCase());
             const adicionar = new URLSearchParams({t: recomendado.titulo, i: recomendado.capa || '', g: (recomendado.tags || []).join(',')});
             return h('article', {class: 'cartao'},
-                h('a', {class: 'capa', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': recomendado.titulo + ' (abre o AniList)'}, imagem),
+                h('a', {class: 'capa', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', 'aria-label': recomendado.titulo + ' (abre o ' + fonteDaObra(recomendado) + ')'}, imagem),
                 h('a', {class: 'cartao-titulo', href: recomendado.link, target: '_blank', rel: 'noopener noreferrer', title: recomendado.titulo}, recomendado.titulo),
                 h('small', {class: 'generos'}, recomendado.generos.slice(0, 3).join(' · ')),
                 h('a', {class: 'botao pequeno', href: '#/novo?' + adicionar}, '+ Adicionar'));
@@ -2633,6 +2645,27 @@ async function telaAtalho() {
         ...trilhosDeBanner(texto, 'atalho'));
 }
 
+// palavras dos enderecos que nao fazem parte do nome da obra (as mesmas de nomesDoLink, no servidor)
+const PALAVRAS_DE_ENDERECO = new Set(['chapter', 'chapters', 'chap', 'ch', 'capitulo', 'capitulos', 'cap', 'episode', 'episodio', 'ep', 'manga',
+    'mangas', 'manhwa', 'manhua', 'comic', 'comics', 'title', 'titles', 'series', 'serie', 'obra', 'obras', 'read', 'reader', 'ler', 'leitor',
+    'online', 'pt', 'br', 'en', 'raw', 'scan', 'scans', 'html', 'php']);
+
+/**
+ * Nomes que da para tirar do caminho de um endereco: cada trecho, sem os codigos (pedacos com numero) e sem as
+ * palavras de capitulo e de site. ".../comics/omniscient-readers-viewpoint-3ec3b16f/chapter/12" -> ["omniscient readers viewpoint"].
+ */
+function nomesNoEndereco(endereco) {
+    let caminho;
+    try {
+        caminho = decodeURIComponent(new URL(endereco).pathname);
+    } catch (e) {
+        return [];
+    }
+    return caminho.split('/').map(trecho => trecho.toLowerCase().split(/[-_ .+]+/)
+        .filter(palavra => /\p{L}/u.test(palavra) && !/\d/.test(palavra) && !PALAVRAS_DE_ENDERECO.has(palavra)))
+        .filter(palavras => palavras.length >= 2).map(palavras => palavras.join(' '));
+}
+
 /** Entre os mangas do mesmo site, o que tem o endereco mais parecido com o da pagina capturada. */
 function mangaDoLink(mangas, endereco, titulosDaPagina) {
     const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -2682,6 +2715,13 @@ function mangaDoLink(mangas, endereco, titulosDaPagina) {
     if (iguais.size === 1) return [...iguais][0];
     if (iguais.size === 0 && parecidos.size === 1) return [...parecidos][0];
 
+    // 2b) o nome da obra escrito no proprio endereco (doc 133), mesmo em outro site: muitos poem o nome inteiro no
+    // caminho (".../the-sword-saint-reincarnated-into-a-noble-mage-family/chapter-12"). Vale quando um trecho do
+    // endereco, sem os codigos e as palavras de capitulo, e exatamente o nome de um manga da lista, e so de um
+    const doEndereco = new Set(nomesNoEndereco(endereco).map(semAcento));
+    const peloEndereco = mangas.filter(manga => nomesDe(manga).some(nome => nome.includes(' ') && doEndereco.has(nome)));
+    if (peloEndereco.length === 1) return peloEndereco[0];
+
     // 3) o nome de um manga da lista aparece inteiro dentro do titulo da pagina, por mais coisa que o site ponha em
     // volta ("[Manga] Manga Solo Leveling - Capítulo 12 - Site"). Vale o nome mais comprido que aparecer, para
     // "Solo Leveling: Ragnarok" ganhar de "Solo Leveling"; nomes curtos demais nao contam, para nao bater por acaso.
@@ -2689,7 +2729,8 @@ function mangaDoLink(mangas, endereco, titulosDaPagina) {
     // "Solo Leveling Ragnarok" ou "Solo Leveling: Ragnarok" NAO sao "Solo Leveling" (e outra obra com o comeco igual).
     const comPontuacao = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
     const paginas = titulos.map(titulo => ' ' + comPontuacao(titulo) + ' ');
-    const fimDoNome = /^\s*($|[-–—|•·~]|\(|\[|(cap(itulo|\.)?|ch(apter|\.)?|ep(isodio|isode|\.)?|vol(ume|\.)?|#)\s*\d|\d)/;
+    // ("read", "ler", "online"... depois do nome tambem: "Manga Nome Read Online", doc 133)
+    const fimDoNome = /^\s*($|[-–—|•·~]|\(|\[|(cap(itulo|\.)?|ch(apter|\.)?|ep(isodio|isode|\.)?|vol(ume|\.)?|#)\s*\d|\d|(read|ler|leia|online|free|gratis)(?![\p{L}\p{N}]))/u;
     const nomeInteiroNoTitulo = (pagina, nome) => {
         // o nome (sem pontuacao) pode ter pontuacao no titulo: "solo leveling" acha "solo-leveling" e "solo leveling"
         const padrao = new RegExp('(^|[^\\p{L}\\p{N}])' + nome.split(' ').map(parte => parte.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^\\p{L}\\p{N}]+') + '(?![\\p{L}\\p{N}])', 'gu');

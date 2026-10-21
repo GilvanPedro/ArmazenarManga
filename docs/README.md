@@ -135,6 +135,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [129 · A página atual na cor do tema](129-pagina-atual-na-cor-do-tema.md) | O número da página atual na paginação fica na cor de destaque do tema |
 | [130 · Extensão e atalho centralizada, com os banners dos lados](130-atalho-centralizado-com-banners-dos-lados.md) | O texto no meio, um banner vertical de cada lado na tela grande e horizontais em cima e embaixo no celular |
 | [131 · Banners mais leves](131-banners-mais-leves.md) | As imagens dos banners diminuídas e em WebP, guardadas na CDN e carregadas só quando chegam perto da tela |
+| [132 · Kitsu quando o AniList cai](132-kitsu-quando-o-anilist-cai.md) | O Descobrir e as recomendações usam o Kitsu quando o AniList não responde (ele desligou a API em 21/10/2026) |
+| [133 · Título bagunçado ao marcar capítulo lido](133-titulo-baguncado-na-captura.md) | O nome do mangá sai limpo do título da página, e o mangá também é reconhecido pelo nome no endereço |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

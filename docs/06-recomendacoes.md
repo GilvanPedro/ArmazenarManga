@@ -98,3 +98,5 @@ da obra.
 - A cota gratuita de tradução é diária. Quando acaba, as descrições vêm em inglês.
 
 > A aba Descobrir também tem um botão para sortear uma dessas obras: veja [Sorteio no Descobrir](123-sorteio-no-descobrir.md).
+
+> Quando o AniList não responde, as buscas usam o Kitsu: veja [doc 132](132-kitsu-quando-o-anilist-cai.md).

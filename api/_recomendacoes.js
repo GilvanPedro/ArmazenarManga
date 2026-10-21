@@ -2,7 +2,9 @@
 // Faz o mesmo que RecomendacaoService.java; uma mudanca de regra precisa ser feita nos dois.
 // A fonte e o AniList: primeiro as recomendacoes que os leitores de la fizeram para a obra; se forem poucas,
 // completa com obras populares dos mesmos generos e temas. Quem ja esta cadastrado nunca e sugerido.
+// Quando o AniList nao responde, a fonte e o Kitsu (doc 132, _kitsu.js).
 import { clienteHttp } from './_sinopse.js';
+import { criarKitsu } from './_kitsu.js';
 
 export const QUANTIDADE = 6;
 const VALIDADE_MS = 12 * 60 * 60 * 1000;
@@ -125,7 +127,17 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
     // as recomendacoes de uma obra mudam pouco: guardar evita consultar o AniList a cada visita a pagina do manga
     const guardados = new Map();
 
-    const perguntar = async (query, variables) => (await http.postJson('https://graphql.anilist.co', { query, variables }))?.data ?? {};
+    const kitsu = criarKitsu(http);
+    // o AniList deixou de responder ha pouco (doc 132): ate essa hora, vai direto ao Kitsu, sem esperar por ele de novo
+    let aniListForaAte = 0;
+    const aniListFora = () => Date.now() < aniListForaAte;
+    const perguntar = async (query, variables) => {
+        const resposta = await http.postJson('https://graphql.anilist.co', { query, variables });
+        // uma busca de obra pelo nome volta sem resposta tambem quando ele so nao conhece a obra (erro 404); as listas
+        // (Page) e os temas sempre respondem quando ele esta no ar
+        if (!resposta?.data && (query.includes('Page(') || query.includes('MediaTagCollection'))) aniListForaAte = Date.now() + 2 * 60 * 1000;
+        return resposta?.data ?? {};
+    };
 
     function adicionar(obra, candidatas, vistos) {
         if (!obra || obra.type !== 'MANGA' || obra.isAdult) return;
@@ -171,9 +183,18 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
         return [...parecidas].sort((a, b) => emComum(b) - emComum(a));
     }
 
+    /** As parecidas pelo Kitsu, quando o AniList esta fora do ar ou nao achou nada (doc 132). */
+    async function consultarNoKitsu(titulo, tagsDoManga, candidatas, vistos) {
+        const { obra, parecidas } = await kitsu.parecidas(titulo, tagsDoManga, formas);
+        if (obra) vistos.add(obra.id);
+        for (const parecida of parecidas) adicionar(parecida, candidatas, vistos);
+        return candidatas;
+    }
+
     async function consultar(titulo, tagsDoManga) {
         const candidatas = [];
         const vistos = new Set();
+        if (aniListFora()) return consultarNoKitsu(titulo, tagsDoManga, candidatas, vistos);
 
         // 1) pelo titulo: acha a obra no AniList
         let obra = null;
@@ -213,6 +234,8 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             if (parecidas.length === 0 && generos.length > 0 && (temas.length > 0 || comVariasFormas.length > 0)) parecidas = await porGenerosETemas(generos, []);
             for (const parecida of parecidas) adicionar(parecida, candidatas, vistos);
         }
+        // nada pelo AniList (fora do ar, ou ele nao conhece a obra nem as tags): tenta o Kitsu
+        if (candidatas.length === 0) return consultarNoKitsu(titulo, tagsDoManga, candidatas, vistos);
         return candidatas;
     }
 
@@ -372,11 +395,13 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
     async function explorar(busca, tags, ordem, pagina, nomesCadastrados, tagsExcluidas = []) {
         const nome = typeof busca === 'string' ? busca.trim() : '';
         const numero = Math.max(1, Math.min(Number(pagina) || 1, 200));
+        if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas);
         const generos = [];
         const temas = [];
         const tagsIgnoradas = [];
         const comVariasFormas = [];
         const conhecidos = await temasDoAniList();
+        if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas);
         for (const tag of Array.isArray(tags) ? tags : []) {
             if (typeof tag !== 'string' || !tag.trim()) continue;
             if (TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]) {
@@ -444,6 +469,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             const pagina = (await perguntar('query(' + [...parametros, ...(comTemas ? ['$t:[String]'] : [])].join(',') + '){Page(page:$p,perPage:' + POR_PAGINA + '){pageInfo{hasNextPage} '
                 + 'media(type:MANGA,isAdult:false,' + filtros + (comTemas ? 'tag_in:$t,' : '') + 'sort:$o){' + CAMPOS
                 + ' averageScore popularity trending startDate{year month day}}}}', comTemas ? { ...variaveis, t: temasDaBusca } : variaveis)).Page;
+            if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas);
             temMais = temMais || pagina?.pageInfo?.hasNextPage === true;
             for (const obra of pagina?.media || []) {
                 if (obra && !jaVistas.has(obra.id)) {
@@ -466,6 +492,42 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             achadas.sort(regras[escolhida] || ((a, b) => (b.popularity || 0) - (a.popularity || 0)));
         }
 
+        return { ...montarItens(achadas, nomesCadastrados), pagina: numero, temMais, tagsIgnoradas };
+    }
+
+    /**
+     * A busca geral pelo Kitsu (doc 132), com as mesmas regras: todas as tags de "Quero" (as que ele nao tem sao
+     * ignoradas e avisadas) e nenhuma de "Nao quero". O Kitsu nao sabe excluir categorias, entao as obras com uma
+     * delas saem aqui, depois de chegar.
+     */
+    async function explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas) {
+        const slugs = [];
+        const tagsIgnoradas = [];
+        const pedidas = new Set();
+        for (const tag of Array.isArray(tags) ? tags : []) {
+            if (typeof tag !== 'string' || !tag.trim()) continue;
+            pedidas.add(normalizar(tag));
+            const slug = await kitsu.categoriaDaTag(tag);
+            if (slug) slugs.push(slug);
+            else tagsIgnoradas.push(tag.trim());
+        }
+        const fora = new Set();
+        for (const tag of Array.isArray(tagsExcluidas) ? tagsExcluidas : []) {
+            if (typeof tag !== 'string' || !tag.trim() || pedidas.has(normalizar(tag))) continue;
+            const slug = await kitsu.categoriaDaTag(tag);
+            if (slug) fora.add(slug);
+            else tagsIgnoradas.push(tag.trim());
+        }
+        const escolhida = !ORDENS[ordem] || (ordem === 'RELEVANCIA' && !nome) ? 'POPULARIDADE' : ordem;
+        const resultado = await kitsu.pagina({ nome, slugs: [...new Set(slugs)], ordem: escolhida, numero });
+        // o Kitsu tambem nao respondeu: a mesma resposta vazia de antes
+        if (!resultado) return { itens: [], pagina: numero, temMais: false, ocultos: 0, tagsIgnoradas: [] };
+        const achadas = resultado.obras.filter(obra => !obra.slugs.some(slug => fora.has(slug)));
+        return { ...montarItens(achadas, nomesCadastrados), pagina: numero, temMais: resultado.temMais, tagsIgnoradas };
+    }
+
+    /** Os cartoes do Descobrir: as obras que ainda nao estao na lista, com a nota e o ano; e quantas ja estavam. */
+    function montarItens(achadas, nomesCadastrados) {
         const lista = Array.isArray(nomesCadastrados) ? nomesCadastrados.filter(cadastrado => typeof cadastrado === 'string') : [];
         const obras = new Set(lista.filter(cadastrado => cadastrado.startsWith(MARCA_DA_OBRA)).map(cadastrado => Number(cadastrado.slice(MARCA_DA_OBRA.length))));
         const nomes = new Set(lista.filter(cadastrado => !cadastrado.startsWith(MARCA_DA_OBRA)).flatMap(cadastrado => [...formas(cadastrado), ...formas(semObservacoes(cadastrado))]));
@@ -485,7 +547,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
                 ano: Number.isInteger(obra.startDate?.year) ? obra.startDate.year : null,
             });
         }
-        return { itens, pagina: numero, temMais, ocultos, tagsIgnoradas };
+        return { itens, ocultos };
     }
 
     buscarRecomendacoes.nomesAlternativos = nomesAlternativos;

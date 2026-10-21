@@ -80,3 +80,5 @@ o resto do front-end.
 
 - As escolhas valem enquanto a página está aberta. Recarregar o site zera os dois quadros.
 - Não há como excluir uma tag que não esteja cadastrada no site. Basta criá-la em um mangá para ela aparecer.
+
+> Quando o AniList não responde, as buscas usam o Kitsu: veja [doc 132](132-kitsu-quando-o-anilist-cai.md).

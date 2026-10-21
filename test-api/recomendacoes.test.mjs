@@ -304,3 +304,65 @@ test('busca geral deixa de fora obras com as tags excluidas', async () => {
     await buscar.explorar('', ['Fantasy'], 'POPULARIDADE', 1, [], []);
     assert.ok(!anilist.perguntasDeExploracao[1].query.includes('not_in'));
 });
+
+// ------------------------------------------------------------------ Kitsu, a fonte reserva (doc 132)
+
+/** O Kitsu falso: as categorias e as obras pedidas; guarda os enderecos e os cabecalhos de cada pedido. */
+function kitsuFalso(obrasPorPedido) {
+    const pedidos = [];
+    const categorias = [['1', 'action', 'Action'], ['2', 'isekai', 'Isekai'], ['3', 'harem', 'Harem'], ['4', 'martial-arts', 'Martial Arts'],
+        ['5', 'fantasy', 'Fantasy'], ['6', 'shounen', 'Shounen'], ['7', 'tentacle', 'Tentacle', true]];
+    const manga = (id, en, slug, cats, mais = {}) => ({ id: String(id), type: 'manga',
+        attributes: { canonicalTitle: en, titles: { en, en_jp: en + ' JP' }, abbreviatedTitles: [], averageRating: '81.6', userCount: 1000 - id,
+            startDate: '2019-05-01', posterImage: { small: 'https://media.kitsu.app/manga/' + id + '/small.jpg' }, ageRating: 'PG', slug, ...mais },
+        relationships: { categories: { data: cats.map(c => ({ type: 'categories', id: c })) } } });
+    return {
+        pedidos,
+        manga,
+        async postJson() { return null; }, // o AniList fora do ar
+        async get(endereco, cabecalhos) {
+            pedidos.push({ endereco: decodeURIComponent(endereco), cabecalhos });
+            if (cabecalhos?.Accept !== 'application/vnd.api+json') return null; // o Kitsu recusa o "application/json"
+            if (endereco.includes('/categories?')) return { data: categorias.map(([id, slug, title, nsfw]) => ({ id, type: 'categories', attributes: { slug, title, nsfw: nsfw === true } })) };
+            const obras = obrasPorPedido(decodeURIComponent(endereco), manga);
+            return { data: obras, included: categorias.map(([id, slug]) => ({ id, type: 'categories', attributes: { slug } })), links: { next: 'tem' } };
+        },
+    };
+}
+
+test('com o AniList fora do ar, o Descobrir busca no Kitsu com as mesmas regras', async () => {
+    const kitsu = kitsuFalso((endereco, manga) => [
+        manga(1, 'Slime', 'slime', ['1', '2', '6']),
+        manga(2, 'Harem Isekai', 'harem-isekai', ['1', '2', '3']),
+        manga(3, 'Ja Na Lista', 'ja-na-lista', ['1', '2']),
+        manga(4, 'Adulta', 'adulta', ['1', '7']),
+        manga(5, 'Sem Nota', 'sem-nota', ['1', '2', '2'], { averageRating: null, startDate: null }),
+    ]);
+    const pagina = await criarBuscadorDeRecomendacoes(kitsu).explorar('', ['Action', 'Isekai', 'Villainess'], 'NOTA', 2, ['Ja na Lista'], ['Harem']);
+
+    const pedido = kitsu.pedidos.find(p => p.endereco.includes('/manga?')).endereco;
+    assert.match(pedido, /filter\[categories\]=action,isekai/);
+    assert.match(pedido, /sort=-averageRating/);
+    assert.match(pedido, /page\[offset\]=20/); // pagina 2, de 20 em 20
+    assert.match(pedido, /filter\[subtype\]=manga,manhwa,manhua/);
+    // Harem fica de fora (o Kitsu nao sabe excluir: sai depois), a adulta tambem, e a que ja esta na lista e contada
+    assert.deepEqual(pagina.itens.map(item => item.titulo), ['Slime', 'Sem Nota']);
+    assert.equal(pagina.ocultos, 1);
+    assert.deepEqual(pagina.tagsIgnoradas, ['Villainess']);
+    assert.equal(pagina.temMais, true);
+    assert.deepEqual(pagina.itens[0], { titulo: 'Slime', capa: 'https://media.kitsu.app/manga/1/small.jpg', generos: ['Ação', 'Isekai'],
+        link: 'https://kitsu.app/manga/slime', tags: ['Action', 'Isekai'], nota: 82, ano: 2019 });
+    // a categoria repetida nao aparece duas vezes; sem nota e sem data, fica nulo
+    assert.deepEqual([pagina.itens[1].generos, pagina.itens[1].nota, pagina.itens[1].ano], [['Ação', 'Isekai'], null, null]);
+});
+
+test('com o AniList fora do ar, as recomendacoes de um manga vem do Kitsu, sem a propria obra', async () => {
+    const kitsu = kitsuFalso((endereco, manga) => endereco.includes('filter[text]=')
+        ? [manga(10, 'Outra Coisa', 'outra', ['5']), manga(11, 'Solo Leveling', 'solo-leveling', ['1', '5', '6'])]
+        : [manga(11, 'Solo Leveling', 'solo-leveling', ['1', '5']), manga(12, 'Parecida Um', 'p1', ['1', '5']), manga(13, 'Parecida Dois', 'p2', ['5'])]);
+    const recomendacoes = await criarBuscadorDeRecomendacoes(kitsu)('Solo Leveling', [], ['Martial Arts']);
+
+    assert.deepEqual(titulos(recomendacoes), ['Parecida Um', 'Parecida Dois']);
+    // as categorias da obra (sem o publico-alvo "shounen") e a da tag do manga
+    assert.ok(kitsu.pedidos.some(p => p.endereco.includes('filter[categories]=action,fantasy')));
+});

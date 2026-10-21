@@ -337,6 +337,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Página atual na cor do tema.** O número da página atual fica na cor de destaque do tema. Detalhes em [A página atual na cor do tema](129-pagina-atual-na-cor-do-tema.md).
 - **Extensão e atalho centralizada.** O texto no meio e os banners dos lados, como na Comunidade. Detalhes em [Extensão e atalho centralizada, com os banners dos lados](130-atalho-centralizado-com-banners-dos-lados.md).
 - **Banners mais leves.** As imagens dos banners diminuídas, em WebP e guardadas na CDN. Detalhes em [Banners mais leves](131-banners-mais-leves.md).
+- **Kitsu quando o AniList cai.** O AniList desligou a API e o Descobrir e as recomendações ficaram vazios; agora usam o Kitsu nessas horas. Detalhes em [Kitsu quando o AniList cai](132-kitsu-quando-o-anilist-cai.md).
+- **Título bagunçado na captura.** Nomes como ": Manga Nome Read" não eram reconhecidos; agora saem limpos, e o nome no endereço também conta. Detalhes em [Título bagunçado ao marcar capítulo lido](133-titulo-baguncado-na-captura.md).
 
 ## O que foi removido ou abandonado
 

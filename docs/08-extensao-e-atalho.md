@@ -82,3 +82,5 @@ o botão de próximo do site não ser um link comum.
 > leva à loja da Mozilla: veja [Link da extensão na loja do Firefox](55-link-da-extensao-no-firefox.md).
 
 > A aba Extensão e atalho passou a ter o texto no meio, um banner vertical de cada lado e, no celular, horizontais em cima e embaixo: veja [doc 130](130-atalho-centralizado-com-banners-dos-lados.md).
+
+> O nome do mangá passou a sair limpo de títulos como ": Manga Nome Read", e o nome no endereço também reconhece o mangá: veja [doc 133](133-titulo-baguncado-na-captura.md).
