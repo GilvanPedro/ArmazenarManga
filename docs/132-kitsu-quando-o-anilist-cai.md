@@ -60,3 +60,5 @@ A versão Java antiga (`RecomendacaoService.java`) não ganhou o Kitsu: o site n
 | `api/_recomendacoes.js` | Usa o Kitsu quando o AniList não responde; os cartões do Descobrir montados numa função só |
 | `public/app.js` | "Ver no Kitsu" e "(abre o Kitsu)" para as obras de lá |
 | `test-api/recomendacoes.test.mjs` | Testes do Descobrir e das recomendações pelo Kitsu |
+
+> O Kitsu passou a entrar só com o AniList realmente fora do ar, também nas recomendações: veja [doc 134](134-descobrir-e-recomendacoes-mais-rapidos.md).

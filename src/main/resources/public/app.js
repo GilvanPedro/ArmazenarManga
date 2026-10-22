@@ -67,10 +67,13 @@ function h(tag, atributos, ...filhos) {
 }
 
 async function chamar(metodo, caminho, corpo) {
-    // depois de qualquer alteracao, a lista guardada pode estar velha: a proxima vez busca de novo
-    if (metodo !== 'GET') {
+    // depois de mexer nos mangas, na conta ou na sessao, a lista guardada pode estar velha: a proxima vez busca de novo.
+    // Curtir um post, comprar na loja ou contar um banner nao mexem na lista, que continua guardada (doc 134)
+    if (metodo !== 'GET' && /^\/api\/(mangas|conta|contas|sessao)(\/|$|\?)/.test(caminho)) {
         estado.listaCompleta = null;
         paginasDoServidor.clear();
+    }
+    if (metodo !== 'GET') {
         // mexeu num banner (doc 125): os banners no ar sao buscados de novo, sem cache, para a imagem nova ja aparecer
         if (caminho.startsWith('/api/banners')) {
             banners.lista = null;
@@ -1549,12 +1552,17 @@ async function telaDetalhes(id, aviso) {
         naCapa.querySelectorAll('.estrela-de-favorito, .enfeite-da-borda, .camada-do-efeito, .luz-da-moldura').forEach(enfeite => enfeite.remove());
         if (manga.favorite) naCapa.append(h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★'), ...enfeiteDaBorda());
     };
+    // a estrela muda na hora, sem esperar o servidor (doc 134); se ele recusar, volta como estava
     favoritar.addEventListener('click', async () => {
+        const antes = manga.favorite;
+        manga.favorite = !antes;
+        mostrarFavorito();
         favoritar.disabled = true;
         try {
-            manga.favorite = (await chamar('PUT', '/api/mangas/' + manga.id + '/favorito', {favorite: !manga.favorite})).favorite;
+            manga.favorite = (await chamar('PUT', '/api/mangas/' + manga.id + '/favorito', {favorite: !antes})).favorite;
             avisar(manga.favorite ? 'Marcado como favorito' : 'Tirado dos favoritos');
         } catch (e) {
+            manga.favorite = antes;
             avisar(e.message, true);
         }
         mostrarFavorito();
@@ -1649,6 +1657,10 @@ async function telaDescobrir(comBoasVindas) {
     const escolhas = estado.descobrir;
     // a pagina inicial de quem esta sem conta (doc 105): o Descobrir com as boas-vindas em cima
     document.title = comBoasVindas ? 'Viracap · sua lista de mangás, manhwas e manhuas' : 'Descobrir · Viracap';
+    // as obras ja comecam a vir junto com as tags, em vez de esperar por elas (doc 134)
+    const antesDasTags = JSON.stringify([escolhas.tags, escolhas.sem]);
+    const adiantada = pedirDescobertas();
+    adiantada.catch(() => {});
     let todasAsTags = [];
     try {
         // as que ja uso vem primeiro; as outras tambem entram, porque o que nao quero ler quase nunca esta na lista
@@ -1660,6 +1672,8 @@ async function telaDescobrir(comBoasVindas) {
     if (vez !== estado.render) return;
     escolhas.tags = escolhas.tags.filter(tag => todasAsTags.includes(tag));
     escolhas.sem = escolhas.sem.filter(tag => todasAsTags.includes(tag) && !escolhas.tags.includes(tag));
+    // alguma tag escolhida deixou de existir: a busca adiantada nao vale, e a de baixo pede de novo
+    const primeira = JSON.stringify([escolhas.tags, escolhas.sem]) === antesDasTags ? adiantada : null;
 
     const lista = h('div', {class: 'grade'});
     const aviso = h('p', {class: 'subtitulo', 'aria-live': 'polite'});
@@ -1719,7 +1733,17 @@ async function telaDescobrir(comBoasVindas) {
         lista,
         paginacao,
         ...trilhosDeBanner(lista, 'descobrir')].filter(Boolean));
-    carregar();
+    carregarDescobertas(lista, aviso, paginacao, primeira);
+}
+
+/** O pedido das obras do Descobrir com o que esta escolhido agora (nome, tags, ordem e pagina). */
+function pedirDescobertas() {
+    const escolhas = estado.descobrir;
+    const parametros = new URLSearchParams({ordem: escolhas.ordem, pagina: escolhas.pagina});
+    if (escolhas.busca.trim()) parametros.set('busca', escolhas.busca.trim());
+    if (escolhas.tags.length) parametros.set('tags', escolhas.tags.join(','));
+    if (escolhas.sem.length) parametros.set('sem', escolhas.sem.join(','));
+    return chamar('GET', '/api/recomendacoes?' + parametros);
 }
 
 /**
@@ -1775,18 +1799,15 @@ function quadroDeTags(titulo, tipo, todas, ler, gravar, lerDoOutro, motivoDaTrav
     };
 }
 
-async function carregarDescobertas(lista, aviso, paginacao) {
+/** adiantada: o pedido ja feito antes da tela ficar pronta (a primeira vez), para nao pedir de novo. */
+async function carregarDescobertas(lista, aviso, paginacao, adiantada) {
     const vez = ++estado.render;
     const escolhas = estado.descobrir;
-    const parametros = new URLSearchParams({ordem: escolhas.ordem, pagina: escolhas.pagina});
-    if (escolhas.busca.trim()) parametros.set('busca', escolhas.busca.trim());
-    if (escolhas.tags.length) parametros.set('tags', escolhas.tags.join(','));
-    if (escolhas.sem.length) parametros.set('sem', escolhas.sem.join(','));
     aviso.textContent = 'Buscando…';
 
     let resposta;
     try {
-        resposta = await chamar('GET', '/api/recomendacoes?' + parametros);
+        resposta = await (adiantada || pedirDescobertas());
     } catch (e) {
         if (vez === estado.render) {
             lista.className = '';

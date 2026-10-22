@@ -366,3 +366,30 @@ test('com o AniList fora do ar, as recomendacoes de um manga vem do Kitsu, sem a
     // as categorias da obra (sem o publico-alvo "shounen") e a da tag do manga
     assert.ok(kitsu.pedidos.some(p => p.endereco.includes('filter[categories]=action,fantasy')));
 });
+
+// ------------------------------------------------------------------ desempenho (doc 134)
+
+test('com o AniList no ar, o Kitsu nao e chamado nem quando ele nao conhece a obra', async () => {
+    const pedidosAoKitsu = [];
+    const aniListNoAr = {
+        async get(endereco) { pedidosAoKitsu.push(endereco); return null; },
+        // a obra pelo nome: o AniList responde 404 (o cliente devolve null); as listas respondem normalmente
+        async postJson(e, corpo) { return corpo.query.includes('Media(search') ? null : { data: { Page: { media: [] } } }; },
+    };
+    assert.deepEqual(await criarBuscadorDeRecomendacoes(aniListNoAr)('Obra Que Ninguem Conhece', [], []), []);
+    assert.deepEqual(pedidosAoKitsu, []);
+});
+
+test('a mesma busca do Descobrir nao vai ao AniList de novo, e quem ja esta na lista e conferido a cada vez', async () => {
+    const anilist = anilistFalso({ exploracao: { data: { Page: { pageInfo: { hasNextPage: true }, media: [obra(1, 'Um', 'Um'), obra(2, 'Dois', 'Dois')] } } } });
+    const buscar = criarBuscadorDeRecomendacoes(anilist);
+    const primeira = await buscar.explorar('', ['Action'], 'NOTA', 1, []);
+    // a lista de quem pede pode chegar como promessa (buscada ao mesmo tempo que as obras)
+    const segunda = await buscar.explorar('', ['action'], 'NOTA', 1, Promise.resolve(['Um']));
+    assert.equal(anilist.perguntasDeExploracao.length, 1);
+    assert.deepEqual(titulos(primeira.itens), ['Um', 'Dois']);
+    assert.deepEqual([titulos(segunda.itens), segunda.ocultos, segunda.temMais], [['Dois'], 1, true]);
+    // outra pagina e outra busca
+    await buscar.explorar('', ['Action'], 'NOTA', 2, []);
+    assert.equal(anilist.perguntasDeExploracao.length, 2);
+});

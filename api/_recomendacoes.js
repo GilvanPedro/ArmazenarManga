@@ -234,8 +234,10 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             if (parecidas.length === 0 && generos.length > 0 && (temas.length > 0 || comVariasFormas.length > 0)) parecidas = await porGenerosETemas(generos, []);
             for (const parecida of parecidas) adicionar(parecida, candidatas, vistos);
         }
-        // nada pelo AniList (fora do ar, ou ele nao conhece a obra nem as tags): tenta o Kitsu
-        if (candidatas.length === 0) return consultarNoKitsu(titulo, tagsDoManga, candidatas, vistos);
+        // nada pelo AniList. O Kitsu so entra se ele estiver mesmo fora do ar (doc 134): a busca de uma obra pelo nome
+        // volta vazia tambem quando ele so nao conhece a obra, entao uma pergunta curta de lista confirma
+        if (candidatas.length === 0 && !aniListFora()) await perguntar('query{Page(perPage:1){media(type:MANGA){id}}}', {});
+        if (candidatas.length === 0 && aniListFora()) return consultarNoKitsu(titulo, tagsDoManga, candidatas, vistos);
         return candidatas;
     }
 
@@ -259,8 +261,10 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             }
         }
         // quem ja esta na lista sai pelo nome (em qualquer um dos nomes conhecidos da obra, escrito de varios jeitos)
-        // ou por ser exatamente a mesma obra no AniList
-        const lista = Array.isArray(nomesCadastrados) ? nomesCadastrados.filter(nome => typeof nome === 'string') : [];
+        // ou por ser exatamente a mesma obra no AniList. Os nomes podem chegar como promessa: o servidor os busca ao
+        // mesmo tempo que as obras (doc 134)
+        const cadastrados = await nomesCadastrados;
+        const lista = Array.isArray(cadastrados) ? cadastrados.filter(nome => typeof nome === 'string') : [];
         const obras = new Set(lista.filter(nome => nome.startsWith(MARCA_DA_OBRA)).map(nome => Number(nome.slice(MARCA_DA_OBRA.length))));
         const nomes = new Set([titulo, ...lista.filter(nome => !nome.startsWith(MARCA_DA_OBRA))]
             .flatMap(nome => [...formas(nome), ...formas(semObservacoes(nome))]));
@@ -392,16 +396,37 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
      * duas listas vale como pedida.
      * Devolve { itens, pagina, temMais, ocultos, tagsIgnoradas }; sem itens se o servico falhar.
      */
+    // as obras de cada busca do Descobrir, por 10 minutos (doc 134): voltar a uma pagina, sortear de novo ou outra pessoa
+    // fazer a mesma busca sai na hora. O que muda de pessoa para pessoa (quem ja esta na lista) e feito depois
+    const buscasGuardadas = new Map();
+    const VALIDADE_DAS_BUSCAS_MS = 10 * 60 * 1000;
+
     async function explorar(busca, tags, ordem, pagina, nomesCadastrados, tagsExcluidas = []) {
         const nome = typeof busca === 'string' ? busca.trim() : '';
         const numero = Math.max(1, Math.min(Number(pagina) || 1, 200));
-        if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas);
+        const chave = JSON.stringify([normalizar(nome), (Array.isArray(tags) ? tags : []).map(normalizar).sort(), ordem, numero,
+            (Array.isArray(tagsExcluidas) ? tagsExcluidas : []).map(normalizar).sort()]);
+        let guardada = buscasGuardadas.get(chave);
+        if (!guardada || Date.now() - guardada.quando > VALIDADE_DAS_BUSCAS_MS) {
+            guardada = { quando: Date.now(), ...await buscarObras(nome, tags, ordem, numero, tagsExcluidas) };
+            // falha (nada achado) nao fica guardada: da para tentar de novo logo
+            if (guardada.achadas.length > 0) {
+                if (buscasGuardadas.size >= 300) buscasGuardadas.clear();
+                buscasGuardadas.set(chave, guardada);
+            }
+        }
+        return { ...montarItens(guardada.achadas, await nomesCadastrados), pagina: numero, temMais: guardada.temMais, tagsIgnoradas: guardada.tagsIgnoradas };
+    }
+
+    /** As obras de uma busca do Descobrir, do AniList ou, com ele fora do ar, do Kitsu: { achadas, temMais, tagsIgnoradas }. */
+    async function buscarObras(nome, tags, ordem, numero, tagsExcluidas) {
+        if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, tagsExcluidas);
         const generos = [];
         const temas = [];
         const tagsIgnoradas = [];
         const comVariasFormas = [];
         const conhecidos = await temasDoAniList();
-        if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas);
+        if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, tagsExcluidas);
         for (const tag of Array.isArray(tags) ? tags : []) {
             if (typeof tag !== 'string' || !tag.trim()) continue;
             if (TEMAS_COM_VARIAS_FORMAS[normalizar(tag)]) {
@@ -469,7 +494,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             const pagina = (await perguntar('query(' + [...parametros, ...(comTemas ? ['$t:[String]'] : [])].join(',') + '){Page(page:$p,perPage:' + POR_PAGINA + '){pageInfo{hasNextPage} '
                 + 'media(type:MANGA,isAdult:false,' + filtros + (comTemas ? 'tag_in:$t,' : '') + 'sort:$o){' + CAMPOS
                 + ' averageScore popularity trending startDate{year month day}}}}', comTemas ? { ...variaveis, t: temasDaBusca } : variaveis)).Page;
-            if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas);
+            if (aniListFora()) return explorarNoKitsu(nome, tags, ordem, numero, tagsExcluidas);
             temMais = temMais || pagina?.pageInfo?.hasNextPage === true;
             for (const obra of pagina?.media || []) {
                 if (obra && !jaVistas.has(obra.id)) {
@@ -492,7 +517,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
             achadas.sort(regras[escolhida] || ((a, b) => (b.popularity || 0) - (a.popularity || 0)));
         }
 
-        return { ...montarItens(achadas, nomesCadastrados), pagina: numero, temMais, tagsIgnoradas };
+        return { achadas, temMais, tagsIgnoradas };
     }
 
     /**
@@ -500,7 +525,7 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
      * ignoradas e avisadas) e nenhuma de "Nao quero". O Kitsu nao sabe excluir categorias, entao as obras com uma
      * delas saem aqui, depois de chegar.
      */
-    async function explorarNoKitsu(nome, tags, ordem, numero, nomesCadastrados, tagsExcluidas) {
+    async function explorarNoKitsu(nome, tags, ordem, numero, tagsExcluidas) {
         const slugs = [];
         const tagsIgnoradas = [];
         const pedidas = new Set();
@@ -521,9 +546,8 @@ export function criarBuscadorDeRecomendacoes(http = clienteHttp) {
         const escolhida = !ORDENS[ordem] || (ordem === 'RELEVANCIA' && !nome) ? 'POPULARIDADE' : ordem;
         const resultado = await kitsu.pagina({ nome, slugs: [...new Set(slugs)], ordem: escolhida, numero });
         // o Kitsu tambem nao respondeu: a mesma resposta vazia de antes
-        if (!resultado) return { itens: [], pagina: numero, temMais: false, ocultos: 0, tagsIgnoradas: [] };
-        const achadas = resultado.obras.filter(obra => !obra.slugs.some(slug => fora.has(slug)));
-        return { ...montarItens(achadas, nomesCadastrados), pagina: numero, temMais: resultado.temMais, tagsIgnoradas };
+        if (!resultado) return { achadas: [], temMais: false, tagsIgnoradas: [] };
+        return { achadas: resultado.obras.filter(obra => !obra.slugs.some(slug => fora.has(slug))), temMais: resultado.temMais, tagsIgnoradas };
     }
 
     /** Os cartoes do Descobrir: as obras que ainda nao estao na lista, com a nota e o ano; e quantas ja estavam. */

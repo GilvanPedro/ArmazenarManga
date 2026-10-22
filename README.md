@@ -161,6 +161,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Banners mais leves](docs/131-banners-mais-leves.md) | |
 | [Kitsu quando o AniList cai](docs/132-kitsu-quando-o-anilist-cai.md) | |
 | [Título bagunçado ao marcar capítulo lido](docs/133-titulo-baguncado-na-captura.md) | |
+| [Descobrir e recomendações mais rápidos](docs/134-descobrir-e-recomendacoes-mais-rapidos.md) | |
 
 ## Testes
 

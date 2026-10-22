@@ -539,25 +539,41 @@ async function listarTags() {
  * Todos os nomes pelos quais os mangas da lista sao conhecidos, para nao sugerir o que ja esta cadastrado:
  * o titulo, os outros nomes da obra e o nome que vem no link de leitura.
  */
+// os outros nomes de um titulo sao procurados em ate tres servicos (AniList, MangaDex, tradutor), e um deles fora do ar
+// faz cada um esperar ate 6 segundos. Quem fica sem resposta nao e procurado de novo por 15 minutos neste servidor, e
+// a pagina espera no maximo 1,5 segundo: o que chegar depois fica salvo para a proxima vez (doc 134)
+const NOMES_TENTADOS_EM = new Map();
+const ESPERA_PELOS_NOMES_MS = 1500;
+const NOVA_TENTATIVA_DE_NOMES_MS = 15 * 60 * 1000;
+
 async function nomesDosCadastrados() {
     // antes, descobre os outros nomes dos mangas da lista que ainda nao foram consultados (alguns por vez)
     // so os campos com nomes saem do banco
+    const conta = contaAtual();
     const nomesDaConta = async () => (await (await banco()).query(
         `SELECT jsonb_build_object('id', dados->'id', 'title', dados->'title', 'altTitles', dados->'altTitles',
                 'chapterLinkModel', dados->'chapterLinkModel', 'lastChapterUrl', dados->'lastChapterUrl') AS dados
-         FROM mangas WHERE conta = $1 ORDER BY ordem`, [contaAtual()])).rows.map(linha => linha.dados);
+         FROM mangas WHERE conta = $1 ORDER BY ordem`, [conta])).rows.map(linha => linha.dados);
     let lista = await nomesDaConta();
-    const semNomes = lista.filter(cadastrado => !Array.isArray(cadastrado.altTitles)).slice(0, TITULOS_POR_PEDIDO);
+    const agora = Date.now();
+    const semNomes = lista.filter(cadastrado => !Array.isArray(cadastrado.altTitles)
+        && !(agora - (NOMES_TENTADOS_EM.get(conta + '|' + cadastrado.title) || 0) < NOVA_TENTATIVA_DE_NOMES_MS)).slice(0, TITULOS_POR_PEDIDO);
     if (semNomes.length > 0) {
-        const nomes = await buscarRecomendacoes.nomesAlternativos(semNomes.map(cadastrado => cadastrado.title));
-        const db = await banco();
-        for (const cadastrado of semNomes) {
-            if (!nomes.has(cadastrado.title)) continue;
-            // so esse campo e so se o titulo continua o mesmo: nao desfaz uma mudanca feita enquanto a busca corria
-            await db.query(`UPDATE mangas SET dados = jsonb_set(dados, '{altTitles}', $2::jsonb) WHERE id = $1 AND conta = $4 AND dados->>'title' = $3`,
-                [cadastrado.id, JSON.stringify(nomes.get(cadastrado.title)), cadastrado.title, contaAtual()]);
-        }
-        lista = await nomesDaConta();
+        if (NOMES_TENTADOS_EM.size > 5000) NOMES_TENTADOS_EM.clear();
+        for (const cadastrado of semNomes) NOMES_TENTADOS_EM.set(conta + '|' + cadastrado.title, agora);
+        const atualizar = (async () => {
+            const nomes = await buscarRecomendacoes.nomesAlternativos(semNomes.map(cadastrado => cadastrado.title));
+            const db = await banco();
+            for (const cadastrado of semNomes) {
+                if (!nomes.has(cadastrado.title)) continue;
+                // so esse campo e so se o titulo continua o mesmo: nao desfaz uma mudanca feita enquanto a busca corria
+                await db.query(`UPDATE mangas SET dados = jsonb_set(dados, '{altTitles}', $2::jsonb) WHERE id = $1 AND conta = $4 AND dados->>'title' = $3`,
+                    [cadastrado.id, JSON.stringify(nomes.get(cadastrado.title)), cadastrado.title, conta]);
+            }
+            return true;
+        })().catch(() => false);
+        const aTempo = await Promise.race([atualizar, new Promise(pronto => setTimeout(() => pronto(false), ESPERA_PELOS_NOMES_MS))]);
+        if (aTempo) lista = await nomesDaConta();
     }
     return lista.flatMap(cadastrado => [cadastrado.title, ...(Array.isArray(cadastrado.altTitles) ? cadastrado.altTitles : []),
         ...nomesDoLink(cadastrado.chapterLinkModel), ...nomesDoLink(cadastrado.lastChapterUrl)]);
@@ -1092,7 +1108,11 @@ async function rotear(request) {
         const tags = (url.searchParams.get('tags') || '').split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 10);
         // ?sem=Harem,Horror: tags que a obra nao pode ter
         const sem = (url.searchParams.get('sem') || '').split(',').map(tag => tag.trim()).filter(Boolean).slice(0, 20);
-        return json(200, await buscarRecomendacoes.explorar(url.searchParams.get('busca'), tags, ordem, lerInteiroPositivo(url, 'pagina', 1), await nomesDosCadastrados(), sem));
+        // os nomes da lista e as obras sao buscados ao mesmo tempo (doc 134); o catch so evita o aviso de promessa
+        // sem dono enquanto a busca das obras corre: o erro, se houver, aparece quando os nomes sao usados
+        const nomes = nomesDosCadastrados();
+        nomes.catch(() => {});
+        return json(200, await buscarRecomendacoes.explorar(url.searchParams.get('busca'), tags, ordem, lerInteiroPositivo(url, 'pagina', 1), nomes, sem));
     }
     if (recurso === 'recomendacoes' && partes.length === 2 && id === 'ordens' && metodo === 'GET') {
         return json(200, listaDeOrdens(ORDENS));
@@ -1287,8 +1307,10 @@ async function rotear(request) {
         }
         // mangas parecidos com este que ainda nao estao na lista, buscados na internet
         if (partes.length === 3 && acao === 'recomendacoes' && metodo === 'GET') {
+            // os nomes da lista vem ao mesmo tempo que o manga e as parecidas (doc 134)
+            const cadastrados = nomesDosCadastrados();
+            cadastrados.catch(() => {});
             const manga = await buscarPorId(id);
-            const cadastrados = await nomesDosCadastrados();
             return json(200, await buscarRecomendacoes(manga.title, cadastrados, manga.tags || []));
         }
         if (partes.length === 3 && acao === 'capitulo-lido' && metodo === 'POST') {
