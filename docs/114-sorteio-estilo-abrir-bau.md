@@ -53,3 +53,5 @@ testes passam.
 > O mesmo sorteio também existe na aba Descobrir, com obras que ainda não estão na lista: veja [Sorteio no Descobrir](123-sorteio-no-descobrir.md).
 
 > O "Sortear de novo" passou a mostrar "Sorteando…" até o próximo chegar, e o confete voltou no site no ar: veja [doc 124](124-sortear-de-novo-e-confete.md).
+
+> No Firefox, o "Sortear de novo" fugia do clique por causa de uma barra de rolagem; corrigido no [doc 135](135-sortear-de-novo-no-firefox.md).

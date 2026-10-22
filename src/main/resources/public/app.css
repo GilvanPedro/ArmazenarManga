@@ -2216,6 +2216,9 @@ dialog.janela-da-lista[open] { display: flex; }
 .post-aberto .comentario { padding: 14px 0; border-top: 1px solid var(--borda); }
 .post-aberto .novo-comentario { padding-bottom: 4px; }
 .post { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--superficie); }
+/* posts do feed fora da tela nao sao desenhados (doc 136): o navegador pula o trabalho deles e volta a desenhar quando
+ * reaparecem. "auto" guarda a altura que o post tinha, para a rolagem nao pular; 240 px e o palpite antes da 1a vez */
+.feed > .post { content-visibility: auto; contain-intrinsic-size: auto 240px; }
 .autor-do-post { flex: none; text-decoration: none; }
 .corpo-do-post { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
 .cabecalho-do-post { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -4084,6 +4087,9 @@ dialog.janela-do-sorteio::backdrop { background: rgba(8, 8, 12, .84); backdrop-f
 
 /* o sorteado */
 .resultado-do-sorteio { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 0 16px; text-align: center; overflow-y: auto; }
+/* folga embaixo (doc 135): o botao apertado desce 1 px; sem ela, o conteudo passava da altura, aparecia a barra de
+ * rolagem, os botoes mudavam de lugar no meio do clique e o "Sortear de novo" nao era clicado */
+.resultado-do-sorteio > .acoes-do-sorteado { margin-bottom: 8px; }
 .resultado-do-sorteio[hidden] { display: none; }
 .capa-do-sorteado {
     width: min(240px, 58vw);

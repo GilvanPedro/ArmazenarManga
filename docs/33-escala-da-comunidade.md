@@ -132,3 +132,5 @@ acima.
 
 > Depois, o "Para você" passou a ser exibido do mais novo para o mais antigo, e o `novosDesde` deixou de ser usado:
 > veja [Feed por data, abas e seguidores](52-feed-por-data-abas-e-seguidores.md).
+
+> O feed passou a aparecer na hora ao voltar, a carregar antes do clique e a não desenhar os posts fora da tela: veja [doc 136](136-comunidade-mais-rapida.md).

@@ -162,6 +162,8 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Kitsu quando o AniList cai](docs/132-kitsu-quando-o-anilist-cai.md) | |
 | [Título bagunçado ao marcar capítulo lido](docs/133-titulo-baguncado-na-captura.md) | |
 | [Descobrir e recomendações mais rápidos](docs/134-descobrir-e-recomendacoes-mais-rapidos.md) | |
+| ["Sortear de novo" que fugia do clique no Firefox](docs/135-sortear-de-novo-no-firefox.md) | |
+| [Comunidade mais rápida](docs/136-comunidade-mais-rapida.md) | |
 
 ## Testes
 

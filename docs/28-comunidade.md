@@ -152,3 +152,5 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 
 > Depois, curtir deixou de abrir o post (só comentar abre) e os botões ficaram maiores: veja
 > [Curtir sem abrir o post](74-curtir-sem-abrir-o-post.md).
+
+> O feed passou a aparecer na hora ao voltar, a carregar antes do clique e a não desenhar os posts fora da tela: veja [doc 136](136-comunidade-mais-rapida.md).

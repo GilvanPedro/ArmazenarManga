@@ -73,6 +73,8 @@ async function chamar(metodo, caminho, corpo) {
         estado.listaCompleta = null;
         paginasDoServidor.clear();
     }
+    // postou, curtiu, comentou, seguiu: o feed e o "Quem seguir" guardados podem estar velhos (doc 136)
+    if (metodo !== 'GET' && /^\/api\/(comunidade|conta|sessao)(\/|$|\?)/.test(caminho)) respostasDaComunidade.clear();
     if (metodo !== 'GET') {
         // mexeu num banner (doc 125): os banners no ar sao buscados de novo, sem cache, para a imagem nova ja aparecer
         if (caminho.startsWith('/api/banners')) {
@@ -557,6 +559,7 @@ function rolagemDasAbas(nav) {
 function recarregarAba() {
     estado.listaCompleta = null;
     paginasDoServidor.clear();
+    respostasDaComunidade.clear();
     window.scrollTo(0, 0);
     if (estado.recarregar) {
         estado.recarregar(true);
@@ -1289,6 +1292,8 @@ async function sortearCom(jeito, botao, antesDeAbrir) {
     const texto = botao?.textContent;
     if (botao) {
         if (botao.disabled) return;
+        // a largura fica a mesma com o texto mais curto, para os botoes ao lado nao mudarem de lugar (doc 135)
+        botao.style.minWidth = botao.getBoundingClientRect().width + 'px';
         botao.disabled = true;
         botao.textContent = 'Sorteando…';
     }
@@ -1299,6 +1304,7 @@ async function sortearCom(jeito, botao, antesDeAbrir) {
         if (botao) {
             botao.disabled = false;
             botao.textContent = texto;
+            botao.style.minWidth = '';
         }
     }
     if (!saiu) return;
@@ -3293,7 +3299,7 @@ async function comecarSessao(sessao) {
 /** A foto de perfil, ou a inicial do nick em um circulo quando nao ha foto. */
 function avatar(conta, grande) {
     const classe = 'inicial' + (grande ? ' grande' : '');
-    if (conta.foto) return h('img', {class: classe + ' foto', src: conta.foto, alt: '', width: grande ? '64' : '26', height: grande ? '64' : '26'});
+    if (conta.foto) return h('img', {class: classe + ' foto', src: conta.foto, alt: '', width: grande ? '64' : '26', height: grande ? '64' : '26', loading: 'lazy', decoding: 'async'});
     return h('span', {class: classe, 'aria-hidden': 'true'}, [...conta.nick][0].toUpperCase());
 }
 
@@ -4206,9 +4212,23 @@ function vigiarPostsNovos(feed, desde, aviso, vez) {
  * Devolve {geradoEm} quando abriu.
  */
 async function carregarFeed(lista, consulta, vez, seVazio) {
+    const caminho = '/api/comunidade/feed?' + consulta;
+    // o feed visto ha pouco aparece na hora, e o novo vem por tras (doc 136): ao chegar, troca o guardado se mudou
+    // alguma coisa e a pessoa ainda esta no comeco da pagina (para nao mexer no que ela esta lendo)
+    const guardado = respostaGuardada(caminho);
+    const pedido = pedirGuardando(caminho);
+    if (guardado) {
+        pedido.then(nova => {
+            if (vez !== estado.render || JSON.stringify(nova.itens) === JSON.stringify(guardado.itens) || window.scrollY > 300
+                || lista.contains(document.activeElement)) return;
+            lista.replaceChildren();
+            montarFeed(lista, nova, vez, seVazio);
+        }).catch(() => {});
+        return montarFeed(lista, guardado, vez, seVazio);
+    }
     let resposta;
     try {
-        resposta = await chamar('GET', '/api/comunidade/feed?' + consulta);
+        resposta = await pedido;
     } catch (e) {
         if (vez !== estado.render) return null;
         // a versao Java do servidor nao tem a Comunidade
@@ -4218,6 +4238,44 @@ async function carregarFeed(lista, consulta, vez, seVazio) {
         return null;
     }
     if (vez !== estado.render) return null;
+    return montarFeed(lista, resposta, vez, seVazio);
+}
+
+/*
+ * Respostas guardadas das telas da Comunidade (doc 136): o feed e o "Quem seguir" vistos ha pouco aparecem na hora ao
+ * voltar, enquanto os novos chegam. Valem 5 minutos e sao esquecidas quando a pessoa posta, curte, comenta ou segue.
+ * pedirGuardando reaproveita um pedido que ja esta a caminho (o adiantado ao passar o mouse no link da Comunidade).
+ */
+const respostasDaComunidade = new Map();
+const VALIDADE_DA_COMUNIDADE_MS = 5 * 60 * 1000;
+
+function respostaGuardada(caminho) {
+    const guardada = respostasDaComunidade.get(caminho);
+    return guardada?.dados && Date.now() - guardada.quando < VALIDADE_DA_COMUNIDADE_MS ? guardada.dados : null;
+}
+
+function pedirGuardando(caminho) {
+    const guardada = respostasDaComunidade.get(caminho);
+    // um pedido feito ha menos de 2 segundos (ainda chegando, ou acabado de chegar) serve
+    if (guardada?.pedido && Date.now() - guardada.pedidoEm < 2000) return guardada.pedido;
+    const pedido = chamar('GET', caminho).then(dados => {
+        respostasDaComunidade.set(caminho, {...respostasDaComunidade.get(caminho), dados, quando: Date.now()});
+        return dados;
+    });
+    pedido.catch(() => {});
+    respostasDaComunidade.set(caminho, {...guardada, pedido, pedidoEm: Date.now()});
+    return pedido;
+}
+
+/** Comeca a buscar o feed e o "Quem seguir" antes do clique, quando o mouse passa no link da Comunidade (doc 136). */
+function adiantarComunidade() {
+    if (!estado.temComunidade || respostaGuardada('/api/comunidade/feed?feed=para-voce')) return;
+    pedirGuardando('/api/comunidade/feed?feed=para-voce');
+    pedirGuardando('/api/comunidade/sugestoes');
+}
+
+/** Poe na tela os posts de um feed ja recebido e prepara o "carregar mais". Devolve a resposta. */
+function montarFeed(lista, resposta, vez, seVazio) {
     if (resposta.itens.length === 0) {
         lista.append(seVazio);
         return resposta;
@@ -4258,7 +4316,9 @@ async function carregarFeed(lista, consulta, vez, seVazio) {
 async function carregarSugestoes(lateral, vez) {
     let contas;
     try {
-        contas = await chamar('GET', '/api/comunidade/sugestoes');
+        // guardadas ha pouco: aparecem na hora (doc 136); o pedido novo so atualiza a guarda para a proxima vez
+        const pedido = pedirGuardando('/api/comunidade/sugestoes');
+        contas = respostaGuardada('/api/comunidade/sugestoes') || await pedido;
     } catch (e) {
         return;
     }
@@ -7123,6 +7183,10 @@ async function iniciar() {
     // so a versao do Vercel tem a Comunidade (e, com ela, o perfil): a Java nao manda este campo
     estado.temComunidade = inicio.comunidade === true;
     document.getElementById('sair').addEventListener('click', sair);
+    // a Comunidade comeca a carregar quando o mouse passa no link (ou o dedo encosta), antes do clique (doc 136)
+    for (const evento of ['pointerenter', 'touchstart', 'focus']) {
+        document.getElementById('secao-comunidade').addEventListener(evento, adiantarComunidade, {passive: true});
+    }
     document.getElementById('secao-biblioteca').addEventListener('click', evento => {
         if (location.hash === '#/' || location.hash === '') {
             evento.preventDefault();

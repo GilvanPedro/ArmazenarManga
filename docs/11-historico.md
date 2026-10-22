@@ -340,6 +340,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Kitsu quando o AniList cai.** O AniList desligou a API e o Descobrir e as recomendações ficaram vazios; agora usam o Kitsu nessas horas. Detalhes em [Kitsu quando o AniList cai](132-kitsu-quando-o-anilist-cai.md).
 - **Título bagunçado na captura.** Nomes como ": Manga Nome Read" não eram reconhecidos; agora saem limpos, e o nome no endereço também conta. Detalhes em [Título bagunçado ao marcar capítulo lido](133-titulo-baguncado-na-captura.md).
 - **Descobrir e recomendações mais rápidos.** O Kitsu só entra com o AniList fora do ar, as buscas ficam guardadas e a página não espera mais os nomes da lista. Detalhes em [Descobrir e recomendações mais rápidos](134-descobrir-e-recomendacoes-mais-rapidos.md).
+- **"Sortear de novo" no Firefox.** Uma barra de rolagem aparecia no meio do clique e o botão saía de baixo do mouse. Detalhes em ["Sortear de novo" que fugia do clique no Firefox](135-sortear-de-novo-no-firefox.md).
+- **Comunidade mais rápida.** O feed aparece na hora ao voltar, começa a carregar antes do clique, os posts fora da tela não são desenhados e o servidor fica perto do banco. Detalhes em [Comunidade mais rápida](136-comunidade-mais-rapida.md).
 
 ## O que foi removido ou abandonado
 

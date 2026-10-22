@@ -34,3 +34,5 @@ corrigiu também as amostras de cor da legenda do gráfico de finanças, que usa
 | Arquivo | O que mudou |
 |---------|-------------|
 | `public/app.js` | `sortearCom`, a busca separada de cada sorteio, as páginas guardadas do Descobrir e o estilo pelo CSSOM em `h()` |
+
+> No Firefox, o "Sortear de novo" fugia do clique por causa de uma barra de rolagem; corrigido no [doc 135](135-sortear-de-novo-no-firefox.md).
