@@ -345,6 +345,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Repost, citação e quem curtiu.** Repostar e citar posts, como no X, e o dono do post vê quem curtiu. Detalhes em [Repost, citação e quem curtiu](137-repost-citacao-e-quem-curtiu.md).
 - **Ícones no lugar dos emojis.** Os botões dos posts ganharam ícones de linha que seguem o tema. Detalhes em [Ícones no lugar dos emojis nos posts](138-icones-no-lugar-dos-emojis.md).
 - **Imagens no Vercel Blob.** As imagens saem do banco para o Blob, em várias larguras, AVIF e WebP, sem metadados e com prévia borrada. Detalhes em [Imagens no Vercel Blob, em AVIF e no tamanho certo](139-imagens-no-vercel-blob.md).
+- **Todas as imagens no Blob.** Banners, imagens e vídeos da loja, miniaturas e capas de listas também vão para o Blob. Detalhes em [Todas as imagens no Blob](140-todas-as-imagens-no-blob.md).
 
 ## O que foi removido ou abandonado
 

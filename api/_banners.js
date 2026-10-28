@@ -5,6 +5,7 @@
 //
 // Sem rastrear ninguem: as contagens sao por dia, banner e lugar no site, sem conta, IP ou aparelho.
 import { randomBytes, randomUUID } from 'node:crypto';
+import { apagarDoBlob, blobAtivo, guardarArquivoNoBlob } from './_imagens.js';
 
 export const ESTRUTURA_DOS_BANNERS = `
     -- formato: horizontal ou vertical. pausado: fica no cadastro, mas nao aparece. peso: a parte das exibicoes (1 a 100)
@@ -39,6 +40,9 @@ export const ESTRUTURA_DOS_BANNERS = `
     -- otimizada (doc 131): a imagem ja foi diminuida e passada para WebP. As enviadas antes sao otimizadas na primeira
     -- vez que alguem as pede
     ALTER TABLE imagens_de_banner ADD COLUMN IF NOT EXISTS otimizada BOOLEAN NOT NULL DEFAULT false;
+    -- no Vercel Blob (doc 140): o endereco do arquivo; imagem fica vazia
+    ALTER TABLE imagens_de_banner ADD COLUMN IF NOT EXISTS url TEXT;
+    ALTER TABLE imagens_de_banner ALTER COLUMN imagem DROP NOT NULL;
 `;
 
 export const BANNERS_MAXIMOS = 50;
@@ -298,7 +302,7 @@ export function criarBanners(f) {
     const MES_ATUAL = `to_char(now() AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM')`;
     // imagens: { horizontal: { largura, altura, v }, vertical: {...} } (so os formatos que o banner tem)
     const CAMPOS = `id, empresa, texto, link, peso, pausado, codigo_do_relatorio, criado_em, atualizado_em,
-        (SELECT json_object_agg(formato, json_build_object('largura', largura, 'altura', altura, 'v', (extract(epoch FROM atualizada_em) * 1000)::bigint))
+        (SELECT json_object_agg(formato, json_build_object('largura', largura, 'altura', altura, 'v', (extract(epoch FROM atualizada_em) * 1000)::bigint, 'url', url))
             FROM imagens_de_banner WHERE banner = banners.id) AS imagens,
         valor, cobranca, to_char(termina_em, 'YYYY-MM-DD') AS termina_em, lancamento`;
     const HOJE = `(now() AT TIME ZONE 'America/Sao_Paulo')::date`;
@@ -367,7 +371,8 @@ export function criarBanners(f) {
     const imagensPublicas = banner => {
         const imagens = Object.fromEntries(Object.keys(FORMATOS_DE_BANNER).map(formato => {
             const imagem = banner.imagens?.[formato];
-            return [formato, imagem ? { url: `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${formato}&v=${imagem.v}`,
+            // no Blob (doc 140), o endereco direto de la
+            return [formato, imagem ? { url: imagem.url || `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${formato}&v=${imagem.v}`,
                 largura: imagem.largura, altura: imagem.altura } : null];
         }));
         const principal = imagens.horizontal || imagens.vertical;
@@ -387,6 +392,14 @@ export function criarBanners(f) {
         relatorio: `#/relatorio-de-banner/${encodeURIComponent(banner.id)}/${banner.codigo_do_relatorio}`,
         exibicoes: numeros.exibicoes || 0, cliques: numeros.cliques || 0, taxa: taxaDeCliques(numeros.cliques || 0, numeros.exibicoes || 0),
     });
+
+    /** Apaga do Blob os arquivos de banner que nenhum banner usa mais (dois banners com a mesma imagem dividem o arquivo). */
+    async function apagarArquivosSemUso(urls) {
+        if (urls.length === 0) return;
+        const { rows } = await (await banco()).query('SELECT url FROM imagens_de_banner WHERE url = ANY($1)', [urls]);
+        const emUso = new Set(rows.map(linha => linha.url));
+        await apagarDoBlob(urls.filter(url => !emUso.has(url)).map(url => ({ url })));
+    }
 
     async function exigirBanner(id) {
         if (!/^[a-z0-9-]{1,50}$/.test(id || '')) throw new Recusa(404, 'Banner não encontrado');
@@ -467,6 +480,15 @@ export function criarBanners(f) {
         }
         const ficam = Object.keys(FORMATOS_DE_BANNER).filter(formato => novas[formato] || (atual?.imagens?.[formato] && !tirar.includes(formato)));
         if (ficam.length === 0) throw new DadoInvalidoNoBanner('O banner precisa de pelo menos uma imagem: a horizontal, a vertical ou as duas');
+        // com o Blob ligado (doc 140), as imagens vao para la (ja otimizadas) e o banco guarda so o endereco
+        if (blobAtivo()) {
+            for (const [formato, imagem] of Object.entries(novas)) {
+                imagem.url = await guardarArquivoNoBlob('banners', formato + '.' + imagem.tipo.split('/')[1], imagem.bytes, imagem.tipo);
+            }
+        }
+        // os arquivos que saem (trocados ou tirados), para apagar do Blob depois de salvar
+        const antigas = Object.entries(atual?.imagens || {}).filter(([formato, imagem]) => imagem?.url && (novas[formato] || tirar.includes(formato)))
+            .map(([, imagem]) => imagem.url);
         const cliente = await (await banco()).connect();
         let salvoId = id;
         try {
@@ -485,9 +507,9 @@ export function criarBanners(f) {
             }
             if (tirar.length) await cliente.query('DELETE FROM imagens_de_banner WHERE banner = $1 AND formato = ANY($2)', [salvoId, tirar]);
             for (const [formato, imagem] of Object.entries(novas)) {
-                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura, otimizada) VALUES ($1, $2, $3, $4, $5, $6, true)
-                    ON CONFLICT (banner, formato) DO UPDATE SET imagem = $3, tipo = $4, largura = $5, altura = $6, otimizada = true, atualizada_em = now()`,
-                [salvoId, formato, imagem.bytes, imagem.tipo, imagem.largura, imagem.altura]);
+                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura, otimizada, url) VALUES ($1, $2, $3, $4, $5, $6, true, $7)
+                    ON CONFLICT (banner, formato) DO UPDATE SET imagem = $3, tipo = $4, largura = $5, altura = $6, otimizada = true, url = $7, atualizada_em = now()`,
+                [salvoId, formato, imagem.url ? null : imagem.bytes, imagem.tipo, imagem.largura, imagem.altura, imagem.url || null]);
             }
             await sincronizarReceita(cliente, { id: salvoId, lancamento: atual?.lancamento || null }, dados);
             await cliente.query('COMMIT');
@@ -497,6 +519,7 @@ export function criarBanners(f) {
         } finally {
             cliente.release();
         }
+        await apagarArquivosSemUso(antigas);
         return publico(await exigirBanner(salvoId));
     }
 
@@ -567,13 +590,13 @@ export function criarBanners(f) {
             // sortearem pelo peso. A CDN guarda um minuto
             if (id === 'no-ar' && !acao && request.method === 'GET') {
                 // uma linha por imagem: um banner com as duas entra no sorteio dos lugares horizontais e dos verticais
-                const { rows } = await (await banco()).query(`SELECT b.id, b.empresa, b.texto, i.formato, b.peso, i.largura, i.altura, b.link IS NOT NULL AS tem_link,
+                const { rows } = await (await banco()).query(`SELECT b.id, b.empresa, b.texto, i.formato, b.peso, i.largura, i.altura, b.link IS NOT NULL AS tem_link, i.url,
                         (extract(epoch FROM i.atualizada_em) * 1000)::bigint AS v
                     FROM banners b JOIN imagens_de_banner i ON i.banner = b.id
                     WHERE NOT b.pausado AND b.peso > 0 AND (b.termina_em IS NULL OR b.termina_em > ${HOJE}) ORDER BY b.id, i.formato`);
                 const resposta = json(200, { banners: rows.map(banner => ({ id: banner.id, empresa: banner.empresa, texto: banner.texto, formato: banner.formato,
                     peso: banner.peso, largura: banner.largura, altura: banner.altura, temLink: banner.tem_link,
-                    imagem: `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${banner.formato}&v=${banner.v}` })) });
+                    imagem: banner.url || `/api/banners/${encodeURIComponent(banner.id)}/imagem?formato=${banner.formato}&v=${banner.v}` })) });
                 // a CDN guarda um minuto e, passado esse tempo, ainda entrega a guardada enquanto busca a nova (doc 131)
                 resposta.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
                 return resposta;
@@ -608,7 +631,7 @@ export function criarBanners(f) {
                 // ?formato=horizontal ou vertical; sem ele (enderecos antigos), a horizontal ou, se nao tiver, a vertical
                 const formato = url.searchParams.get('formato');
                 const db = await banco();
-                const { rows } = await db.query(`SELECT formato, imagem, tipo AS tipo_imagem, otimizada FROM imagens_de_banner WHERE banner = $1
+                const { rows } = await db.query(`SELECT formato, imagem, tipo AS tipo_imagem, otimizada, url FROM imagens_de_banner WHERE banner = $1
                     ${Object.hasOwn(FORMATOS_DE_BANNER, formato) ? 'AND formato = $2' : ''} ORDER BY formato LIMIT 1`,
                 Object.hasOwn(FORMATOS_DE_BANNER, formato) ? [id, formato] : [id]);
                 if (!rows.length) return new Response('Banner não encontrado', { status: 404 });
@@ -620,6 +643,13 @@ export function criarBanners(f) {
                     await db.query('UPDATE imagens_de_banner SET imagem = $3, tipo = $4, otimizada = true WHERE banner = $1 AND formato = $2',
                         [id, rows[0].formato, imagem, tipo]);
                 }
+                // no Blob (doc 140): vai para la. Uma antiga ainda no banco, com o Blob ligado, e levada agora, uma vez so
+                let noBlob = rows[0].url;
+                if (!noBlob && blobAtivo()) {
+                    noBlob = await guardarArquivoNoBlob('banners', rows[0].formato + '.' + tipo.split('/')[1], imagem, tipo);
+                    await db.query('UPDATE imagens_de_banner SET url = $3, imagem = NULL WHERE banner = $1 AND formato = $2', [id, rows[0].formato, noBlob]);
+                }
+                if (noBlob) return new Response(null, { status: 308, headers: { Location: noBlob, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' } });
                 // o endereco leva ?v= (a ultima mudanca): o navegador e a CDN guardam por um ano, sem chegar ao banco
                 return new Response(imagem, { status: 200, headers: { 'Content-Type': tipo, 'X-Content-Type-Options': 'nosniff',
                     'Cache-Control': url.searchParams.has('v') ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=300, s-maxage=300' } });
@@ -655,7 +685,9 @@ export function criarBanners(f) {
                     await db.query(`UPDATE financas SET fim = date_trunc('month', ${HOJE})::date
                         WHERE id = $1 AND recorrencia = 'mensal' AND (fim IS NULL OR fim > date_trunc('month', ${HOJE})::date)`, [banner.lancamento]);
                 }
+                const { rows: arquivos } = await db.query('SELECT url FROM imagens_de_banner WHERE banner = $1 AND url IS NOT NULL', [id]);
                 await db.query('DELETE FROM banners WHERE id = $1', [id]);
+                await apagarArquivosSemUso(arquivos.map(arquivo => arquivo.url));
                 return new Response(null, { status: 204 });
             }
             if (id && acao === 'pausa' && metodo === 'PUT') {

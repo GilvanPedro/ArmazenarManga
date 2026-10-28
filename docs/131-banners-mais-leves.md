@@ -44,3 +44,5 @@ a pessoa rola perto dele, e as capas dos mangás vêm primeiro.
 | `test-api/banners.test.mjs` | O teste da otimização |
 
 > As capas, fotos de perfil e imagens dos posts foram para o Vercel Blob, em várias larguras e em AVIF: veja [doc 139](139-imagens-no-vercel-blob.md).
+
+> Os banners e as imagens e vídeos da loja também foram para o Blob: veja [doc 140](140-todas-as-imagens-no-blob.md).

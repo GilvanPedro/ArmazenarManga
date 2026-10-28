@@ -22,7 +22,15 @@ export class ImagemInvalida extends Error {}
 
 /** O Vercel Blob esta ligado? (a chave aparece sozinha quando o Blob Store e conectado ao projeto) */
 export function blobAtivo() {
-    return Boolean(chaveDoBlob());
+    // com a chave, ou so com o BLOB_STORE_ID: o Blob conectado ao projeto pode ser usado sem chave, e a biblioteca se
+    // autentica sozinha com o token que a Vercel poe em cada requisicao do site (OIDC)
+    return Boolean(chaveDoBlob() || process.env.BLOB_STORE_ID);
+}
+
+/** O "token" a passar para a biblioteca: so quando ha chave; sem ela, a biblioteca usa o BLOB_STORE_ID (OIDC). */
+function comChave() {
+    const chave = chaveDoBlob();
+    return chave ? { token: chave } : {};
 }
 
 /**
@@ -36,7 +44,11 @@ function chaveDoBlob() {
         : Object.keys(process.env).find(outro => outro.endsWith('_READ_WRITE_TOKEN') && String(process.env[outro]).startsWith('vercel_blob_rw_'));
     if (!chaveAvisada) {
         chaveAvisada = true;
-        console.log(nome ? `Imagens: Vercel Blob ligado (chave em ${nome})` : 'Imagens: Vercel Blob desligado (nenhuma variavel *_READ_WRITE_TOKEN com uma chave do Blob); as imagens ficam no banco');
+        // so os nomes das variaveis, nunca os valores
+        const nomes = Object.keys(process.env).filter(outro => /BLOB/i.test(outro)).sort().join(', ') || 'nenhuma';
+        console.log(nome ? `Imagens: Vercel Blob ligado (chave em ${nome})`
+            : process.env.BLOB_STORE_ID ? 'Imagens: Vercel Blob ligado (BLOB_STORE_ID, sem chave: autenticacao da Vercel)'
+                : 'Imagens: Vercel Blob desligado; as imagens ficam no banco', `| variaveis com BLOB: ${nomes}`);
     }
     return nome ? process.env[nome] : null;
 }
@@ -105,7 +117,7 @@ export async function prepararImagem(bytes, tipoDeImagem) {
 export async function guardarNoBlob(pasta, preparada) {
     const { put } = await biblioteca();
     const prefixo = `${pasta}/${preparada.hash.slice(0, 32)}`;
-    const opcoes = tipo => ({ access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: UM_ANO, contentType: tipo, token: chaveDoBlob() });
+    const opcoes = tipo => ({ access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: UM_ANO, contentType: tipo, ...comChave() });
     const variantes = await Promise.all(preparada.variantes.map(async variante => {
         const enviado = await put(`${prefixo}/${variante.largura}.${variante.formato}`, variante.bytes, opcoes('image/' + variante.formato));
         return { largura: variante.largura, formato: variante.formato, url: enviado.url };
@@ -117,13 +129,42 @@ export async function guardarNoBlob(pasta, preparada) {
     };
 }
 
+/**
+ * Um arquivo inteiro no Blob, sem converter (doc 140): os banners (ja otimizados no envio) e as imagens e videos da
+ * loja (como o dono enviou). O caminho leva o hash do conteudo: trocar o arquivo muda o endereco. Devolve a url.
+ */
+export async function guardarArquivoNoBlob(pasta, nome, bytes, tipo) {
+    const { put } = await biblioteca();
+    const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 32);
+    const enviado = await put(`${pasta}/${hash}/${nome}`, bytes,
+        { access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: UM_ANO, contentType: tipo, ...comChave() });
+    return enviado.url;
+}
+
+const PASTA_E_TIPO = { imagens: ['capas', 'capa'], imagens_da_comunidade: ['comunidade', 'post'] };
+
+/**
+ * Leva para o Blob, na hora, uma imagem que ainda esta no banco (doc 140): a capa de origem de uma miniatura ou de uma
+ * lista publicada, para nada novo nascer no banco a partir dela. Devolve a linha com os dados do Blob (ou a linha como
+ * estava, se o Blob esta desligado ou ela ja estava la).
+ */
+export async function levarParaOBlob(db, tabela, nome) {
+    const [pasta, tipo] = PASTA_E_TIPO[tabela];
+    const { rows: [linha] } = await db.query(`SELECT nome, conteudo, url, variantes, placeholder, largura, altura, hash, tamanho FROM ${tabela} WHERE nome = $1`, [nome]);
+    if (!linha || linha.url || !linha.conteudo || !blobAtivo()) return linha || null;
+    const guardada = await guardarNoBlob(pasta, await prepararImagem(linha.conteudo, tipo));
+    await db.query(`UPDATE ${tabela} SET url = $2, variantes = $3, placeholder = $4, largura = $5, altura = $6, hash = $7, tamanho = $8, conteudo = NULL
+        WHERE nome = $1`, [nome, guardada.url, JSON.stringify(guardada.variantes), guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
+    return { nome, conteudo: null, ...guardada };
+}
+
 /** Apaga do Blob os arquivos destas linhas (url e variantes). Falhar aqui nao impede o resto: sobra so um arquivo sem uso. */
 export async function apagarDoBlob(linhas) {
     const urls = linhas.flatMap(linha => [linha.url, ...(Array.isArray(linha.variantes) ? linha.variantes.map(variante => variante.url) : [])]).filter(Boolean);
     if (urls.length === 0 || !blobAtivo()) return;
     try {
         const { del } = await biblioteca();
-        await del([...new Set(urls)], { token: chaveDoBlob() });
+        await del([...new Set(urls)], comChave());
     } catch (erro) {
         console.error('Nao deu para apagar do Blob:', erro.message);
     }

@@ -11,14 +11,18 @@
 // O endereco do banco vem de DATABASE_URL: da variavel de ambiente ou de um arquivo .env na raiz do projeto (que o
 // .gitignore deixa fora do GitHub), com a linha DATABASE_URL=postgres://... (o endereco do Neon, o mesmo do Vercel).
 // Enviar com um nome que ja existe troca a imagem; o site mostra a nova em ate uma hora (a CDN guarda por uma hora).
+// Com a chave do Vercel Blob no .env (BLOB_READ_WRITE_TOKEN, doc 140), o arquivo vai para o Blob e o banco guarda so o
+// endereco, como faz o site.
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
 import { conferirImagemDaLoja } from '../api/_loja.js';
+import { apagarDoBlob, blobAtivo, guardarArquivoNoBlob } from '../api/_imagens.js';
 
 const raiz = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const arquivoEnv = path.join(raiz, '.env');
-if (!process.env.DATABASE_URL && fs.existsSync(arquivoEnv)) process.loadEnvFile(arquivoEnv);
+// o que ja esta no ambiente vale mais que o .env (o .env so completa: o banco e a chave do Blob)
+if (fs.existsSync(arquivoEnv)) process.loadEnvFile(arquivoEnv);
 
 async function principal() {
     const [comando, ...resto] = process.argv.slice(2);
@@ -45,13 +49,17 @@ async function principal() {
             const bytes = fs.readFileSync(caminho);
             const nome = nomeEscolhido || path.basename(caminho).toLowerCase();
             const tipo = conferirImagemDaLoja(nome, bytes);
-            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho) VALUES ($1, $2, $3, $4)
-                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, atualizada_em = now()`, [nome, bytes, tipo, bytes.length]);
-            console.log(`Guardada: ${nome} (${tipo}, ${(bytes.length / 1024).toFixed(1)} KB). No site: /api/loja/imagens/${nome}`);
+            const url = blobAtivo() ? await guardarArquivoNoBlob('loja', nome, bytes, tipo) : null;
+            const { rows: antes } = await db.query('SELECT url FROM imagens_da_loja WHERE nome = $1', [nome]);
+            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho, url) VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, url = $5, atualizada_em = now()`, [nome, url ? null : bytes, tipo, bytes.length, url]);
+            if (antes[0]?.url && antes[0].url !== url) await apagarDoBlob([{ url: antes[0].url }]);
+            console.log(`Guardada${url ? ' no Blob' : ' no banco'}: ${nome} (${tipo}, ${(bytes.length / 1024).toFixed(1)} KB). No site: /api/loja/imagens/${nome}`);
         } else {
             const [nome] = resto;
-            const { rowCount } = await db.query('DELETE FROM imagens_da_loja WHERE nome = $1', [nome]);
-            console.log(rowCount ? `Apagada: ${nome}` : `Não existe: ${nome}`);
+            const { rows: apagada } = await db.query('DELETE FROM imagens_da_loja WHERE nome = $1 RETURNING url', [nome]);
+            await apagarDoBlob(apagada);
+            console.log(apagada.length ? `Apagada: ${nome}` : `Não existe: ${nome}`);
         }
     } finally {
         await db.end();

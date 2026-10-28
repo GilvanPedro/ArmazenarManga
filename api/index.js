@@ -15,7 +15,7 @@ import { ESTRUTURA_DA_LOJA, criarLoja, temaQueExiste } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
-import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, bytesDe, guardarNoBlob, imagemParaOSite, prepararImagem, urlNaLargura } from './_imagens.js';
+import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, bytesDe, guardarNoBlob, imagemParaOSite, levarParaOBlob, prepararImagem, urlNaLargura } from './_imagens.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
 // a descricao salva sempre em portugues: se veio em ingles (buscada, colada ou escrita), e traduzida ao salvar (doc 102)
@@ -251,8 +251,9 @@ async function miniaturas(mangas) {
  */
 async function guardarMiniatura(nomeDaCapa, request) {
     if (!NOME_DE_CAPA.test(nomeDaCapa) || !(await imagemExiste(nomeDaCapa))) throw new Recusa(404, 'Imagem não encontrada');
-    // capa no Blob (doc 139): as versoes pequenas ja existem, nao ha o que guardar
-    const { rows: [daCapa] } = await (await banco()).query('SELECT url, variantes FROM imagens WHERE nome = $1 AND conta = $2', [nomeDaCapa, contaAtual()]);
+    // capa no Blob (doc 139): as versoes pequenas ja existem, nao ha o que guardar. Capa antiga ainda no banco, com o
+    // Blob ligado: vai para la agora, em vez de nascer uma miniatura nova no banco (doc 140)
+    const daCapa = await levarParaOBlob(await banco(), 'imagens', nomeDaCapa);
     if (daCapa?.url) return json(200, { thumbUrl: urlNaLargura(daCapa, 240) });
     const bytes = Buffer.from(await request.arrayBuffer());
     if (bytes.length === 0) throw new Recusa(400, 'A miniatura está vazia');

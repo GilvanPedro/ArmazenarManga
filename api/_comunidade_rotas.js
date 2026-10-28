@@ -7,7 +7,7 @@ import { temaQueExiste } from './_loja.js';
 import { dadosDoPainel, lerPeriodo } from './_painel.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
-import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, guardarNoBlob, imagemParaOSite, prepararImagem, urlNaLargura } from './_imagens.js';
+import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, guardarNoBlob, imagemParaOSite, levarParaOBlob, prepararImagem, urlNaLargura } from './_imagens.js';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOME = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
@@ -489,8 +489,9 @@ export function criarComunidade(f) {
             } else if (NOME.test(manga.imagePath || '')) {
                 const base = manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'));
                 const origem = miniaturas.get(base) || manga.imagePath;
-                const { rows: imagem } = await cliente.query(
-                    'SELECT conteudo, url, variantes, placeholder, largura, altura, hash, tamanho FROM imagens WHERE nome = $1 AND conta = $2', [origem, eu.id]);
+                // a capa de origem ainda no banco, com o Blob ligado: vai para la antes de ser copiada (doc 140)
+                const { rows: daConta } = await cliente.query('SELECT 1 FROM imagens WHERE nome = $1 AND conta = $2', [origem, eu.id]);
+                const imagem = daConta.length ? [await levarParaOBlob(cliente, 'imagens', origem)] : [];
                 if (imagem.length && imagem[0].url) {
                     // no Blob (doc 139): a copia aponta para os mesmos arquivos, sem duplicar nada
                     const [i] = imagem;

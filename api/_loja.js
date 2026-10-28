@@ -15,6 +15,7 @@
 // - MERCADOPAGO_ACCESS_TOKEN: o "Access Token" das credenciais (TEST-... para testar, APP_USR-... para valer);
 // - MERCADOPAGO_WEBHOOK_SECRET: a "assinatura secreta" dos avisos (Webhooks), para conferir que o aviso veio dele.
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { apagarDoBlob, blobAtivo, guardarArquivoNoBlob } from './_imagens.js';
 
 /** Precos, em centavos: cada borda e cada efeito. */
 export const PRECO_DA_BORDA = 450;
@@ -147,6 +148,9 @@ export const ESTRUTURA_DA_LOJA = `
     -- aba "Imagens da loja" do Gerenciar (so o dono do site) ou por ferramentas/imagens-da-loja.mjs
     CREATE TABLE IF NOT EXISTS imagens_da_loja (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL, tipo TEXT NOT NULL,
         tamanho INT NOT NULL, atualizada_em TIMESTAMPTZ NOT NULL DEFAULT now());
+    -- no Vercel Blob (doc 140): o endereco do arquivo; conteudo fica vazio
+    ALTER TABLE imagens_da_loja ADD COLUMN IF NOT EXISTS url TEXT;
+    ALTER TABLE imagens_da_loja ALTER COLUMN conteudo DROP NOT NULL;
     -- a borda e o efeito equipados (nulos: a borda roxa e o brilho de sempre)
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS borda TEXT;
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS efeito TEXT;
@@ -545,12 +549,18 @@ export function criarLoja(f) {
         if (nome && metodo === 'PUT') {
             const bytes = Buffer.from(await request.arrayBuffer());
             const tipo = conferirImagemDaLoja(nome, bytes);
-            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho) VALUES ($1, $2, $3, $4)
-                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, atualizada_em = now()`, [nome, bytes, tipo, bytes.length]);
+            // com o Blob ligado (doc 140), o arquivo vai para la como veio, e o banco guarda so o endereco
+            const url = blobAtivo() ? await guardarArquivoNoBlob('loja', nome, bytes, tipo) : null;
+            const { rows: antes } = await db.query('SELECT url FROM imagens_da_loja WHERE nome = $1', [nome]);
+            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho, url) VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, url = $5, atualizada_em = now()`, [nome, url ? null : bytes, tipo, bytes.length, url]);
+            // o arquivo trocado sai do Blob
+            if (antes[0]?.url && antes[0].url !== url) await apagarDoBlob([{ url: antes[0].url }]);
             return json(200, { nome, tipo, tamanho: bytes.length, endereco: '/api/loja/imagens/' + nome });
         }
         if (nome && metodo === 'DELETE') {
-            await db.query('DELETE FROM imagens_da_loja WHERE nome = $1', [nome]);
+            const { rows: apagada } = await db.query('DELETE FROM imagens_da_loja WHERE nome = $1 RETURNING url', [nome]);
+            await apagarDoBlob(apagada);
             return new Response(null, { status: 204 });
         }
         throw new ErroDaLoja(404, 'Endereço não encontrado');
@@ -604,8 +614,21 @@ export function criarLoja(f) {
             if (acao === 'imagens' && partes[1] && request.method === 'GET') {
                 const nome = partes[1];
                 if (!NOME_DA_IMAGEM.test(nome)) return new Response('Imagem não encontrada', { status: 404 });
-                const { rows } = await (await banco()).query('SELECT conteudo, tipo FROM imagens_da_loja WHERE nome = $1', [nome]);
+                const db = await banco();
+                const { rows } = await db.query('SELECT conteudo, tipo, url FROM imagens_da_loja WHERE nome = $1', [nome]);
                 if (!rows.length) return new Response('Imagem não encontrada', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+                // no Blob (doc 140): o endereco fixo (que o CSS usa) leva para la. Um arquivo antigo ainda no banco, com o
+                // Blob ligado, e levado agora, uma vez so. O redirecionamento fica guardado pelo mesmo tempo de antes
+                let url = rows[0].url;
+                if (!url && blobAtivo()) {
+                    url = await guardarArquivoNoBlob('loja', nome, Buffer.from(rows[0].conteudo), rows[0].tipo);
+                    await db.query('UPDATE imagens_da_loja SET url = $2, conteudo = NULL WHERE nome = $1', [nome, url]);
+                }
+                if (url) {
+                    const video = rows[0].tipo.startsWith('video/');
+                    return new Response(null, { status: 308, headers: { Location: url,
+                        'Cache-Control': video ? 'public, max-age=604800, s-maxage=604800' : 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' } });
+                }
                 return respostaDoArquivo(rows[0].conteudo, rows[0].tipo, request.headers.get('range'));
             }
             return null;
