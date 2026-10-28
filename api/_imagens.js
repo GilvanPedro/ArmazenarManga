@@ -1,8 +1,8 @@
 // Imagens enviadas pelas pessoas (capas, fotos de perfil e imagens dos posts), doc 139.
 //
-// Com o Vercel Blob ligado (BLOB_READ_WRITE_TOKEN), cada imagem e conferida, limpa e guardada la em varias larguras,
-// em AVIF e WebP; o banco fica so com os dados dela (endereco, medidas, hash e uma previa borrada de poucos bytes).
-// Sem o Blob, tudo continua no banco como antes, so que ja limpo e em WebP.
+// Cada imagem e conferida, limpa e guardada no Vercel Blob em varias larguras, em AVIF e WebP; o banco fica so com os
+// dados dela (endereco, medidas, hash e uma previa borrada de poucos bytes). Desde o doc 141, nenhum arquivo fica no
+// banco: sem o Blob, o envio e recusado com um aviso.
 
 import { createHash } from 'node:crypto';
 
@@ -19,6 +19,14 @@ const UM_ANO = 365 * 24 * 60 * 60;
 const PIXELS_MAXIMOS = 40_000_000;
 
 export class ImagemInvalida extends Error {}
+
+/** O Blob nao esta ligado: o envio nao tem onde guardar (doc 141). O servidor responde 503 com a mensagem. */
+export class SemArmazenamento extends Error {}
+
+/** Para antes de receber um arquivo, se o Blob nao estiver ligado. */
+export function exigirBlob() {
+    if (!blobAtivo()) throw new SemArmazenamento('O armazenamento de imagens não está disponível agora. Tente de novo em instantes');
+}
 
 /** O Vercel Blob esta ligado? (a chave aparece sozinha quando o Blob Store e conectado ao projeto) */
 export function blobAtivo() {
@@ -141,23 +149,6 @@ export async function guardarArquivoNoBlob(pasta, nome, bytes, tipo) {
     return enviado.url;
 }
 
-const PASTA_E_TIPO = { imagens: ['capas', 'capa'], imagens_da_comunidade: ['comunidade', 'post'] };
-
-/**
- * Leva para o Blob, na hora, uma imagem que ainda esta no banco (doc 140): a capa de origem de uma miniatura ou de uma
- * lista publicada, para nada novo nascer no banco a partir dela. Devolve a linha com os dados do Blob (ou a linha como
- * estava, se o Blob esta desligado ou ela ja estava la).
- */
-export async function levarParaOBlob(db, tabela, nome) {
-    const [pasta, tipo] = PASTA_E_TIPO[tabela];
-    const { rows: [linha] } = await db.query(`SELECT nome, conteudo, url, variantes, placeholder, largura, altura, hash, tamanho FROM ${tabela} WHERE nome = $1`, [nome]);
-    if (!linha || linha.url || !linha.conteudo || !blobAtivo()) return linha || null;
-    const guardada = await guardarNoBlob(pasta, await prepararImagem(linha.conteudo, tipo));
-    await db.query(`UPDATE ${tabela} SET url = $2, variantes = $3, placeholder = $4, largura = $5, altura = $6, hash = $7, tamanho = $8, conteudo = NULL
-        WHERE nome = $1`, [nome, guardada.url, JSON.stringify(guardada.variantes), guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
-    return { nome, conteudo: null, ...guardada };
-}
-
 /** Apaga do Blob os arquivos destas linhas (url e variantes). Falhar aqui nao impede o resto: sobra so um arquivo sem uso. */
 export async function apagarDoBlob(linhas) {
     const urls = linhas.flatMap(linha => [linha.url, ...(Array.isArray(linha.variantes) ? linha.variantes.map(variante => variante.url) : [])]).filter(Boolean);
@@ -183,10 +174,9 @@ export async function apagarSeNinguemUsa(db, linhas) {
     await apagarDoBlob(comArquivo.filter(linha => !emUso.has(linha.url)));
 }
 
-/** Os bytes de uma imagem guardada: do banco (as antigas) ou baixados do Blob. */
+/** Os bytes de uma imagem guardada, baixados do Blob (o robo de imagens confere a foto de perfil por eles). */
 export async function bytesDe(linha) {
-    if (linha.conteudo) return Buffer.from(linha.conteudo);
-    if (!linha.url) return null;
+    if (!linha?.url) return null;
     const resposta = await fetch(linha.url);
     if (!resposta.ok) throw new Error('Imagem não encontrada no armazenamento');
     return Buffer.from(await resposta.arrayBuffer());
@@ -216,5 +206,27 @@ export const COLUNAS_DA_IMAGEM = `
     ADD COLUMN IF NOT EXISTS largura INT,
     ADD COLUMN IF NOT EXISTS altura INT,
     ADD COLUMN IF NOT EXISTS hash TEXT,
-    ADD COLUMN IF NOT EXISTS tamanho INT,
-    ALTER COLUMN conteudo DROP NOT NULL`;
+    ADD COLUMN IF NOT EXISTS tamanho INT`;
+
+/**
+ * Tira do banco as colunas onde os arquivos ficavam (doc 141), agora que todos estao no Blob. Cada coluna so sai depois
+ * de conferir, na hora, que ela esta vazia em todas as linhas: se houver um arquivo nela, a coluna fica (nada se perde).
+ * Inclui as colunas antigas da imagem do banner, de antes do doc 96. Roda no fim da estrutura (api/index.js).
+ */
+export const SEM_ARQUIVOS_NO_BANCO = `
+    DO $$
+    DECLARE
+        coluna record;
+        tem_arquivo boolean;
+    BEGIN
+        FOR coluna IN SELECT * FROM (VALUES ('imagens', 'conteudo'), ('imagens_da_comunidade', 'conteudo'), ('imagens_da_loja', 'conteudo'),
+                ('imagens_de_banner', 'imagem'), ('banners', 'imagem'), ('banners', 'tipo_imagem'), ('banners', 'formato'),
+                ('banners', 'largura'), ('banners', 'altura')) AS v (tabela, nome) LOOP
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = coluna.tabela AND column_name = coluna.nome) THEN
+                EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I WHERE %I IS NOT NULL)', coluna.tabela, coluna.nome) INTO tem_arquivo;
+                IF NOT tem_arquivo THEN
+                    EXECUTE format('ALTER TABLE %I DROP COLUMN %I', coluna.tabela, coluna.nome);
+                END IF;
+            END IF;
+        END LOOP;
+    END $$;`;

@@ -1,5 +1,5 @@
-// Guarda, lista e apaga as imagens dos itens da loja (como a moldura da borda Celestial) no banco, direto do seu
-// computador. O site so serve essas imagens (/api/loja/imagens/{nome}); nao ha tela no site para envia-las.
+// Guarda, lista e apaga as imagens e videos dos itens da loja (como a moldura da borda Celestial), direto do seu
+// computador. O arquivo vai para o Vercel Blob e o banco guarda so o endereco (docs 140 e 141). O site so serve essas imagens (/api/loja/imagens/{nome}); nao ha tela no site para envia-las.
 //
 //   node ferramentas/imagens-da-loja.mjs listar
 //   node ferramentas/imagens-da-loja.mjs enviar caminho/da/imagem.webp [nome.webp]
@@ -11,13 +11,12 @@
 // O endereco do banco vem de DATABASE_URL: da variavel de ambiente ou de um arquivo .env na raiz do projeto (que o
 // .gitignore deixa fora do GitHub), com a linha DATABASE_URL=postgres://... (o endereco do Neon, o mesmo do Vercel).
 // Enviar com um nome que ja existe troca a imagem; o site mostra a nova em ate uma hora (a CDN guarda por uma hora).
-// Com a chave do Vercel Blob no .env (BLOB_READ_WRITE_TOKEN, doc 140), o arquivo vai para o Blob e o banco guarda so o
-// endereco, como faz o site.
+// Precisa da chave do Vercel Blob no .env (BLOB_READ_WRITE_TOKEN): sem ela, enviar e recusado.
 import fs from 'node:fs';
 import path from 'node:path';
 import pg from 'pg';
 import { conferirImagemDaLoja } from '../api/_loja.js';
-import { apagarDoBlob, blobAtivo, guardarArquivoNoBlob } from '../api/_imagens.js';
+import { apagarDoBlob, exigirBlob, guardarArquivoNoBlob } from '../api/_imagens.js';
 
 const raiz = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const arquivoEnv = path.join(raiz, '.env');
@@ -49,12 +48,13 @@ async function principal() {
             const bytes = fs.readFileSync(caminho);
             const nome = nomeEscolhido || path.basename(caminho).toLowerCase();
             const tipo = conferirImagemDaLoja(nome, bytes);
-            const url = blobAtivo() ? await guardarArquivoNoBlob('loja', nome, bytes, tipo) : null;
+            exigirBlob();
+            const url = await guardarArquivoNoBlob('loja', nome, bytes, tipo);
             const { rows: antes } = await db.query('SELECT url FROM imagens_da_loja WHERE nome = $1', [nome]);
-            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho, url) VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, url = $5, atualizada_em = now()`, [nome, url ? null : bytes, tipo, bytes.length, url]);
+            await db.query(`INSERT INTO imagens_da_loja (nome, tipo, tamanho, url) VALUES ($1, $2, $3, $4)
+                ON CONFLICT (nome) DO UPDATE SET tipo = $2, tamanho = $3, url = $4, atualizada_em = now()`, [nome, tipo, bytes.length, url]);
             if (antes[0]?.url && antes[0].url !== url) await apagarDoBlob([{ url: antes[0].url }]);
-            console.log(`Guardada${url ? ' no Blob' : ' no banco'}: ${nome} (${tipo}, ${(bytes.length / 1024).toFixed(1)} KB). No site: /api/loja/imagens/${nome}`);
+            console.log(`Guardada no Blob: ${nome} (${tipo}, ${(bytes.length / 1024).toFixed(1)} KB). No site: /api/loja/imagens/${nome}`);
         } else {
             const [nome] = resto;
             const { rows: apagada } = await db.query('DELETE FROM imagens_da_loja WHERE nome = $1 RETURNING url', [nome]);

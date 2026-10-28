@@ -168,6 +168,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Ícones no lugar dos emojis nos posts](docs/138-icones-no-lugar-dos-emojis.md) | |
 | [Imagens no Vercel Blob, em AVIF e no tamanho certo](docs/139-imagens-no-vercel-blob.md) | |
 | [Todas as imagens no Blob](docs/140-todas-as-imagens-no-blob.md) | |
+| [Sem arquivos no banco](docs/141-sem-arquivos-no-banco.md) | |
 
 ## Testes
 

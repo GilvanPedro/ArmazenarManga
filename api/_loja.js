@@ -15,7 +15,7 @@
 // - MERCADOPAGO_ACCESS_TOKEN: o "Access Token" das credenciais (TEST-... para testar, APP_USR-... para valer);
 // - MERCADOPAGO_WEBHOOK_SECRET: a "assinatura secreta" dos avisos (Webhooks), para conferir que o aviso veio dele.
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { apagarDoBlob, blobAtivo, guardarArquivoNoBlob } from './_imagens.js';
+import { apagarDoBlob, exigirBlob, guardarArquivoNoBlob } from './_imagens.js';
 
 /** Precos, em centavos: cada borda e cada efeito. */
 export const PRECO_DA_BORDA = 450;
@@ -144,13 +144,12 @@ export const ESTRUTURA_DA_LOJA = `
     CREATE TABLE IF NOT EXISTS mochila (conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, item TEXT NOT NULL,
         compra UUID REFERENCES compras(id) ON DELETE SET NULL, obtido_em TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (conta, item));
-    -- as imagens dos itens que nao sao feitos so com CSS (a moldura da borda Celestial): ficam no banco, enviadas pela
-    -- aba "Imagens da loja" do Gerenciar (so o dono do site) ou por ferramentas/imagens-da-loja.mjs
-    CREATE TABLE IF NOT EXISTS imagens_da_loja (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL, tipo TEXT NOT NULL,
+    -- as imagens e videos dos itens que nao sao feitos so com CSS (a moldura da borda Celestial, os fundos dos temas),
+    -- enviados pela aba "Imagens da loja" do Gerenciar (so o dono do site) ou por ferramentas/imagens-da-loja.mjs. O
+    -- arquivo fica no Vercel Blob (docs 140 e 141); aqui, o nome que o CSS usa, o endereco no Blob, o tipo e o tamanho
+    CREATE TABLE IF NOT EXISTS imagens_da_loja (nome TEXT PRIMARY KEY, tipo TEXT NOT NULL,
         tamanho INT NOT NULL, atualizada_em TIMESTAMPTZ NOT NULL DEFAULT now());
-    -- no Vercel Blob (doc 140): o endereco do arquivo; conteudo fica vazio
     ALTER TABLE imagens_da_loja ADD COLUMN IF NOT EXISTS url TEXT;
-    ALTER TABLE imagens_da_loja ALTER COLUMN conteudo DROP NOT NULL;
     -- a borda e o efeito equipados (nulos: a borda roxa e o brilho de sempre)
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS borda TEXT;
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS efeito TEXT;
@@ -183,32 +182,6 @@ export function formatoDaImagem(bytes) {
     if (b.length >= 4 && b.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))) return 'video/webm';
     if (b.length >= 12 && b.toString('ascii', 4, 8) === 'ftyp') return 'video/mp4';
     return null;
-}
-
-/**
- * A resposta com um arquivo da loja. Imagens: guardadas por uma hora (trocar uma imagem com o mesmo nome aparece em
- * ate uma hora). Videos (doc 108): guardados por uma semana (o nome leva a versao, "palacio-zen-1.webm": um video novo
- * vai com outro nome), e com pedidos por pedaco (Range), que o Safari exige para tocar video.
- */
-export function respostaDoArquivo(conteudo, tipo, range) {
-    const bytes = Buffer.from(conteudo);
-    const video = tipo.startsWith('video/');
-    const cabecalhos = {
-        'Content-Type': tipo, 'X-Content-Type-Options': 'nosniff', 'Accept-Ranges': 'bytes',
-        'Cache-Control': video ? 'public, max-age=604800, s-maxage=604800, immutable' : 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
-    };
-    const pedaco = /^bytes=(\d*)-(\d*)$/.exec(range || '');
-    if (pedaco && (pedaco[1] || pedaco[2])) {
-        let inicio = pedaco[1] ? Number(pedaco[1]) : bytes.length - Number(pedaco[2]);
-        let fim = pedaco[1] && pedaco[2] ? Number(pedaco[2]) : bytes.length - 1;
-        inicio = Math.max(0, inicio);
-        fim = Math.min(fim, bytes.length - 1);
-        if (inicio > fim || inicio >= bytes.length) {
-            return new Response(null, { status: 416, headers: { ...cabecalhos, 'Content-Range': `bytes */${bytes.length}` } });
-        }
-        return new Response(bytes.subarray(inicio, fim + 1), { status: 206, headers: { ...cabecalhos, 'Content-Range': `bytes ${inicio}-${fim}/${bytes.length}`, 'Content-Length': String(fim - inicio + 1) } });
-    }
-    return new Response(bytes, { status: 200, headers: { ...cabecalhos, 'Content-Length': String(bytes.length) } });
 }
 
 /** A extensao do nome tem que bater com o formato de verdade. */
@@ -547,13 +520,14 @@ export function criarLoja(f) {
                 atualizadaEm: linha.atualizada_em, endereco: '/api/loja/imagens/' + linha.nome }))));
         }
         if (nome && metodo === 'PUT') {
+            exigirBlob(); // sem o Blob, nao ha onde guardar (doc 141)
             const bytes = Buffer.from(await request.arrayBuffer());
             const tipo = conferirImagemDaLoja(nome, bytes);
-            // com o Blob ligado (doc 140), o arquivo vai para la como veio, e o banco guarda so o endereco
-            const url = blobAtivo() ? await guardarArquivoNoBlob('loja', nome, bytes, tipo) : null;
+            // o arquivo vai para o Blob como veio, e o banco guarda so o endereco (docs 140 e 141)
+            const url = await guardarArquivoNoBlob('loja', nome, bytes, tipo);
             const { rows: antes } = await db.query('SELECT url FROM imagens_da_loja WHERE nome = $1', [nome]);
-            await db.query(`INSERT INTO imagens_da_loja (nome, conteudo, tipo, tamanho, url) VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT (nome) DO UPDATE SET conteudo = $2, tipo = $3, tamanho = $4, url = $5, atualizada_em = now()`, [nome, url ? null : bytes, tipo, bytes.length, url]);
+            await db.query(`INSERT INTO imagens_da_loja (nome, tipo, tamanho, url) VALUES ($1, $2, $3, $4)
+                ON CONFLICT (nome) DO UPDATE SET tipo = $2, tamanho = $3, url = $4, atualizada_em = now()`, [nome, tipo, bytes.length, url]);
             // o arquivo trocado sai do Blob
             if (antes[0]?.url && antes[0].url !== url) await apagarDoBlob([{ url: antes[0].url }]);
             return json(200, { nome, tipo, tamanho: bytes.length, endereco: '/api/loja/imagens/' + nome });
@@ -614,22 +588,14 @@ export function criarLoja(f) {
             if (acao === 'imagens' && partes[1] && request.method === 'GET') {
                 const nome = partes[1];
                 if (!NOME_DA_IMAGEM.test(nome)) return new Response('Imagem não encontrada', { status: 404 });
-                const db = await banco();
-                const { rows } = await db.query('SELECT conteudo, tipo, url FROM imagens_da_loja WHERE nome = $1', [nome]);
-                if (!rows.length) return new Response('Imagem não encontrada', { status: 404, headers: { 'Cache-Control': 'no-store' } });
-                // no Blob (doc 140): o endereco fixo (que o CSS usa) leva para la. Um arquivo antigo ainda no banco, com o
-                // Blob ligado, e levado agora, uma vez so. O redirecionamento fica guardado pelo mesmo tempo de antes
-                let url = rows[0].url;
-                if (!url && blobAtivo()) {
-                    url = await guardarArquivoNoBlob('loja', nome, Buffer.from(rows[0].conteudo), rows[0].tipo);
-                    await db.query('UPDATE imagens_da_loja SET url = $2, conteudo = NULL WHERE nome = $1', [nome, url]);
-                }
-                if (url) {
-                    const video = rows[0].tipo.startsWith('video/');
-                    return new Response(null, { status: 308, headers: { Location: url,
-                        'Cache-Control': video ? 'public, max-age=604800, s-maxage=604800' : 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' } });
-                }
-                return respostaDoArquivo(rows[0].conteudo, rows[0].tipo, request.headers.get('range'));
+                const { rows } = await (await banco()).query('SELECT tipo, url FROM imagens_da_loja WHERE nome = $1', [nome]);
+                if (!rows[0]?.url) return new Response('Imagem não encontrada', { status: 404, headers: { 'Cache-Control': 'no-store' } });
+                // no Blob (docs 140 e 141): o endereco fixo (que o CSS usa) leva para la, e o Blob entrega os videos por
+                // pedaco (o Safari exige). O redirecionamento fica guardado: uma hora para imagens (trocar um arquivo com o
+                // mesmo nome aparece em ate uma hora), uma semana para videos (o nome leva a versao)
+                const video = rows[0].tipo.startsWith('video/');
+                return new Response(null, { status: 308, headers: { Location: rows[0].url,
+                    'Cache-Control': video ? 'public, max-age=604800, s-maxage=604800' : 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400' } });
             }
             return null;
         },

@@ -7,11 +7,10 @@ import { temaQueExiste } from './_loja.js';
 import { dadosDoPainel, lerPeriodo } from './_painel.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
-import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, guardarNoBlob, imagemParaOSite, levarParaOBlob, prepararImagem, urlNaLargura } from './_imagens.js';
+import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, exigirBlob, guardarNoBlob, imagemParaOSite, prepararImagem, urlNaLargura } from './_imagens.js';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOME = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
-const TIPOS = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
 
 /** Tabelas da Comunidade, criadas junto com as outras (api/index.js). Apagar uma conta apaga tudo dela aqui. */
 export const ESTRUTURA_DA_COMUNIDADE = `
@@ -30,11 +29,11 @@ export const ESTRUTURA_DA_COMUNIDADE = `
         seguido UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (seguidor, seguido), CHECK (seguidor <> seguido));
     CREATE INDEX IF NOT EXISTS seguindo_seguido ON seguindo (seguido);
-    CREATE TABLE IF NOT EXISTS imagens_da_comunidade (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL,
+    CREATE TABLE IF NOT EXISTS imagens_da_comunidade (nome TEXT PRIMARY KEY,
         conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, post UUID REFERENCES posts(id) ON DELETE CASCADE,
         criada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE INDEX IF NOT EXISTS imagens_da_comunidade_soltas ON imagens_da_comunidade (conta, criada_em) WHERE post IS NULL;
-    -- os dados da imagem (doc 139): com o Vercel Blob, o arquivo fica la e conteudo fica vazio
+    -- os dados da imagem (docs 139 e 141): o arquivo fica no Vercel Blob
     ALTER TABLE imagens_da_comunidade ${COLUNAS_DA_IMAGEM};
     -- a descricao do perfil, que todos veem (ate 300 caracteres)
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS descricao TEXT NOT NULL DEFAULT '';
@@ -428,6 +427,7 @@ export function criarComunidade(f) {
         const arquivo = formulario.get('arquivo');
         if (!arquivo || typeof arquivo === 'string') throw new Recusa(400, 'Envie a imagem no campo "arquivo"');
         if (arquivo.size > TAMANHO_MAXIMO_DA_IMAGEM) throw new Recusa(400, 'A imagem pode ter no máximo 2 MB');
+        exigirBlob(); // sem o Blob, nao ha onde guardar (doc 141)
         const bytes = Buffer.from(await arquivo.arrayBuffer());
         f.descobrirExtensao(bytes); // so PNG, JPG, GIF e WebP, conferidos pelo conteudo
         const nome = randomUUID() + '.webp';
@@ -444,30 +444,16 @@ export function criarComunidade(f) {
         const { rows: soltas } = await db.query(`DELETE FROM imagens_da_comunidade WHERE conta = $1 AND post IS NULL AND criada_em < now() - interval '1 day'
             RETURNING url, variantes`, [eu.id]);
         await apagarSeNinguemUsa(db, soltas);
-        let url = '/api/comunidade/imagens/' + nome;
-        if (blobAtivo()) {
-            const guardada = await guardarNoBlob('comunidade', preparada);
-            await db.query(`INSERT INTO imagens_da_comunidade (nome, conta, url, variantes, placeholder, largura, altura, hash, tamanho)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [nome, eu.id, guardada.url, JSON.stringify(guardada.variantes),
-                guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
-            url = urlNaLargura(guardada, 480);
-        } else {
-            await db.query('INSERT INTO imagens_da_comunidade (nome, conteudo, conta, placeholder, largura, altura, hash, tamanho) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-                [nome, preparada.principal.bytes, eu.id, preparada.placeholder, preparada.largura, preparada.altura, preparada.hash, preparada.principal.bytes.length]);
-        }
+        const guardada = await guardarNoBlob('comunidade', preparada);
+        await db.query(`INSERT INTO imagens_da_comunidade (nome, conta, url, variantes, placeholder, largura, altura, hash, tamanho)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [nome, eu.id, guardada.url, JSON.stringify(guardada.variantes),
+            guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
         await f.registrarTentativa('imagem:' + eu.id);
-        return json(201, { nome, url });
+        return json(201, { nome, url: urlNaLargura(guardada, 480) });
     }
 
     function redirecionar(url, cache) {
         return new Response(null, { status: 308, headers: { Location: url, 'Cache-Control': cache } });
-    }
-
-    function servirImagem(conteudo, nome, cache) {
-        return new Response(conteudo, {
-            status: 200,
-            headers: { 'Content-Type': TIPOS[nome.slice(nome.lastIndexOf('.') + 1)] || 'application/octet-stream', 'X-Content-Type-Options': 'nosniff', 'Cache-Control': cache },
-        });
     }
 
     /**
@@ -489,9 +475,8 @@ export function criarComunidade(f) {
             } else if (NOME.test(manga.imagePath || '')) {
                 const base = manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'));
                 const origem = miniaturas.get(base) || manga.imagePath;
-                // a capa de origem ainda no banco, com o Blob ligado: vai para la antes de ser copiada (doc 140)
-                const { rows: daConta } = await cliente.query('SELECT 1 FROM imagens WHERE nome = $1 AND conta = $2', [origem, eu.id]);
-                const imagem = daConta.length ? [await levarParaOBlob(cliente, 'imagens', origem)] : [];
+                const { rows: imagem } = await cliente.query(
+                    'SELECT url, variantes, placeholder, largura, altura, hash, tamanho FROM imagens WHERE nome = $1 AND conta = $2', [origem, eu.id]);
                 if (imagem.length && imagem[0].url) {
                     // no Blob (doc 139): a copia aponta para os mesmos arquivos, sem duplicar nada
                     const [i] = imagem;
@@ -499,10 +484,6 @@ export function criarComunidade(f) {
                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [randomUUID() + '.webp', eu.id, postId, i.url, JSON.stringify(i.variantes),
                         i.placeholder, i.largura, i.altura, i.hash, i.tamanho]);
                     capa = urlNaLargura(i, 240);
-                } else if (imagem.length) {
-                    const copia = randomUUID() + origem.slice(origem.lastIndexOf('.'));
-                    await cliente.query('INSERT INTO imagens_da_comunidade (nome, conteudo, conta, post) VALUES ($1, $2, $3, $4)', [copia, imagem[0].conteudo, eu.id, postId]);
-                    capa = '/api/comunidade/imagens/' + copia;
                 }
             }
             itens.push({
@@ -808,13 +789,10 @@ export function criarComunidade(f) {
         if (recurso === 'imagens' && !id && metodo === 'POST') return enviarImagem(request, eu);
         if (recurso === 'imagens' && id && !acao && metodo === 'GET') {
             if (!NOME.test(id)) throw new Recusa(404, 'Imagem não encontrada');
-            const { rows } = await db.query('SELECT conteudo, url FROM imagens_da_comunidade WHERE nome = $1', [id]);
-            if (rows.length === 0) throw new Recusa(404, 'Imagem não encontrada');
-            // no Blob (doc 139): vai para la; a CDN guarda o redirecionamento, sem chamar a funcao de novo
-            if (!rows[0].conteudo && rows[0].url) return redirecionar(rows[0].url, 'public, max-age=31536000, s-maxage=31536000, immutable');
-            // o nome muda a cada envio: o navegador e a CDN do Vercel podem guardar para sempre, sem chamar a funcao de novo.
-            // As imagens da Comunidade sao feitas para serem vistas pelos outros leitores, e o nome nao da para adivinhar
-            return servirImagem(rows[0].conteudo, id, 'public, max-age=31536000, s-maxage=31536000, immutable');
+            const { rows } = await db.query('SELECT url FROM imagens_da_comunidade WHERE nome = $1', [id]);
+            if (!rows[0]?.url) throw new Recusa(404, 'Imagem não encontrada');
+            // no Blob (docs 139 e 141): vai para la; a CDN guarda o redirecionamento, sem chamar a funcao de novo
+            return redirecionar(rows[0].url, 'public, max-age=31536000, s-maxage=31536000, immutable');
         }
         if (recurso === 'sugestoes' && !id && metodo === 'GET') return f.semCache(json(200, await sugestoes(eu)));
         if (recurso === 'busca-rapida' && !id && metodo === 'GET') return f.semCache(json(200, await buscaRapida(url.searchParams.get('q'))));
@@ -848,19 +826,17 @@ export function criarComunidade(f) {
             if (!ID.test(id)) throw new Recusa(404, 'Capa não encontrada');
             const achada = await f.capaDeOutraConta(id, partes[3]);
             if (!achada) throw new Recusa(404, 'Capa não encontrada');
-            if (!achada.conteudo && achada.url) return redirecionar(achada.url, 'private, max-age=86400');
-            return servirImagem(achada.conteudo, partes[3], 'private, max-age=86400');
+            return redirecionar(achada.url, 'private, max-age=86400');
         }
         // a foto de perfil e privada na conta; na Comunidade, quem esta logado pode ver a dos outros
         if (recurso === 'contas' && id && acao === 'foto' && metodo === 'GET') {
             if (!ID.test(id)) throw new Recusa(404, 'Foto não encontrada');
             const { rows } = await db.query(
-                'SELECT c.foto, i.conteudo, i.url, i.variantes FROM contas c JOIN imagens i ON i.nome = c.foto AND i.conta = c.id::text WHERE c.id = $1', [id]);
-            if (rows.length === 0) throw new Recusa(404, 'Foto não encontrada');
-            // no Blob (doc 139): a versao de 240 px, que serve para todos os tamanhos em que a foto aparece
-            if (!rows[0].conteudo && rows[0].url) return redirecionar(urlNaLargura(rows[0], 240), 'public, max-age=31536000, s-maxage=31536000, immutable');
-            // o endereco leva o nome da foto (?v=): trocar a foto muda o endereco, entao pode ser guardada para sempre
-            return servirImagem(rows[0].conteudo, rows[0].foto, 'public, max-age=31536000, s-maxage=31536000, immutable');
+                'SELECT c.foto, i.url, i.variantes FROM contas c JOIN imagens i ON i.nome = c.foto AND i.conta = c.id::text WHERE c.id = $1', [id]);
+            if (!rows[0]?.url) throw new Recusa(404, 'Foto não encontrada');
+            // no Blob (docs 139 e 141): a versao de 240 px, que serve para todos os tamanhos em que a foto aparece. O endereco
+            // leva o nome da foto (?v=): trocar a foto muda o endereco, entao o redirecionamento pode ser guardado para sempre
+            return redirecionar(urlNaLargura(rows[0], 240), 'public, max-age=31536000, s-maxage=31536000, immutable');
         }
         throw new Recusa(404, 'Endereço não encontrado');
     };

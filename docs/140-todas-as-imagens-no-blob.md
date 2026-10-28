@@ -48,6 +48,14 @@ que têm "BLOB" no nome:
 - `Imagens: Vercel Blob ligado (BLOB_STORE_ID, sem chave: autenticacao da Vercel) | variaveis com BLOB: ...`
 - `Imagens: Vercel Blob desligado; as imagens ficam no banco | variaveis com BLOB: nenhuma`
 
+## No site (28/10/2026)
+
+Depois do deploy com o `BLOB_STORE_ID`, a capa nova de um mangá foi direto para o Blob. O script levou o resto que
+ainda estava no banco: 3 capas, os banners e os 19 arquivos da loja (os vídeos dos temas também), 26 no total, sem
+falhas. Desde então, **nenhum arquivo de imagem ou vídeo fica dentro do banco**: 87 capas e fotos, 8 imagens de posts,
+4 banners e 19 arquivos da loja, todos no Blob. Os vídeos tocam pelo endereço fixo de antes, e o Blob aceita os
+pedidos por pedaço (resposta 206).
+
 ## Testado
 
 Localmente, com a imitação do Blob: banners e arquivo da loja criados sem o Blob indo para lá no primeiro pedido;
@@ -66,3 +74,5 @@ direto no Blob; o script levando banner e arquivo da loja. O log do servidor diz
 | `api/_comunidade_rotas.js` | A capa de uma lista publicada vai para o Blob antes de ser copiada |
 | `ferramentas/imagens-da-loja.mjs` | Envia e apaga no Blob, quando a chave está no `.env` |
 | `ferramentas/migrar-imagens-para-blob.mjs` | Leva também os banners e os arquivos da loja |
+
+> Atualização: as colunas onde os arquivos ficavam saíram do banco, o envio sem o Blob passou a ser recusado (em vez de ir para o banco) e o script de migração foi apagado: veja [doc 141](141-sem-arquivos-no-banco.md).

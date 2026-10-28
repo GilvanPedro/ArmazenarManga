@@ -112,8 +112,8 @@ test('imagens da loja: o formato vem dos primeiros bytes e tem que bater com o n
     assert.throws(() => conferirImagemDaLoja('x.webp', Buffer.alloc(3 * 1024 * 1024 + 1)), /3 MB/);
 });
 
-test('videos da loja: WebM e MP4 pelo conteudo, e o envio por pedaco (doc 108)', async () => {
-    const { conferirImagemDaLoja, respostaDoArquivo } = await import('../api/_loja.js');
+test('videos da loja: WebM e MP4 pelo conteudo (doc 108); o Blob entrega por pedaco (doc 141)', async () => {
+    const { conferirImagemDaLoja } = await import('../api/_loja.js');
     const webm = Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(60)]);
     const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 0x20]), Buffer.from('ftypisom'), Buffer.alloc(60)]);
     const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(60)]);
@@ -122,19 +122,6 @@ test('videos da loja: WebM e MP4 pelo conteudo, e o envio por pedaco (doc 108)',
     assert.equal(conferirImagemDaLoja('fundo-1.jpg', jpg), 'image/jpeg');
     assert.throws(() => conferirImagemDaLoja('fundo-1.mp4', webm), /é WEBM, mas o nome termina em \.mp4/);
     assert.throws(() => conferirImagemDaLoja('fundo.mov', mp4), /Nome inválido/);
-
-    const inteiro = respostaDoArquivo(mp4, 'video/mp4', null);
-    assert.equal(inteiro.status, 200);
-    assert.match(inteiro.headers.get('cache-control'), /max-age=604800/);
-    assert.equal(inteiro.headers.get('accept-ranges'), 'bytes');
-    const comeco = respostaDoArquivo(mp4, 'video/mp4', 'bytes=0-9');
-    assert.equal(comeco.status, 206);
-    assert.equal(comeco.headers.get('content-range'), `bytes 0-9/${mp4.length}`);
-    assert.equal((await comeco.arrayBuffer()).byteLength, 10);
-    const fim = respostaDoArquivo(mp4, 'video/mp4', 'bytes=-4');
-    assert.equal(fim.headers.get('content-range'), `bytes ${mp4.length - 4}-${mp4.length - 1}/${mp4.length}`);
-    assert.equal(respostaDoArquivo(mp4, 'video/mp4', 'bytes=9999-').status, 416);
-    assert.match(respostaDoArquivo(jpg, 'image/jpeg', null).headers.get('cache-control'), /max-age=3600/, 'imagem continua uma hora');
 });
 
 test('roleta: chances 5:3:1, sem tipo que acabou, e o sorteio pelos pesos (doc 115)', async () => {

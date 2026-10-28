@@ -15,7 +15,7 @@ import { ESTRUTURA_DA_LOJA, criarLoja, temaQueExiste } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
-import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, bytesDe, guardarNoBlob, imagemParaOSite, levarParaOBlob, prepararImagem, urlNaLargura } from './_imagens.js';
+import { COLUNAS_DA_IMAGEM, ImagemInvalida, SEM_ARQUIVOS_NO_BANCO, SemArmazenamento, apagarSeNinguemUsa, bytesDe, exigirBlob, guardarNoBlob, imagemParaOSite, prepararImagem, urlNaLargura } from './_imagens.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
 // a descricao salva sempre em portugues: se veio em ingles (buscada, colada ou escrita), e traduzida ao salvar (doc 102)
@@ -61,7 +61,6 @@ const TIPOS = { png: 'image/png', jpg: 'image/jpeg', gif: 'image/gif', webp: 'im
 // "-mini" e a miniatura de uma capa enviada
 const NOME_VALIDO = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}(-mini)?\.(png|jpg|gif|webp)$/;
 const NOME_DE_CAPA = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
-const TAMANHO_MAXIMO_DA_MINIATURA = 300 * 1024;
 const ID_VALIDO = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 /** Erro que vira uma resposta {"mensagem": ...} com o status informado. */
@@ -98,8 +97,8 @@ let tabelasProntas;
 const ESTRUTURA = `
     SELECT pg_advisory_xact_lock(7316250);
     CREATE TABLE IF NOT EXISTS mangas (id UUID PRIMARY KEY, ordem BIGSERIAL, dados JSONB NOT NULL);
-    CREATE TABLE IF NOT EXISTS imagens (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL);
-    -- os dados da imagem (doc 139): com o Vercel Blob, o arquivo fica la (url e variantes) e conteudo fica vazio
+    -- so os dados da imagem (docs 139 e 141): o arquivo fica no Vercel Blob (url e variantes)
+    CREATE TABLE IF NOT EXISTS imagens (nome TEXT PRIMARY KEY);
     ALTER TABLE imagens ${COLUNAS_DA_IMAGEM};
     CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now());
@@ -118,7 +117,9 @@ const ESTRUTURA = `
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS foto TEXT;
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
-` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA + ESTRUTURA_DAS_FINANCAS + ESTRUTURA_DOS_BANNERS;
+` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA + ESTRUTURA_DAS_FINANCAS + ESTRUTURA_DOS_BANNERS
+    // por ultimo: as colunas onde os arquivos ficavam saem do banco, se estiverem vazias (doc 141)
+    + SEM_ARQUIVOS_NO_BANCO;
 
 async function banco() {
     if (!conexoes) {
@@ -249,25 +250,12 @@ async function miniaturas(mangas) {
  * Guarda uma versao pequena da capa enviada, feita pelo navegador, para a lista mostrar no lugar da original.
  * A capa original nao muda. Corpo: a imagem (WebP ou JPEG, ate 300 KB).
  */
-async function guardarMiniatura(nomeDaCapa, request) {
-    if (!NOME_DE_CAPA.test(nomeDaCapa) || !(await imagemExiste(nomeDaCapa))) throw new Recusa(404, 'Imagem não encontrada');
-    // capa no Blob (doc 139): as versoes pequenas ja existem, nao ha o que guardar. Capa antiga ainda no banco, com o
-    // Blob ligado: vai para la agora, em vez de nascer uma miniatura nova no banco (doc 140)
-    const daCapa = await levarParaOBlob(await banco(), 'imagens', nomeDaCapa);
-    if (daCapa?.url) return json(200, { thumbUrl: urlNaLargura(daCapa, 240) });
-    const bytes = Buffer.from(await request.arrayBuffer());
-    if (bytes.length === 0) throw new Recusa(400, 'A miniatura está vazia');
-    if (bytes.length > TAMANHO_MAXIMO_DA_MINIATURA) throw new Recusa(400, 'A miniatura pode ter no máximo 300 KB');
-    const extensao = descobrirExtensao(bytes);
-    if (extensao !== 'webp' && extensao !== 'jpg') throw new Recusa(400, 'A miniatura precisa ser WEBP ou JPG');
-    const base = nomeDaCapa.slice(0, nomeDaCapa.lastIndexOf('.'));
-    const nome = base + '-mini.' + extensao;
-    const db = await banco();
-    // uma miniatura so por capa
-    await db.query('DELETE FROM imagens WHERE nome = $1 AND conta = $2', [base + (extensao === 'webp' ? '-mini.jpg' : '-mini.webp'), contaAtual()]);
-    await db.query(`INSERT INTO imagens (nome, conteudo, conta) VALUES ($1, $2, $3)
-                    ON CONFLICT (nome) DO UPDATE SET conteudo = EXCLUDED.conteudo WHERE imagens.conta = EXCLUDED.conta`, [nome, bytes, contaAtual()]);
-    return json(200, { thumbUrl: '/api/imagens/' + nome });
+async function guardarMiniatura(nomeDaCapa) {
+    if (!NOME_DE_CAPA.test(nomeDaCapa)) throw new Recusa(404, 'Imagem não encontrada');
+    // as versoes pequenas ja estao no Blob (docs 139 e 141): nao ha miniatura a guardar, so o endereco a devolver
+    const { rows: [daCapa] } = await (await banco()).query('SELECT url, variantes FROM imagens WHERE nome = $1 AND conta = $2', [nomeDaCapa, contaAtual()]);
+    if (!daCapa?.url) throw new Recusa(404, 'Imagem não encontrada');
+    return json(200, { thumbUrl: urlNaLargura(daCapa, 240) });
 }
 
 // ------------------------------------------------------------------ regras do manga
@@ -693,6 +681,7 @@ async function enviarImagem(request) {
     }
     if (arquivo.size === 0) throw new Recusa(400, 'A imagem está vazia');
     if (arquivo.size > TAMANHO_MAXIMO) throw new Recusa(400, 'A imagem pode ter no máximo 4 MB');
+    exigirBlob(); // sem o Blob, nao ha onde guardar (doc 141)
     const bytes = Buffer.from(await arquivo.arrayBuffer());
     descobrirExtensao(bytes); // so PNG, JPG, GIF e WebP, conferidos pelo conteudo
     // conferida, sem os metadados (EXIF), em WebP e, com o Blob, em varias larguras e em AVIF (doc 139)
@@ -704,36 +693,19 @@ async function enviarImagem(request) {
         throw erro;
     }
     const nome = randomUUID() + '.webp';
-    const db = await banco();
-    if (blobAtivo()) {
-        const guardada = await guardarNoBlob('capas', preparada);
-        await db.query(`INSERT INTO imagens (nome, conta, url, variantes, placeholder, largura, altura, hash, tamanho)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [nome, contaAtual(), guardada.url, JSON.stringify(guardada.variantes),
-            guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
-        return json(201, { imagePath: nome, imageUrl: guardada.url, thumbUrl: urlNaLargura(guardada, 240), imagem: imagemParaOSite(guardada) });
-    }
-    await db.query('INSERT INTO imagens (nome, conteudo, conta, placeholder, largura, altura, hash, tamanho) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [nome, preparada.principal.bytes, contaAtual(), preparada.placeholder, preparada.largura, preparada.altura, preparada.hash, preparada.principal.bytes.length]);
-    return json(201, { imagePath: nome, imageUrl: '/api/imagens/' + nome });
+    const guardada = await guardarNoBlob('capas', preparada);
+    await (await banco()).query(`INSERT INTO imagens (nome, conta, url, variantes, placeholder, largura, altura, hash, tamanho)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [nome, contaAtual(), guardada.url, JSON.stringify(guardada.variantes),
+        guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
+    return json(201, { imagePath: nome, imageUrl: guardada.url, thumbUrl: urlNaLargura(guardada, 240), imagem: imagemParaOSite(guardada) });
 }
 
 async function baixarImagem(nome) {
     if (!NOME_VALIDO.test(nome)) throw new Recusa(404, 'Imagem não encontrada');
-    const { rows } = await (await banco()).query('SELECT conteudo, url FROM imagens WHERE nome = $1 AND conta = $2', [nome, contaAtual()]);
-    if (rows.length === 0) throw new Recusa(404, 'Imagem não encontrada');
-    // no Blob (doc 139): vai para la. Enderecos antigos guardados em algum lugar continuam funcionando
-    if (!rows[0].conteudo && rows[0].url) {
-        return new Response(null, { status: 308, headers: { Location: rows[0].url, 'Cache-Control': 'private, max-age=31536000, immutable' } });
-    }
-    return new Response(rows[0].conteudo, {
-        status: 200,
-        headers: {
-            'Content-Type': TIPOS[nome.slice(nome.lastIndexOf('.') + 1)],
-            'X-Content-Type-Options': 'nosniff',
-            // o nome muda a cada envio, entao o navegador pode guardar para sempre
-            'Cache-Control': 'private, max-age=31536000, immutable',
-        },
-    });
+    const { rows } = await (await banco()).query('SELECT url FROM imagens WHERE nome = $1 AND conta = $2', [nome, contaAtual()]);
+    if (!rows[0]?.url) throw new Recusa(404, 'Imagem não encontrada');
+    // o arquivo esta no Blob (docs 139 e 141): enderecos antigos guardados em algum lugar levam para la
+    return new Response(null, { status: 308, headers: { Location: rows[0].url, 'Cache-Control': 'private, max-age=31536000, immutable' } });
 }
 
 // ------------------------------------------------------------------ seguranca
@@ -966,7 +938,7 @@ async function tratarConta(request, sessao, acao) {
             }
             // a foto aparece para todos na Comunidade: uma foto nova passa pelo robo de imagens
             if (dados.foto !== null && dados.foto !== conta.foto) {
-                const { rows: imagem } = await db.query('SELECT conteudo, url FROM imagens WHERE nome = $1 AND conta = $2', [dados.foto, conta.id]);
+                const { rows: imagem } = await db.query('SELECT url FROM imagens WHERE nome = $1 AND conta = $2', [dados.foto, conta.id]);
                 try {
                     await exigirImagemPermitida(db, await bytesDe(imagem[0]), conta.id, 'foto', Recusa);
                 } catch (erro) {
@@ -1190,7 +1162,7 @@ async function rotear(request) {
     if (recurso === 'imagens') {
         if (partes.length === 1 && metodo === 'POST') return enviarImagem(request);
         if (partes.length === 2 && metodo === 'GET') return baixarImagem(id);
-        if (partes.length === 3 && acao === 'miniatura' && metodo === 'PUT') return guardarMiniatura(id, request);
+        if (partes.length === 3 && acao === 'miniatura' && metodo === 'PUT') return guardarMiniatura(id);
     }
 
     if (recurso === 'mangas') {
@@ -1436,11 +1408,11 @@ async function capaDeOutraConta(contaId, nome) {
     if (!miniatura && !NOME_DE_CAPA.test(nome || '')) return null;
     const base = miniatura ? miniatura[1] : nome.slice(0, nome.lastIndexOf('.'));
     const { rows } = await (await banco()).query(`
-        SELECT i.conteudo, i.url FROM imagens i WHERE i.nome = $1 AND i.conta = $2
+        SELECT i.url FROM imagens i WHERE i.nome = $1 AND i.conta = $2
           AND EXISTS (SELECT 1 FROM mangas m WHERE m.conta = $2 AND m.dados->>'imagePath' = ANY($3))`,
     [nome, String(contaId), ['png', 'jpg', 'gif', 'webp'].map(extensao => base + '.' + extensao)]);
-    // { conteudo } do banco ou { url } do Blob (doc 139)
-    return rows[0] || null;
+    // { url } no Blob (docs 139 e 141)
+    return rows[0]?.url ? rows[0] : null;
 }
 
 // a Comunidade (api/_comunidade_rotas.js) usa as mesmas ferramentas do resto da API
@@ -1474,6 +1446,7 @@ async function tratar(request) {
         return await contexto.run({ conta: null }, () => rotear(request));
     } catch (erro) {
         if (erro instanceof Recusa) return json(erro.status, { mensagem: erro.message });
+        if (erro instanceof SemArmazenamento) return json(503, { mensagem: erro.message });
         if (erro instanceof DadoInvalido || erro instanceof DadoInvalidoNaComunidade) return json(400, { mensagem: erro.message });
         console.error('Erro inesperado em', request.method, request.url, erro);
         return json(500, { mensagem: 'Erro inesperado' });

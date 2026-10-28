@@ -124,3 +124,5 @@ e os endereços antigos redirecionando.
 | `test-api/imagens.test.mjs` | Novo: larguras, formatos, sem EXIF, prévia, GIF animado e o que não é imagem |
 
 > Os banners e as imagens e vídeos da loja também foram para o Blob: veja [doc 140](140-todas-as-imagens-no-blob.md).
+
+> Atualização: as colunas onde os arquivos ficavam saíram do banco, o envio sem o Blob passou a ser recusado (em vez de ir para o banco) e o script de migração foi apagado: veja [doc 141](141-sem-arquivos-no-banco.md).

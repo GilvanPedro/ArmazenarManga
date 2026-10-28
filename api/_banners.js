@@ -5,14 +5,13 @@
 //
 // Sem rastrear ninguem: as contagens sao por dia, banner e lugar no site, sem conta, IP ou aparelho.
 import { randomBytes, randomUUID } from 'node:crypto';
-import { apagarDoBlob, blobAtivo, guardarArquivoNoBlob } from './_imagens.js';
+import { apagarDoBlob, exigirBlob, guardarArquivoNoBlob } from './_imagens.js';
 
 export const ESTRUTURA_DOS_BANNERS = `
-    -- formato: horizontal ou vertical. pausado: fica no cadastro, mas nao aparece. peso: a parte das exibicoes (1 a 100)
+    -- pausado: fica no cadastro, mas nao aparece. peso: a parte das exibicoes (1 a 100)
     -- codigo_do_relatorio: o segredo do link do relatorio da empresa (trocar o codigo invalida o link antigo)
     CREATE TABLE IF NOT EXISTS banners (id TEXT PRIMARY KEY, empresa TEXT NOT NULL, texto TEXT NOT NULL DEFAULT '', link TEXT,
-        formato TEXT NOT NULL, peso INT NOT NULL DEFAULT 1, pausado BOOLEAN NOT NULL DEFAULT false, imagem BYTEA NOT NULL,
-        tipo_imagem TEXT NOT NULL, largura INT NOT NULL, altura INT NOT NULL, codigo_do_relatorio TEXT NOT NULL,
+        peso INT NOT NULL DEFAULT 1, pausado BOOLEAN NOT NULL DEFAULT false, codigo_do_relatorio TEXT NOT NULL,
         criado_em TIMESTAMPTZ NOT NULL DEFAULT now(), atualizado_em TIMESTAMPTZ NOT NULL DEFAULT now());
     -- as contagens: por dia, banner e lugar do site. Sem chave estrangeira de proposito: um banner apagado continua nos
     -- numeros dos meses em que apareceu
@@ -25,24 +24,12 @@ export const ESTRUTURA_DOS_BANNERS = `
     ALTER TABLE banners ADD COLUMN IF NOT EXISTS cobranca TEXT;
     ALTER TABLE banners ADD COLUMN IF NOT EXISTS termina_em DATE;
     ALTER TABLE banners ADD COLUMN IF NOT EXISTS lancamento UUID;
-    -- as imagens (doc 96): um banner pode ter a horizontal, a vertical ou as duas (no minimo uma). Antes era uma imagem
-    -- so, nas colunas imagem/tipo_imagem/largura/altura do banner, no formato da coluna formato; elas passam para esta
-    -- tabela (uma vez) e ficam vazias
+    -- as imagens (doc 96): um banner pode ter a horizontal, a vertical ou as duas (no minimo uma). O arquivo fica no
+    -- Vercel Blob (docs 140 e 141); aqui, so o endereco, o tipo e as medidas
     CREATE TABLE IF NOT EXISTS imagens_de_banner (banner TEXT NOT NULL REFERENCES banners(id) ON DELETE CASCADE,
-        formato TEXT NOT NULL, imagem BYTEA NOT NULL, tipo TEXT NOT NULL, largura INT NOT NULL, altura INT NOT NULL,
+        formato TEXT NOT NULL, tipo TEXT NOT NULL, largura INT NOT NULL, altura INT NOT NULL,
         atualizada_em TIMESTAMPTZ NOT NULL DEFAULT now(), PRIMARY KEY (banner, formato));
-    ALTER TABLE banners ALTER COLUMN formato DROP NOT NULL, ALTER COLUMN imagem DROP NOT NULL, ALTER COLUMN tipo_imagem DROP NOT NULL,
-        ALTER COLUMN largura DROP NOT NULL, ALTER COLUMN altura DROP NOT NULL;
-    INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura, atualizada_em)
-        SELECT id, formato, imagem, tipo_imagem, largura, altura, atualizado_em FROM banners WHERE imagem IS NOT NULL AND formato IS NOT NULL
-        ON CONFLICT DO NOTHING;
-    UPDATE banners SET imagem = NULL, tipo_imagem = NULL, largura = NULL, altura = NULL, formato = NULL WHERE imagem IS NOT NULL;
-    -- otimizada (doc 131): a imagem ja foi diminuida e passada para WebP. As enviadas antes sao otimizadas na primeira
-    -- vez que alguem as pede
-    ALTER TABLE imagens_de_banner ADD COLUMN IF NOT EXISTS otimizada BOOLEAN NOT NULL DEFAULT false;
-    -- no Vercel Blob (doc 140): o endereco do arquivo; imagem fica vazia
     ALTER TABLE imagens_de_banner ADD COLUMN IF NOT EXISTS url TEXT;
-    ALTER TABLE imagens_de_banner ALTER COLUMN imagem DROP NOT NULL;
 `;
 
 export const BANNERS_MAXIMOS = 50;
@@ -480,11 +467,10 @@ export function criarBanners(f) {
         }
         const ficam = Object.keys(FORMATOS_DE_BANNER).filter(formato => novas[formato] || (atual?.imagens?.[formato] && !tirar.includes(formato)));
         if (ficam.length === 0) throw new DadoInvalidoNoBanner('O banner precisa de pelo menos uma imagem: a horizontal, a vertical ou as duas');
-        // com o Blob ligado (doc 140), as imagens vao para la (ja otimizadas) e o banco guarda so o endereco
-        if (blobAtivo()) {
-            for (const [formato, imagem] of Object.entries(novas)) {
-                imagem.url = await guardarArquivoNoBlob('banners', formato + '.' + imagem.tipo.split('/')[1], imagem.bytes, imagem.tipo);
-            }
+        // as imagens vao para o Blob (ja otimizadas) e o banco guarda so o endereco (docs 140 e 141)
+        if (Object.keys(novas).length) exigirBlob();
+        for (const [formato, imagem] of Object.entries(novas)) {
+            imagem.url = await guardarArquivoNoBlob('banners', formato + '.' + imagem.tipo.split('/')[1], imagem.bytes, imagem.tipo);
         }
         // os arquivos que saem (trocados ou tirados), para apagar do Blob depois de salvar
         const antigas = Object.entries(atual?.imagens || {}).filter(([formato, imagem]) => imagem?.url && (novas[formato] || tirar.includes(formato)))
@@ -507,9 +493,9 @@ export function criarBanners(f) {
             }
             if (tirar.length) await cliente.query('DELETE FROM imagens_de_banner WHERE banner = $1 AND formato = ANY($2)', [salvoId, tirar]);
             for (const [formato, imagem] of Object.entries(novas)) {
-                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, imagem, tipo, largura, altura, otimizada, url) VALUES ($1, $2, $3, $4, $5, $6, true, $7)
-                    ON CONFLICT (banner, formato) DO UPDATE SET imagem = $3, tipo = $4, largura = $5, altura = $6, otimizada = true, url = $7, atualizada_em = now()`,
-                [salvoId, formato, imagem.url ? null : imagem.bytes, imagem.tipo, imagem.largura, imagem.altura, imagem.url || null]);
+                await cliente.query(`INSERT INTO imagens_de_banner (banner, formato, tipo, largura, altura, url) VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (banner, formato) DO UPDATE SET tipo = $3, largura = $4, altura = $5, url = $6, atualizada_em = now()`,
+                [salvoId, formato, imagem.tipo, imagem.largura, imagem.altura, imagem.url]);
             }
             await sincronizarReceita(cliente, { id: salvoId, lancamento: atual?.lancamento || null }, dados);
             await cliente.query('COMMIT');
@@ -631,28 +617,12 @@ export function criarBanners(f) {
                 // ?formato=horizontal ou vertical; sem ele (enderecos antigos), a horizontal ou, se nao tiver, a vertical
                 const formato = url.searchParams.get('formato');
                 const db = await banco();
-                const { rows } = await db.query(`SELECT formato, imagem, tipo AS tipo_imagem, otimizada, url FROM imagens_de_banner WHERE banner = $1
+                const { rows } = await db.query(`SELECT url FROM imagens_de_banner WHERE banner = $1
                     ${Object.hasOwn(FORMATOS_DE_BANNER, formato) ? 'AND formato = $2' : ''} ORDER BY formato LIMIT 1`,
                 Object.hasOwn(FORMATOS_DE_BANNER, formato) ? [id, formato] : [id]);
-                if (!rows.length) return new Response('Banner não encontrado', { status: 404 });
-                let { imagem, tipo_imagem: tipo } = rows[0];
-                // enviada antes da otimizacao (doc 131): otimiza agora, uma vez so, e guarda. A data de atualizacao nao
-                // muda, entao o endereco (?v=) continua o mesmo
-                if (!rows[0].otimizada) {
-                    ({ bytes: imagem, tipo } = await otimizarImagemDoBanner(imagem, tipo, rows[0].formato));
-                    await db.query('UPDATE imagens_de_banner SET imagem = $3, tipo = $4, otimizada = true WHERE banner = $1 AND formato = $2',
-                        [id, rows[0].formato, imagem, tipo]);
-                }
-                // no Blob (doc 140): vai para la. Uma antiga ainda no banco, com o Blob ligado, e levada agora, uma vez so
-                let noBlob = rows[0].url;
-                if (!noBlob && blobAtivo()) {
-                    noBlob = await guardarArquivoNoBlob('banners', rows[0].formato + '.' + tipo.split('/')[1], imagem, tipo);
-                    await db.query('UPDATE imagens_de_banner SET url = $3, imagem = NULL WHERE banner = $1 AND formato = $2', [id, rows[0].formato, noBlob]);
-                }
-                if (noBlob) return new Response(null, { status: 308, headers: { Location: noBlob, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' } });
-                // o endereco leva ?v= (a ultima mudanca): o navegador e a CDN guardam por um ano, sem chegar ao banco
-                return new Response(imagem, { status: 200, headers: { 'Content-Type': tipo, 'X-Content-Type-Options': 'nosniff',
-                    'Cache-Control': url.searchParams.has('v') ? 'public, max-age=31536000, s-maxage=31536000, immutable' : 'public, max-age=300, s-maxage=300' } });
+                if (!rows[0]?.url) return new Response('Banner não encontrado', { status: 404 });
+                // o arquivo esta no Blob (docs 140 e 141): o endereco antigo leva para la, e o navegador e a CDN guardam o caminho
+                return new Response(null, { status: 308, headers: { Location: rows[0].url, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable' } });
             }
             if (id === 'relatorio-da-empresa' && acao && codigo) {
                 const { rows } = await (await banco()).query(`SELECT ${CAMPOS} FROM banners WHERE id = $1`, [acao]);
