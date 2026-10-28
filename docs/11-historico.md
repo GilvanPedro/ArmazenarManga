@@ -347,6 +347,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Imagens no Vercel Blob.** As imagens saem do banco para o Blob, em várias larguras, AVIF e WebP, sem metadados e com prévia borrada. Detalhes em [Imagens no Vercel Blob, em AVIF e no tamanho certo](139-imagens-no-vercel-blob.md).
 - **Todas as imagens no Blob.** Banners, imagens e vídeos da loja, miniaturas e capas de listas também vão para o Blob. Detalhes em [Todas as imagens no Blob](140-todas-as-imagens-no-blob.md).
 - **Sem arquivos no banco.** As colunas onde os arquivos ficavam saem do banco, conferindo antes que estão vazias. Detalhes em [Sem arquivos no banco](141-sem-arquivos-no-banco.md).
+- **Logo nova.** Um livro aberto em V com uma página virando (vira capítulo), linhas de movimento e retícula de mangá. Detalhes em [Logo nova](142-logo-nova.md).
 
 ## O que foi removido ou abandonado
 

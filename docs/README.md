@@ -145,6 +145,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [139 · Imagens no Vercel Blob, em AVIF e no tamanho certo](139-imagens-no-vercel-blob.md) | As imagens vão para o Vercel Blob em várias larguras, AVIF e WebP, sem metadados, com prévia borrada; o banco guarda só os dados |
 | [140 · Todas as imagens no Blob](140-todas-as-imagens-no-blob.md) | Banners, imagens e vídeos da loja, miniaturas e capas de listas também vão para o Blob; nada novo nasce no banco |
 | [141 · Sem arquivos no banco](141-sem-arquivos-no-banco.md) | As colunas onde os arquivos ficavam saem do banco (só se vazias), e o envio sem o Blob é recusado |
+| [142 · Logo nova](142-logo-nova.md) | Livro aberto em V com uma página virando, linhas de movimento e retícula de mangá, no laranja de sempre |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

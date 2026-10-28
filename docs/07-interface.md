@@ -116,3 +116,5 @@ lido. Aceita `48,5` ou `48.5`. O + vai para o próximo inteiro.
 - **Avisos.** Mensagens curtas aparecem embaixo da tela e somem sozinhas.
 - **Acessibilidade.** Os seletores com sugestões funcionam pelo teclado (setas, Enter, Esc) e informam o estado a
   leitores de tela. Os botões têm nome mesmo quando mostram só um símbolo.
+
+> A logo mudou: um livro aberto em V com uma página virando, no laranja de sempre. Veja [doc 142](142-logo-nova.md).
