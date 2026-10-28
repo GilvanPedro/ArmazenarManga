@@ -1,19 +1,19 @@
-<!-- Logo do Viracap (doc 142): o livro aberto forma o V, e a pagina virando e o proximo capitulo; reticula de manga no canto e linhas de movimento -->
+<!-- Logo do Viracap (docs 142 e 143): o livro aberto forma o V e a pagina virando e o proximo capitulo; laranja com o azul-marinho do nanquim, reticula de manga no canto e linhas de movimento -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8f4f"/><stop offset=".55" stop-color="#f2613f"/><stop offset="1" stop-color="#d93a26"/></linearGradient>
-    <linearGradient id="pagina" x1="0" y1="0" x2="1" y2=".3"><stop offset="0" stop-color="#ffd9c6"/><stop offset=".6" stop-color="#fff3ec"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
-    <radialGradient id="tom" cx="0" cy="0" r="1"><stop offset="0" stop-color="#fff" stop-opacity=".32"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9154"/><stop offset=".55" stop-color="#f2613f"/><stop offset="1" stop-color="#dc3f28"/></linearGradient>
+    <linearGradient id="pagina" x1="0" y1="0" x2="1" y2=".3"><stop offset="0" stop-color="#ffe6d9"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <radialGradient id="tom" cx="0" cy="0" r="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
     <pattern id="pontos" width="4" height="4" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".9" fill="#fff"/></pattern>
     <mask id="canto"><rect width="64" height="64" fill="url(#tom)"/></mask>
   </defs>
   <rect width="64" height="64" rx="15" fill="url(#fundo)"/>
   <rect width="64" height="64" rx="15" fill="url(#pontos)" mask="url(#canto)"/>
-  <path d="M9 45 Q20 46 32 53 Q44 46 55 45 L55 47.5 Q44 48.5 32 55.5 Q20 48.5 9 47.5 Z" fill="#ffd2bd"/>
-  <path d="M9 22 Q20 23 32 30 L32 52 Q20 45 9 44 Z" fill="#fff"/>
-  <path d="M55 22 Q44 23 32 30 L32 52 Q44 45 55 44 Z" fill="#fff"/>
-  <path d="M32 30 Q38 27 45 26 L45 46 Q38 48 32 52 Z" fill="#d93a26" opacity=".16"/>
-  <path d="M32 30 C 36 22, 41 15, 47 12 C 48 22, 47 33, 44 42 L32 52 Z" fill="url(#pagina)"/>
-  <path d="M33 31 C 37 24, 41 18, 45.5 15" stroke="#f2613f" stroke-width=".9" fill="none" opacity=".35" stroke-linecap="round"/>
-  <path d="M51 15 Q55 21 54 28 M56 12 Q60 19 59 26" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M6.5 24 Q19 24.5 32 32 Q45 24.5 57.5 24 L57.5 48.5 Q45 49 32 56.5 Q19 49 6.5 48.5 Z" fill="#1e2a52" stroke="#1e2a52" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M9.5 22 Q20.5 23 32 30 L32 52 Q20.5 45 9.5 44 Z" fill="#fffaf6" stroke="#1e2a52" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M54.5 22 Q43.5 23 32 30 L32 52 Q43.5 45 54.5 44 Z" fill="#fffaf6" stroke="#1e2a52" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M14 29 Q21 29.8 27.5 33.5 M14 34 Q21 34.8 27.5 38.5 M14 39 Q19 39.6 23.5 42" stroke="#1e2a52" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".55"/>
+  <path d="M32 30 Q38 27 45 26 L45 46 Q38 48 32 52 Z" fill="#1e2a52" opacity=".14"/>
+  <path d="M32 30 C 36 22, 41 15, 47 12 C 48 22, 47 33, 44 42 L32 52 Z" fill="url(#pagina)" stroke="#1e2a52" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M51.5 14.5 Q55.5 20.5 54.5 27.5 M56.5 11 Q60.5 18 59.5 25.5" stroke="#1e2a52" stroke-width="2.3" fill="none" stroke-linecap="round"/>
 </svg>

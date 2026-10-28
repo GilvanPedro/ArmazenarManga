@@ -37,3 +37,5 @@ em todo lugar (as redes sociais costumam ter uma ferramenta para buscar a imagem
 | `public/favicon.svg` | A logo nova |
 | `public/icone-180.png` | O ícone de celular com a logo nova |
 | `public/compartilhar.png` | A imagem de compartilhamento com a logo nova |
+
+> A logo ganhou o azul-marinho como cor secundária e um livro mais claro (capa, contorno e linhas de texto): veja [doc 143](143-logo-com-azul-marinho.md).

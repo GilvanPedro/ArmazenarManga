@@ -146,6 +146,7 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [140 · Todas as imagens no Blob](140-todas-as-imagens-no-blob.md) | Banners, imagens e vídeos da loja, miniaturas e capas de listas também vão para o Blob; nada novo nasce no banco |
 | [141 · Sem arquivos no banco](141-sem-arquivos-no-banco.md) | As colunas onde os arquivos ficavam saem do banco (só se vazias), e o envio sem o Blob é recusado |
 | [142 · Logo nova](142-logo-nova.md) | Livro aberto em V com uma página virando, linhas de movimento e retícula de mangá, no laranja de sempre |
+| [143 · Logo com azul-marinho e o livro mais claro](143-logo-com-azul-marinho.md) | O azul-marinho do nanquim como cor secundária, e o livro com capa, contorno e linhas de texto |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

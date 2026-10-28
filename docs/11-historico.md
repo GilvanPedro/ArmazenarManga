@@ -348,6 +348,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Todas as imagens no Blob.** Banners, imagens e vídeos da loja, miniaturas e capas de listas também vão para o Blob. Detalhes em [Todas as imagens no Blob](140-todas-as-imagens-no-blob.md).
 - **Sem arquivos no banco.** As colunas onde os arquivos ficavam saem do banco, conferindo antes que estão vazias. Detalhes em [Sem arquivos no banco](141-sem-arquivos-no-banco.md).
 - **Logo nova.** Um livro aberto em V com uma página virando (vira capítulo), linhas de movimento e retícula de mangá. Detalhes em [Logo nova](142-logo-nova.md).
+- **Logo com azul-marinho.** O azul-marinho entra como cor secundária, e o livro ganha capa, contorno e linhas de texto. Detalhes em [Logo com azul-marinho e o livro mais claro](143-logo-com-azul-marinho.md).
 
 ## O que foi removido ou abandonado
 
