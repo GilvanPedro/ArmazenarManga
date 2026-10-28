@@ -13,6 +13,7 @@
   "dependencies": {
     "@tensorflow/tfjs": "4.22.0",
     "@tensorflow/tfjs-backend-wasm": "4.22.0",
+    "@vercel/blob": "2.8.1",
     "node-html-parser": "^9.0.4",
     "nsfwjs": "^4.4.0",
     "pg": "^8.13.0",

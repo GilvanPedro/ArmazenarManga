@@ -342,6 +342,9 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Descobrir e recomendações mais rápidos.** O Kitsu só entra com o AniList fora do ar, as buscas ficam guardadas e a página não espera mais os nomes da lista. Detalhes em [Descobrir e recomendações mais rápidos](134-descobrir-e-recomendacoes-mais-rapidos.md).
 - **"Sortear de novo" no Firefox.** Uma barra de rolagem aparecia no meio do clique e o botão saía de baixo do mouse. Detalhes em ["Sortear de novo" que fugia do clique no Firefox](135-sortear-de-novo-no-firefox.md).
 - **Comunidade mais rápida.** O feed aparece na hora ao voltar, começa a carregar antes do clique, os posts fora da tela não são desenhados e o servidor fica perto do banco. Detalhes em [Comunidade mais rápida](136-comunidade-mais-rapida.md).
+- **Repost, citação e quem curtiu.** Repostar e citar posts, como no X, e o dono do post vê quem curtiu. Detalhes em [Repost, citação e quem curtiu](137-repost-citacao-e-quem-curtiu.md).
+- **Ícones no lugar dos emojis.** Os botões dos posts ganharam ícones de linha que seguem o tema. Detalhes em [Ícones no lugar dos emojis nos posts](138-icones-no-lugar-dos-emojis.md).
+- **Imagens no Vercel Blob.** As imagens saem do banco para o Blob, em várias larguras, AVIF e WebP, sem metadados e com prévia borrada. Detalhes em [Imagens no Vercel Blob, em AVIF e no tamanho certo](139-imagens-no-vercel-blob.md).
 
 ## O que foi removido ou abandonado
 

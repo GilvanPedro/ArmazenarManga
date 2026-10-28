@@ -140,6 +140,9 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [134 · Descobrir e recomendações mais rápidos](134-descobrir-e-recomendacoes-mais-rapidos.md) | O Kitsu só com o AniList fora, buscas guardadas, nomes da lista sem segurar a página e favoritar na hora |
 | [135 · "Sortear de novo" que fugia do clique no Firefox](135-sortear-de-novo-no-firefox.md) | Uma barra de rolagem aparecia no meio do clique e tirava o botão de baixo do mouse |
 | [136 · Comunidade mais rápida](136-comunidade-mais-rapida.md) | Feed guardado e pedido antes do clique, posts fora da tela sem desenhar e o servidor na região do banco |
+| [137 · Repost, citação e quem curtiu](137-repost-citacao-e-quem-curtiu.md) | Repostar e citar posts como no X, e o dono do post vê quem curtiu |
+| [138 · Ícones no lugar dos emojis nos posts](138-icones-no-lugar-dos-emojis.md) | Comentários, repost, curtidas, quem curtiu, apagar, escrever, imagem e lista com ícones de linha que seguem o tema |
+| [139 · Imagens no Vercel Blob, em AVIF e no tamanho certo](139-imagens-no-vercel-blob.md) | As imagens vão para o Vercel Blob em várias larguras, AVIF e WebP, sem metadados, com prévia borrada; o banco guarda só os dados |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

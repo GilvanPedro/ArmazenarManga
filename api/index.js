@@ -15,6 +15,7 @@ import { ESTRUTURA_DA_LOJA, criarLoja, temaQueExiste } from './_loja.js';
 import { ESTRUTURA_DO_PAINEL, marcarAtividade, registrarAcesso } from './_painel.js';
 import { DadoInvalido, gastarTempoDeUmaSenha, gerarHash, normalizarEmail, senhaConfere, validarEmail, validarNick, validarSenha } from './_contas.js';
 import { criarBuscadorDeRecomendacoes, nomesDoLink, ORDENS, TITULOS_POR_PEDIDO } from './_recomendacoes.js';
+import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, bytesDe, guardarNoBlob, imagemParaOSite, prepararImagem, urlNaLargura } from './_imagens.js';
 
 const buscarSinopse = criarBuscadorDeSinopse();
 // a descricao salva sempre em portugues: se veio em ingles (buscada, colada ou escrita), e traduzida ao salvar (doc 102)
@@ -98,6 +99,8 @@ const ESTRUTURA = `
     SELECT pg_advisory_xact_lock(7316250);
     CREATE TABLE IF NOT EXISTS mangas (id UUID PRIMARY KEY, ordem BIGSERIAL, dados JSONB NOT NULL);
     CREATE TABLE IF NOT EXISTS imagens (nome TEXT PRIMARY KEY, conteudo BYTEA NOT NULL);
+    -- os dados da imagem (doc 139): com o Vercel Blob, o arquivo fica la (url e variantes) e conteudo fica vazio
+    ALTER TABLE imagens ${COLUNAS_DA_IMAGEM};
     CREATE TABLE IF NOT EXISTS configuracoes (chave TEXT PRIMARY KEY, valor TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS tentativas_de_login (quando TIMESTAMPTZ NOT NULL DEFAULT now());
     ALTER TABLE mangas ADD COLUMN IF NOT EXISTS conta TEXT NOT NULL DEFAULT 'principal';
@@ -215,8 +218,10 @@ async function excluirImagemSemUso(imagePath) {
          UNION ALL SELECT 1 FROM contas WHERE id::text = $1 AND foto = $2 LIMIT 1`, [contaAtual(), imagePath]);
     if (rows.length === 0) {
         const base = imagePath.slice(0, imagePath.lastIndexOf('.'));
-        // a capa e a miniatura dela
-        await db.query('DELETE FROM imagens WHERE conta = $1 AND nome = ANY($2)', [contaAtual(), [imagePath, base + '-mini.webp', base + '-mini.jpg']]);
+        // a capa e a miniatura dela; e os arquivos no Blob, se nenhuma outra imagem usa os mesmos (doc 139)
+        const { rows: apagadas } = await db.query('DELETE FROM imagens WHERE conta = $1 AND nome = ANY($2) RETURNING url, variantes',
+            [contaAtual(), [imagePath, base + '-mini.webp', base + '-mini.jpg']]);
+        await apagarSeNinguemUsa(db, apagadas);
     }
 }
 
@@ -225,11 +230,19 @@ async function excluirImagemSemUso(imagePath) {
  * pelos nomes possiveis (pela chave da tabela), entao o custo depende dos mangas pedidos, e nao do total guardado.
  */
 async function miniaturas(mangas) {
-    const nomes = mangas.map(manga => manga.imagePath).filter(nome => typeof nome === 'string' && NOME_DE_CAPA.test(nome))
-        .flatMap(nome => { const base = nome.slice(0, nome.lastIndexOf('.')); return [base + '-mini.webp', base + '-mini.jpg']; });
-    if (nomes.length === 0) return new Map();
-    const { rows } = await (await banco()).query('SELECT nome FROM imagens WHERE nome = ANY($1) AND conta = $2', [nomes, contaAtual()]);
-    return new Map(rows.map(({ nome }) => [nome.slice(0, nome.lastIndexOf('-mini.')), nome]));
+    const capas = mangas.map(manga => manga.imagePath).filter(nome => typeof nome === 'string' && NOME_DE_CAPA.test(nome));
+    const nomes = capas.flatMap(nome => { const base = nome.slice(0, nome.lastIndexOf('.')); return [nome, base + '-mini.webp', base + '-mini.jpg']; });
+    const mapa = new Map();
+    // os dados das capas que estao no Blob (doc 139): o endereco direto, as larguras e a previa, por nome da capa
+    mapa.capas = new Map();
+    if (nomes.length === 0) return mapa;
+    const { rows } = await (await banco()).query(
+        'SELECT nome, url, variantes, placeholder, largura, altura FROM imagens WHERE nome = ANY($1) AND conta = $2', [nomes, contaAtual()]);
+    for (const linha of rows) {
+        if (linha.nome.includes('-mini.')) mapa.set(linha.nome.slice(0, linha.nome.lastIndexOf('-mini.')), linha.nome);
+        else if (linha.url) mapa.capas.set(linha.nome, linha);
+    }
+    return mapa;
 }
 
 /**
@@ -238,6 +251,9 @@ async function miniaturas(mangas) {
  */
 async function guardarMiniatura(nomeDaCapa, request) {
     if (!NOME_DE_CAPA.test(nomeDaCapa) || !(await imagemExiste(nomeDaCapa))) throw new Recusa(404, 'Imagem não encontrada');
+    // capa no Blob (doc 139): as versoes pequenas ja existem, nao ha o que guardar
+    const { rows: [daCapa] } = await (await banco()).query('SELECT url, variantes FROM imagens WHERE nome = $1 AND conta = $2', [nomeDaCapa, contaAtual()]);
+    if (daCapa?.url) return json(200, { thumbUrl: urlNaLargura(daCapa, 240) });
     const bytes = Buffer.from(await request.arrayBuffer());
     if (bytes.length === 0) throw new Recusa(400, 'A miniatura está vazia');
     if (bytes.length > TAMANHO_MAXIMO_DA_MINIATURA) throw new Recusa(400, 'A miniatura pode ter no máximo 300 KB');
@@ -409,16 +425,24 @@ function anotarLeitura(antes, depois) {
     depois.lastChapterAt = depois.lastChapter > antes.lastChapter ? new Date().toISOString() : antes.lastChapterAt ?? null;
 }
 
+/** Um manga so, com os dados da capa (o endereco no Blob, as larguras e a previa, doc 139) e da miniatura. */
+async function respostaCompleta(manga) {
+    return resposta(manga, await miniaturas([manga]));
+}
+
 /** Manga do jeito que a API devolve: os dados salvos + os links ja montados. */
 /** @param miniaturas as miniaturas guardadas (de miniaturas()); sem elas, thumbUrl fica null */
 function resposta(manga, miniaturasGuardadas) {
     const miniatura = miniaturasGuardadas instanceof Map && NOME_DE_CAPA.test(manga.imagePath || '')
         ? miniaturasGuardadas.get(manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'))) : null;
+    // capa no Blob (doc 139): o endereco direto de la, a versao pequena para a lista e as larguras para o navegador escolher
+    const noBlob = miniaturasGuardadas?.capas?.get(manga.imagePath) || null;
     return {
         id: manga.id,
         title: manga.title,
         imagePath: manga.imagePath,
-        imageUrl: isUrlHttp(manga.imagePath) ? manga.imagePath : '/api/imagens/' + manga.imagePath,
+        imageUrl: isUrlHttp(manga.imagePath) ? manga.imagePath : noBlob ? noBlob.url : '/api/imagens/' + manga.imagePath,
+        imagem: imagemParaOSite(noBlob),
         tags: manga.tags || [],
         chapterLinkModel: manga.chapterLinkModel,
         decimalFormat: manga.decimalFormat || 'HIFEN',
@@ -438,7 +462,7 @@ function resposta(manga, miniaturasGuardadas) {
         rating: notaDe(manga),
         favorite: manga.favorite === true,
         // versao pequena da capa, para a lista; null quando ainda nao existe (use imageUrl)
-        thumbUrl: miniatura ? '/api/imagens/' + miniatura : null,
+        thumbUrl: noBlob ? urlNaLargura(noBlob, 240) : miniatura ? '/api/imagens/' + miniatura : null,
     };
 }
 
@@ -669,15 +693,37 @@ async function enviarImagem(request) {
     if (arquivo.size === 0) throw new Recusa(400, 'A imagem está vazia');
     if (arquivo.size > TAMANHO_MAXIMO) throw new Recusa(400, 'A imagem pode ter no máximo 4 MB');
     const bytes = Buffer.from(await arquivo.arrayBuffer());
-    const nome = randomUUID() + '.' + descobrirExtensao(bytes);
-    await (await banco()).query('INSERT INTO imagens (nome, conteudo, conta) VALUES ($1, $2, $3)', [nome, bytes, contaAtual()]);
+    descobrirExtensao(bytes); // so PNG, JPG, GIF e WebP, conferidos pelo conteudo
+    // conferida, sem os metadados (EXIF), em WebP e, com o Blob, em varias larguras e em AVIF (doc 139)
+    let preparada;
+    try {
+        preparada = await prepararImagem(bytes, 'capa');
+    } catch (erro) {
+        if (erro instanceof ImagemInvalida) throw new Recusa(400, erro.message);
+        throw erro;
+    }
+    const nome = randomUUID() + '.webp';
+    const db = await banco();
+    if (blobAtivo()) {
+        const guardada = await guardarNoBlob('capas', preparada);
+        await db.query(`INSERT INTO imagens (nome, conta, url, variantes, placeholder, largura, altura, hash, tamanho)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [nome, contaAtual(), guardada.url, JSON.stringify(guardada.variantes),
+            guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
+        return json(201, { imagePath: nome, imageUrl: guardada.url, thumbUrl: urlNaLargura(guardada, 240), imagem: imagemParaOSite(guardada) });
+    }
+    await db.query('INSERT INTO imagens (nome, conteudo, conta, placeholder, largura, altura, hash, tamanho) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [nome, preparada.principal.bytes, contaAtual(), preparada.placeholder, preparada.largura, preparada.altura, preparada.hash, preparada.principal.bytes.length]);
     return json(201, { imagePath: nome, imageUrl: '/api/imagens/' + nome });
 }
 
 async function baixarImagem(nome) {
     if (!NOME_VALIDO.test(nome)) throw new Recusa(404, 'Imagem não encontrada');
-    const { rows } = await (await banco()).query('SELECT conteudo FROM imagens WHERE nome = $1 AND conta = $2', [nome, contaAtual()]);
+    const { rows } = await (await banco()).query('SELECT conteudo, url FROM imagens WHERE nome = $1 AND conta = $2', [nome, contaAtual()]);
     if (rows.length === 0) throw new Recusa(404, 'Imagem não encontrada');
+    // no Blob (doc 139): vai para la. Enderecos antigos guardados em algum lugar continuam funcionando
+    if (!rows[0].conteudo && rows[0].url) {
+        return new Response(null, { status: 308, headers: { Location: rows[0].url, 'Cache-Control': 'private, max-age=31536000, immutable' } });
+    }
     return new Response(rows[0].conteudo, {
         status: 200,
         headers: {
@@ -919,9 +965,9 @@ async function tratarConta(request, sessao, acao) {
             }
             // a foto aparece para todos na Comunidade: uma foto nova passa pelo robo de imagens
             if (dados.foto !== null && dados.foto !== conta.foto) {
-                const { rows: imagem } = await db.query('SELECT conteudo FROM imagens WHERE nome = $1 AND conta = $2', [dados.foto, conta.id]);
+                const { rows: imagem } = await db.query('SELECT conteudo, url FROM imagens WHERE nome = $1 AND conta = $2', [dados.foto, conta.id]);
                 try {
-                    await exigirImagemPermitida(db, imagem[0].conteudo, conta.id, 'foto', Recusa);
+                    await exigirImagemPermitida(db, await bytesDe(imagem[0]), conta.id, 'foto', Recusa);
                 } catch (erro) {
                     // a imagem enviada para ser a foto nao fica guardada a toa (se nenhum manga usar a mesma)
                     await excluirImagemSemUso(dados.foto);
@@ -950,9 +996,13 @@ async function tratarConta(request, sessao, acao) {
         try {
             await cliente.query('BEGIN');
             await cliente.query('DELETE FROM mangas WHERE conta = $1', [conta.id]);
-            await cliente.query('DELETE FROM imagens WHERE conta = $1', [conta.id]);
+            const { rows: apagadas } = await cliente.query('DELETE FROM imagens WHERE conta = $1 RETURNING url, variantes', [conta.id]);
+            // as imagens dos posts da conta saem junto com os posts (o banco apaga em cascata); os arquivos, aqui
+            const { rows: dosPosts } = await cliente.query(
+                'SELECT url, variantes FROM imagens_da_comunidade WHERE conta = $1 AND url IS NOT NULL', [conta.id]);
             await cliente.query('DELETE FROM contas WHERE id = $1', [conta.id]);
             await cliente.query('COMMIT');
+            await apagarSeNinguemUsa(db, [...apagadas, ...dosPosts]);
         } catch (erro) {
             await cliente.query('ROLLBACK');
             throw erro;
@@ -1178,7 +1228,7 @@ async function rotear(request) {
         if (partes.length === 1 && metodo === 'POST') {
             const manga = await montarManga(randomUUID(), await lerCorpo(request));
             await salvar(manga);
-            return json(201, resposta(manga));
+            return json(201, await respostaCompleta(manga));
         }
         // o dia vem do navegador (?dia=QUARTA), porque "hoje" depende do fuso de quem esta usando
         if (partes.length === 2 && id === 'lancamentos' && metodo === 'GET') {
@@ -1208,10 +1258,10 @@ async function rotear(request) {
                 `SELECT dados FROM mangas WHERE conta = $1 ${status ? "AND dados->>'readingStatus' = $2" : ''} ORDER BY random() LIMIT 1`,
                 status ? [contaAtual(), status] : [contaAtual()]);
             if (rows.length === 0) throw new Recusa(404, 'Nenhum mangá para sortear');
-            return json(200, resposta(rows[0].dados));
+            return json(200, await respostaCompleta(rows[0].dados));
         }
         if (partes.length === 2 && metodo === 'GET') {
-            return json(200, resposta(await buscarPorId(id)));
+            return json(200, await respostaCompleta(await buscarPorId(id)));
         }
         if (partes.length === 2 && metodo === 'PUT') {
             const atual = await buscarPorId(id);
@@ -1223,7 +1273,7 @@ async function rotear(request) {
             anotarLeitura(atual, editado);
             await salvar(editado);
             if (atual.imagePath !== editado.imagePath) await excluirImagemSemUso(atual.imagePath);
-            return json(200, resposta(editado));
+            return json(200, await respostaCompleta(editado));
         }
         if (partes.length === 2 && metodo === 'DELETE') {
             const manga = await buscarPorId(id);
@@ -1236,7 +1286,7 @@ async function rotear(request) {
             const atual = await buscarPorId(id);
             const atualizado = { ...atual, rating: lerNota((await lerCorpo(request)).rating) };
             await salvar(atualizado);
-            return json(200, resposta(atualizado));
+            return json(200, await respostaCompleta(atualizado));
         }
         // marca ou desmarca como favorito, sem mexer no resto
         if (partes.length === 3 && acao === 'favorito' && metodo === 'PUT') {
@@ -1245,7 +1295,7 @@ async function rotear(request) {
             if (typeof favorite !== 'boolean') throw new Recusa(400, "Informe 'favorite' como true ou false");
             const atualizado = { ...atual, favorite };
             await salvar(atualizado);
-            return json(200, resposta(atualizado));
+            return json(200, await respostaCompleta(atualizado));
         }
         if (partes.length === 3 && acao === 'progresso' && metodo === 'PATCH') {
             let atual = await buscarPorId(id);
@@ -1275,7 +1325,7 @@ async function rotear(request) {
             }
             anotarLeitura(atual, atualizado);
             await salvar(atualizado);
-            return json(200, resposta(atualizado));
+            return json(200, await respostaCompleta(atualizado));
         }
         // manda o navegador para o proximo capitulo ainda nao lido, no site salvo.
         // antes confere o link no site, para ja abrir o endereco certo se ele tiver mudado
@@ -1337,11 +1387,11 @@ async function rotear(request) {
             };
             anotarLeitura(atual, atualizado);
             await salvar(atualizado);
-            return json(200, resposta(atualizado));
+            return json(200, await respostaCompleta(atualizado));
         }
         if (partes.length === 3 && acao === 'verificacao-link' && metodo === 'POST') {
             const resultado = await verificarLink(id);
-            return json(200, { ...resultado, manga: resposta(resultado.manga) });
+            return json(200, { ...resultado, manga: await respostaCompleta(resultado.manga) });
         }
     }
     throw new Recusa(404, 'Rota não encontrada');
@@ -1364,9 +1414,10 @@ async function mangasDeOutraConta(contaId, url) {
         const itens = mangas.map(manga => {
             const enviada = NOME_DE_CAPA.test(manga.imagePath || '');
             const miniatura = enviada ? guardadas.get(manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'))) : null;
-            const capa = isUrlHttp(manga.imagePath) ? manga.imagePath : enviada ? capaDoPerfil(manga.imagePath) : null;
+            const noBlob = guardadas.capas.get(manga.imagePath);
+            const capa = isUrlHttp(manga.imagePath) ? manga.imagePath : noBlob ? noBlob.url : enviada ? capaDoPerfil(manga.imagePath) : null;
             return {
-                id: manga.id, titulo: manga.title, capa, miniatura: miniatura ? capaDoPerfil(miniatura) : capa,
+                id: manga.id, titulo: manga.title, capa, miniatura: noBlob ? urlNaLargura(noBlob, 240) : miniatura ? capaDoPerfil(miniatura) : capa,
                 status: manga.readingStatus, nota: notaDe(manga), favorito: manga.favorite === true, capitulo: manga.lastChapter ?? null,
                 tags: (manga.tags || []).slice(0, 20), descricao: typeof manga.description === 'string' ? manga.description.slice(0, 2000) : '',
             };
@@ -1384,10 +1435,11 @@ async function capaDeOutraConta(contaId, nome) {
     if (!miniatura && !NOME_DE_CAPA.test(nome || '')) return null;
     const base = miniatura ? miniatura[1] : nome.slice(0, nome.lastIndexOf('.'));
     const { rows } = await (await banco()).query(`
-        SELECT i.conteudo FROM imagens i WHERE i.nome = $1 AND i.conta = $2
+        SELECT i.conteudo, i.url FROM imagens i WHERE i.nome = $1 AND i.conta = $2
           AND EXISTS (SELECT 1 FROM mangas m WHERE m.conta = $2 AND m.dados->>'imagePath' = ANY($3))`,
     [nome, String(contaId), ['png', 'jpg', 'gif', 'webp'].map(extensao => base + '.' + extensao)]);
-    return rows[0]?.conteudo || null;
+    // { conteudo } do banco ou { url } do Blob (doc 139)
+    return rows[0] || null;
 }
 
 // a Comunidade (api/_comunidade_rotas.js) usa as mesmas ferramentas do resto da API

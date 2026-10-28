@@ -300,6 +300,26 @@ function seletorDeNota(nota) {
     return seletor(opcoes, nota == null ? '' : String(nota));
 }
 
+/**
+ * Uma imagem guardada no Blob (doc 139), no tamanho certo para a tela: o navegador escolhe a largura pelo srcset e o
+ * formato pelo <picture> (AVIF quando entende, se nao WebP). Enquanto ela chega, aparece a previa borrada (poucos
+ * bytes, ja veio com os dados). info: { avif, webp, largura, altura, previa }; sizes: o espaco que ela ocupa na tela.
+ * Devolve { elemento, img }: elemento vai na pagina (o <picture> ou o proprio <img>).
+ */
+function imagemResponsiva(info, {sizes, alt = '', loading = 'lazy', fallback, largura, altura}) {
+    const img = h('img', {src: fallback, srcset: info.webp, sizes, alt, loading, decoding: 'async',
+        width: String(largura || info.largura || ''), height: String(altura || info.altura || '')});
+    if (info.previa) {
+        img.style.backgroundImage = `url("${info.previa}")`;
+        img.style.backgroundSize = 'cover';
+        img.style.backgroundPosition = 'center';
+        // a previa sai quando a imagem chega (uma imagem com partes transparentes nao fica com ela por tras)
+        img.addEventListener('load', () => { img.style.backgroundImage = ''; }, {once: true});
+    }
+    const elemento = info.avif ? h('picture', null, h('source', {type: 'image/avif', srcset: info.avif, sizes}), img) : img;
+    return {elemento, img};
+}
+
 function capa(manga, comoLink) {
     // favorito: borda roxa (ou a da loja que a pessoa equipou) e estrela no canto, em toda capa do manga
     const atributos = {class: 'capa' + (manga.favorite ? ' favorita' + classesDaLoja(meusEquipados()) : '')};
@@ -311,17 +331,26 @@ function capa(manga, comoLink) {
     // nos cartoes, a miniatura (bem mais leve) quando ja existe. Na pagina do manga, a miniatura aparece na hora
     // (ela ja veio com a lista) e da lugar a capa inteira assim que ela chega
     const miniatura = manga.thumbUrl || miniaturaGuardada(manga.id);
-    const img = h('img', {src: miniatura || manga.imageUrl, alt: comoLink ? '' : 'Capa de ' + manga.title,
-        loading: comoLink ? 'lazy' : 'eager', decoding: 'async', width: '300', height: '450'});
-    if (!comoLink && miniatura) {
-        const inteira = new Image();
-        inteira.onload = () => { img.src = manga.imageUrl; };
-        inteira.src = manga.imageUrl;
+    const alt = comoLink ? '' : 'Capa de ' + manga.title;
+    let elemento;
+    let img;
+    if (manga.imagem) {
+        // capa no Blob (doc 139): a largura que a tela pede, em AVIF ou WebP, com a previa enquanto chega. Na grade a
+        // capa ocupa ~46% da tela no celular e ate ~220 px no computador; na pagina do manga, ate ~320 px
+        ({elemento, img} = imagemResponsiva(manga.imagem, {sizes: comoLink ? '(max-width: 560px) 46vw, 220px' : '(max-width: 560px) 70vw, 320px',
+            alt, loading: comoLink ? 'lazy' : 'eager', fallback: miniatura || manga.imageUrl, largura: 300, altura: 450}));
+    } else {
+        img = elemento = h('img', {src: miniatura || manga.imageUrl, alt, loading: comoLink ? 'lazy' : 'eager', decoding: 'async', width: '300', height: '450'});
+        if (!comoLink && miniatura) {
+            const inteira = new Image();
+            inteira.onload = () => { img.src = manga.imageUrl; };
+            inteira.src = manga.imageUrl;
+        }
     }
     img.addEventListener('error', () => {
-        img.replaceWith(h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (manga.title || '?').trim().charAt(0).toUpperCase()));
+        elemento.replaceWith(h('div', {class: 'capa-vazia', 'aria-hidden': 'true'}, (manga.title || '?').trim().charAt(0).toUpperCase()));
     });
-    return h(comoLink ? 'a' : 'div', atributos, img, comoLink ? etiquetaStatus(manga.readingStatus) : null, etiquetaNota(manga.rating),
+    return h(comoLink ? 'a' : 'div', atributos, elemento, comoLink ? etiquetaStatus(manga.readingStatus) : null, etiquetaNota(manga.rating),
         manga.favorite ? h('span', {class: 'estrela-de-favorito', title: 'Favorito', 'aria-hidden': 'true'}, '★') : null,
         manga.favorite ? enfeiteDaBorda() : null);
 }
@@ -6561,6 +6590,134 @@ function textoComHashtags(texto) {
  * Um post. No feed, clicar nele (fora dos botoes e links) ou no 💬 abre o post em tela propria. Maximizado (a tela do
  * post), o texto fica maior e os comentarios aparecem embaixo, com o campo de comentar no alto deles.
  */
+/*
+ * Icones da Comunidade (doc 138), no lugar dos emojis: desenhos de linha que usam a cor do texto (mudam com o tema e
+ * com o modo escuro) e tem o mesmo tamanho em todo aparelho. Caminhos num quadro de 24 x 24.
+ */
+const ICONES = {
+    comentario: '<path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.4-4.4A7.5 7.5 0 1 1 20 11.5z"/>',
+    repost: '<path d="m17 3 3.5 3.5L17 10"/><path d="M4 11.5V10a3.5 3.5 0 0 1 3.5-3.5h13"/><path d="m7 21-3.5-3.5L7 14"/><path d="M20 12.5V14a3.5 3.5 0 0 1-3.5 3.5h-13"/>',
+    curtida: '<path d="M12 20s-7.2-4.4-9-9C1.8 7.8 3.9 4.5 7.2 4.5c2 0 3.5 1.1 4.8 2.9 1.3-1.8 2.8-2.9 4.8-2.9 3.3 0 5.4 3.3 4.2 6.5-1.8 4.6-9 9-9 9z"/>',
+    pessoas: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.7a3.5 3.5 0 0 1 0 6.6"/><path d="M18.5 14.4A6.5 6.5 0 0 1 21.5 20"/>',
+    lixeira: '<path d="M4 7h16"/><path d="M9.5 7V4.5h5V7"/><path d="m6 7 1 13h10l1-13"/><path d="M10 11v5.5"/><path d="M14 11v5.5"/>',
+    lapis: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+    imagem: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="m21 15.5-4.8-4.8L6 19.5"/>',
+    lista: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H8v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M8 4h4v16H8z"/><path d="m14.6 5.4 3.3-.9 3.1 14.6-3.3.9z"/>',
+};
+
+/** Um icone (ICONES) em SVG, decorativo: quem le a tela ouve o texto do botao, nao o desenho. */
+function icone(nome, classe = '') {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    svg.setAttribute('class', ('icone ' + classe).trim());
+    svg.innerHTML = ICONES[nome];
+    return svg;
+}
+
+/**
+ * O menu do botao de repost (doc 137): Repostar (ou Desfazer o repost) e Citar. Fica no corpo da pagina, preso ao
+ * botao, para nao ser cortado pelo post; fecha ao escolher, clicar fora, apertar Esc ou rolar a pagina.
+ */
+function menuDeRepost(botao, repostei, aoRepostar, aoCitar) {
+    document.querySelector('.menu-de-repost')?.fecharMenu?.();
+    const menu = h('div', {class: 'menu-de-repost', role: 'menu'},
+        h('button', {type: 'button', role: 'menuitem'}, icone('repost'), repostei ? 'Desfazer o repost' : 'Repostar'),
+        h('button', {type: 'button', role: 'menuitem'}, icone('lapis'), 'Citar'));
+    const fechar = () => {
+        menu.remove();
+        document.removeEventListener('pointerdown', foraDoMenu, true);
+        document.removeEventListener('keydown', comEsc, true);
+        window.removeEventListener('scroll', fechar, true);
+        window.removeEventListener('resize', fechar);
+    };
+    const foraDoMenu = evento => { if (!menu.contains(evento.target) && !botao.contains(evento.target)) fechar(); };
+    const comEsc = evento => {
+        if (evento.key !== 'Escape') return;
+        evento.preventDefault();
+        fechar();
+        botao.focus();
+    };
+    menu.fecharMenu = fechar;
+    const [repostar, citar] = menu.children;
+    repostar.addEventListener('click', () => { fechar(); aoRepostar(); });
+    citar.addEventListener('click', () => { fechar(); aoCitar(); });
+    document.body.append(menu);
+    // embaixo do botao; sem espaco embaixo, em cima
+    const caixa = botao.getBoundingClientRect();
+    const altura = menu.offsetHeight;
+    menu.style.left = Math.max(8, Math.min(caixa.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+    menu.style.top = (caixa.bottom + altura + 8 < innerHeight ? caixa.bottom + 4 : caixa.top - altura - 4) + 'px';
+    document.addEventListener('pointerdown', foraDoMenu, true);
+    document.addEventListener('keydown', comEsc, true);
+    window.addEventListener('scroll', fechar, true);
+    window.addEventListener('resize', fechar);
+    repostar.focus();
+}
+
+/** Citar um post (doc 137): o editor numa janela, com o post citado embaixo do texto. */
+function citarPost(citado, aoCitar) {
+    const dialogo = h('dialog', {class: 'janela-de-escrever'});
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    fechar.addEventListener('click', () => dialogo.close());
+    dialogo.append(h('div', {class: 'topo-da-janela'}, h('h2', null, 'Citar post'), fechar), editorDePost(post => {
+        dialogo.close();
+        aoCitar?.();
+        const feed = app.querySelector('.feed');
+        if (feed && !location.hash.includes('/post/') && (!location.hash.includes('/perfil/') || location.hash.endsWith(estado.sessao.conta.id))) porNoFeed(feed, post);
+        else location.hash = '#/comunidade/post/' + post.id;
+        avisar('Post publicado');
+    }, true, citado));
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    dialogo.querySelector('textarea').focus();
+}
+
+/**
+ * O post citado, dentro do post que cita (doc 137): o autor, a data, o texto, a primeira imagem e a lista, menores.
+ * Clicar abre o citado. naJanela: a previa no editor, que nao abre nada.
+ */
+function postCitado(citado, naJanela) {
+    if (citado.apagado) return h('div', {class: 'post-citado apagado'}, 'Este post foi apagado.');
+    const quantos = citado.lista ? citado.lista.itens.length : 0;
+    const partes = [
+        h('span', {class: 'cabecalho-do-citado'}, avatar(citado.autor), h('b', null, citado.autor.nick), h('span', {class: 'quando'}, quandoFoi(citado.criadoEm))),
+        citado.texto ? h('span', {class: 'texto-do-citado'}, citado.texto) : null,
+        citado.imagens.length ? h('img', {class: 'imagem-do-citado', src: citado.imagens[0], alt: '', loading: 'lazy', decoding: 'async'}) : null,
+        citado.lista ? h('span', {class: 'lista-do-citado'}, icone('lista'), (citado.lista.titulo || 'Lista de mangás') + ' · ' + (quantos === 1 ? '1 mangá' : quantos + ' mangás')) : null,
+    ];
+    if (naJanela) return h('div', {class: 'post-citado'}, ...partes);
+    return h('a', {class: 'post-citado', href: '#/comunidade/post/' + citado.id, onclick: evento => {
+        evento.preventDefault();
+        evento.stopPropagation();
+        abrirPost(citado.id);
+    }}, ...partes);
+}
+
+/** Quem curtiu o post (doc 137), numa janela como a dos seguidores. So o dono do post pode abrir. */
+async function janelaDeCurtidas(post) {
+    const conteudo = h('div', {class: 'lista-de-seguir'}, h('p', {class: 'subtitulo'}, 'Carregando…'));
+    const fechar = h('button', {type: 'button', class: 'fechar', 'aria-label': 'Fechar'}, '×');
+    const dialogo = h('dialog', {class: 'janela-de-seguir', 'aria-label': 'Quem curtiu'},
+        h('div', {class: 'topo-da-janela'}, h('h2', null, 'Quem curtiu'), fechar), conteudo);
+    fechar.addEventListener('click', () => dialogo.close());
+    // ir para um perfil fecha a janela
+    dialogo.addEventListener('click', evento => { if (evento.target.closest('a.quem')) dialogo.close(); });
+    dialogo.addEventListener('close', () => dialogo.remove());
+    document.body.append(dialogo);
+    dialogo.showModal();
+    try {
+        const pessoas = await chamar('GET', '/api/comunidade/posts/' + post.id + '/curtidas');
+        conteudo.replaceChildren(...(pessoas.length === 0
+            ? [h('p', {class: 'subtitulo'}, 'Ninguém curtiu este post ainda.')]
+            : pessoas.map(pessoa => linhaDePessoa(pessoa))));
+    } catch (e) {
+        conteudo.replaceChildren(h('p', {class: 'subtitulo'}, e.message));
+    }
+}
+
 function cartaoDePost(post, {maximizado} = {}) {
     const cartao = h('article', {class: 'post' + (maximizado ? ' maximizado' : ' clicavel'), 'data-id': post.id});
     if (!maximizado) {
@@ -6575,7 +6732,8 @@ function cartaoDePost(post, {maximizado} = {}) {
     const curtir = h('button', {type: 'button', class: 'acao-do-post curtir', 'aria-pressed': String(post.curti)});
     const mostrarCurtidas = () => {
         curtir.setAttribute('aria-pressed', String(post.curti));
-        curtir.replaceChildren(h('span', {'aria-hidden': 'true'}, post.curti ? '♥' : '♡'), ' ', String(post.curtidas), h('span', {class: 'so-leitor'}, ' curtidas'));
+        // o coracao fica cheio quando curtido (pelo CSS, com o aria-pressed)
+        curtir.replaceChildren(icone('curtida'), String(post.curtidas), h('span', {class: 'so-leitor'}, ' curtidas'));
         curtir.title = post.curti ? 'Descurtir' : 'Curtir';
     };
     curtir.addEventListener('click', async evento => {
@@ -6599,14 +6757,55 @@ function cartaoDePost(post, {maximizado} = {}) {
 
     const areaDeComentarios = maximizado ? h('section', {class: 'comentarios', 'aria-label': 'Comentários'}) : null;
     const comentar = h('button', {type: 'button', class: 'acao-do-post', title: maximizado ? 'Comentar' : 'Ver os comentários'});
-    const mostrarComentarios = () => comentar.replaceChildren(h('span', {'aria-hidden': 'true'}, '💬'), ' ', String(post.comentarios), h('span', {class: 'so-leitor'}, ' comentários'));
+    const mostrarComentarios = () => comentar.replaceChildren(icone('comentario'), String(post.comentarios), h('span', {class: 'so-leitor'}, ' comentários'));
     mostrarComentarios();
     comentar.addEventListener('click', () => {
         if (maximizado) areaDeComentarios.querySelector('textarea')?.focus();
         else abrirPost(post.id);
     });
 
-    const apagar = post.podeApagar ? h('button', {type: 'button', class: 'acao-do-post apagar', title: 'Apagar post'}, h('span', {'aria-hidden': 'true'}, '🗑'), h('span', {class: 'so-leitor'}, 'Apagar post')) : null;
+    // repostar ou citar (doc 137): o botao abre um menu com as duas opcoes
+    const repostar = h('button', {type: 'button', class: 'acao-do-post repostar', 'aria-haspopup': 'menu'});
+    const mostrarReposts = () => {
+        repostar.setAttribute('aria-pressed', String(post.repostei));
+        repostar.replaceChildren(icone('repost'), String(post.reposts ?? 0), h('span', {class: 'so-leitor'}, ' reposts'));
+        repostar.title = post.repostei ? 'Desfazer o repost ou citar' : 'Repostar ou citar';
+    };
+    const alternarRepost = async () => {
+        // muda na hora e confirma com o servidor, como a curtida
+        post.repostei = !post.repostei;
+        post.reposts = (post.reposts ?? 0) + (post.repostei ? 1 : -1);
+        mostrarReposts();
+        try {
+            const novo = await chamar(post.repostei ? 'POST' : 'DELETE', '/api/comunidade/posts/' + post.id + '/repost');
+            [post.reposts, post.repostei] = [novo.reposts, novo.repostei];
+            avisar(post.repostei ? 'Repostado' : 'Repost desfeito');
+            // o seu proprio repost no feed some ao ser desfeito
+            if (!post.repostei && post.repostadoPor?.euMesmo && !maximizado) cartao.remove();
+        } catch (e) {
+            post.repostei = !post.repostei;
+            post.reposts += post.repostei ? 1 : -1;
+            avisar(e.message, true);
+        }
+        mostrarReposts();
+    };
+    repostar.addEventListener('click', evento => {
+        evento.stopPropagation();
+        if (exigirConta('Crie uma conta para repostar.')) return;
+        menuDeRepost(repostar, post.repostei, alternarRepost, () => citarPost(post, () => {
+            post.reposts = (post.reposts ?? 0) + 1;
+            mostrarReposts();
+        }));
+    });
+    mostrarReposts();
+
+    // o dono do post aberto ve quem curtiu (doc 137), num botao ao lado da lixeira
+    const quemCurtiu = maximizado && post.meu
+        ? h('button', {type: 'button', class: 'acao-do-post quem-curtiu', title: 'Ver quem curtiu', onclick: () => janelaDeCurtidas(post)},
+            icone('pessoas'), h('span', {class: 'texto-da-acao'}, 'Quem curtiu'))
+        : null;
+
+    const apagar = post.podeApagar ? h('button', {type: 'button', class: 'acao-do-post apagar', title: 'Apagar post'}, icone('lixeira'), h('span', {class: 'so-leitor'}, 'Apagar post')) : null;
     if (apagar) apagar.addEventListener('click', async () => {
         if (!await confirmar('Apagar o post?', 'O post, as curtidas e os comentários dele somem para sempre.', 'Apagar')) return;
         try {
@@ -6635,10 +6834,21 @@ function cartaoDePost(post, {maximizado} = {}) {
                 !post.meu && (maximizado || !post.sigoOAutor) ? botaoDeSeguir(post.autor.id, post.sigoOAutor) : null),
             post.texto ? h('p', {class: 'texto-do-post'}, textoComHashtags(post.texto)) : null,
             post.imagens.length ? h('div', {class: 'imagens-do-post quantas-' + post.imagens.length},
-                post.imagens.map(endereco => h('button', {type: 'button', class: 'imagem-do-post', onclick: () => verImagem(endereco), 'aria-label': 'Ver imagem'},
-                    h('img', {src: endereco, alt: '', loading: 'lazy', decoding: 'async'})))) : null,
+                post.imagens.map((endereco, i) => h('button', {type: 'button', class: 'imagem-do-post', onclick: () => verImagem(endereco), 'aria-label': 'Ver imagem'},
+                    // no Blob (doc 139): o tamanho que o post ocupa na tela, com a previa enquanto chega
+                    post.imagensInfo?.[i]
+                        ? imagemResponsiva(post.imagensInfo[i], {sizes: post.imagens.length > 1 ? '(max-width: 700px) 46vw, 300px' : '(max-width: 700px) 92vw, 600px',
+                            fallback: endereco}).elemento
+                        : h('img', {src: endereco, alt: '', loading: 'lazy', decoding: 'async'})))) : null,
             post.lista ? listaDoPost(post.lista, post.autor) : null,
-            h('div', {class: 'acoes-do-post'}, comentar, curtir, apagar)));
+            post.citado ? postCitado(post.citado) : null,
+            h('div', {class: 'acoes-do-post'}, comentar, repostar, curtir, quemCurtiu, apagar)));
+    // repost: o post original com quem repostou em cima (doc 137)
+    if (post.repostadoPor) {
+        cartao.classList.add('repostado');
+        cartao.prepend(h('div', {class: 'cabecalho-de-repost'}, icone('repost'),
+            h('a', {href: '#/comunidade/perfil/' + post.repostadoPor.id}, post.repostadoPor.euMesmo ? 'Você' : post.repostadoPor.nick), ' repostou'));
+    }
     if (maximizado) {
         carregarComentarios(post, areaDeComentarios, total => { post.comentarios = total; mostrarComentarios(); }, true);
         // os comentarios ficam embaixo do post, ocupando a largura toda
@@ -6705,7 +6915,7 @@ async function carregarComentarios(post, area, aoContar, formularioAntes) {
 
 /** O botao redondo no canto, que abre a janela de escrever um post. */
 function botaoDeEscrever() {
-    const botao = h('button', {type: 'button', class: 'botao-de-escrever', title: 'Escrever um post', 'aria-label': 'Escrever um post'}, '✎');
+    const botao = h('button', {type: 'button', class: 'botao-de-escrever', title: 'Escrever um post', 'aria-label': 'Escrever um post'}, icone('lapis'));
     botao.addEventListener('click', () => {
         if (exigirConta('Crie uma conta para postar na Comunidade.')) return;
         const dialogo = h('dialog', {class: 'janela-de-escrever'});
@@ -6731,22 +6941,24 @@ function botaoDeEscrever() {
  * Campo de escrever um post: texto (ate 500), ate 4 imagens (escolhidas ou coladas com Ctrl+V) e uma lista de mangas
  * da Biblioteca. As imagens sao diminuidas aqui antes de enviar.
  */
-function editorDePost(aoPublicar, naJanela) {
+/** citando: o post citado (doc 137), que aparece embaixo do texto e vai junto ao publicar. */
+function editorDePost(aoPublicar, naJanela, citando) {
     if (ehVisitante()) {
         return conviteParaConta('Crie uma conta para postar o que você está lendo, compartilhar listas, curtir, comentar e seguir leitores.',
             'Criar conta e postar', 'Crie uma conta para postar na Comunidade.');
     }
     const imagens = []; // {nome, url} ja enviadas
     let lista = null; // {titulo, mangas: [{id, title, imageUrl, thumbUrl}]}
-    const texto = h('textarea', {rows: naJanela ? '5' : '2', maxlength: String(TEXTO_DO_POST_MAXIMO), placeholder: 'O que você está lendo?', 'aria-label': 'Texto do post'});
+    const texto = h('textarea', {rows: naJanela ? '5' : '2', maxlength: String(TEXTO_DO_POST_MAXIMO),
+        placeholder: citando ? 'Adicione um comentário…' : 'O que você está lendo?', 'aria-label': 'Texto do post'});
     const contador = h('span', {class: 'contador'});
     const previas = h('div', {class: 'previas-do-post'});
     const anexo = h('div', {class: 'anexo-da-lista'});
     const erro = h('p', {class: 'erro-de-login', role: 'alert'});
     const publicar = h('button', {type: 'submit', class: 'botao primario'}, 'Publicar');
     const arquivo = h('input', {type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif', multiple: true, hidden: true});
-    const botaoImagem = h('button', {type: 'button', class: 'ferramenta-do-post', title: 'Adicionar imagens (ou cole com Ctrl+V)'}, '🖼', h('span', null, ' Imagem'));
-    const botaoLista = h('button', {type: 'button', class: 'ferramenta-do-post', title: 'Anexar uma lista de mangás da sua Biblioteca'}, '📚', h('span', null, ' Lista'));
+    const botaoImagem = h('button', {type: 'button', class: 'ferramenta-do-post', title: 'Adicionar imagens (ou cole com Ctrl+V)', 'aria-label': 'Imagem'}, icone('imagem'), h('span', null, 'Imagem'));
+    const botaoLista = h('button', {type: 'button', class: 'ferramenta-do-post', title: 'Anexar uma lista de mangás da sua Biblioteca', 'aria-label': 'Lista'}, icone('lista'), h('span', null, 'Lista'));
     let enviando = 0;
 
     const atualizar = () => {
@@ -6809,7 +7021,7 @@ function editorDePost(aoPublicar, naJanela) {
     const formulario = h('form', {class: 'editor-de-post' + (naJanela ? ' na-janela' : '')},
         avatar(estado.sessao.conta),
         h('div', {class: 'campo-do-post'},
-            texto, previas, anexo, erro,
+            texto, previas, anexo, citando ? postCitado(citando, true) : null, erro,
             h('div', {class: 'barra-do-post'}, botaoImagem, botaoLista, arquivo, h('span', {class: 'espaco'}), contador, publicar)));
     formulario.addEventListener('submit', async evento => {
         evento.preventDefault();
@@ -6820,6 +7032,7 @@ function editorDePost(aoPublicar, naJanela) {
                 texto: texto.value,
                 imagens: imagens.map(imagem => imagem.nome),
                 lista: lista ? {titulo: lista.titulo, mangas: lista.mangas.map(manga => manga.id)} : null,
+                citando: citando ? citando.id : null,
             });
             texto.value = '';
             texto.style.height = '';

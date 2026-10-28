@@ -164,6 +164,9 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Descobrir e recomendações mais rápidos](docs/134-descobrir-e-recomendacoes-mais-rapidos.md) | |
 | ["Sortear de novo" que fugia do clique no Firefox](docs/135-sortear-de-novo-no-firefox.md) | |
 | [Comunidade mais rápida](docs/136-comunidade-mais-rapida.md) | |
+| [Repost, citação e quem curtiu](docs/137-repost-citacao-e-quem-curtiu.md) | |
+| [Ícones no lugar dos emojis nos posts](docs/138-icones-no-lugar-dos-emojis.md) | |
+| [Imagens no Vercel Blob, em AVIF e no tamanho certo](docs/139-imagens-no-vercel-blob.md) | |
 
 ## Testes
 

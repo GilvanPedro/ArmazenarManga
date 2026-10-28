@@ -7,6 +7,7 @@ import { temaQueExiste } from './_loja.js';
 import { dadosDoPainel, lerPeriodo } from './_painel.js';
 import { DadoInvalidoNaModeracao, ESTRUTURA_DA_MODERACAO, MENSAGEM_DE_IMAGEM_BARRADA, mensagemDaPunicao, registrarNaModeracao, situacaoDaConta, validarMotivo, validarSuspensao } from './_moderacao.js';
 import { verificarImagem } from './_robo_de_imagens.js';
+import { COLUNAS_DA_IMAGEM, ImagemInvalida, apagarSeNinguemUsa, blobAtivo, guardarNoBlob, imagemParaOSite, prepararImagem, urlNaLargura } from './_imagens.js';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOME = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|gif|webp)$/;
@@ -33,6 +34,8 @@ export const ESTRUTURA_DA_COMUNIDADE = `
         conta UUID NOT NULL REFERENCES contas(id) ON DELETE CASCADE, post UUID REFERENCES posts(id) ON DELETE CASCADE,
         criada_em TIMESTAMPTZ NOT NULL DEFAULT now());
     CREATE INDEX IF NOT EXISTS imagens_da_comunidade_soltas ON imagens_da_comunidade (conta, criada_em) WHERE post IS NULL;
+    -- os dados da imagem (doc 139): com o Vercel Blob, o arquivo fica la e conteudo fica vazio
+    ALTER TABLE imagens_da_comunidade ${COLUNAS_DA_IMAGEM};
     -- a descricao do perfil, que todos veem (ate 300 caracteres)
     ALTER TABLE contas ADD COLUMN IF NOT EXISTS descricao TEXT NOT NULL DEFAULT '';
     -- contadores no proprio post, mantidos pelo banco: o feed ordena sem recontar curtidas e comentarios
@@ -56,6 +59,14 @@ export const ESTRUTURA_DA_COMUNIDADE = `
     END $$;
     CREATE OR REPLACE TRIGGER contar_curtidas AFTER INSERT OR DELETE ON curtidas FOR EACH ROW EXECUTE FUNCTION contar_curtida();
     CREATE OR REPLACE TRIGGER contar_comentarios AFTER INSERT OR DELETE ON comentarios FOR EACH ROW EXECUTE FUNCTION contar_comentario();
+    -- repost e citacao (doc 137): repost_de e o post repostado ou citado. so_repost: e so o repost (sem texto, imagem
+    -- nem lista), que mostra o original com "Fulano repostou". Sem chave estrangeira de proposito: apagar o original
+    -- nao apaga as citacoes, que passam a mostrar "Este post foi apagado"
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS repost_de UUID;
+    ALTER TABLE posts ADD COLUMN IF NOT EXISTS so_repost BOOLEAN NOT NULL DEFAULT false;
+    CREATE INDEX IF NOT EXISTS posts_repost_de ON posts (repost_de) WHERE repost_de IS NOT NULL;
+    -- um repost por pessoa por post
+    CREATE UNIQUE INDEX IF NOT EXISTS posts_um_repost ON posts (autor, repost_de) WHERE so_repost;
 ` + ESTRUTURA_DA_MODERACAO;
 
 /**
@@ -101,19 +112,31 @@ export function criarComunidade(f) {
         p.id, p.texto, p.imagens, p.lista, p.criado_em, c.id AS autor_id, c.nick, c.foto, c.borda, c.efeito, c.tema,
         p.curtidas_total AS curtidas, p.comentarios_total AS comentarios,
         EXISTS (SELECT 1 FROM curtidas WHERE post = p.id AND conta = $1) AS curti,
-        EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = p.autor) AS sigo`;
+        EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = p.autor) AS sigo,
+        p.repost_de, p.so_repost,
+        (SELECT json_agg(json_build_object('nome', i.nome, 'url', i.url, 'variantes', i.variantes, 'placeholder', i.placeholder,
+            'largura', i.largura, 'altura', i.altura)) FROM imagens_da_comunidade i WHERE i.nome = ANY(p.imagens)) AS arquivos,
+        (SELECT count(*) FROM posts r WHERE r.repost_de = p.id)::int AS reposts,
+        EXISTS (SELECT 1 FROM posts r WHERE r.repost_de = p.id AND r.autor = $1 AND r.so_repost) AS repostei`;
+
+    const arquivoDe = (linha, nome) => (linha.arquivos || []).find(arquivo => arquivo.nome === nome) || null;
 
     function post(linha, eu) {
         return {
             id: linha.id,
             autor: autor(linha),
             texto: linha.texto,
-            imagens: (linha.imagens || []).map(nome => '/api/comunidade/imagens/' + nome),
+            // no Blob (doc 139): o endereco direto; e, para o navegador escolher o tamanho, as larguras e a previa
+            imagens: (linha.imagens || []).map(nome => arquivoDe(linha, nome)?.url || '/api/comunidade/imagens/' + nome),
+            imagensInfo: (linha.imagens || []).map(nome => imagemParaOSite(arquivoDe(linha, nome))),
             lista: linha.lista,
             criadoEm: linha.criado_em,
             curtidas: linha.curtidas,
             comentarios: linha.comentarios,
             curti: linha.curti,
+            // reposts e citacoes deste post, e se quem esta usando o repostou (doc 137)
+            reposts: linha.reposts,
+            repostei: linha.repostei,
             sigoOAutor: linha.sigo,
             meu: linha.autor_id === eu.id,
             podeApagar: linha.autor_id === eu.id || f.ehAdmin(eu),
@@ -123,10 +146,50 @@ export function criarComunidade(f) {
     /** Os posts destes ids, na mesma ordem (os que foram apagados nesse meio tempo ficam de fora). */
     async function postsPorIds(ids, eu) {
         if (ids.length === 0) return [];
-        const { rows } = await (await banco()).query(
-            `SELECT ${CAMPOS_DO_POST} FROM posts p JOIN contas c ON c.id = p.autor WHERE p.id = ANY($2::uuid[])`, [eu.id, ids]);
-        const porId = new Map(rows.map(linha => [linha.id, linha]));
-        return ids.map(id => porId.get(id)).filter(Boolean).map(linha => post(linha, eu));
+        const linhas = new Map();
+        const buscar = async quais => {
+            const faltam = [...new Set(quais)].filter(id => id && !linhas.has(id));
+            if (faltam.length === 0) return;
+            const { rows } = await (await banco()).query(
+                `SELECT ${CAMPOS_DO_POST} FROM posts p JOIN contas c ON c.id = p.autor WHERE p.id = ANY($2::uuid[])`, [eu.id, faltam]);
+            for (const linha of rows) linhas.set(linha.id, linha);
+        };
+        await buscar(ids);
+        // os originais dos reposts e os citados (doc 137); e, num repost de uma citacao, o citado dela
+        await buscar(ids.map(id => linhas.get(id)?.repost_de));
+        await buscar(ids.map(id => linhas.get(linhas.get(id)?.repost_de)?.repost_de));
+        // um post com o citado dentro (so um nivel: o citado nao mostra o que ele cita)
+        const montar = linha => {
+            const pronto = post(linha, eu);
+            if (linha.repost_de && !linha.so_repost) {
+                const citado = linhas.get(linha.repost_de);
+                pronto.citado = citado && !citado.so_repost ? post(citado, eu) : { apagado: true };
+            }
+            return pronto;
+        };
+        return ids.map(id => linhas.get(id)).filter(Boolean).map(linha => {
+            if (!linha.so_repost) return montar(linha);
+            // o repost aparece como o original, com quem repostou em cima. Original apagado: o repost some
+            const original = linhas.get(linha.repost_de);
+            if (!original || original.so_repost) return null;
+            return { ...montar(original), repostadoPor: { id: linha.autor_id, nick: linha.nick, euMesmo: linha.autor_id === eu.id }, chave: linha.id };
+        }).filter(Boolean);
+    }
+
+    /**
+     * Os ids de um feed sem o mesmo post duas vezes (doc 137): o post e os reposts dele (de varias pessoas) contam como
+     * um so, e fica o que aparece primeiro. linhas: { id, repost_de, so_repost }, ja na ordem do feed.
+     */
+    function semRepetir(linhas) {
+        const vistos = new Set();
+        const ids = [];
+        for (const linha of linhas) {
+            const chave = linha.so_repost ? linha.repost_de : linha.id;
+            if (vistos.has(chave)) continue;
+            vistos.add(chave);
+            ids.push(linha.id);
+        }
+        return ids;
     }
 
     /**
@@ -147,8 +210,8 @@ export function criarComunidade(f) {
                     SELECT p.autor, ${PESOS.comentario} FROM comentarios k JOIN posts p ON p.id = k.post
                         WHERE k.autor = $1 AND k.criado_em > now() - interval '${PESOS.dias} days'
                 ) AS pesos WHERE autor <> $1 GROUP BY autor
-            ), recentes AS (SELECT id, autor, criado_em, curtidas_total, comentarios_total FROM posts ORDER BY criado_em DESC LIMIT 1000)
-            SELECT p.id, p.autor, p.criado_em FROM recentes p LEFT JOIN proximidade x ON x.autor = p.autor
+            ), recentes AS (SELECT id, autor, criado_em, curtidas_total, comentarios_total, repost_de, so_repost FROM posts ORDER BY criado_em DESC LIMIT 1000)
+            SELECT p.id, p.autor, p.criado_em, p.repost_de, p.so_repost FROM recentes p LEFT JOIN proximidade x ON x.autor = p.autor
             ORDER BY (1 + CASE WHEN p.autor = $1 THEN ${PESOS.proprio} ELSE coalesce(x.peso, 0) END
                         + 2 * ln(1 + p.curtidas_total + 2 * p.comentarios_total))
                      -- em ponto flutuante: com numeros decimais exatos, a potencia de 1000 posts custava ~20 ms
@@ -161,9 +224,9 @@ export function criarComunidade(f) {
     /** Ordem do feed "Seguindo": os posts de quem voce segue (e os seus), do mais novo para o mais antigo. */
     async function idsSeguindo(eu) {
         const { rows } = await (await banco()).query(`
-            SELECT id FROM posts WHERE autor = $1 OR autor IN (SELECT seguido FROM seguindo WHERE seguidor = $1)
+            SELECT id, repost_de, so_repost FROM posts WHERE autor = $1 OR autor IN (SELECT seguido FROM seguindo WHERE seguidor = $1)
             ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [eu.id]);
-        return rows.map(linha => linha.id);
+        return semRepetir(rows);
     }
 
     /**
@@ -255,8 +318,8 @@ export function criarComunidade(f) {
     }
 
     async function idsDoPerfil(contaId) {
-        const { rows } = await (await banco()).query(`SELECT id FROM posts WHERE autor = $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [contaId]);
-        return rows.map(linha => linha.id);
+        const { rows } = await (await banco()).query(`SELECT id, repost_de, so_repost FROM posts WHERE autor = $1 ORDER BY criado_em DESC, id LIMIT ${POSTS_DO_FEED}`, [contaId]);
+        return semRepetir(rows);
     }
 
     /**
@@ -273,7 +336,7 @@ export function criarComunidade(f) {
         else if (qual === 'busca') ids = await idsDaBusca(url.searchParams.get('q'));
         else {
             // do mais novo para o mais antigo, sejam seus ou de outra pessoa
-            ids = doMaisNovoParaOMaisAntigo(await rankingParaVoce(eu)).map(linha => linha.id);
+            ids = semRepetir(doMaisNovoParaOMaisAntigo(await rankingParaVoce(eu)));
         }
         return { ids, itens: await postsPorIds(ids.slice(0, POSTS_POR_PAGINA), eu), geradoEm };
     }
@@ -306,9 +369,32 @@ export function criarComunidade(f) {
 
     async function exigirPost(id) {
         if (!ID.test(id || '')) throw new Recusa(404, 'Post não encontrado');
-        const { rows } = await (await banco()).query('SELECT id, autor FROM posts WHERE id = $1', [id]);
+        const { rows } = await (await banco()).query('SELECT id, autor, repost_de, so_repost FROM posts WHERE id = $1', [id]);
         if (rows.length === 0) throw new Recusa(404, 'Post não encontrado');
         return rows[0];
+    }
+
+    /** O post de verdade por tras de um repost (repostar ou citar um repost e repostar ou citar o original). */
+    async function originalDe(id) {
+        const alvo = await exigirPost(id);
+        if (!alvo.so_repost) return alvo;
+        return exigirPost(alvo.repost_de);
+    }
+
+    /** Quem curtiu um post: so o dono do post ve (doc 137). Os mais recentes primeiro. */
+    async function quemCurtiu(id, eu) {
+        const alvo = await originalDe(id);
+        if (alvo.autor !== eu.id) throw new Recusa(403, 'Só quem escreveu o post vê quem curtiu');
+        const { rows } = await (await banco()).query(`
+            SELECT c.id, c.nick, c.foto, c.descricao,
+                   (SELECT count(*) FROM seguindo WHERE seguido = c.id)::int AS seguidores,
+                   EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = c.id) AS sigo
+            FROM curtidas k JOIN contas c ON c.id = k.conta
+            WHERE k.post = $2 ORDER BY k.criada_em DESC, c.nick LIMIT 500`, [eu.id, alvo.id]);
+        return rows.map(linha => ({
+            id: linha.id, nick: linha.nick, foto: urlDaFoto(linha.id, linha.foto), descricao: linha.descricao,
+            seguidores: linha.seguidores, sigo: linha.sigo, euMesmo: linha.id === eu.id,
+        }));
     }
 
     /** A punicao que vale agora para esta conta (null se estiver livre). */
@@ -343,13 +429,38 @@ export function criarComunidade(f) {
         if (!arquivo || typeof arquivo === 'string') throw new Recusa(400, 'Envie a imagem no campo "arquivo"');
         if (arquivo.size > TAMANHO_MAXIMO_DA_IMAGEM) throw new Recusa(400, 'A imagem pode ter no máximo 2 MB');
         const bytes = Buffer.from(await arquivo.arrayBuffer());
-        const nome = randomUUID() + '.' + f.descobrirExtensao(bytes);
+        f.descobrirExtensao(bytes); // so PNG, JPG, GIF e WebP, conferidos pelo conteudo
+        const nome = randomUUID() + '.webp';
         const db = await banco();
         await exigirImagemPermitida(db, bytes, eu.id, 'post', Recusa);
-        await db.query("DELETE FROM imagens_da_comunidade WHERE conta = $1 AND post IS NULL AND criada_em < now() - interval '1 day'", [eu.id]);
-        await db.query('INSERT INTO imagens_da_comunidade (nome, conteudo, conta) VALUES ($1, $2, $3)', [nome, bytes, eu.id]);
+        // sem os metadados (EXIF), em WebP (GIF animado continua animado) e, com o Blob, em larguras e em AVIF (doc 139)
+        let preparada;
+        try {
+            preparada = await prepararImagem(bytes, 'post');
+        } catch (erro) {
+            if (erro instanceof ImagemInvalida) throw new Recusa(400, erro.message);
+            throw erro;
+        }
+        const { rows: soltas } = await db.query(`DELETE FROM imagens_da_comunidade WHERE conta = $1 AND post IS NULL AND criada_em < now() - interval '1 day'
+            RETURNING url, variantes`, [eu.id]);
+        await apagarSeNinguemUsa(db, soltas);
+        let url = '/api/comunidade/imagens/' + nome;
+        if (blobAtivo()) {
+            const guardada = await guardarNoBlob('comunidade', preparada);
+            await db.query(`INSERT INTO imagens_da_comunidade (nome, conta, url, variantes, placeholder, largura, altura, hash, tamanho)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`, [nome, eu.id, guardada.url, JSON.stringify(guardada.variantes),
+                guardada.placeholder, guardada.largura, guardada.altura, guardada.hash, guardada.tamanho]);
+            url = urlNaLargura(guardada, 480);
+        } else {
+            await db.query('INSERT INTO imagens_da_comunidade (nome, conteudo, conta, placeholder, largura, altura, hash, tamanho) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+                [nome, preparada.principal.bytes, eu.id, preparada.placeholder, preparada.largura, preparada.altura, preparada.hash, preparada.principal.bytes.length]);
+        }
         await f.registrarTentativa('imagem:' + eu.id);
-        return json(201, { nome, url: '/api/comunidade/imagens/' + nome });
+        return json(201, { nome, url });
+    }
+
+    function redirecionar(url, cache) {
+        return new Response(null, { status: 308, headers: { Location: url, 'Cache-Control': cache } });
     }
 
     function servirImagem(conteudo, nome, cache) {
@@ -378,8 +489,16 @@ export function criarComunidade(f) {
             } else if (NOME.test(manga.imagePath || '')) {
                 const base = manga.imagePath.slice(0, manga.imagePath.lastIndexOf('.'));
                 const origem = miniaturas.get(base) || manga.imagePath;
-                const { rows: imagem } = await cliente.query('SELECT conteudo FROM imagens WHERE nome = $1 AND conta = $2', [origem, eu.id]);
-                if (imagem.length) {
+                const { rows: imagem } = await cliente.query(
+                    'SELECT conteudo, url, variantes, placeholder, largura, altura, hash, tamanho FROM imagens WHERE nome = $1 AND conta = $2', [origem, eu.id]);
+                if (imagem.length && imagem[0].url) {
+                    // no Blob (doc 139): a copia aponta para os mesmos arquivos, sem duplicar nada
+                    const [i] = imagem;
+                    await cliente.query(`INSERT INTO imagens_da_comunidade (nome, conta, post, url, variantes, placeholder, largura, altura, hash, tamanho)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, [randomUUID() + '.webp', eu.id, postId, i.url, JSON.stringify(i.variantes),
+                        i.placeholder, i.largura, i.altura, i.hash, i.tamanho]);
+                    capa = urlNaLargura(i, 240);
+                } else if (imagem.length) {
                     const copia = randomUUID() + origem.slice(origem.lastIndexOf('.'));
                     await cliente.query('INSERT INTO imagens_da_comunidade (nome, conteudo, conta, post) VALUES ($1, $2, $3, $4)', [copia, imagem[0].conteudo, eu.id, postId]);
                     capa = '/api/comunidade/imagens/' + copia;
@@ -400,12 +519,14 @@ export function criarComunidade(f) {
         const dados = validarPost(await f.lerCorpo(request));
         await exigirQuePossaParticipar(eu);
         await f.exigirQueNaoEstejaFreado('post:' + eu.id, LIMITES.post);
+        // o post citado precisa existir; citar um repost cita o original (doc 137)
+        const citado = dados.citando ? (await originalDe(dados.citando)).id : null;
         const id = randomUUID();
         const cliente = await (await banco()).connect();
         try {
             await cliente.query('BEGIN');
             // o post entra primeiro (as copias das capas da lista apontam para ele)
-            await cliente.query('INSERT INTO posts (id, autor, texto, imagens) VALUES ($1, $2, $3, $4)', [id, eu.id, dados.texto, dados.imagens]);
+            await cliente.query('INSERT INTO posts (id, autor, texto, imagens, repost_de) VALUES ($1, $2, $3, $4, $5)', [id, eu.id, dados.texto, dados.imagens, citado]);
             if (dados.imagens.length) {
                 // so imagens desta conta, ainda soltas
                 const { rowCount } = await cliente.query(
@@ -436,7 +557,7 @@ export function criarComunidade(f) {
                    -- e o tema do site dela, que a janela dos mangas dela usa
                    (SELECT tema FROM contas WHERE id = $2) AS tema,
                    (SELECT count(*) FROM mangas WHERE conta = $3)::int AS mangas,
-                   (SELECT count(*) FROM posts WHERE autor = $2)::int AS posts,
+                   (SELECT count(*) FROM posts WHERE autor = $2 AND NOT so_repost)::int AS posts,
                    (SELECT count(*) FROM seguindo WHERE seguido = $2)::int AS seguidores,
                    (SELECT count(*) FROM seguindo WHERE seguidor = $2)::int AS seguindo,
                    EXISTS (SELECT 1 FROM seguindo WHERE seguidor = $1 AND seguido = $2) AS sigo`, [eu.id, conta.id, String(conta.id)]);
@@ -578,7 +699,7 @@ export function criarComunidade(f) {
         const db = await banco();
         if (Date.now() - maisAtivos.quando > 60_000) {
             const { rows } = await db.query(`
-                SELECT autor AS id, count(*)::int AS posts FROM posts WHERE criado_em > now() - interval '30 days'
+                SELECT autor AS id, count(*)::int AS posts FROM posts WHERE criado_em > now() - interval '30 days' AND NOT so_repost
                 GROUP BY autor ORDER BY count(*) DESC LIMIT 50`);
             maisAtivos = { quando: Date.now(), contas: rows };
         }
@@ -632,9 +753,28 @@ export function criarComunidade(f) {
                 await registrarNaModeracao(db, { conta: alvo.autor, admin: eu.id, acao: 'apagar_post',
                     detalhes: { texto: (rows[0]?.texto || '').slice(0, 200), imagens: rows[0]?.imagens || 0 } });
             }
-            await db.query('DELETE FROM posts WHERE id = $1', [alvo.id]);
+            // os reposts dele vao junto; as citacoes ficam, mostrando "Este post foi apagado" (doc 137)
+            const { rows: arquivos } = await db.query('SELECT url, variantes FROM imagens_da_comunidade WHERE post = $1 AND url IS NOT NULL', [alvo.id]);
+            await db.query('DELETE FROM posts WHERE id = $1 OR (repost_de = $1 AND so_repost)', [alvo.id]);
+            // as imagens do post saem junto (cascata); os arquivos no Blob, se nada mais usa (doc 139)
+            await apagarSeNinguemUsa(db, arquivos);
             return new Response(null, { status: 204 });
         }
+        // repostar (POST) e desfazer o repost (DELETE), doc 137. Devolve o post repostado, com o total e o "repostei"
+        if (recurso === 'posts' && id && acao === 'repost' && (metodo === 'POST' || metodo === 'DELETE')) {
+            const alvo = await originalDe(id);
+            if (metodo === 'POST') {
+                await exigirQuePossaParticipar(eu);
+                await f.exigirQueNaoEstejaFreado('post:' + eu.id, LIMITES.post);
+                await db.query(`INSERT INTO posts (id, autor, repost_de, so_repost) VALUES ($1, $2, $3, true)
+                    ON CONFLICT (autor, repost_de) WHERE so_repost DO NOTHING`, [randomUUID(), eu.id, alvo.id]);
+                await f.registrarTentativa('post:' + eu.id);
+            } else {
+                await db.query('DELETE FROM posts WHERE autor = $1 AND repost_de = $2 AND so_repost', [eu.id, alvo.id]);
+            }
+            return json(200, await umPost(alvo.id, eu));
+        }
+        if (recurso === 'posts' && id && acao === 'curtidas' && metodo === 'GET') return f.semCache(json(200, await quemCurtiu(id, eu)));
         if (recurso === 'posts' && id && acao === 'curtida' && (metodo === 'POST' || metodo === 'DELETE')) {
             const alvo = await exigirPost(id);
             if (metodo === 'POST') await db.query('INSERT INTO curtidas (post, conta) VALUES ($1, $2) ON CONFLICT DO NOTHING', [alvo.id, eu.id]);
@@ -667,8 +807,10 @@ export function criarComunidade(f) {
         if (recurso === 'imagens' && !id && metodo === 'POST') return enviarImagem(request, eu);
         if (recurso === 'imagens' && id && !acao && metodo === 'GET') {
             if (!NOME.test(id)) throw new Recusa(404, 'Imagem não encontrada');
-            const { rows } = await db.query('SELECT conteudo FROM imagens_da_comunidade WHERE nome = $1', [id]);
+            const { rows } = await db.query('SELECT conteudo, url FROM imagens_da_comunidade WHERE nome = $1', [id]);
             if (rows.length === 0) throw new Recusa(404, 'Imagem não encontrada');
+            // no Blob (doc 139): vai para la; a CDN guarda o redirecionamento, sem chamar a funcao de novo
+            if (!rows[0].conteudo && rows[0].url) return redirecionar(rows[0].url, 'public, max-age=31536000, s-maxage=31536000, immutable');
             // o nome muda a cada envio: o navegador e a CDN do Vercel podem guardar para sempre, sem chamar a funcao de novo.
             // As imagens da Comunidade sao feitas para serem vistas pelos outros leitores, e o nome nao da para adivinhar
             return servirImagem(rows[0].conteudo, id, 'public, max-age=31536000, s-maxage=31536000, immutable');
@@ -703,16 +845,19 @@ export function criarComunidade(f) {
         // as capas desses mangas (o nome muda a cada envio: pode ficar guardada no navegador)
         if (recurso === 'contas' && id && acao === 'capas' && partes[3] && metodo === 'GET') {
             if (!ID.test(id)) throw new Recusa(404, 'Capa não encontrada');
-            const conteudo = await f.capaDeOutraConta(id, partes[3]);
-            if (!conteudo) throw new Recusa(404, 'Capa não encontrada');
-            return servirImagem(conteudo, partes[3], 'private, max-age=86400');
+            const achada = await f.capaDeOutraConta(id, partes[3]);
+            if (!achada) throw new Recusa(404, 'Capa não encontrada');
+            if (!achada.conteudo && achada.url) return redirecionar(achada.url, 'private, max-age=86400');
+            return servirImagem(achada.conteudo, partes[3], 'private, max-age=86400');
         }
         // a foto de perfil e privada na conta; na Comunidade, quem esta logado pode ver a dos outros
         if (recurso === 'contas' && id && acao === 'foto' && metodo === 'GET') {
             if (!ID.test(id)) throw new Recusa(404, 'Foto não encontrada');
             const { rows } = await db.query(
-                'SELECT c.foto, i.conteudo FROM contas c JOIN imagens i ON i.nome = c.foto AND i.conta = c.id::text WHERE c.id = $1', [id]);
+                'SELECT c.foto, i.conteudo, i.url, i.variantes FROM contas c JOIN imagens i ON i.nome = c.foto AND i.conta = c.id::text WHERE c.id = $1', [id]);
             if (rows.length === 0) throw new Recusa(404, 'Foto não encontrada');
+            // no Blob (doc 139): a versao de 240 px, que serve para todos os tamanhos em que a foto aparece
+            if (!rows[0].conteudo && rows[0].url) return redirecionar(urlNaLargura(rows[0], 240), 'public, max-age=31536000, s-maxage=31536000, immutable');
             // o endereco leva o nome da foto (?v=): trocar a foto muda o endereco, entao pode ser guardada para sempre
             return servirImagem(rows[0].conteudo, rows[0].foto, 'public, max-age=31536000, s-maxage=31536000, immutable');
         }

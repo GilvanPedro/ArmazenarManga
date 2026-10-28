@@ -154,3 +154,7 @@ curtidas e comentários tem, se você curtiu, se você segue o autor, se é seu 
 > [Curtir sem abrir o post](74-curtir-sem-abrir-o-post.md).
 
 > O feed passou a aparecer na hora ao voltar, a carregar antes do clique e a não desenhar os posts fora da tela: veja [doc 136](136-comunidade-mais-rapida.md).
+
+> Os posts passaram a poder ser repostados e citados, e o dono do post vê quem curtiu: veja [doc 137](137-repost-citacao-e-quem-curtiu.md).
+
+> As capas, fotos de perfil e imagens dos posts foram para o Vercel Blob, em várias larguras e em AVIF: veja [doc 139](139-imagens-no-vercel-blob.md).

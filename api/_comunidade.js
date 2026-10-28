@@ -53,7 +53,12 @@ export function validarPost(dados) {
     const lista = validarLista(dados?.lista);
     if (!texto && unicas.length === 0 && !lista) throw new DadoInvalidoNaComunidade('Escreva algo, adicione uma imagem ou anexe uma lista');
     if ([...texto].length > TEXTO_MAXIMO) throw new DadoInvalidoNaComunidade(`O post pode ter no máximo ${TEXTO_MAXIMO} caracteres`);
-    return { texto, imagens: unicas, lista };
+    // citando: o id do post citado (doc 137), que vai dentro deste, como no X
+    const citando = dados?.citando ?? null;
+    if (citando !== null && (typeof citando !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(citando))) {
+        throw new DadoInvalidoNaComunidade('Post citado inválido');
+    }
+    return { texto, imagens: unicas, lista, citando: citando && citando.toLowerCase() };
 }
 
 export function validarComentario(dados) {

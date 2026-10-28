@@ -6,8 +6,8 @@ import { DadoInvalidoNaComunidade, escaparLike, hashtagsDo, hashtagsQueComecamCo
 const IMAGEM = '0a1b2c3d-1111-4222-8333-444455556666.webp';
 
 test('post precisa de texto ou imagem, com no maximo 500 caracteres e 4 imagens', () => {
-    assert.deepEqual(validarPost({ texto: '  Terminei Frieren!  \r\n' }), { texto: 'Terminei Frieren!', imagens: [], lista: null });
-    assert.deepEqual(validarPost({ imagens: [IMAGEM, IMAGEM] }), { texto: '', imagens: [IMAGEM], lista: null }, 'imagem repetida conta uma vez');
+    assert.deepEqual(validarPost({ texto: '  Terminei Frieren!  \r\n' }), { texto: 'Terminei Frieren!', imagens: [], lista: null, citando: null });
+    assert.deepEqual(validarPost({ imagens: [IMAGEM, IMAGEM] }), { texto: '', imagens: [IMAGEM], lista: null, citando: null }, 'imagem repetida conta uma vez');
     assert.equal(validarPost({ texto: 'ñ'.repeat(500) }).texto.length, 500);
     assert.throws(() => validarPost({ texto: '   ' }), /Escreva algo/);
     assert.throws(() => validarPost({}), DadoInvalidoNaComunidade);
@@ -44,7 +44,7 @@ test('feed para voce: quem voce segue e o que voce curte sobe, e o tempo derruba
 test('lista anexada: titulo opcional e de 1 a 20 mangas, sem repetir', () => {
     const id = n => `0a1b2c3d-1111-4222-8333-${String(n).padStart(12, '0')}`;
     assert.deepEqual(validarPost({ lista: { titulo: '  Os que   recomendo ', mangas: [id(1), id(2), id(1).toUpperCase()] } }),
-        { texto: '', imagens: [], lista: { titulo: 'Os que recomendo', mangas: [id(1), id(2)] } }, 'post so com a lista vale');
+        { texto: '', imagens: [], lista: { titulo: 'Os que recomendo', mangas: [id(1), id(2)] }, citando: null }, 'post so com a lista vale');
     assert.equal(validarLista(undefined), null);
     assert.equal(validarLista({ mangas: [id(1)] }).titulo, '');
     assert.throws(() => validarLista({ mangas: [] }), /pelo menos um mangá/);
@@ -100,4 +100,13 @@ test('para voce: do mais novo para o mais antigo, sejam meus ou de outra pessoa'
     ids(linhas);
     assert.deepEqual(linhas.map(linha => linha.id), ['x', 'y'], 'nao muda a lista recebida');
     assert.deepEqual(ids([]), []);
+});
+
+test('post pode citar outro post pelo id (doc 137)', () => {
+    const id = 'A1B2C3D4-1111-4222-8333-444455556666';
+    assert.equal(validarPost({ texto: 'Olha isso', citando: id }).citando, id.toLowerCase());
+    assert.equal(validarPost({ texto: 'Sem citar' }).citando, null);
+    for (const ruim of ['nao-e-id', 42, {}, '../x']) assert.throws(() => validarPost({ texto: 'oi', citando: ruim }), /Post citado inválido/, String(ruim));
+    // citar ainda pede algo escrito (ou imagem, ou lista): so o post dos outros e o repost
+    assert.throws(() => validarPost({ citando: id }), /Escreva algo/);
 });

@@ -42,3 +42,5 @@ a pessoa rola perto dele, e as capas dos mangás vêm primeiro.
 | `api/_banners.js` | `otimizarImagemDoBanner`, a coluna `otimizada`, a otimização das antigas e o cache na CDN |
 | `public/app.js` | As imagens dos banners com `loading="lazy"` e prioridade baixa |
 | `test-api/banners.test.mjs` | O teste da otimização |
+
+> As capas, fotos de perfil e imagens dos posts foram para o Vercel Blob, em várias larguras e em AVIF: veja [doc 139](139-imagens-no-vercel-blob.md).
