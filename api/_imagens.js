@@ -22,7 +22,23 @@ export class ImagemInvalida extends Error {}
 
 /** O Vercel Blob esta ligado? (a chave aparece sozinha quando o Blob Store e conectado ao projeto) */
 export function blobAtivo() {
-    return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+    return Boolean(chaveDoBlob());
+}
+
+/**
+ * A chave do Blob: BLOB_READ_WRITE_TOKEN ou, se um prefixo foi escolhido ao conectar o Blob ao projeto, a variavel
+ * PREFIXO_READ_WRITE_TOKEN (achada pelo comeco do valor, "vercel_blob_rw_", que e o de toda chave do Blob). Na
+ * primeira vez, diz no log se achou e por qual nome (sem o valor), para conferir nos registros da Vercel.
+ */
+let chaveAvisada = false;
+function chaveDoBlob() {
+    const nome = process.env.BLOB_READ_WRITE_TOKEN ? 'BLOB_READ_WRITE_TOKEN'
+        : Object.keys(process.env).find(outro => outro.endsWith('_READ_WRITE_TOKEN') && String(process.env[outro]).startsWith('vercel_blob_rw_'));
+    if (!chaveAvisada) {
+        chaveAvisada = true;
+        console.log(nome ? `Imagens: Vercel Blob ligado (chave em ${nome})` : 'Imagens: Vercel Blob desligado (nenhuma variavel *_READ_WRITE_TOKEN com uma chave do Blob); as imagens ficam no banco');
+    }
+    return nome ? process.env[nome] : null;
 }
 
 /**
@@ -89,7 +105,7 @@ export async function prepararImagem(bytes, tipoDeImagem) {
 export async function guardarNoBlob(pasta, preparada) {
     const { put } = await biblioteca();
     const prefixo = `${pasta}/${preparada.hash.slice(0, 32)}`;
-    const opcoes = tipo => ({ access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: UM_ANO, contentType: tipo });
+    const opcoes = tipo => ({ access: 'public', addRandomSuffix: false, allowOverwrite: true, cacheControlMaxAge: UM_ANO, contentType: tipo, token: chaveDoBlob() });
     const variantes = await Promise.all(preparada.variantes.map(async variante => {
         const enviado = await put(`${prefixo}/${variante.largura}.${variante.formato}`, variante.bytes, opcoes('image/' + variante.formato));
         return { largura: variante.largura, formato: variante.formato, url: enviado.url };
@@ -107,7 +123,7 @@ export async function apagarDoBlob(linhas) {
     if (urls.length === 0 || !blobAtivo()) return;
     try {
         const { del } = await biblioteca();
-        await del([...new Set(urls)]);
+        await del([...new Set(urls)], { token: chaveDoBlob() });
     } catch (erro) {
         console.error('Nao deu para apagar do Blob:', erro.message);
     }

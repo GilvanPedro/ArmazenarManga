@@ -74,6 +74,22 @@ imagem conferida, sem metadados e em WebP (uma versão só, a maior). Assim nada
    O script pode rodar de novo quantas vezes quiser: só pega o que ainda não foi. As miniaturas antigas das capas
    levadas são apagadas. O espaço do banco é liberado aos poucos pelo Postgres.
 
+### A migração no site (28/10/2026)
+
+As imagens que já existiam foram levadas pelo script: **90 imagens** (82 capas e fotos e 8 imagens de posts, ~8,7 MB
+no banco) viraram arquivos no Blob, com 0 falhas, e as **43 miniaturas antigas** das capas foram apagadas. Depois disso,
+nenhuma imagem ficou com o conteúdo no banco. Os arquivos saem do Blob como `image/avif` (ou WebP), com cache de um ano.
+
+**A chave por qualquer prefixo:** depois da migração, as capas novas do site publicado ainda iam para o banco: a variável
+existia na Vercel, mas o site não a achava. Ao conectar o Blob, a Vercel deixa escolher um prefixo, e a variável pode
+ficar como `PREFIXO_READ_WRITE_TOKEN` em vez de `BLOB_READ_WRITE_TOKEN`. Agora o servidor aceita os dois: procura a
+`BLOB_READ_WRITE_TOKEN` e, sem ela, qualquer variável terminada em `_READ_WRITE_TOKEN` cujo valor comece com
+`vercel_blob_rw_` (o começo de toda chave do Blob). Ao ligar, o servidor escreve no log da Vercel
+"Imagens: Vercel Blob ligado (chave em NOME)" ou "Imagens: Vercel Blob desligado", sem mostrar o valor.
+
+Lembrete: a chave do Blob só chega ao site publicado em um deploy feito **depois** de conectar o Blob Store ao projeto.
+Até esse deploy, as imagens novas continuam indo para o banco (já limpas e em WebP), e o script leva elas depois.
+
 ## O que ficou diferente do guia, e por quê
 
 - **O envio passa pelo servidor**, em vez de ir direto do navegador para o Blob com uma autorização temporária: o
