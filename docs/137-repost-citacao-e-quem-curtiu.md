@@ -65,3 +65,5 @@ apagar o original (o repost some, as citações mostram "apagado"). No Firefox e
 | `test-api/comunidade.test.mjs` | O teste do `citando` |
 
 > Os emojis dos botões viraram ícones de linha: veja [doc 138](138-icones-no-lugar-dos-emojis.md).
+
+> Mudou: o post original passou a ficar no lugar dele mesmo repostado; só os reposts repetidos de um mesmo post aparecem uma vez. Veja [doc 144](144-original-continua-no-lugar.md).

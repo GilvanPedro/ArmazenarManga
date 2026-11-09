@@ -176,16 +176,18 @@ export function criarComunidade(f) {
     }
 
     /**
-     * Os ids de um feed sem o mesmo post duas vezes (doc 137): o post e os reposts dele (de varias pessoas) contam como
-     * um so, e fica o que aparece primeiro. linhas: { id, repost_de, so_repost }, ja na ordem do feed.
+     * Os ids de um feed sem repost repetido (docs 137 e 144): o post original sempre fica no lugar dele, mesmo repostado;
+     * os reposts do mesmo post (de varias pessoas) aparecem uma vez so, o primeiro (o mais novo). Antes o repost tomava o
+     * lugar do original, que sumia de onde estava. linhas: { id, repost_de, so_repost }, ja na ordem do feed.
      */
     function semRepetir(linhas) {
-        const vistos = new Set();
+        const repostados = new Set();
         const ids = [];
         for (const linha of linhas) {
-            const chave = linha.so_repost ? linha.repost_de : linha.id;
-            if (vistos.has(chave)) continue;
-            vistos.add(chave);
+            if (linha.so_repost) {
+                if (repostados.has(linha.repost_de)) continue;
+                repostados.add(linha.repost_de);
+            }
             ids.push(linha.id);
         }
         return ids;
