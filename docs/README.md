@@ -149,6 +149,8 @@ Cada documento trata de um assunto. Leia na ordem se estiver conhecendo o projet
 | [143 · Logo com azul-marinho e o livro mais claro](143-logo-com-azul-marinho.md) | O azul-marinho do nanquim como cor secundária, e o livro com capa, contorno e linhas de texto |
 | [144 · O post original continua no lugar depois do repost](144-original-continua-no-lugar.md) | O repost aparece em cima e o original continua onde foi publicado |
 | [145 · Índices no banco](145-indices-no-banco.md) | Buscas por título, nick e texto de post, imagens e métricas vão direto ao que procuram |
+| [146 · Trocar o status na página do mangá](146-status-na-pagina-do-manga.md) | Seletor de status ao lado da nota, sem abrir a edição geral |
+| [147 · Trocar o status ao marcar um capítulo lido](147-status-ao-marcar-capitulo-lido.md) | Campo de status na tela de marcar capítulo lido (extensão e atalho) |
 
 O arquivo [Ideia_Principal.md](Ideia_Principal.md) é o planejamento original, escrito antes do código. Ele foi
 mantido como estava; o [histórico](11-historico.md) mostra o que mudou em relação a ele.

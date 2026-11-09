@@ -351,6 +351,8 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Logo com azul-marinho.** O azul-marinho entra como cor secundária, e o livro ganha capa, contorno e linhas de texto. Detalhes em [Logo com azul-marinho e o livro mais claro](143-logo-com-azul-marinho.md).
 - **Original no lugar depois do repost.** Repostar não tira mais o post original de onde ele estava no feed. Detalhes em [O post original continua no lugar depois do repost](144-original-continua-no-lugar.md).
 - **Índices no banco.** As buscas por título, nick e texto de post, as imagens e as métricas dos banners passam a ir direto ao que procuram, sem ler a tabela inteira. Detalhes em [Índices no banco](145-indices-no-banco.md).
+- **Status na página do mangá.** O status muda na própria página de informações, como a nota, sem abrir a edição geral. Detalhes em [Trocar o status na página do mangá](146-status-na-pagina-do-manga.md).
+- **Status ao marcar capítulo lido.** A tela de marcar capítulo lido (extensão e atalho) também troca o status, junto com o capítulo. Detalhes em [Trocar o status ao marcar um capítulo lido](147-status-ao-marcar-capitulo-lido.md).
 
 ## O que foi removido ou abandonado
 

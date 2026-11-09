@@ -1573,6 +1573,33 @@ async function telaDetalhes(id, aviso) {
         nota.disabled = false;
     });
 
+    // o status tambem muda aqui mesmo, como a nota (doc 146). Saindo de "Lendo", o dia de capitulo novo deixa de valer
+    const status = seletor(estado.status, manga.readingStatus);
+    status.className = 'seletor-de-status';
+    status.setAttribute('aria-label', 'Status');
+    const seloDoStatus = h('span', {class: 'selo-do-status'}, etiquetaStatus(manga.readingStatus));
+    const diaDoCapitulo = h('span', {class: 'capitulo-atual'});
+    const mostrarDia = () => {
+        diaDoCapitulo.replaceChildren(...(manga.releaseDay ? ['· Capítulo novo: ', h('b', null, descricaoDia(manga.releaseDay))] : []));
+        diaDoCapitulo.hidden = !manga.releaseDay;
+    };
+    mostrarDia();
+    status.addEventListener('change', async () => {
+        status.disabled = true;
+        try {
+            const salvo = await chamar('PATCH', '/api/mangas/' + manga.id + '/progresso', {readingStatus: status.value});
+            manga.readingStatus = salvo.readingStatus;
+            manga.releaseDay = salvo.releaseDay ?? null;
+            seloDoStatus.replaceChildren(etiquetaStatus(manga.readingStatus));
+            mostrarDia();
+            avisar('Status: ' + descricaoStatus(manga.readingStatus));
+        } catch (e) {
+            avisar(e.message, true);
+        }
+        status.value = manga.readingStatus;
+        status.disabled = false;
+    });
+
     // favoritar tambem acontece aqui mesmo, sem abrir a edicao
     const favoritar = h('button', {type: 'button', class: 'botao favoritar'});
     const mostrarFavorito = () => {
@@ -1623,11 +1650,10 @@ async function telaDetalhes(id, aviso) {
             h('div', {class: 'detalhes-info'},
                 h('h1', null, manga.title),
                 h('div', {class: 'linha'},
-                    etiquetaStatus(manga.readingStatus),
+                    seloDoStatus,
                     h('span', {class: 'capitulo-atual'}, 'Último capítulo lido: ', h('b', null, mostrarCapitulo(manga.lastChapter))),
-                    manga.releaseDay
-                        ? h('span', {class: 'capitulo-atual'}, '· Capítulo novo: ', h('b', null, descricaoDia(manga.releaseDay)))
-                        : null),
+                    diaDoCapitulo),
+                h('div', {class: 'linha'}, h('span', {class: 'capitulo-atual'}, 'Status:'), status),
                 h('div', {class: 'linha'}, h('span', {class: 'capitulo-atual'}, 'Minha nota:'), nota, faixa),
                 manga.tags.length
                     ? h('div', {class: 'linha'}, manga.tags.map(tag => h('a', {
@@ -2814,9 +2840,10 @@ function mangaDoLink(mangas, endereco, titulosDaPagina) {
  * Campo de busca dos mangas da lista, com sugestoes enquanto se digita (como a busca do Google).
  * Ja vem com o manga reconhecido escrito; apagar e digitar outro nome mostra os que combinam.
  * A ultima sugestao e sempre "cadastrar como manga novo", que chama cadastrarNovo(nomeDigitado).
+ * aoEscolher(manga) e chamado quando outro manga passa a ser o escolhido.
  * Devolve { elemento, value }: value e o id do manga escolhido, ou '' enquanto nenhum foi escolhido.
  */
-function buscaDeManga(mangas, escolhido, cadastrarNovo) {
+function buscaDeManga(mangas, escolhido, cadastrarNovo, aoEscolher = () => {}) {
     const semAcento = texto => String(texto).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim();
     let escolhidoAgora = escolhido || null;
     let sugestoes = [];
@@ -2846,6 +2873,7 @@ function buscaDeManga(mangas, escolhido, cadastrarNovo) {
     };
     const escolher = manga => {
         escolhidoAgora = manga;
+        aoEscolher(manga);
         campo.value = manga.title;
         campo.classList.remove('sem-escolha');
         fechar();
@@ -2884,7 +2912,8 @@ function buscaDeManga(mangas, escolhido, cadastrarNovo) {
                     escolher(manga);
                 },
             }, h('span', null, manga.title), h('small', null, 'cap. ' + mostrarCapitulo(manga.lastChapter)))),
-            sugestoes.length ? null : h('li', {class: 'nada', role: 'presentation'}, 'Nenhum mangá da sua lista com esse nome'),
+            // (replaceChildren escreveria "null" na lista: sem resultado, o aviso; com resultado, nada)
+            ...(sugestoes.length ? [] : [h('li', {class: 'nada', role: 'presentation'}, 'Nenhum mangá da sua lista com esse nome')]),
             // sempre a ultima opcao: o manga pode simplesmente ainda nao estar na lista
             h('li', {
                 id: 'busca-manga-opcao-' + sugestoes.length,
@@ -2905,7 +2934,9 @@ function buscaDeManga(mangas, escolhido, cadastrarNovo) {
     campo.addEventListener('input', () => {
         // mudou o texto: a escolha anterior so vale se o nome escrito ainda for exatamente o dela
         const igual = mangas.filter(manga => semAcento(manga.title) === semAcento(campo.value));
+        const antes = escolhidoAgora;
         escolhidoAgora = igual.length === 1 ? igual[0] : null;
+        if (escolhidoAgora && escolhidoAgora !== antes) aoEscolher(escolhidoAgora);
         campo.classList.toggle('sem-escolha', !escolhidoAgora && campo.value.trim() !== '');
         mostrar();
     });
@@ -2974,7 +3005,10 @@ async function telaCapturar(consulta) {
         if (nomeDigitado) dados.set('t', nomeDigitado);
         location.hash = '#/novo?' + dados;
     };
-    const manga = buscaDeManga(mangas, achado, cadastrarNovo);
+    // o status pode mudar junto (doc 147): comeca no do manga reconhecido e acompanha o manga escolhido
+    const status = seletor(estado.status, achado ? achado.readingStatus : 'LENDO');
+    status.id = 'status-da-leitura';
+    const manga = buscaDeManga(mangas, achado, cadastrarNovo, escolhido => { status.value = escolhido.readingStatus; });
     // o numero do capitulo vem do titulo da pagina quando ele diz ("Ch.90"); o do endereco as vezes e um codigo
     // interno do site (".../br_chapter-445716/"), entao so vale quando o titulo nao diz nada
     const numero = capituloDoTitulo([parametros.get('t'), parametros.get('o')]) ?? capituloDoLink(endereco);
@@ -2993,6 +3027,7 @@ async function telaCapturar(consulta) {
                     : 'Não reconheci esse endereço em nenhum mangá da sua lista. Digite o nome para procurar, ou ',
                 h('a', {href: '#/novo?' + paraOCadastro}, 'cadastre como um mangá novo'), '.')),
         h('label', {class: 'campo'}, h('span', null, 'Capítulo lido'), capitulo),
+        h('label', {class: 'campo'}, h('span', null, 'Status da leitura'), status),
         h('div', {class: 'campo'}, h('span', null, 'Página do capítulo'), h('small', null, h('code', null, endereco))),
         ehLinkHttp(proximo)
             ? h('label', {class: 'campo marcar'}, guardarProximo,
@@ -3020,6 +3055,7 @@ async function telaCapturar(consulta) {
                 lastChapter: lido,
                 lastChapterUrl: endereco,
                 nextChapterUrl: ehLinkHttp(proximo) && guardarProximo.checked ? proximo : null,
+                readingStatus: status.value,
             });
             avisar('Capítulo ' + mostrarCapitulo(lido) + ' marcado como lido');
             location.hash = '#/manga/' + manga.value;

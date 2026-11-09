@@ -1383,8 +1383,13 @@ async function rotear(request) {
                 throw new Recusa(400, 'O link do próximo capítulo precisa ser um endereço http:// ou https:// válido');
             }
             const semFinal = endereco => endereco.trim().split('#')[0].replace(/\/+$/, '');
+            // o status pode mudar junto (doc 147); sem ele, fica o que estava
+            const readingStatus = lerOpcao(corpo.readingStatus, STATUS, 'readingStatus') || atual.readingStatus;
             const atualizado = {
                 ...atual,
+                readingStatus,
+                // o dia de lancamento so vale enquanto o manga esta sendo lido
+                releaseDay: readingStatus === 'LENDO' ? atual.releaseDay ?? null : null,
                 // o modelo acompanha o endereco real: se o id do link mudou, o modelo salvo passa a ter o id novo
                 chapterLinkModel: derivarModelo(corpo.lastChapterUrl.trim(), lastChapter, atual.decimalFormat || 'HIFEN') ?? atual.chapterLinkModel,
                 lastChapter,

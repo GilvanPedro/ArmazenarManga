@@ -88,3 +88,5 @@ A mudança foi feita nas duas versões do servidor.
 - Ordenar a lista pela nota. Isso veio depois, em [Favoritos e ordem pela nota](16-favoritos-e-ordem-pela-nota.md).
 - Filtrar a lista pela nota.
 - Notas com casas decimais (7,5).
+
+> O status também pode ser trocado na página do mangá, do mesmo jeito que a nota: [146 · Trocar o status na página do mangá](146-status-na-pagina-do-manga.md).

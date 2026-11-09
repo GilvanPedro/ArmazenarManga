@@ -1595,7 +1595,7 @@ a.capa.favorita:is(.borda-cristal, .borda-cyberpunk, .borda-abissal, .borda-somb
 }
 
 .so-leitor { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-select.seletor-de-nota { width: auto; }
+select.seletor-de-nota, select.seletor-de-status { width: auto; }
 .faixa-da-nota:empty { display: none; }
 .status-LENDO { --cor: var(--lendo); }
 .status-LER { --cor: var(--ler); }
