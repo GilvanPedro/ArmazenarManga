@@ -180,3 +180,5 @@ A mudança foi feita nas duas versões do servidor.
 - Reduzir as capas originais já guardadas. Elas continuam como foram enviadas; só ganham miniatura.
 - Miniaturas para capas que são links de outros sites.
 - Guardar a lista entre uma visita e outra (hoje ela é guardada enquanto a página está aberta).
+
+> Os índices do banco foram revistos em [145 · Índices no banco](145-indices-no-banco.md): buscas com texto no meio (título, nick, posts) e as que ainda liam a tabela inteira.

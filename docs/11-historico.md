@@ -350,6 +350,7 @@ em camadas. A ideia era um programa de computador, com telas próprias.
 - **Logo nova.** Um livro aberto em V com uma página virando (vira capítulo), linhas de movimento e retícula de mangá. Detalhes em [Logo nova](142-logo-nova.md).
 - **Logo com azul-marinho.** O azul-marinho entra como cor secundária, e o livro ganha capa, contorno e linhas de texto. Detalhes em [Logo com azul-marinho e o livro mais claro](143-logo-com-azul-marinho.md).
 - **Original no lugar depois do repost.** Repostar não tira mais o post original de onde ele estava no feed. Detalhes em [O post original continua no lugar depois do repost](144-original-continua-no-lugar.md).
+- **Índices no banco.** As buscas por título, nick e texto de post, as imagens e as métricas dos banners passam a ir direto ao que procuram, sem ler a tabela inteira. Detalhes em [Índices no banco](145-indices-no-banco.md).
 
 ## O que foi removido ou abandonado
 

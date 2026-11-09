@@ -420,7 +420,7 @@ export function criarBanners(f) {
     async function linhasDoMes(mes, banner) {
         const { rows } = await (await banco()).query(`
             SELECT to_char(dia, 'YYYY-MM-DD') AS dia, banner, posicao, exibicoes, cliques FROM metricas_de_banner
-            WHERE to_char(dia, 'YYYY-MM') = $1 ${banner ? 'AND banner = $2' : ''} ORDER BY dia`, banner ? [mes, banner] : [mes]);
+            WHERE dia >= ($1 || '-01')::date AND dia < ($1 || '-01')::date + interval '1 month' ${banner ? 'AND banner = $2' : ''} ORDER BY dia`, banner ? [mes, banner] : [mes]);
         return rows;
     }
 
@@ -515,7 +515,7 @@ export function criarBanners(f) {
         const [{ rows: banners }, { rows: numeros }] = await Promise.all([
             db.query(`SELECT ${CAMPOS} FROM banners ORDER BY pausado, criado_em DESC`),
             db.query(`SELECT banner, sum(exibicoes)::int AS exibicoes, sum(cliques)::int AS cliques FROM metricas_de_banner
-                WHERE to_char(dia, 'YYYY-MM') = ${MES_ATUAL} GROUP BY banner`),
+                WHERE dia >= date_trunc('month', ${HOJE})::date GROUP BY banner`),
         ]);
         const doMes = new Map(numeros.map(linha => [linha.banner, linha]));
         return { banners: banners.map(banner => publico(banner, doMes.get(banner.id))), maximo: BANNERS_MAXIMOS, formatos: FORMATOS_DE_BANNER };

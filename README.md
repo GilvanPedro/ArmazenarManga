@@ -172,6 +172,7 @@ A pasta [docs](docs/README.md) tem um documento para cada assunto:
 | [Logo nova](docs/142-logo-nova.md) | |
 | [Logo com azul-marinho e o livro mais claro](docs/143-logo-com-azul-marinho.md) | |
 | [O post original continua no lugar depois do repost](docs/144-original-continua-no-lugar.md) | |
+| [Índices no banco](docs/145-indices-no-banco.md) | |
 
 ## Testes
 

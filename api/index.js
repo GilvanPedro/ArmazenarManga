@@ -8,6 +8,7 @@ import { criarBuscador, criarVerificador, derivarModelo, mensagemDaVerificacao, 
 import { criarBuscadorDeSinopse, criarTradutorDeDescricao } from './_sinopse.js';
 import { VISITANTE, rotaDeVisitante } from './_visitante.js';
 import { COOKIE, DURACAO_SEGUNDOS, contaDoCookie, criarSessao, lerCookie, segredoDoTexto, textoDoCookie, validarSessao } from './_sessao.js';
+import { escaparLike } from './_comunidade.js';
 import { DadoInvalidoNaComunidade, ESTRUTURA_DA_COMUNIDADE, criarComunidade, exigirImagemPermitida } from './_comunidade_rotas.js';
 import { ESTRUTURA_DOS_BANNERS, criarBanners } from './_banners.js';
 import { ESTRUTURA_DAS_FINANCAS } from './_financas.js';
@@ -91,6 +92,37 @@ let conexoes;
 let tabelasProntas;
 
 /**
+ * Indices para o banco ir direto ao que procura, sem ler a tabela inteira (doc 145). Ficam depois de todas as tabelas.
+ * - Trigramas (pg_trgm): as buscas com texto no meio ("%naruto%") por titulo, nick e texto de post. Se o banco nao
+ *   deixar instalar a extensao, o resto continua (as buscas so ficam sem esse atalho).
+ * - Os que faltavam: quem procura uma imagem pelo endereco no Blob, os posts e a conta de cada imagem, a data de
+ *   criacao das contas (painel e sugestoes) e as ligacoes que o banco segue ao apagar uma conta, compra ou admin.
+ */
+const INDICES = `
+    DO $$ BEGIN CREATE EXTENSION IF NOT EXISTS pg_trgm;
+    EXCEPTION WHEN OTHERS THEN RAISE NOTICE 'sem pg_trgm: %', SQLERRM; END $$;
+    DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+            CREATE INDEX IF NOT EXISTS mangas_titulo_trigramas ON mangas USING GIN (titulo_busca gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS contas_nick_trigramas ON contas USING GIN (nick gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS posts_texto_trigramas ON posts USING GIN (texto gin_trgm_ops);
+        END IF;
+    END $$;
+    CREATE INDEX IF NOT EXISTS contas_criada ON contas (criada_em DESC);
+    CREATE INDEX IF NOT EXISTS contas_criada_no_dia ON contas (((criada_em AT TIME ZONE 'America/Sao_Paulo')::date));
+    CREATE INDEX IF NOT EXISTS contas_foto ON contas (foto) WHERE foto IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS imagens_conta ON imagens (conta);
+    CREATE INDEX IF NOT EXISTS imagens_url ON imagens (url) WHERE url IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS imagens_da_comunidade_conta ON imagens_da_comunidade (conta);
+    CREATE INDEX IF NOT EXISTS imagens_da_comunidade_post ON imagens_da_comunidade (post) WHERE post IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS imagens_da_comunidade_url ON imagens_da_comunidade (url) WHERE url IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS imagens_de_banner_url ON imagens_de_banner (url) WHERE url IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS mochila_compra ON mochila (compra) WHERE compra IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS moderacao_admin ON moderacao (admin) WHERE admin IS NOT NULL;
+    ANALYZE;
+`;
+
+/**
  * Cria e atualiza as tabelas. So acrescenta (colunas, indices), nunca apaga: roda igual em um banco novo e em um
  * que ja tem dados. A trava garante que duas instancias da funcao nao facam isso ao mesmo tempo.
  */
@@ -118,6 +150,7 @@ const ESTRUTURA = `
     ALTER TABLE tentativas_de_login ADD COLUMN IF NOT EXISTS chave TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS tentativas_chave ON tentativas_de_login (chave, quando);
 ` + ESTRUTURA_DA_COMUNIDADE + ESTRUTURA_DO_PAINEL + ESTRUTURA_DA_LOJA + ESTRUTURA_DAS_FINANCAS + ESTRUTURA_DOS_BANNERS
+    + INDICES
     // por ultimo: as colunas onde os arquivos ficavam saem do banco, se estiverem vazias (doc 141)
     + SEM_ARQUIVOS_NO_BANCO;
 
@@ -488,8 +521,9 @@ function filtrosEmSql({ titulo, status, tag, tags }) {
     }
     const busca = normalizar(titulo);
     if (busca) {
-        valores.push(busca);
-        condicoes.push(`strpos(titulo_busca, $${valores.length}) > 0`);
+        valores.push('%' + escaparLike(busca) + '%');
+        // LIKE '%...%' (e nao strpos): assim o banco usa o indice de trigramas do titulo (doc 145)
+        condicoes.push(`titulo_busca LIKE $${valores.length}`);
     }
     const tagsBuscadas = [...new Set([tag, ...(tags || [])].map(normalizar).filter(Boolean))];
     if (tagsBuscadas.length) {
